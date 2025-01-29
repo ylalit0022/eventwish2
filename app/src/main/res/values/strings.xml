@@ -1,3 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">EventWish</string>
+    
+    <!-- Bottom Navigation -->
+    <string name="title_home">Home</string>
+    <string name="title_history">History</string>
+    <string name="title_reminder">Reminder</string>
+    <string name="title_more">More</string>
+
+    <!-- Settings -->
+    <string name="settings">Settings</string>
+    <string name="notifications">Notifications</string>
+    <string name="notifications_desc">Get notified about upcoming events</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- About -->
+    <string name="about">About</string>
+    <string name="version">Version %s</string>
+    <string name="app_description">EventWish helps you create and share beautiful greetings for all occasions. Never miss a special moment with our reminder feature.</string>
+    <string name="privacy_policy">Privacy Policy</string>
+    <string name="terms_of_service">Terms of Service</string>
+
+    <!-- Help -->
+    <string name="help_and_support">Help &amp; Support</string>
+    <string name="faq">Frequently Asked Questions</string>
+    <string name="faq_create_greeting">How do I create a new greeting?</string>
+    <string name="faq_create_greeting_answer">Go to the Home tab and tap the + button. Choose a category and customize your greeting with our templates.</string>
+    <string name="faq_set_reminder">How do I set a reminder?</string>
+    <string name="faq_set_reminder_answer">Go to the Reminders tab and tap the + button. Enter the event details and set the date. We\'ll notify you when it\'s time!</string>
+    <string name="need_more_help">Need More Help?</string>
+    <string name="contact_support">Contact Support</string>
+    <string name="contact_support_desc">We\'re here to help! Send us an email and we\'ll get back to you within 24 hours.</string>
+
+    <!-- Empty States -->
+    <string name="no_history">No history</string>
+    <string name="no_reminders">No reminders</string>
 </resources>

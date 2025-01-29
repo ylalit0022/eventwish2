@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+        <style name="Widget.EventWish" parent="Widget.MaterialComponents.CardView">
+            <!-- Customize your style here -->
+            <item name="cardBackgroundColor">@color/white</item>
+            <item name="cardCornerRadius">8dp</item>
+            <item name="cardElevation">4dp</item>
+        </style>
+
+    <!-- TextView Style -->
+    <style name="Widget.EventWish.TextView" parent="Widget.AppCompat.TextView">
+        <item name="fontFamily">@font/poppins_regular</item>
+    </style>
+
+    <!-- Button Styles -->
+    <style name="Widget.EventWish.Button" parent="Widget.AppCompat.Button">
+
+        <item name="android:padding">16dp</item>
+    </style>
+
+    <!-- Image View Style -->
+    <style name="Widget.EventWish.Chip">
+        <item name="android:scaleType">centerCrop</item>
+    </style>
+
+    <style name="Widget.EventWish.CardView" parent="Widget.MaterialComponents.CardView">
+        <item name="cardCornerRadius">8dp</item>
+        <item name="cardElevation">4dp</item>
+    </style>
+
+</resources>
