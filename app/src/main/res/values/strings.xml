@@ -8,6 +8,9 @@
     <string name="title_reminder">Reminder</string>
     <string name="title_more">More</string>
 
+    <string name="share">Share</string>
+    <string name="reply">Reply</string>
+
     <!-- Settings -->
     <string name="settings">Settings</string>
     <string name="notifications">Notifications</string>
@@ -20,6 +23,42 @@
     <string name="app_description">EventWish helps you create and share beautiful greetings for all occasions. Never miss a special moment with our reminder feature.</string>
     <string name="privacy_policy">Privacy Policy</string>
     <string name="terms_of_service">Terms of Service</string>
+
+    <string name="date_unknown">Date unknown</string>
+<!--    <string name="template_image">Template Image</string>-->
+<!--    <string name="view_wish">View</string>-->
+<!--    <string name="share_wish">Share</string>-->
+<!--    <string name="sent_to">Sent to %1$s</string>-->
+<!--    <string name="sent_on">Sent on %1$s</string>-->
+
+     <!-- Shared Wish -->
+    <string name="share_wish_text">Check out this greeting I made for you: %1$s</string>
+    <string name="share_via">Share via</string>
+    <string name="share_via_whatsapp">Share via WhatsApp</string>
+    <string name="share_via_other">Share via Other</string>
+    <string name="copy_link">Copy Link</string>
+    <string name="link_copied">Link copied to clipboard</string>
+    <string name="reply_to_wish">Reply with a Wish</string>
+    <string name="loading_wish">Loading wish…</string>
+    <string name="error_loading_wish">Error loading wish</string>
+    
+    <!-- History -->
+<!--    <string name="title_history">History</string>-->
+    <string name="empty_history_title">No shared wishes yet</string>
+    <string name="empty_history_message">When you share wishes with others,\nthey\'ll appear here</string>
+    <string name="empty_history_icon">Empty history icon</string>
+    <string name="view_wish">View</string>
+    <string name="share_wish">Share</string>
+    <string name="sent_to">Sent to %1$s</string>
+    <string name="sent_on">Sent on %1$s</string>
+    <string name="template_image">Template Image</string>
+    <string name="share_button">Share Button</string>
+    <string name="view_button">View Button</string>
+    
+    <!-- Common -->
+    <string name="error_generic">Something went wrong. Please try again.</string>
+    <string name="error_network">Network error. Please check your connection.</string>
+
 
     <!-- Help -->
     <string name="help_and_support">Help &amp; Support</string>

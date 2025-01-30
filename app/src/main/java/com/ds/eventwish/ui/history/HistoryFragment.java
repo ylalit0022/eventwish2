@@ -1,23 +1,24 @@
 package com.ds.eventwish.ui.history;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
+import com.ds.eventwish.R;
+import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.databinding.FragmentHistoryBinding;
 import com.ds.eventwish.ui.base.BaseFragment;
-import com.ds.eventwish.ui.home.GreetingItem;
 
-import java.util.ArrayList;
-import java.util.List;
-
-public class HistoryFragment extends BaseFragment {
+public class HistoryFragment extends BaseFragment implements HistoryAdapter.OnHistoryItemClickListener {
     private FragmentHistoryBinding binding;
+    private HistoryViewModel viewModel;
     private HistoryAdapter historyAdapter;
-    private SharedPrefsManager sharedPrefsManager;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -28,34 +29,65 @@ public class HistoryFragment extends BaseFragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        sharedPrefsManager = new SharedPrefsManager(requireContext());
+        setupViewModel();
         setupRecyclerView();
-        loadHistoryData();
+        observeViewModel();
+        viewModel.loadHistory();
+    }
+
+    private void setupViewModel() {
+        viewModel = new ViewModelProvider(this).get(HistoryViewModel.class);
     }
 
     private void setupRecyclerView() {
-        historyAdapter = new HistoryAdapter();
+        historyAdapter = new HistoryAdapter(this);
         binding.historyRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         binding.historyRecyclerView.setAdapter(historyAdapter);
     }
 
-    private void loadHistoryData() {
-        List<GreetingItem> historyItems = sharedPrefsManager.getHistoryItems();
-        historyAdapter.submitList(historyItems);
-        
-        // if (historyItems.isEmpty()) {
-        //     binding.emptyText.setVisibility(View.VISIBLE);
-        //     binding.historyRecyclerView.setVisibility(View.GONE);
-        // } else {
-        //     binding.emptyText.setVisibility(View.GONE);
-        //     binding.historyRecyclerView.setVisibility(View.VISIBLE);
-        //     historyAdapter.submitList(historyItems);
-        // }
+    private void observeViewModel() {
+        viewModel.getHistoryItems().observe(getViewLifecycleOwner(), wishes -> {
+            historyAdapter.submitList(wishes);
+            updateEmptyState(wishes.isEmpty());
+        });
+
+        viewModel.getLoading().observe(getViewLifecycleOwner(), isLoading -> {
+            binding.progressBar.setVisibility(isLoading ? View.VISIBLE : View.GONE);
+            if (isLoading) {
+                binding.emptyText.setVisibility(View.GONE);
+            }
+        });
+
+        viewModel.getError().observe(getViewLifecycleOwner(), error -> {
+            if (error != null) {
+                showError(error);
+            }
+        });
     }
 
-    public void addToHistory(GreetingItem item) {
-        sharedPrefsManager.saveHistoryItem(item);
-        loadHistoryData();
+    private void updateEmptyState(boolean isEmpty) {
+        binding.emptyText.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        binding.historyRecyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+    }
+
+    @Override
+    public void onViewClick(SharedWish wish) {
+        Bundle args = new Bundle();
+        args.putString("shortCode", wish.getShortCode());
+        Navigation.findNavController(requireView())
+            .navigate(R.id.action_history_to_shared_wish, args);
+    }
+
+    @Override
+    public void onShareClick(SharedWish wish) {
+        String shareUrl = "https://eventwishes.onrender.com/wish/" + wish.getShortCode();
+        String shareText = getString(R.string.share_wish_text, shareUrl);
+        
+        Intent shareIntent = new Intent();
+        shareIntent.setAction(Intent.ACTION_SEND);
+        shareIntent.putExtra(Intent.EXTRA_TEXT, shareText);
+        shareIntent.setType("text/plain");
+        startActivity(Intent.createChooser(shareIntent, getString(R.string.share_via)));
     }
 
     @Override

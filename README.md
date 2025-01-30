@@ -18,9 +18,9 @@ EventWish is a modern Android application that allows users to create and share 
 ### 2. Navigation
 - **Bottom Navigation Bar** with 4 main sections:
   - Home: Main greeting cards grid
-  - History: View past greetings (Coming Soon)
+  - History: View past greetings and shared wishes
   - Reminder: Set event reminders (Coming Soon)
-  - More: Additional options (Coming Soon)
+  - More: Additional options and settings
 
 ### 3. Greeting Card Features
 - **Card Preview**: 
@@ -30,244 +30,74 @@ EventWish is a modern Android application that allows users to create and share 
 - **Customization**:
   - Sender name input with validation
   - Recipient name input with validation
+  - Message customization
 - **Sharing**: 
   - Social media sharing functionality
-  - Custom share intent
-  - Preview before sharing
+  - WhatsApp direct sharing
+  - Copy link functionality
+  - Custom share intent with preview
 
-## Implementation Plan
-
-### 1. Data Layer Implementation
-#### 1.1 Models
-- **Template.java**
-  - Fields: id, title, category, htmlContent, cssContent, jsContent, previewUrl, status, categoryIcon
-  - Methods: getters/setters, toString()
-
-- **SharedWish.java**
-  - Fields: shortCode, templateId, recipientName, senderName, customizedHtml, views
-  - Methods: getters/setters, toString()
-
-#### 1.2 API Integration
-- **ApiService.java**
-  ```java
-  // Endpoints
-  - getTemplates(page, limit)
-  - getTemplatesByCategory(category, page, limit)
-  - getTemplate(id)
-  - createSharedWish(SharedWish)
-  - getSharedWish(shortCode)
-  ```
-
-- **ApiClient.java**
-  - Retrofit configuration
-  - Error handling
-  - Response interceptors
-
-#### 1.3 Repository
-- **TemplateRepository.java**
-  - Template caching
-  - Pagination handling
-  - Category filtering
-  - Error handling
-
-### 2. UI Layer Implementation
-#### 2.1 Home Screen
-- **HomeFragment.java Updates**
-  - Infinite scroll (20 items per page)
-  - Category filtering
-  - Template grid/list view
-  - Search functionality
-
-#### 2.2 Template Detail
-- **GreetingDetailFragment.java Updates**
-  - HTML/CSS/JS renderer
-  - Name customization
-  - Live preview
-  - Share functionality
-
-#### 2.3 Shared Wish
-- **SharedWishFragment.java (New)**
-  - Template rendering
-  - View counter
-  - Social sharing
-
-### 3. Backend Implementation
-#### 3.1 Database
-```javascript
-// Template Schema
-{
-  title: String,
-  category: String,
-  htmlContent: String,
-  cssContent: String,
-  jsContent: String,
-  previewUrl: String,
-  status: Boolean,
-  categoryIcon: String
-}
-
-// SharedWish Schema
-{
-  shortCode: String,
-  templateId: ObjectId,
-  recipientName: String,
-  senderName: String,
-  customizedHtml: String,
-  views: Number
-}
-```
-
-#### 3.2 API Endpoints
-```javascript
-// Templates
-GET    /api/templates?page=1&limit=20
-GET    /api/templates/categories
-GET    /api/templates/category/:categoryId
-GET    /api/templates/:id
-
-// Shared Wishes
-POST   /api/wishes/create
-GET    /api/wishes/:shortCode
-```
-
-### 4. Implementation Phases
-
-#### Phase 1: Core Infrastructure
-1. Set up API client and models
-2. Implement repository layer
-3. Basic template listing
-4. Category filtering
-
-#### Phase 2: Template Rendering
-1. HTML/CSS/JS renderer
-2. Template customization
-3. Live preview
-4. Image loading
-
-#### Phase 3: Sharing System
-1. Create sharing mechanism
-2. Generate short URLs
-3. View shared wishes
-4. Social media integration
-
-#### Phase 4: Optimization
-1. Template caching
-2. Image caching
-3. Lazy loading
-4. Error handling
-
-### 5. Dependencies Required
-```gradle
-// Networking
-implementation 'com.squareup.retrofit2:retrofit:2.9.0'
-implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
-
-// Image Loading
-implementation 'com.github.bumptech.glide:glide:4.12.0'
-
-// UI Components
-implementation 'androidx.recyclerview:recyclerview:1.3.1'
-implementation 'com.google.android.material:material:1.9.0'
-
-// Lifecycle
-implementation 'androidx.lifecycle:lifecycle-viewmodel:2.6.2'
-implementation 'androidx.lifecycle:lifecycle-livedata:2.6.2'
-```
-
-### 6. Future Enhancements
-- Offline mode support
-- Template favorites
-- Custom template creation
-- Multiple language support
-- Analytics integration
-- Dark mode support
+### 4. Deep Linking
+- **URL Formats**:
+  - Web: `https://eventwishes.onrender.com/wish/{shortCode}`
+  - App: `eventwish://wish/{shortCode}`
+- **Features**:
+  - Direct app opening
+  - Play Store fallback
+  - Rich link previews
+  - Analytics tracking
 
 ## Implementation Details
 
-### 1. Core Components
+### 1. Resource Organization
+#### 1.1 Drawables
+- **Action Icons**:
+  - `ic_close.xml`: Close/dismiss action
+  - `ic_edit.xml`: Edit functionality
+  - `ic_preview.xml`: Preview mode
+  - `ic_save.xml`: Save changes
+  - `ic_share.xml`: General sharing
+  - `ic_whatsapp.xml`: WhatsApp sharing
+  - `ic_copy.xml`: Copy to clipboard
 
-#### Activities
-- `MainActivity`: 
-  - Manages navigation
-  - Handles bottom navigation
-  - Implements view binding
+#### 1.2 Layouts
+- **Fragments**:
+  - `fragment_shared_wish.xml`: Wish viewing screen
+  - `fragment_template_customize.xml`: Template editing
+  - `fragment_template_detail.xml`: Template preview
+- **Components**:
+  - `bottom_sheet_share.xml`: Sharing options sheet
+  - `item_history.xml`: History list item
 
-#### Fragments
-1. `HomeFragment`:
-   - Search functionality
-   - Category filtering
-   - Grid display management
-   
-2. `GreetingDetailFragment`:
-   - Form validation
-   - HTML preview
-   - Share functionality
+#### 1.3 Values
+- **Strings**:
+  - Action strings (share, reply, edit)
+  - Template customization text
+  - Sharing messages
+  - UI feedback messages
+- **Colors**:
+  - Brand colors
+  - UI element colors
+  - State colors
 
-3. Placeholder Fragments:
-   - `HistoryFragment`
-   - `ReminderFragment`
-   - `MoreFragment`
+### 2. Code Structure
+- **Activities**:
+  - `MainActivity`: Navigation and deep link handling
+- **Fragments**:
+  - `SharedWishFragment`: Wish display and sharing
+  - `TemplateCustomizeFragment`: Wish editing
+- **Utils**:
+  - `DeepLinkUtil`: Deep link and sharing handling
 
-#### Adapters
-1. `GreetingsAdapter`:
-   - Grid layout management
-   - Search filtering
-   - Click handling
-   
-2. `CategoriesAdapter`:
-   - Horizontal scrolling
-   - Selection state management
-   - Dynamic loading
-
-### 2. UI Components
-
-#### Layouts
-1. `activity_main.xml`:
-   - CoordinatorLayout base
-   - Navigation host
-   - Bottom navigation
-
-2. `fragment_home.xml`:
-   - Search bar with Material Design
-   - Category RecyclerView
-   - Greetings Grid RecyclerView
-   - Load More FAB
-
-3. `fragment_greeting_detail.xml`:
-   - Material text inputs
-   - WebView preview
-   - Share button
-   - Navigation handling
-
-4. `item_greeting.xml`:
-   - MaterialCardView design
-   - Image preview
-   - Title and category chips
-
-5. `item_category.xml`:
-   - Material Chip design
-   - Selection states
-   - Custom styling
-
-### 3. Design Elements
-
-#### Colors
-```xml
-Primary: #FF6200EE
-Primary Variant: #FF3700B3
-Accent: #FF03DAC5
-Background: #FAFAFA
-Surface: #FFFFFF
-Text on Surface: #212121
-```
-
-#### Material Components
-- TextInputLayout with outlined style
-- MaterialCardView with elevation
-- MaterialChips for categories
-- ExtendedFloatingActionButton
-- BottomNavigationView
-- CoordinatorLayout behaviors
+### 3. Development Guidelines
+- **Resource Naming**:
+  - Drawables: `ic_*` for icons
+  - Layouts: `fragment_*`, `item_*`
+  - Strings: Categorized by feature
+- **Vector Assets**:
+  - 24dp base size
+  - Material Design style
+  - Adaptive colors
 
 ## Getting Started
 
@@ -298,16 +128,18 @@ dependencies {
     implementation 'androidx.cardview:cardview:1.0.0'
     implementation 'com.google.android.material:material:1.11.0'
     
-    // Image Loading
-    implementation 'com.github.bumptech.glide:glide:4.16.0'
+    // Networking
+    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+    implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
+    
+    // SwipeRefreshLayout
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
 }
+```
 
 ## Future Enhancements
-1. User Authentication
-2. Offline Support
-3. Custom Template Creation
-4. Advanced Sharing Options
-5. Push Notifications
-6. Event Reminders
-7. Template Categories
-8. Social Features
+1. Implement reminder functionality
+2. Add wish categories and filtering
+3. Enhanced sharing options
+4. User preferences
+5. Offline support
