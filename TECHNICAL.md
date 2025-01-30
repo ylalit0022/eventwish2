@@ -2,6 +2,238 @@
 
 ## Architecture Overview
 
+### 1. Data Flow Architecture
+```
+UI Layer (Fragments) ←→ ViewModels ←→ Repository ←→ API Service ←→ Backend
+```
+
+### 2. Component Details
+
+#### 2.1 Data Models
+##### Template Model
+```java
+public class Template {
+    private String id;
+    private String title;
+    private String category;
+    private String htmlContent;
+    private String cssContent;
+    private String jsContent;
+    private String previewUrl;
+    private boolean status;
+    private String categoryIcon;
+    // ... getters and setters
+}
+```
+
+##### SharedWish Model
+```java
+public class SharedWish {
+    private String shortCode;
+    private String templateId;
+    private String recipientName;
+    private String senderName;
+    private String customizedHtml;
+    private int views;
+    // ... getters and setters
+}
+```
+
+#### 2.2 API Integration
+```java
+public interface ApiService {
+    @GET("templates")
+    Call<TemplateResponse> getTemplates(
+        @Query("page") int page,
+        @Query("limit") int limit
+    );
+
+    @GET("templates/category/{categoryId}")
+    Call<TemplateResponse> getTemplatesByCategory(
+        @Path("categoryId") String categoryId,
+        @Query("page") int page,
+        @Query("limit") int limit
+    );
+
+    @GET("wishes/{shortCode}")
+    Call<SharedWish> getSharedWish(@Path("shortCode") String shortCode);
+}
+```
+
+### 3. Key Features Implementation
+
+#### 3.1 Template Rendering
+- WebView for HTML/CSS/JS rendering
+- JavaScript interface for name customization
+- Custom WebViewClient for image loading
+- Error handling for failed renders
+
+#### 3.2 Infinite Scroll
+```java
+private void setupRecyclerView() {
+    recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+        @Override
+        public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+            if (!isLoading && !isLastPage) {
+                if (layoutManager.findLastCompletelyVisibleItemPosition() == templates.size() - 1) {
+                    loadMoreTemplates();
+                }
+            }
+        }
+    });
+}
+```
+
+#### 3.3 Category Filtering
+```java
+private void filterByCategory(String category) {
+    currentPage = 1;
+    isLastPage = false;
+    templates.clear();
+    adapter.notifyDataSetChanged();
+    loadTemplatesByCategory(category);
+}
+```
+
+### 4. Backend Architecture
+
+#### 4.1 Node.js Server Structure
+```
+backend/
+├── server.js           # Entry point
+├── config/
+│   └── db.js          # MongoDB connection
+├── models/
+│   ├── Template.js    # Template schema
+│   └── SharedWish.js  # SharedWish schema
+├── routes/
+│   ├── templates.js   # Template routes
+│   └── wishes.js      # SharedWish routes
+└── controllers/
+    ├── templateController.js
+    └── wishController.js
+```
+
+#### 4.2 MongoDB Schemas
+
+##### Template Schema
+```javascript
+const templateSchema = new Schema({
+    title: { type: String, required: true },
+    category: { type: String, required: true },
+    htmlContent: { type: String, required: true },
+    cssContent: String,
+    jsContent: String,
+    previewUrl: String,
+    status: { type: Boolean, default: true },
+    categoryIcon: String,
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now }
+});
+```
+
+##### SharedWish Schema
+```javascript
+const sharedWishSchema = new Schema({
+    shortCode: { type: String, required: true, unique: true },
+    templateId: { type: Schema.Types.ObjectId, ref: 'Template' },
+    recipientName: String,
+    senderName: String,
+    customizedHtml: { type: String, required: true },
+    views: { type: Number, default: 0 },
+    createdAt: { type: Date, default: Date.now },
+    lastSharedAt: { type: Date, default: Date.now }
+});
+```
+
+### 5. Security Considerations
+
+#### 5.1 API Security
+- Rate limiting implementation
+- Input validation
+- XSS prevention in templates
+- CORS configuration
+
+#### 5.2 Data Validation
+- Server-side validation for all inputs
+- Client-side validation for immediate feedback
+- Sanitization of HTML content
+
+### 6. Performance Optimization
+
+#### 6.1 Caching Strategy
+- In-memory template caching
+- Image caching using Glide
+- API response caching
+
+#### 6.2 Lazy Loading
+- Image lazy loading
+- Template content lazy loading
+- Category-wise data loading
+
+### 7. Testing Strategy
+
+#### 7.1 Unit Tests
+- Repository tests
+- ViewModel tests
+- API service tests
+
+#### 7.2 Integration Tests
+- Template rendering tests
+- API integration tests
+- Database operation tests
+
+### 8. Deployment
+
+#### 8.1 Android App
+- ProGuard rules
+- API endpoint configuration
+- Version management
+
+#### 8.2 Backend
+- Environment variables
+- PM2 process management
+- MongoDB connection pooling
+
+## API Documentation
+
+### Templates API
+
+#### Get Templates
+```http
+GET /api/templates
+Query Parameters:
+- page (default: 1)
+- limit (default: 20)
+- category (optional)
+```
+
+#### Get Template by ID
+```http
+GET /api/templates/:id
+```
+
+### Shared Wishes API
+
+#### Create Shared Wish
+```http
+POST /api/wishes/create
+Body:
+{
+    "templateId": "string",
+    "recipientName": "string",
+    "senderName": "string",
+    "customizedHtml": "string"
+}
+```
+
+#### Get Shared Wish
+```http
+GET /api/wishes/:shortCode
+```
+
+## Architecture Overview
+
 The app follows the MVVM (Model-View-ViewModel) architecture pattern with the following components:
 
 ### 1. UI Layer (View)

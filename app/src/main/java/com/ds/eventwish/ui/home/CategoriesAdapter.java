@@ -11,6 +11,15 @@ import java.util.List;
 public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.CategoryViewHolder> {
     private List<String> categories;
     private int selectedPosition = 0;
+    private OnCategoryClickListener listener;
+
+    public interface OnCategoryClickListener {
+        void onCategoryClick(String category, int position);
+    }
+
+    public void setOnCategoryClickListener(OnCategoryClickListener listener) {
+        this.listener = listener;
+    }
 
     public CategoriesAdapter() {
         this.categories = new ArrayList<>();
@@ -50,6 +59,7 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         categories.add("Anniversary");
         categories.add("Wedding");
         categories.add("Graduation");
+        categories.add("Holi");
         // Add more initial categories...
     }
 
