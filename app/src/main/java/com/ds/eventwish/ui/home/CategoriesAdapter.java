@@ -23,8 +23,8 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
 
     public CategoriesAdapter() {
         this.categories = new ArrayList<>();
-        // Add initial categories
-        loadInitialCategories();
+        // Add "All" category by default
+        categories.add("All");
     }
 
     @NonNull
@@ -37,7 +37,8 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
 
     @Override
     public void onBindViewHolder(@NonNull CategoryViewHolder holder, int position) {
-        holder.bind(categories.get(position), position == selectedPosition);
+        String category = categories.get(position);
+        holder.bind(category, position == selectedPosition, position, listener);
     }
 
     @Override
@@ -45,32 +46,20 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         return categories.size();
     }
 
-    public void loadMore() {
-        // Add more categories
-        int startPosition = categories.size();
-        List<String> newCategories = getMoreCategories();
-        categories.addAll(newCategories);
-        notifyItemRangeInserted(startPosition, newCategories.size());
-    }
-
-    private void loadInitialCategories() {
+    public void updateCategories(List<String> newCategories) {
+        categories.clear();
         categories.add("All");
-        categories.add("Birthday");
-        categories.add("Anniversary");
-        categories.add("Wedding");
-        categories.add("Graduation");
-        categories.add("Holi");
-        // Add more initial categories...
+        if (newCategories != null) {
+            categories.addAll(newCategories);
+        }
+        notifyDataSetChanged();
     }
 
-    private List<String> getMoreCategories() {
-        List<String> moreCategories = new ArrayList<>();
-        moreCategories.add("Christmas");
-        moreCategories.add("New Year");
-        moreCategories.add("Valentine's");
-        moreCategories.add("Easter");
-        moreCategories.add("Halloween");
-        return moreCategories;
+    public void setSelectedPosition(int position) {
+        int oldPosition = selectedPosition;
+        selectedPosition = position;
+        notifyItemChanged(oldPosition);
+        notifyItemChanged(position);
     }
 
     static class CategoryViewHolder extends RecyclerView.ViewHolder {
@@ -81,17 +70,18 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
             this.binding = binding;
         }
 
-        void bind(String category, boolean isSelected) {
-            binding.categoryChip.setText(category);
+        void bind(String category, boolean isSelected, int position, OnCategoryClickListener listener) {
+            String displayText = category;
+            if (position > 0) { // Don't show count for "All" category
+                // No count to display
+            }
+            
+            binding.categoryChip.setText(displayText);
             binding.categoryChip.setChecked(isSelected);
             
             binding.categoryChip.setOnClickListener(v -> {
-                // Handle category selection
-                if (!isSelected) {
-                    int oldPosition = ((CategoriesAdapter) getBindingAdapter()).selectedPosition;
-                    ((CategoriesAdapter) getBindingAdapter()).selectedPosition = getAdapterPosition();
-                    getBindingAdapter().notifyItemChanged(oldPosition);
-                    getBindingAdapter().notifyItemChanged(getAdapterPosition());
+                if (listener != null) {
+                    listener.onCategoryClick(category, position);
                 }
             });
         }

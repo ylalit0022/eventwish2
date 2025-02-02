@@ -34,6 +34,12 @@ public class MainActivity extends AppCompatActivity implements NavigationBarView
         // Set up the toolbar
         setSupportActionBar(binding.toolbar);
 
+                // Setup bottom navigation
+                binding.bottomNavigation.setOnItemSelectedListener(item -> {
+                    // Navigation handling
+                    return true;
+                });
+
         setupNavigation();
         handleIntent(getIntent());
     }

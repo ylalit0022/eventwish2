@@ -6,12 +6,12 @@ import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.model.response.TemplateResponse;
 import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.data.remote.ApiService;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 public class TemplateRepository {
     private static TemplateRepository instance;
@@ -24,14 +24,14 @@ public class TemplateRepository {
     private boolean hasMorePages = true;
     private int currentPage = 1;
     private String currentCategory = null;
-    private static final int PAGE_SIZE = 50;
+    private static final int PAGE_SIZE = 20;
 
     private TemplateRepository() {
         apiService = ApiClient.getClient();
         templates.setValue(new ArrayList<>());
     }
 
-    public static TemplateRepository getInstance() {
+    public static synchronized TemplateRepository getInstance() {
         if (instance == null) {
             instance = new TemplateRepository();
         }
@@ -62,16 +62,31 @@ public class TemplateRepository {
         return hasMorePages;
     }
 
+    public void setCategory(String category) {
+        if ((category == null && currentCategory == null) || 
+            (category != null && category.equals(currentCategory))) {
+            return;
+        }
+        currentCategory = category;
+        currentPage = 1;
+        hasMorePages = true;
+        templates.setValue(new ArrayList<>());
+        loadTemplates(true);
+    }
+
     public void loadTemplates(boolean refresh) {
-        if (isLoading || (!hasMorePages && !refresh)) return;
+        if (isLoading || (!refresh && !hasMorePages)) {
+            return;
+        }
+
+        isLoading = true;
+        loading.setValue(true);
+
         if (refresh) {
             currentPage = 1;
             hasMorePages = true;
-            templates.setValue(new ArrayList<>());
         }
-        
-        isLoading = true;
-        loading.setValue(true);
+
         Call<TemplateResponse> call;
         if (currentCategory != null) {
             call = apiService.getTemplatesByCategory(currentCategory, currentPage, PAGE_SIZE);
@@ -84,6 +99,7 @@ public class TemplateRepository {
             public void onResponse(Call<TemplateResponse> call, Response<TemplateResponse> response) {
                 isLoading = false;
                 loading.setValue(false);
+
                 if (response.isSuccessful() && response.body() != null) {
                     TemplateResponse templateResponse = response.body();
                     List<Template> currentList = templates.getValue();
@@ -111,12 +127,5 @@ public class TemplateRepository {
                 error.setValue(t.getMessage());
             }
         });
-    }
-
-    public void setCategory(String category) {
-        if (category == null || !category.equals(currentCategory)) {
-            currentCategory = category;
-            loadTemplates(true);
-        }
     }
 }

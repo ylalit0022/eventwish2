@@ -15,6 +15,8 @@ public class TemplateRenderer {
     public interface TemplateRenderListener {
         void onRenderComplete();
         void onRenderError(String error);
+
+        void onLoadingStateChanged(boolean isLoading);
     }
 
     public TemplateRenderer(WebView webView, TemplateRenderListener listener) {
@@ -31,7 +33,7 @@ public class TemplateRenderer {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                updateNames();
+                updateNames();  // Ensure names update when WebView finishes loading
             }
         });
     }
@@ -41,29 +43,27 @@ public class TemplateRenderer {
         String css = template.getCssContent();
         String js = template.getJsContent();
 
-        // Default CSS if not provided
         if (css == null || css.isEmpty()) {
             css = getDefaultCSS();
         }
 
-        // Default JS if not provided
         if (js == null || js.isEmpty()) {
             js = getDefaultJS();
         }
 
         String fullHtml = String.format(
-            "<!DOCTYPE html>" +
-            "<html>" +
-            "<head>" +
-            "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
-            "<style>%s</style>" +
-            "</head>" +
-            "<body>" +
-            "%s" +
-            "<script>%s</script>" +
-            "</body>" +
-            "</html>",
-            css, html, js
+                "<!DOCTYPE html>" +
+                        "<html>" +
+                        "<head>" +
+                        "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+                        "<style>%s</style>" +
+                        "</head>" +
+                        "<body>" +
+                        "%s" +
+                        "<script>%s</script>" +
+                        "</body>" +
+                        "</html>",
+                css, html, js
         );
 
         webView.loadDataWithBaseURL(null, fullHtml, "text/html", "UTF-8", null);
@@ -82,42 +82,56 @@ public class TemplateRenderer {
     private void updateNames() {
         String js = String.format(
             "javascript:(function() {" +
-            "  if (typeof updateNames === 'function') {" +
-            "    updateNames('%s', '%s');" +
-            "  }" +
+            "  console.log('Updating names: %s, %s');" +
+            "  var recipientEls = document.getElementsByClassName('recipient-name');" +
+            "  var senderEls = document.getElementsByClassName('sender-name');" +
+            "  console.log('Found elements:', recipientEls.length, senderEls.length);" +
+            "  Array.from(recipientEls).forEach(function(el) {" +
+            "    el.textContent = '%s';" +
+            "  });" +
+            "  Array.from(senderEls).forEach(function(el) {" +
+            "    el.textContent = '%s';" +
+            "  });" +
             "})()",
-            recipientName, senderName
+            recipientName, senderName,
+            recipientName.isEmpty() ? "[Recipient]" : recipientName,
+            senderName.isEmpty() ? "[Your Name]" : senderName
         );
-        webView.evaluateJavascript(js, null);
+        
+        webView.evaluateJavascript(js, result -> {
+            if (listener != null) {
+                listener.onRenderComplete();
+            }
+        });
     }
 
     private String getDefaultCSS() {
         return "body {" +
-               "  margin: 0;" +
-               "  padding: 16px;" +
-               "  font-family: Arial, sans-serif;" +
-               "  text-align: center;" +
-               "  background-color: #f5f5f5;" +
-               "}" +
-               "h1, h2 {" +
-               "  color: #333;" +
-               "  margin-bottom: 16px;" +
-               "}" +
-               ".recipient-name, .sender-name {" +
-               "  color: #2196F3;" +
-               "  font-weight: bold;" +
-               "}";
+                "  margin: 0;" +
+                "  padding: 16px;" +
+                "  font-family: Arial, sans-serif;" +
+                "  text-align: center;" +
+                "  background-color: #f5f5f5;" +
+                "}" +
+                "h1, h2 {" +
+                "  color: #333;" +
+                "  margin-bottom: 16px;" +
+                "}" +
+                ".recipient-name, .sender-name {" +
+                "  color: #2196F3;" +
+                "  font-weight: bold;" +
+                "}";
     }
 
     private String getDefaultJS() {
         return "function updateNames(recipient, sender) {" +
-               "  document.querySelectorAll('.recipient-name').forEach(function(el) {" +
-               "    el.textContent = recipient || '[Recipient]';" +
-               "  });" +
-               "  document.querySelectorAll('.sender-name').forEach(function(el) {" +
-               "    el.textContent = sender || '[Sender]';" +
-               "  });" +
-               "}";
+                "  document.querySelectorAll('.recipient-name').forEach(function(el) {" +
+                "    el.textContent = recipient || '[Recipient]';" +
+                "  });" +
+                "  document.querySelectorAll('.sender-name').forEach(function(el) {" +
+                "    el.textContent = sender || '[Sender]';" +
+                "  });" +
+                "}";
     }
 
     public class WebAppInterface {

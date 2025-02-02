@@ -7,6 +7,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -29,6 +30,9 @@ public class HistoryFragment extends BaseFragment implements HistoryAdapter.OnHi
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        // Hide toolbar
+        ((AppCompatActivity) requireActivity()).getSupportActionBar().hide();
+
         setupViewModel();
         setupRecyclerView();
         observeViewModel();
@@ -72,23 +76,28 @@ public class HistoryFragment extends BaseFragment implements HistoryAdapter.OnHi
 
     @Override
     public void onViewClick(SharedWish wish) {
-        Bundle args = new Bundle();
-        args.putString("shortCode", wish.getShortCode());
-        Navigation.findNavController(requireView())
-            .navigate(R.id.action_history_to_shared_wish, args);
+        if (wish != null && wish.getShortCode() != null) {
+            HistoryFragmentDirections.ActionHistoryToSharedWish action = 
+                HistoryFragmentDirections.actionHistoryToSharedWish(wish.getShortCode());
+            Navigation.findNavController(requireView()).navigate(action);
+        }
     }
 
     @Override
     public void onShareClick(SharedWish wish) {
-        String shareUrl = "https://eventwishes.onrender.com/wish/" + wish.getShortCode();
-        String shareText = getString(R.string.share_wish_text, shareUrl);
-        
-        Intent shareIntent = new Intent();
-        shareIntent.setAction(Intent.ACTION_SEND);
-        shareIntent.putExtra(Intent.EXTRA_TEXT, shareText);
-        shareIntent.setType("text/plain");
-        startActivity(Intent.createChooser(shareIntent, getString(R.string.share_via)));
+        if (wish != null && wish.getShortCode() != null) {
+            String shareUrl = "https://eventwishes.onrender.com/wish/" + wish.getShortCode();
+            String shareText = getString(R.string.share_wish_text, shareUrl);
+            
+            Intent shareIntent = new Intent();
+            shareIntent.setAction(Intent.ACTION_SEND);
+            shareIntent.putExtra(Intent.EXTRA_TEXT, shareText);
+            shareIntent.setType("text/plain");
+            startActivity(Intent.createChooser(shareIntent, getString(R.string.share_via)));
+        }
     }
+
+
 
     @Override
     public void onDestroyView() {

@@ -58,22 +58,20 @@
             android:src="@drawable/ic_empty_history"
             app:tint="?attr/colorPrimary" />
 
-        <TextView
+        <com.google.android.material.textview.MaterialTextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:text="@string/empty_history_title"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"
-            android:fontFamily="@font/poppins_medium" />
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6" />
 
-        <TextView
+        <com.google.android.material.textview.MaterialTextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:gravity="center"
             android:text="@string/empty_history_message"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-            android:fontFamily="@font/poppins_regular" />
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
 
     </LinearLayout>
 

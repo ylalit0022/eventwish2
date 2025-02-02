@@ -14,9 +14,9 @@ import retrofit2.Response;
 public class TemplateDetailViewModel extends ViewModel {
     private final ApiService apiService;
     private final MutableLiveData<Template> template = new MutableLiveData<>();
-    private final MutableLiveData<SharedWish> sharedWish = new MutableLiveData<>();
     private final MutableLiveData<String> error = new MutableLiveData<>();
     private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>(false);
+    private final MutableLiveData<String> wishSaved = new MutableLiveData<>();
 
     private String recipientName = "";
     private String senderName = "";
@@ -30,10 +30,6 @@ public class TemplateDetailViewModel extends ViewModel {
         return template;
     }
 
-    public LiveData<SharedWish> getSharedWish() {
-        return sharedWish;
-    }
-
     public LiveData<String> getError() {
         return error;
     }
@@ -42,15 +38,32 @@ public class TemplateDetailViewModel extends ViewModel {
         return isLoading;
     }
 
+    public LiveData<String> getWishSaved() {
+        return wishSaved;
+    }
+
     public void setRecipientName(String name) {
-        this.recipientName = name;
+        this.recipientName = name != null ? name.trim() : "";
+    }
+
+    public String getRecipientName() {
+        return recipientName;
     }
 
     public void setSenderName(String name) {
-        this.senderName = name;
+        this.senderName = name != null ? name.trim() : "";
+    }
+
+    public String getSenderName() {
+        return senderName;
     }
 
     public void loadTemplate(String templateId) {
+        if (templateId == null || templateId.isEmpty()) {
+            error.setValue("Invalid template ID");
+            return;
+        }
+
         this.templateId = templateId;
         isLoading.setValue(true);
         
@@ -74,7 +87,7 @@ public class TemplateDetailViewModel extends ViewModel {
     }
 
     public void saveWish() {
-        if (templateId == null) {
+        if (templateId == null || templateId.isEmpty()) {
             error.setValue("Template not loaded");
             return;
         }
@@ -84,18 +97,38 @@ public class TemplateDetailViewModel extends ViewModel {
             return;
         }
 
+        Template currentTemplate = template.getValue();
+        if (currentTemplate == null) {
+            error.setValue("Template not available");
+            return;
+        }
+
         isLoading.setValue(true);
         SharedWish wish = new SharedWish();
         wish.setTemplateId(templateId);
         wish.setRecipientName(recipientName);
         wish.setSenderName(senderName);
 
+        // Create customized HTML with replaced names
+        String customHtml = currentTemplate.getHtmlContent();
+        if (customHtml != null) {
+            customHtml = customHtml.replace("[Recipient]", 
+                "<span class=\"recipient-name\">" + recipientName + "</span>");
+            customHtml = customHtml.replace("{recipient}", 
+                "<span class=\"recipient-name\">" + recipientName + "</span>");
+            customHtml = customHtml.replace("[Your Name]", 
+                "<span class=\"sender-name\">" + senderName + "</span>");
+            customHtml = customHtml.replace("{sender}", 
+                "<span class=\"sender-name\">" + senderName + "</span>");
+            wish.setCustomizedHtml(customHtml);
+        }
+
         apiService.createSharedWish(wish).enqueue(new Callback<SharedWish>() {
             @Override
             public void onResponse(Call<SharedWish> call, Response<SharedWish> response) {
                 isLoading.setValue(false);
                 if (response.isSuccessful() && response.body() != null) {
-                    sharedWish.setValue(response.body());
+                    wishSaved.setValue(response.body().getShortCode());
                 } else {
                     error.setValue("Failed to save wish");
                 }
