@@ -33,19 +33,21 @@
                 app:cardCornerRadius="8dp"
                 app:cardElevation="0dp">
 
-                <EditText
-                    android:id="@+id/searchInput"
+                <androidx.appcompat.widget.SearchView
+                    android:id="@+id/searchView"
                     android:layout_width="match_parent"
-                    android:layout_height="48dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="0dp"
                     android:background="@drawable/rounded_corner"
-                    android:drawableStart="@drawable/ic_search"
-                    android:drawablePadding="8dp"
-                    android:fontFamily="@font/poppins"
-                    android:hint="Search templates"
-                    android:padding="12dp"
-                    android:textColor="@color/black"
+                    android:iconifiedByDefault="false"
+                    android:queryHint="Search templates"
+                    android:padding="8dp"
                     android:textColorHint="@color/black"
-                    android:textSize="14sp" />
+                    android:layout_gravity="center_vertical"
+                    app:queryBackground="@android:color/transparent"
+                    app:searchIcon="@drawable/ic_search"
+                    app:closeIcon="@drawable/ic_close" />
+
             </com.google.android.material.card.MaterialCardView>
 
             <androidx.recyclerview.widget.RecyclerView

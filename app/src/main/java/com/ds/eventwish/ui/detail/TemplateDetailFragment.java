@@ -6,6 +6,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -164,8 +165,15 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         try {
             boolean hasRecipient = recipientName != null && !recipientName.trim().isEmpty();
             boolean hasSender = senderName != null && !senderName.trim().isEmpty();
+            boolean enabled = hasRecipient && hasSender;
+            
+            Log.d(TAG, "Updating share button - recipient: " + hasRecipient + 
+                      ", sender: " + hasSender + 
+                      ", enabled: " + enabled);
+
             binding.shareButton.setEnabled(hasRecipient && hasSender);
         } catch (Exception e) {
+            Log.e(TAG, "Error updating share button", e);
             binding.shareButton.setEnabled(false);
         }
     }
@@ -174,7 +182,12 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         if (binding == null) return;
 
         binding.shareButton.setOnClickListener(v -> {
+            Log.d(TAG, "Share button clicked");
             if (binding != null && binding.shareButton.isEnabled()) {
+                String recipientName = binding.recipientNameInput.getText().toString();
+                String senderName = binding.senderNameInput.getText().toString();
+                
+                Log.d(TAG, "Sharing template with recipient: " + recipientName + ", sender: " + senderName);
                 viewModel.saveWish();
             }
         });

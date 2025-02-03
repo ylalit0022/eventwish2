@@ -23,7 +23,7 @@ public class SharedWish {
     @SerializedName("senderName")
     private String senderName;
     
-    @SerializedName("customizedHtml")
+    @SerializedName("htmlContent")
     private String customizedHtml;
     
     @SerializedName("views")
@@ -37,6 +37,39 @@ public class SharedWish {
     
     @SerializedName("updatedAt")
     private Date updatedAt;
+
+    @SerializedName("cssContent")
+    private String cssContent;
+
+    @SerializedName("jsContent")
+    private String jsContent;
+
+    @SerializedName("sharedVia")
+    private String sharedVia = "LINK";
+
+    public String getJsContent() {
+        return jsContent;
+    }
+
+    public void setJsContent(String jsContent) {
+        this.jsContent = jsContent;
+    }
+
+    public String getCssContent() {
+        return cssContent;
+    }
+
+    public void setCssContent(String cssContent) {
+        this.cssContent = cssContent;
+    }
+
+    public String getSharedVia() {
+        return sharedVia;
+    }
+
+    public void setSharedVia(String sharedVia) {
+        this.sharedVia = sharedVia;
+    }
 
     // Getters
     public String getId() { 

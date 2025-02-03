@@ -7,6 +7,8 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.SearchView;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -63,7 +65,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         categoriesAdapter = new CategoriesAdapter();
         binding.categoriesRecyclerView.setAdapter(categoriesAdapter);
         binding.categoriesRecyclerView.setLayoutManager(
-            new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false));
+                new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false));
 
         categoriesAdapter.setOnCategoryClickListener((category, position) -> {
             if (category.equals("All")) {
@@ -80,20 +82,20 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         layoutManager = new GridLayoutManager(requireContext(), 2);
         binding.templatesRecyclerView.setLayoutManager(layoutManager);
         binding.templatesRecyclerView.setAdapter(adapter);
-        
+
         binding.templatesRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
-                
+
                 if (dy > 0) { // Check if scrolling down
                     int totalItemCount = layoutManager.getItemCount();
                     int lastVisibleItem = layoutManager.findLastCompletelyVisibleItemPosition();
-                    
-                    Log.d(TAG, "Scrolling - last visible: " + lastVisibleItem + 
-                          " - total: " + totalItemCount + 
-                          " - threshold: " + (totalItemCount - VISIBLE_THRESHOLD));
-                    
+
+                    Log.d(TAG, "Scrolling - last visible: " + lastVisibleItem +
+                            " - total: " + totalItemCount +
+                            " - threshold: " + (totalItemCount - VISIBLE_THRESHOLD));
+
                     // Load more when last visible item is within VISIBLE_THRESHOLD of the end
                     if (lastVisibleItem >= totalItemCount - VISIBLE_THRESHOLD) {
                         loadMoreItems();
@@ -107,8 +109,8 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         Log.d(TAG, "Loading more items");
         binding.bottomLoadingView.setVisibility(View.VISIBLE);
         viewModel.loadMoreIfNeeded(
-            layoutManager.findLastCompletelyVisibleItemPosition(),
-            layoutManager.getItemCount()
+                layoutManager.findLastCompletelyVisibleItemPosition(),
+                layoutManager.getItemCount()
         );
     }
 
@@ -119,23 +121,45 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
             viewModel.loadTemplates(true);
         });
     }
+//old mthod
+//    private void setupSearch() {
+//        binding.searchView.addTextChangedListener(new TextWatcher() {
+//            @Override
+//            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+//
+//            @Override
+//            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+//
+//            @Override
+//            public void afterTextChanged(Editable s) {
+//                Log.d(TAG, "Search query changed: " + s.toString());
+//                binding.bottomLoadingView.setVisibility(View.GONE);
+//                viewModel.setSearchQuery(s.toString());
+//            }
+//        });
+//    }
 
-    private void setupSearch() {
-        binding.searchInput.addTextChangedListener(new TextWatcher() {
+    private void setupSearch (){
+        //SearchView searchView = view.findViewById(R.id.searchView);
+        binding.searchView.setIconified(false); // Ensure it's always expanded
+        binding.searchView.clearFocus(); // Prevents immediate focus on load
+
+        binding.searchView.setOnQueryTextListener(new androidx.appcompat.widget.SearchView.OnQueryTextListener() {
             @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            public boolean onQueryTextSubmit(String query) {
+                viewModel.setSearchQuery(query);
+                return true;
+            }
 
             @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {}
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                Log.d(TAG, "Search query changed: " + s.toString());
-                binding.bottomLoadingView.setVisibility(View.GONE);
-                viewModel.setSearchQuery(s.toString());
+            public boolean onQueryTextChange(String newText) {
+                viewModel.setSearchQuery(newText);
+                return true;
             }
         });
     }
+
+
 
     private void setupObservers() {
         viewModel.getTemplates().observe(getViewLifecycleOwner(), templates -> {

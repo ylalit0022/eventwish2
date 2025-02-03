@@ -24,7 +24,7 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
     public CategoriesAdapter() {
         this.categories = new ArrayList<>();
         // Add "All" category by default
-        categories.add("All");
+        //categories.add("All");
     }
 
     @NonNull
@@ -46,14 +46,31 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         return categories.size();
     }
 
+// old and working method
+//    public void updateCategories(List<String> newCategories) {
+//        categories.clear();
+//        categories.add("All");
+//
+//        if (newCategories != null) {
+//            categories.addAll(newCategories);
+//        }
+//        notifyDataSetChanged();
+//    }
+
+    //new mothod added
     public void updateCategories(List<String> newCategories) {
         categories.clear();
-        categories.add("All");
+
         if (newCategories != null) {
+            if (!newCategories.contains("All")) {
+                categories.add("All");  // Add "All" only if it's missing
+            }
             categories.addAll(newCategories);
         }
+
         notifyDataSetChanged();
     }
+
 
     public void setSelectedPosition(int position) {
         int oldPosition = selectedPosition;

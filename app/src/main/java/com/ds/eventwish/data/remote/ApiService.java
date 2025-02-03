@@ -28,10 +28,10 @@ public interface ApiService {
     @GET("templates/{id}")
     Call<Template> getTemplateById(@Path("id") String id);
 
-    @POST("wishes/create")
+    @POST("share")
     Call<SharedWish> createSharedWish(@Body SharedWish sharedWish);
 
-    @GET("wishes/{shortCode}")
+    @GET("share/{shortCode}")
     Call<SharedWish> getSharedWish(@Path("shortCode") String shortCode);
 
     @GET("wishes/my")

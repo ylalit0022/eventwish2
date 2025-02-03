@@ -1,5 +1,9 @@
 package com.ds.eventwish.ui.detail;
 
+import static android.content.ContentValues.TAG;
+
+import android.util.Log;
+
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
@@ -13,6 +17,7 @@ import retrofit2.Response;
 
 public class TemplateDetailViewModel extends ViewModel {
     private final ApiService apiService;
+    String TAG = "TemplateDetailsViewModel";
     private final MutableLiveData<Template> template = new MutableLiveData<>();
     private final MutableLiveData<String> error = new MutableLiveData<>();
     private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>(false);
@@ -87,7 +92,9 @@ public class TemplateDetailViewModel extends ViewModel {
     }
 
     public void saveWish() {
+        Log.d(TAG, "Saving wish");
         if (templateId == null || templateId.isEmpty()) {
+            Log.e(TAG, "Cannot save wish - template is null");
             error.setValue("Template not loaded");
             return;
         }
@@ -96,6 +103,10 @@ public class TemplateDetailViewModel extends ViewModel {
             error.setValue("Please enter both recipient and sender names");
             return;
         }
+
+        Log.d(TAG, "Creating wish with recipient: " + recipientName +
+                ", sender: " + senderName +
+                ", templateId: " + templateId);
 
         Template currentTemplate = template.getValue();
         if (currentTemplate == null) {
@@ -106,8 +117,14 @@ public class TemplateDetailViewModel extends ViewModel {
         isLoading.setValue(true);
         SharedWish wish = new SharedWish();
         wish.setTemplateId(templateId);
-        wish.setRecipientName(recipientName);
-        wish.setSenderName(senderName);
+        wish.setRecipientName(recipientName.trim());
+        wish.setSenderName(senderName.trim());
+        wish.setSharedVia("LINK");
+
+         // Debug log for API call
+         Log.d(TAG, "Making API call to: /api/wishes/create");
+         Log.d(TAG, "Request body: " + wish.toString());
+ 
 
         // Create customized HTML with replaced names
         String customHtml = currentTemplate.getHtmlContent();
@@ -121,21 +138,33 @@ public class TemplateDetailViewModel extends ViewModel {
             customHtml = customHtml.replace("{sender}", 
                 "<span class=\"sender-name\">" + senderName + "</span>");
             wish.setCustomizedHtml(customHtml);
+
+            wish.setCustomizedHtml(customHtml);
+            wish.setCssContent(currentTemplate.getCssContent());
+            wish.setJsContent(currentTemplate.getJsContent());
         }
 
         apiService.createSharedWish(wish).enqueue(new Callback<SharedWish>() {
             @Override
             public void onResponse(Call<SharedWish> call, Response<SharedWish> response) {
+                Log.d(TAG, "API Response Code: " + response.code());
+                Log.d(TAG, "API URL Called: " + call.request().url());
                 isLoading.setValue(false);
                 if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "Wish created successfully with shortCode: " + 
+                          response.body().getShortCode());
                     wishSaved.setValue(response.body().getShortCode());
                 } else {
+                    Log.e(TAG, "API Error: " + response.code() + 
+                    " - " + response.message());
                     error.setValue("Failed to save wish");
                 }
             }
 
             @Override
             public void onFailure(Call<SharedWish> call, Throwable t) {
+                Log.e(TAG, "API Call Failed", t);
+                Log.e(TAG, "Failed URL: " + call.request().url());
                 isLoading.setValue(false);
                 error.setValue("Network error: " + t.getMessage());
             }

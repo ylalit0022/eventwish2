@@ -15,6 +15,14 @@ app.use(express.json());
 // Routes
 app.use('/api/templates', require('./routes/templates'));
 app.use('/api/wishes', require('./routes/wishes'));
+app.use('/api/categories', require('./routes/categories')); // Add categories route
+
+// Debug logging middleware
+app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url}`);
+    next();
+});
+
 
 // Error handling middleware
 app.use((err, req, res, next) => {
