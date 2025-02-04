@@ -3,6 +3,8 @@ package com.ds.eventwish.data.remote;
 import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.model.response.TemplateResponse;
+import com.ds.eventwish.data.model.response.WishResponse;
+
 import java.util.List;
 import retrofit2.Call;
 import retrofit2.http.Body;
@@ -31,8 +33,8 @@ public interface ApiService {
     @POST("share")
     Call<SharedWish> createSharedWish(@Body SharedWish sharedWish);
 
-    @GET("share/{shortCode}")
-    Call<SharedWish> getSharedWish(@Path("shortCode") String shortCode);
+    @GET("wish/{shortCode}")
+    Call<WishResponse> getSharedWish(@Path("shortCode") String shortCode);
 
     @GET("wishes/my")
     Call<List<SharedWish>> getMyWishes();

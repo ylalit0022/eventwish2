@@ -13,7 +13,7 @@ public class SharedWish {
     
     @SerializedName("templateId")
     private String templateId;
-    
+
     @SerializedName("template")
     private Template template;
     
@@ -84,7 +84,7 @@ public class SharedWish {
         return message; 
     }
 
-    public String getTemplateId() { 
+    public String getTemplateId() {
         return templateId; 
     }
 
@@ -133,7 +133,7 @@ public class SharedWish {
         this.message = message; 
     }
 
-    public void setTemplateId(String templateId) { 
+    public void setTemplateId(String templateId) {
         this.templateId = templateId; 
     }
 
