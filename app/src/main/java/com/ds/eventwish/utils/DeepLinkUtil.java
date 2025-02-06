@@ -18,20 +18,42 @@ public class DeepLinkUtil {
     private static final String PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.ds.eventwish";
 
     public static String extractShortCode(Uri uri) {
-        if (uri == null) return null;
+        if (uri == null) {
+            Log.d(TAG, "extractShortCode: Uri is null");
+            return null;
+        }
+        
+        Log.d(TAG, "extractShortCode: Processing URI: " + uri.toString());
+        Log.d(TAG, "extractShortCode: Scheme=" + uri.getScheme() + ", Host=" + uri.getHost() + ", Path=" + uri.getPath());
         
         String path = uri.getPath();
-        if (path == null || path.isEmpty()) return null;
+        if (path == null || path.isEmpty()) {
+            Log.d(TAG, "extractShortCode: Checking for custom scheme");
+            // Check if it's a custom scheme URI
+            if ("eventwish".equals(uri.getScheme()) && "wish".equals(uri.getHost())) {
+                String lastSegment = uri.getLastPathSegment();
+                Log.d(TAG, "extractShortCode: Custom scheme detected, lastSegment=" + lastSegment);
+                if (lastSegment != null && !lastSegment.isEmpty()) {
+                    return lastSegment;
+                }
+            }
+            Log.e(TAG, "extractShortCode: No valid path or custom scheme found");
+            return null;
+        }
         
         // Remove leading and trailing slashes
         path = path.replaceAll("^/+|/+$", "");
+        Log.d(TAG, "extractShortCode: Cleaned path=" + path);
         
         // Split path and get the last segment
         String[] segments = path.split("/");
         if (segments.length > 0) {
-            return segments[segments.length - 1];
+            String shortCode = segments[segments.length - 1];
+            Log.d(TAG, "extractShortCode: Extracted shortCode=" + shortCode);
+            return shortCode;
         }
         
+        Log.e(TAG, "extractShortCode: No segments found in path");
         return null;
     }
 

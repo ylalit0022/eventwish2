@@ -1,23 +1,24 @@
 package com.ds.eventwish.ui.history;
 
-import android.content.Context;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.ViewGroup;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
-import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.databinding.ItemHistoryBinding;
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.Locale;
 
-public class HistoryAdapter extends ListAdapter<SharedWish, HistoryAdapter.HistoryViewHolder> {
+public class HistoryAdapter extends ListAdapter<SharedWish, HistoryAdapter.ViewHolder> {
+    private static final String TAG = "HistoryAdapter";
     private final OnHistoryItemClickListener listener;
+    private static final SimpleDateFormat dateFormat = new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
 
     public interface OnHistoryItemClickListener {
         void onViewClick(SharedWish wish);
@@ -25,117 +26,96 @@ public class HistoryAdapter extends ListAdapter<SharedWish, HistoryAdapter.Histo
     }
 
     public HistoryAdapter(OnHistoryItemClickListener listener) {
-        super(new DiffUtil.ItemCallback<SharedWish>() {
-            @Override
-            public boolean areItemsTheSame(@NonNull SharedWish oldItem, @NonNull SharedWish newItem) {
-                return oldItem.getId().equals(newItem.getId());
-            }
-
-            @Override
-            public boolean areContentsTheSame(@NonNull SharedWish oldItem, @NonNull SharedWish newItem) {
-                return oldItem.equals(newItem);
-            }
-        });
+        super(DIFF_CALLBACK);
         this.listener = listener;
     }
 
+    private static final DiffUtil.ItemCallback<SharedWish> DIFF_CALLBACK = new DiffUtil.ItemCallback<SharedWish>() {
+        @Override
+        public boolean areItemsTheSame(@NonNull SharedWish oldItem, @NonNull SharedWish newItem) {
+            return oldItem.getShortCode().equals(newItem.getShortCode());
+        }
+
+        @Override
+        public boolean areContentsTheSame(@NonNull SharedWish oldItem, @NonNull SharedWish newItem) {
+            return oldItem.equals(newItem);
+        }
+    };
+
     @NonNull
     @Override
-    public HistoryViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         ItemHistoryBinding binding = ItemHistoryBinding.inflate(
-            LayoutInflater.from(parent.getContext()), parent, false);
-        return new HistoryViewHolder(binding);
+                LayoutInflater.from(parent.getContext()), parent, false);
+        return new ViewHolder(binding);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull HistoryViewHolder holder, int position) {
-        holder.bind(getItem(position));
+    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+        SharedWish wish = getItem(position);
+        if (wish != null) {
+            holder.bind(wish);
+        }
     }
 
-    class HistoryViewHolder extends RecyclerView.ViewHolder {
+    class ViewHolder extends RecyclerView.ViewHolder {
         private final ItemHistoryBinding binding;
-        private final SimpleDateFormat dateFormat;
-        private final Context context;
 
-        HistoryViewHolder(ItemHistoryBinding binding) {
+        ViewHolder(ItemHistoryBinding binding) {
             super(binding.getRoot());
             this.binding = binding;
-            this.context = binding.getRoot().getContext();
-            this.dateFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
 
-            setupAccessibility();
-        }
-
-        private void setupAccessibility() {
-            binding.viewButton.setContentDescription(context.getString(R.string.view_button));
-            binding.shareButton.setContentDescription(context.getString(R.string.share_button));
-            binding.templateImage.setContentDescription(context.getString(R.string.template_image));
-        }
-
-        void bind(SharedWish wish) {
-            String recipientName = wish.getRecipientName();
-            binding.recipientText.setText(context.getString(R.string.sent_to, recipientName));
-            
-            // Format date safely
-            String formattedDate = formatDate(wish.getCreatedAt());
-            binding.dateText.setText(context.getString(R.string.sent_on, formattedDate));
-            
-            // Set message preview with fallback
-            String message = wish.getMessage();
-            if (message != null && !message.isEmpty()) {
-                binding.messagePreview.setText(message);
-                binding.messagePreview.setVisibility(android.view.View.VISIBLE);
-            } else {
-                binding.messagePreview.setVisibility(android.view.View.GONE);
-            }
-
-            // Load template thumbnail with proper error handling
-            if (wish.getTemplate() != null && wish.getTemplate().getThumbnailUrl() != null) {
-                Glide.with(binding.templateImage)
-                    .load(wish.getTemplate().getThumbnailUrl())
-                    .placeholder(R.drawable.placeholder_template)
-                    .error(R.drawable.error_template)
-                    .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .centerCrop()
-                    .into(binding.templateImage);
-            } else {
-                binding.templateImage.setImageResource(R.drawable.error_template);
-            }
-
-            // Update accessibility labels
-            binding.templateImage.setContentDescription(
-                context.getString(R.string.template_image) + " " + recipientName);
-            
-            // Set click listeners
-            binding.viewButton.setOnClickListener(v -> {
-                if (listener != null) {
-                    listener.onViewClick(wish);
+            itemView.setOnClickListener(v -> {
+                int position = getAdapterPosition();
+                if (position != RecyclerView.NO_POSITION && listener != null) {
+                    SharedWish wish = getItem(position);
+                    if (wish != null) {
+                        listener.onViewClick(wish);
+                    }
                 }
             });
 
             binding.shareButton.setOnClickListener(v -> {
-                if (listener != null) {
-                    listener.onShareClick(wish);
-                }
-            });
-
-            // Make the whole item clickable
-            itemView.setOnClickListener(v -> {
-                if (listener != null) {
-                    listener.onViewClick(wish);
+                int position = getAdapterPosition();
+                if (position != RecyclerView.NO_POSITION && listener != null) {
+                    SharedWish wish = getItem(position);
+                    if (wish != null) {
+                        listener.onShareClick(wish);
+                    }
                 }
             });
         }
 
-        private String formatDate(Date date) {
-            if (date == null) {
-                return context.getString(R.string.date_unknown);
+        void bind(SharedWish wish) {
+            if (wish == null) return;
+
+            binding.recipientName.setText(itemView.getContext().getString(R.string.to_format, wish.getRecipientName()));
+            binding.senderName.setText(itemView.getContext().getString(R.string.from_format, wish.getSenderName()));
+            binding.shortCode.setText(itemView.getContext().getString(R.string.code_format, wish.getShortCode()));
+
+            if (wish.getCreatedAt() != null) {
+                String formattedDate = dateFormat.format(wish.getCreatedAt());
+                binding.dateCreated.setText(itemView.getContext().getString(R.string.created_format, formattedDate));
             }
-            try {
-                return dateFormat.format(date);
-            } catch (Exception e) {
-                return context.getString(R.string.date_unknown);
+
+            if (wish.getTemplate() != null && wish.getTemplate().getHtmlContent() != null) {
+                setupWebView(wish);
             }
+
+            binding.statusChip.setText(wish.getSharedVia());
+        }
+
+        private void setupWebView(SharedWish wish) {
+            WebView webView = binding.templateImage;
+            webView.setWebViewClient(new WebViewClient());
+            webView.getSettings().setJavaScriptEnabled(true);
+            
+            String html = wish.getTemplate().getHtmlContent();
+            String css = wish.getTemplate().getCssContent();
+            String fullHtml = String.format("<html><head><style>%s</style></head><body>%s</body></html>", 
+                css, html);
+            
+            webView.loadDataWithBaseURL(null, fullHtml, "text/html", "UTF-8", null);
         }
     }
 }

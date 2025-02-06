@@ -18,6 +18,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import com.ds.eventwish.MainActivity;
 import com.ds.eventwish.R;
@@ -41,6 +42,12 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
     private Runnable pendingNameUpdate;
 
     @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        viewModel = new ViewModelProvider(this).get(TemplateDetailViewModel.class);
+    }
+
+    @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentTemplateDetailBinding.inflate(inflater, container, false);
         return binding.getRoot();
@@ -52,49 +59,58 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
 
         ((AppCompatActivity) requireActivity()).getSupportActionBar().hide();
 
-
         // Get bottom navigation from activity
         if (getActivity() instanceof MainActivity) {
             bottomNav = getActivity().findViewById(R.id.bottomNavigation);
-            Button shareButton = binding.shareButton;
-            view.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
-                Rect r = new Rect();
-                view.getWindowVisibleDisplayFrame(r);
-                int screenHeight = view.getRootView().getHeight();
-                int keypadHeight = screenHeight - r.bottom;
-    
-                if (keypadHeight > screenHeight * 0.15) { // Keyboard is shown
-                    if (bottomNav != null) {
-                        bottomNav.setVisibility(View.GONE);
-                    }
-                    if (shareButton != null) {
-                        shareButton.setVisibility(View.GONE);
-                    }
-                } else { // Keyboard is hidden
-                    if (bottomNav != null) {
-                        bottomNav.setVisibility(View.VISIBLE);
-                    }
-                    if (shareButton != null) {
-                        shareButton.setVisibility(View.VISIBLE);
-                    }
-                }
-            });
+            setupKeyboardVisibilityListener(view);
         }
         
-        setupViewModel();
         setupWebView();
         setupInputListeners();
         setupObservers();
         setupClickListeners();
+        setupBottomNavigation();
         
         // Load template data
         templateId = TemplateDetailFragmentArgs.fromBundle(getArguments()).getTemplateId();
-        viewModel.loadTemplate(templateId);
+        if (templateId != null) {
+            viewModel.loadTemplate(templateId);
+        } else {
+            showError("Invalid template ID");
+        }
         isViewCreated = true;
     }
 
+    private void setupKeyboardVisibilityListener(View view) {
+        Button shareButton = binding.shareButton;
+        view.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
+            if (!isAdded() || binding == null) return;
+            
+            Rect r = new Rect();
+            view.getWindowVisibleDisplayFrame(r);
+            int screenHeight = view.getRootView().getHeight();
+            int keypadHeight = screenHeight - r.bottom;
+
+            if (keypadHeight > screenHeight * 0.15) { // Keyboard is shown
+                if (bottomNav != null) {
+                    bottomNav.setVisibility(View.GONE);
+                }
+                if (shareButton != null) {
+                    shareButton.setVisibility(View.GONE);
+                }
+            } else { // Keyboard is hidden
+                if (bottomNav != null) {
+                    bottomNav.setVisibility(View.VISIBLE);
+                }
+                if (shareButton != null) {
+                    shareButton.setVisibility(View.VISIBLE);
+                }
+            }
+        });
+    }
+
     private void setupViewModel() {
-        viewModel = new ViewModelProvider(this).get(TemplateDetailViewModel.class);
+        // viewModel is already initialized in onCreate
     }
 
     private void setupWebView() {
@@ -273,25 +289,100 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         });
     }
 
+    private void setupBottomNavigation() {
+        bottomNav = requireActivity().findViewById(R.id.bottomNavigation);
+        bottomNav.setOnItemSelectedListener(item -> {
+            int itemId = item.getItemId();
+            if (itemId == R.id.navigation_home) {
+                navigateToHome();
+                return true;
+            } else if (itemId == R.id.navigation_history) {
+                navigateToHistory();
+                return true;
+            } else if (itemId == R.id.navigation_more) {
+                navigateToMore();
+                return true;
+            }
+            return false;
+        });
+    }
+    
+    private void navigateToHome() {
+        NavController navController = Navigation.findNavController(requireView());
+        navController.navigate(R.id.navigation_home);
+    }
+    
+    private void navigateToHistory() {
+        NavController navController = Navigation.findNavController(requireView());
+        navController.navigate(R.id.navigation_history);
+    }
+    
+    private void navigateToMore() {
+        NavController navController = Navigation.findNavController(requireView());
+        navController.navigate(R.id.navigation_more);
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        // Save current input state
+        if (binding != null) {
+            viewModel.setRecipientName(binding.recipientNameInput.getText().toString());
+            viewModel.setSenderName(binding.senderNameInput.getText().toString());
+        }
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        // Clear any pending updates
+        if (pendingNameUpdate != null) {
+            backgroundHandler.removeCallbacks(pendingNameUpdate);
+        }
+    }
 
     @Override
     public void onDestroyView() {
-
         super.onDestroyView();
         isViewCreated = false;
-        if (templateRenderer != null) {
+        
+        // Cleanup WebView
+        if (binding != null && binding.webView != null) {
+            binding.webView.stopLoading();
+            binding.webView.clearCache(true);
+            binding.webView.clearHistory();
             binding.webView.removeJavascriptInterface("Android");
-            templateRenderer = null;
+            binding.webView.destroy();
         }
+        
         // Show bottom navigation when leaving
         if (bottomNav != null) {
             bottomNav.setVisibility(View.VISIBLE);
         }
+        
         // Remove any pending callbacks
         if (pendingNameUpdate != null) {
             backgroundHandler.removeCallbacks(pendingNameUpdate);
             pendingNameUpdate = null;
         }
+        
         binding = null;
+        templateRenderer = null;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        // Remove observers
+        if (isAdded()) {
+            viewModel.getTemplate().removeObservers(this);
+            viewModel.getError().removeObservers(this);
+            viewModel.isLoading().removeObservers(this);
+            viewModel.getWishSaved().removeObservers(this);
+        }
+        
+        // Clear handlers
+        mainHandler.removeCallbacksAndMessages(null);
+        backgroundHandler.removeCallbacksAndMessages(null);
     }
 }

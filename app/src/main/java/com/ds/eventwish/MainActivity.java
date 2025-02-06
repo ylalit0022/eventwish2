@@ -8,14 +8,17 @@ import android.view.MenuItem;
 import android.view.View;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.navigation.NavController;
+import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 import com.ds.eventwish.databinding.ActivityMainBinding;
+import com.ds.eventwish.utils.DeepLinkUtil;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationBarView;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class MainActivity extends AppCompatActivity implements NavigationBarView.OnItemSelectedListener {
@@ -31,22 +34,19 @@ public class MainActivity extends AppCompatActivity implements NavigationBarView
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        // Set up the toolbar
         setSupportActionBar(binding.toolbar);
-
-                // Setup bottom navigation
-                binding.bottomNavigation.setOnItemSelectedListener(item -> {
-                    // Navigation handling
-                    return true;
-                });
-
         setupNavigation();
-        handleIntent(getIntent());
+
+        // Handle deep link intent
+        if (savedInstanceState == null) {
+            handleIntent(getIntent());
+        }
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        setIntent(intent);
         handleIntent(intent);
     }
 
@@ -108,21 +108,36 @@ public class MainActivity extends AppCompatActivity implements NavigationBarView
     }
 
     private void handleIntent(Intent intent) {
-        if (intent == null || intent.getData() == null) return;
+        if (intent == null) {
+            Log.d(TAG, "handleIntent: Intent is null");
+            return;
+        }
 
+        String action = intent.getAction();
         Uri data = intent.getData();
-        String scheme = data.getScheme();
-        String host = data.getHost();
+        
+        Log.d(TAG, "handleIntent: Action=" + action + ", Data=" + (data != null ? data.toString() : "null"));
 
-        // Handle deep links
-        if (("https".equals(scheme) && "eventwishes.onrender.com".equals(host)) ||
-            ("eventwish".equals(scheme) && "wish".equals(host))) {
+        if (Intent.ACTION_VIEW.equals(action) && data != null) {
+            String shortCode = DeepLinkUtil.extractShortCode(data);
+            Log.d(TAG, "handleIntent: Extracted shortCode=" + shortCode);
             
-            String path = data.getPath();
-            if (path != null && path.startsWith("/wish/")) {
-                // Let the Navigation component handle the deep link
-                navController.handleDeepLink(intent);
+            if (shortCode != null) {
+                try {
+                    Log.d(TAG, "handleIntent: Attempting to navigate to ResourceFragment");
+                    Bundle args = new Bundle();
+                    args.putString("shortCode", shortCode);
+                    // Use the global action instead of direct navigation
+                    navController.navigate(R.id.action_global_resourceFragment, args);
+                    Log.d(TAG, "handleIntent: Navigation successful");
+                } catch (Exception e) {
+                    Log.e(TAG, "handleIntent: Navigation failed", e);
+                }
+            } else {
+                Log.e(TAG, "handleIntent: Failed to extract shortCode from URI: " + data);
             }
+        } else {
+            Log.d(TAG, "handleIntent: Not a VIEW action or no data present");
         }
     }
 

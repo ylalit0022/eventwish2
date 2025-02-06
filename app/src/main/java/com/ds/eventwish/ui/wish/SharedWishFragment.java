@@ -17,6 +17,7 @@ import androidx.lifecycle.ViewModelProvider;
 
 import com.ds.eventwish.data.model.response.WishResponse;
 import com.ds.eventwish.databinding.FragmentSharedWishBinding;
+import com.ds.eventwish.ui.history.SharedPrefsManager;
 import com.ds.eventwish.utils.DeepLinkUtil;
 import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.data.model.Template;
@@ -25,6 +26,7 @@ import com.google.gson.Gson;
 import android.content.Intent;
 
 public class SharedWishFragment extends Fragment {
+    private SharedPrefsManager prefsManager;
     private FragmentSharedWishBinding binding;
     private SharedWishViewModel viewModel;
     private String shortCode;
@@ -34,6 +36,7 @@ public class SharedWishFragment extends Fragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        prefsManager = new SharedPrefsManager(requireContext());
         viewModel = new ViewModelProvider(this).get(SharedWishViewModel.class);
         
         if (getArguments() != null) {
@@ -77,6 +80,24 @@ public class SharedWishFragment extends Fragment {
                 Log.d(TAG, "Received Wish JSON: " + new Gson().toJson(wish));
                 currentWish = wish;
                 loadWishContent(wish);
+        // Save to history
+        try {
+            if (prefsManager != null) {
+                SharedWish historyWish = new SharedWish();
+                historyWish.setShortCode(wish.getShortCode());
+                historyWish.setRecipientName(wish.getRecipientName());
+                historyWish.setSenderName(wish.getSenderName());
+                historyWish.setTemplate(wish.getTemplate());
+                
+                prefsManager.saveHistoryItem(historyWish);
+                Log.d(TAG, "Saved wish to history: " + wish.getShortCode());
+            } else {
+                Log.e(TAG, "SharedPrefsManager is null");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to save to history", e);
+        }
+
             }
         });
 

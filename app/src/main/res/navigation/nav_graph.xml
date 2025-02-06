@@ -109,7 +109,11 @@
             app:enterAnim="@anim/nav_default_enter_anim"
             app:exitAnim="@anim/nav_default_exit_anim"
             app:popEnterAnim="@anim/nav_default_pop_enter_anim"
-            app:popExitAnim="@anim/nav_default_pop_exit_anim" />
+            app:popExitAnim="@anim/nav_default_pop_exit_anim">
+            <argument
+                android:name="shortCode"
+                app:argType="string" />
+        </action>
     </fragment>
 
     <fragment
@@ -119,10 +123,7 @@
         <argument
             android:name="shortCode"
             app:argType="string" />
-        <deepLink
-            app:uri="https://eventwishes.onrender.com/wish/{shortCode}" />
-        <deepLink
-            app:uri="eventwish://wish/{shortCode}" />
+
         <action
             android:id="@+id/action_shared_wish_to_templates"
             app:destination="@id/navigation_templates"
@@ -136,5 +137,32 @@
         android:id="@+id/navigation_more"
         android:name="com.ds.eventwish.ui.more.MoreFragment"
         android:label="More" />
+
+    <fragment
+        android:id="@+id/resourceFragment"
+        android:name="com.ds.eventwish.resourse.ResourceFragment"
+        android:label="Resource">
+
+        <argument
+            android:name="shortCode"
+            app:argType="string"
+            app:nullable="true" />
+
+        <deepLink
+            android:id="@+id/deepLink_https"
+            app:uri="https://eventwishes.onrender.com/wish/{shortCode}" />
+            
+        <deepLink
+            android:id="@+id/deepLink_custom"
+            app:uri="eventwish://wish/{shortCode}" />
+    </fragment>
+
+    <action
+        android:id="@+id/action_global_resourceFragment"
+        app:destination="@id/resourceFragment"
+        app:enterAnim="@anim/nav_default_enter_anim"
+        app:exitAnim="@anim/nav_default_exit_anim"
+        app:popEnterAnim="@anim/nav_default_pop_enter_anim"
+        app:popExitAnim="@anim/nav_default_pop_exit_anim" />
 
 </navigation>
