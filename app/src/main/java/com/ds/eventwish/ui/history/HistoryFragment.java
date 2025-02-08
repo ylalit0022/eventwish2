@@ -20,6 +20,8 @@ import com.ds.eventwish.databinding.FragmentHistoryBinding;
 import com.ds.eventwish.ui.base.BaseFragment;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
+import java.util.ArrayList;
+
 public class HistoryFragment extends BaseFragment implements HistoryAdapter.OnHistoryItemClickListener {
     private static final String TAG = "HistoryFragment";
     private FragmentHistoryBinding binding;
@@ -92,6 +94,9 @@ public class HistoryFragment extends BaseFragment implements HistoryAdapter.OnHi
             .setPositiveButton(R.string.clear, (dialog, which) -> {
                 Log.d(TAG, "Clear history confirmed");
                 viewModel.clearHistory();
+                // Force refresh the adapter
+                historyAdapter.submitList(null);
+                historyAdapter.submitList(new ArrayList<>());
             })
             .setNegativeButton(R.string.cancel, null)
             .show();

@@ -14,10 +14,12 @@
         android:layout_height="match_parent"
         android:padding="16dp">
 
-        <WebView
+        <ImageView
             android:id="@+id/templateImage"
             android:layout_width="80dp"
             android:layout_height="80dp"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_whatsapp"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 

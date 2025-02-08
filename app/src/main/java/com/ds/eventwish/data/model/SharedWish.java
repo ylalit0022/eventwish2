@@ -1,5 +1,7 @@
 package com.ds.eventwish.data.model;
 
+import android.util.Log;
+
 import com.google.gson.annotations.SerializedName;
 import java.util.Date;
 import java.util.Objects;
@@ -44,8 +46,32 @@ public class SharedWish {
     @SerializedName("jsContent")
     private String jsContent;
 
+    @SerializedName("previewUrl")
+    private String previewUrl;
+
     @SerializedName("sharedVia")
     private String sharedVia = "LINK";
+
+    public SharedWish() {
+    }
+
+    public SharedWish(String senderName, String recipientName, String message, String templateId, String previewUrl) {
+        this.senderName = senderName;
+        this.recipientName = recipientName;
+        this.message = message;
+        this.templateId = templateId;
+        this.previewUrl = previewUrl;
+        Log.d("SharedWish", "Created with previewUrl: " + previewUrl);
+    }
+
+    public String getPreviewUrl() {
+        return previewUrl;
+    }
+
+    public void setPreviewUrl(String previewUrl) {
+        this.previewUrl = previewUrl;
+        Log.d("SharedWish", "Preview URL set to: " + previewUrl);
+    }
 
     public String getJsContent() {
         return jsContent;
@@ -176,6 +202,7 @@ public class SharedWish {
         SharedWish that = (SharedWish) o;
         return Objects.equals(id, that.id) &&
                Objects.equals(shortCode, that.shortCode) &&
+               Objects.equals(previewUrl, that.previewUrl) &&
                Objects.equals(templateId, that.templateId);
     }
 

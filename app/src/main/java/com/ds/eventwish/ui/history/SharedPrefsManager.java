@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class SharedPrefsManager {
     private final MutableLiveData<List<SharedWish>> historyItemsLiveData = new MutableLiveData<>();
@@ -32,6 +33,7 @@ public class SharedPrefsManager {
         prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         gson = new Gson();
         loadHistoryFromPrefs();
+        debugPrintHistory();
 
     }
     private void loadHistoryFromPrefs() {
@@ -41,6 +43,19 @@ public class SharedPrefsManager {
 
     public void saveHistoryItem(SharedWish wish) {
         try {
+            List<SharedWish> currentItems = getHistoryItems();
+
+            // Remove existing item with same shortcode if exists
+             currentItems.removeIf(item ->
+             item.getShortCode().equals(wish.getShortCode())
+         );
+
+         if (wish.getPreviewUrl() == null || wish.getPreviewUrl().isEmpty()) {
+            Log.w(TAG, "Saving wish without preview URL");
+        } else {
+            Log.d(TAG, "Saving wish with preview URL: " + wish.getPreviewUrl());
+        }
+
             if (wish == null || wish.getShortCode() == null || wish.getRecipientName() == null || wish.getSenderName() == null) {
                 Log.e(TAG, "Attempted to save an invalid wish: " + wish);
                 return;  // 🚨 Prevent saving incomplete data
@@ -51,6 +66,9 @@ public class SharedPrefsManager {
 
             prefs.edit().putString(KEY_HISTORY, gson.toJson(existingWishes)).apply();
             historyItemsLiveData.setValue(existingWishes); // Use setValue instead of postValue
+            notifyHistoryChanged();
+
+            Log.d(TAG, "Saved wish with preview URL: " + wish.getPreviewUrl());
 
             Log.d(TAG, "Saved wish: " + wish.getShortCode() + " → " + wish.getRecipientName() + " -> " +wish.getSenderName());
 
@@ -106,4 +124,19 @@ public class SharedPrefsManager {
         return new SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
                 .format(new Date());
     }
-}
+
+    // Add this debug method to SharedPrefsManager
+public void debugPrintHistory() {
+    String json = prefs.getString(KEY_HISTORY, "[]");
+    Type type = new TypeToken<ArrayList<SharedWish>>() {}.getType();
+    List<SharedWish> wishes = gson.fromJson(json, type);
+
+    Log.d(TAG, "Current history content (" + (wishes != null ? wishes.size() : 0) + " items):");
+    Map<String, ?> allPrefs = prefs.getAll();
+    Log.d(TAG, "All SharedPreferences contents:");
+    for (Map.Entry<String, ?> entry : allPrefs.entrySet()) {
+        Log.d(TAG, entry.getKey() + ": " + entry.getValue());
+    }
+    }
+  }
+// Add this method to SharedPrefsManager

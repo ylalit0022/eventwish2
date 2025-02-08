@@ -22,6 +22,8 @@ public class SharedWishViewModel extends ViewModel {
     private final MutableLiveData<WishResponse> sharedWish = new MutableLiveData<>();
     private final MutableLiveData<String> error = new MutableLiveData<>();
 
+    private Call<WishResponse> currentCall;
+
     public SharedWishViewModel() {
         apiService = ApiClient.getClient();
     }
@@ -37,16 +39,23 @@ public class SharedWishViewModel extends ViewModel {
     public void loadSharedWish(String shortCode) {
         Log.d(TAG, "Loading wish: " + shortCode);
 
-        apiService.getSharedWish(shortCode).enqueue(new Callback<WishResponse>() {
+        // Cancel any ongoing call
+        if (currentCall != null) {
+            currentCall.cancel();
+        }
+
+        currentCall = apiService.getSharedWish(shortCode);
+        currentCall.enqueue(new Callback<WishResponse>() {
             @Override
             public void onResponse(Call<WishResponse> call, Response<WishResponse> response) {
+                if (call.isCanceled()) return;
+
                 if (response.isSuccessful() && response.body() != null) {
                     wishResponse = response.body();
                     Log.d(TAG, "Wish loaded: " + new Gson().toJson(wishResponse));
-                Log.d(TAG, "Template: " + (wishResponse.getTemplate() != null ? 
-                    wishResponse.getTemplate().getId() : "null"));
+                    Log.d(TAG, "Template: " + (wishResponse.getTemplate() != null ? 
+                        wishResponse.getTemplate().getId() : "null"));
                     sharedWish.setValue(wishResponse);
-
                 } else {
                     String errorMessage = "Failed to load wish: " + response.code();
                     Log.e(TAG, errorMessage);
@@ -56,10 +65,20 @@ public class SharedWishViewModel extends ViewModel {
 
             @Override
             public void onFailure(Call<WishResponse> call, Throwable t) {
+                if (call.isCanceled()) return;
+                
                 String errorMessage = "Network error: " + t.getMessage();
                 Log.e(TAG, errorMessage, t);
                 error.setValue(t.getMessage());
             }
         });
+    }
+
+    @Override
+    protected void onCleared() {
+        super.onCleared();
+        if (currentCall != null) {
+            currentCall.cancel();
+        }
     }
 }

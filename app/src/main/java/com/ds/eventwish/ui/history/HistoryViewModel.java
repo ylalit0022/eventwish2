@@ -12,6 +12,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 public class HistoryViewModel extends AndroidViewModel {
@@ -68,15 +69,19 @@ public class HistoryViewModel extends AndroidViewModel {
         error.setValue(null);
 
         try {
-            preferences.edit().remove(KEY_HISTORY).apply();
+            // Clear both the SharedPreferences and the LiveData
+            preferences.edit()
+                .remove(KEY_HISTORY)
+                .commit(); // Using commit() instead of apply() for immediate effect
+            
             historyItems.setValue(new ArrayList<>());
             Log.d(TAG, "History cleared successfully");
         } catch (Exception e) {
             Log.e(TAG, "Error clearing history", e);
             error.setValue("Failed to clear history");
+        } finally {
+            loading.setValue(false);
         }
-        
-        loading.setValue(false);
     }
 
     public void addToHistory(SharedWish wish) {
@@ -86,6 +91,9 @@ public class HistoryViewModel extends AndroidViewModel {
         }
 
         Log.d(TAG, "addToHistory: Adding wish to history: " + wish.getShortCode());
+        if (wish.getPreviewUrl() != null) {
+            Log.d(TAG, "Preview URL being saved: " + wish.getPreviewUrl());
+        }
         
         List<SharedWish> currentItems = historyItems.getValue();
         if (currentItems == null) {
@@ -97,6 +105,11 @@ public class HistoryViewModel extends AndroidViewModel {
             existingWish.getShortCode() != null && 
             existingWish.getShortCode().equals(wish.getShortCode())
         );
+        
+        // Set creation time if not set
+        if (wish.getCreatedAt() == null) {
+            wish.setCreatedAt(new Date());
+        }
         
         // Add to beginning of list
         currentItems.add(0, wish);

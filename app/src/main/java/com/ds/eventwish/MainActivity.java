@@ -21,12 +21,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class MainActivity extends AppCompatActivity implements NavigationBarView.OnItemSelectedListener {
+public class MainActivity extends AppCompatActivity {
     private ActivityMainBinding binding;
     private NavController navController;
-    private AppBarConfiguration appBarConfiguration;
-    private Set<Integer> topLevelDestinations;
     private static final String TAG = "MainActivity";
+    private boolean isNavigating = false; // Flag to prevent navigation loops
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,9 +36,94 @@ public class MainActivity extends AppCompatActivity implements NavigationBarView
         setSupportActionBar(binding.toolbar);
         setupNavigation();
 
-        // Handle deep link intent
         if (savedInstanceState == null) {
             handleIntent(getIntent());
+        }
+    }
+
+    private void setupNavigation() {
+        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.nav_host_fragment);
+        
+        if (navHostFragment != null) {
+            navController = navHostFragment.getNavController();
+            
+            // Setup Bottom Navigation
+            binding.bottomNavigation.setOnItemSelectedListener(item -> {
+                if (isNavigating) return false;
+                
+                int itemId = item.getItemId();
+                if (navController.getCurrentDestination() != null && 
+                    navController.getCurrentDestination().getId() == itemId) {
+                    return true; // Already at this destination
+                }
+                
+                try {
+                    isNavigating = true;
+                    
+                    if (itemId == R.id.navigation_home) {
+                        navController.popBackStack(R.id.navigation_home, false);
+                        return true;
+                    } else if (itemId == R.id.navigation_history) {
+                        navController.navigate(R.id.navigation_history);
+                        return true;
+                    } else if (itemId == R.id.navigation_more) {
+                        navController.navigate(R.id.navigation_more);
+                        return true;
+                    }
+                    
+                } catch (Exception e) {
+                    Log.e(TAG, "Navigation failed", e);
+                } finally {
+                    isNavigating = false;
+                }
+                return false;
+            });
+
+            // Update bottom nav selection based on destination changes
+            navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
+                int id = destination.getId();
+                if (id == R.id.navigation_home || 
+                    id == R.id.navigation_history || 
+                    id == R.id.navigation_more) {
+                    binding.bottomNavigation.setVisibility(View.VISIBLE);
+                    if (!isNavigating) {
+                        binding.bottomNavigation.setSelectedItemId(id);
+                    }
+                } else {
+                    binding.bottomNavigation.setVisibility(View.GONE);
+                }
+            });
+
+            // Setup default NavController behavior
+            NavigationUI.setupActionBarWithNavController(this, navController);
+        } else {
+            Log.e(TAG, "NavHostFragment not found!");
+        }
+    }
+
+    @Override
+    public boolean onSupportNavigateUp() {
+        return navController != null && navController.navigateUp() || super.onSupportNavigateUp();
+    }
+
+    private void handleIntent(Intent intent) {
+        if (intent == null || navController == null) return;
+
+        String action = intent.getAction();
+        Uri data = intent.getData();
+        
+        if (Intent.ACTION_VIEW.equals(action) && data != null) {
+            String shortCode = DeepLinkUtil.extractShortCode(data);
+            if (shortCode != null) {
+                try {
+                    Bundle args = new Bundle();
+                    args.putString("shortCode", shortCode);
+                    navController.navigate(R.id.action_global_resourceFragment, args);
+                } catch (Exception e) {
+                    Log.e(TAG, "Deep link navigation failed", e);
+                }
+            }
         }
     }
 
@@ -48,97 +132,6 @@ public class MainActivity extends AppCompatActivity implements NavigationBarView
         super.onNewIntent(intent);
         setIntent(intent);
         handleIntent(intent);
-    }
-
-    private void setupNavigation() {
-        // Initialize NavController using NavHostFragment
-        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.nav_host_fragment);
-        if (navHostFragment != null) {
-            navController = navHostFragment.getNavController();
-
-            // Set up top-level destinations
-            topLevelDestinations = new HashSet<>();
-            topLevelDestinations.add(R.id.navigation_home);
-            topLevelDestinations.add(R.id.navigation_history);
-            topLevelDestinations.add(R.id.navigation_reminder);
-            topLevelDestinations.add(R.id.navigation_more);
-
-            // Set up AppBarConfiguration
-            appBarConfiguration = new AppBarConfiguration.Builder(topLevelDestinations)
-                    .build();
-
-            // Set up ActionBar with NavController
-            NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
-
-            // Setup bottom navigation
-            binding.bottomNavigation.setOnItemSelectedListener(this);
-            NavigationUI.setupWithNavController(binding.bottomNavigation, navController);
-
-            // Handle destination changes
-            navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
-                // Show bottom nav only for top-level destinations
-                boolean isTopLevel = topLevelDestinations.contains(destination.getId());
-                binding.bottomNavigation.setVisibility(isTopLevel ? View.VISIBLE : View.GONE);
-            });
-        } else {
-            Log.e(TAG, "NavHostFragment not found!");
-        }
-    }
-
-    @Override
-    public boolean onSupportNavigateUp() {
-        return NavigationUI.navigateUp(navController, appBarConfiguration)
-                || super.onSupportNavigateUp();
-    }
-
-    @Override
-    public boolean onNavigationItemSelected(MenuItem item) {
-        int itemId = item.getItemId();
-        if (topLevelDestinations.contains(itemId)) {
-            // If we're already at this destination, don't navigate
-            if (navController.getCurrentDestination() != null && 
-                navController.getCurrentDestination().getId() == itemId) {
-                return true;
-            }
-            // Navigate to the selected destination
-            return NavigationUI.onNavDestinationSelected(item, navController);
-        }
-        return false;
-    }
-
-    private void handleIntent(Intent intent) {
-        if (intent == null) {
-            Log.d(TAG, "handleIntent: Intent is null");
-            return;
-        }
-
-        String action = intent.getAction();
-        Uri data = intent.getData();
-        
-        Log.d(TAG, "handleIntent: Action=" + action + ", Data=" + (data != null ? data.toString() : "null"));
-
-        if (Intent.ACTION_VIEW.equals(action) && data != null) {
-            String shortCode = DeepLinkUtil.extractShortCode(data);
-            Log.d(TAG, "handleIntent: Extracted shortCode=" + shortCode);
-            
-            if (shortCode != null) {
-                try {
-                    Log.d(TAG, "handleIntent: Attempting to navigate to ResourceFragment");
-                    Bundle args = new Bundle();
-                    args.putString("shortCode", shortCode);
-                    // Use the global action instead of direct navigation
-                    navController.navigate(R.id.action_global_resourceFragment, args);
-                    Log.d(TAG, "handleIntent: Navigation successful");
-                } catch (Exception e) {
-                    Log.e(TAG, "handleIntent: Navigation failed", e);
-                }
-            } else {
-                Log.e(TAG, "handleIntent: Failed to extract shortCode from URI: " + data);
-            }
-        } else {
-            Log.d(TAG, "handleIntent: Not a VIEW action or no data present");
-        }
     }
 
     @Override

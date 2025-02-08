@@ -57,9 +57,8 @@
                 android:layout_below="@id/searchCard"
                 android:layout_marginTop="16dp"
                 android:clipToPadding="false"
-                android:orientation="horizontal"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
                 android:paddingTop="8dp"
                 android:paddingBottom="8dp" />
 

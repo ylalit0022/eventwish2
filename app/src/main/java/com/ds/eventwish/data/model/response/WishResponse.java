@@ -41,6 +41,18 @@ public class WishResponse {
     @SerializedName("createdAt")
     private Date createdAt;
 
+    @SerializedName("previewUrl")
+    private String previewUrl;
+
+
+    public String getPreviewUrl() {
+        return previewUrl;
+    }
+
+    public void setPreviewUrl(String previewUrl) {
+        this.previewUrl = previewUrl;
+    }
+
     // Getters and Setters
     public String getShortCode() { return shortCode; }
     public void setShortCode(String shortCode) { this.shortCode = shortCode; }

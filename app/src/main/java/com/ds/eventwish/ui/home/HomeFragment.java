@@ -8,24 +8,36 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.SearchView;
+import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.ds.eventwish.MainActivity;
 import com.ds.eventwish.R;
 import com.ds.eventwish.databinding.FragmentHomeBinding;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.ui.base.BaseFragment;
 import com.ds.eventwish.ui.home.adapter.TemplateAdapter;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import com.google.android.flexbox.FlexboxLayoutManager;
+import com.google.android.flexbox.FlexDirection;
+import com.google.android.flexbox.JustifyContent;
+import com.google.android.flexbox.AlignItems;
+import com.google.android.flexbox.FlexWrap;
 
 public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemplateClickListener {
     private static final String TAG = "HomeFragment";
@@ -35,6 +47,9 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     private CategoriesAdapter categoriesAdapter;
     private GridLayoutManager layoutManager;
     private static final int VISIBLE_THRESHOLD = 5;
+    private BottomNavigationView bottomNav;
+    private long backPressedTime;
+    private static final long BACK_PRESS_DELAY = 2000; // 2 seconds
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -45,15 +60,32 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     @Override
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        // hide toolbar
-        ((AppCompatActivity) requireActivity()).getSupportActionBar().hide();
-
+        
         setupViewModel();
         setupUI();
         setupRecyclerView();
         setupSearch();
         setupObservers();
         setupSwipeRefresh();
+        setupBottomNavigation();
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        
+        // Handle back press for exit confirmation
+        requireActivity().getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (backPressedTime + BACK_PRESS_DELAY > System.currentTimeMillis()) {
+                    requireActivity().finish();
+                } else {
+                    Toast.makeText(requireContext(), "Press back again to exit", Toast.LENGTH_SHORT).show();
+                }
+                backPressedTime = System.currentTimeMillis();
+            }
+        });
     }
 
     private void setupViewModel() {
@@ -61,11 +93,16 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     }
 
     private void setupUI() {
-        // Setup categories RecyclerView
+        // Setup categories RecyclerView with FlexboxLayoutManager
         categoriesAdapter = new CategoriesAdapter();
+        FlexboxLayoutManager flexboxLayoutManager = new FlexboxLayoutManager(requireContext());
+        flexboxLayoutManager.setFlexDirection(FlexDirection.ROW);
+        flexboxLayoutManager.setJustifyContent(JustifyContent.FLEX_START);
+        flexboxLayoutManager.setAlignItems(AlignItems.FLEX_START);
+        flexboxLayoutManager.setFlexWrap(FlexWrap.WRAP);
+
+        binding.categoriesRecyclerView.setLayoutManager(flexboxLayoutManager);
         binding.categoriesRecyclerView.setAdapter(categoriesAdapter);
-        binding.categoriesRecyclerView.setLayoutManager(
-                new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false));
 
         categoriesAdapter.setOnCategoryClickListener((category, position) -> {
             if (category.equals("All")) {
@@ -116,31 +153,11 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
 
     private void setupSwipeRefresh() {
         binding.swipeRefreshLayout.setOnRefreshListener(() -> {
-            Log.d(TAG, "Swipe refresh triggered");
-            binding.bottomLoadingView.setVisibility(View.GONE);
             viewModel.loadTemplates(true);
         });
     }
-//old mthod
-//    private void setupSearch() {
-//        binding.searchView.addTextChangedListener(new TextWatcher() {
-//            @Override
-//            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-//
-//            @Override
-//            public void onTextChanged(CharSequence s, int start, int before, int count) {}
-//
-//            @Override
-//            public void afterTextChanged(Editable s) {
-//                Log.d(TAG, "Search query changed: " + s.toString());
-//                binding.bottomLoadingView.setVisibility(View.GONE);
-//                viewModel.setSearchQuery(s.toString());
-//            }
-//        });
-//    }
 
-    private void setupSearch (){
-        //SearchView searchView = view.findViewById(R.id.searchView);
+    private void setupSearch() {
         binding.searchView.setIconified(false); // Ensure it's always expanded
         binding.searchView.clearFocus(); // Prevents immediate focus on load
 
@@ -159,20 +176,23 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         });
     }
 
-
-
     private void setupObservers() {
+        // Templates observer
         viewModel.getTemplates().observe(getViewLifecycleOwner(), templates -> {
-            Log.d(TAG, "Templates updated - size: " + (templates != null ? templates.size() : 0));
+            Log.d(TAG, "Received templates: " + (templates != null ? templates.size() : 0));
+            
             if (templates != null) {
-                adapter.submitList(new ArrayList<>(templates)); // Create new list to force update
-                binding.emptyView.setVisibility(templates.isEmpty() ? View.VISIBLE : View.GONE);
-                binding.templatesRecyclerView.setVisibility(templates.isEmpty() ? View.GONE : View.VISIBLE);
+                adapter.submitList(new ArrayList<>(templates));
+                boolean isEmpty = templates.isEmpty();
+                binding.emptyView.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+                binding.templatesRecyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
             }
+            
             binding.swipeRefreshLayout.setRefreshing(false);
             binding.bottomLoadingView.setVisibility(View.GONE);
         });
 
+        // Categories observer
         viewModel.getCategories().observe(getViewLifecycleOwner(), categories -> {
             Log.d(TAG, "Categories updated - size: " + (categories != null ? categories.size() : 0));
             if (categories != null) {
@@ -180,24 +200,35 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                 categoryList.add("All"); // Add "All" as the first category
                 categoryList.addAll(categories.keySet());
                 categoriesAdapter.updateCategories(categoryList);
+                
+                // Maintain selected position if category is selected
+                if (viewModel.getCurrentCategory() != null) {
+                    int position = categoryList.indexOf(viewModel.getCurrentCategory());
+                    if (position >= 0) {
+                        categoriesAdapter.setSelectedPosition(position);
+                    }
+                }
             }
         });
 
+        // Error observer
         viewModel.getError().observe(getViewLifecycleOwner(), error -> {
             if (error != null) {
-                Log.e(TAG, "Error received: " + error);
-                Snackbar.make(binding.getRoot(), error, Snackbar.LENGTH_LONG).show();
-                binding.swipeRefreshLayout.setRefreshing(false);
-                binding.bottomLoadingView.setVisibility(View.GONE);
+                binding.templatesRecyclerView.setVisibility(View.VISIBLE);
+                Snackbar.make(binding.getRoot(), error, Snackbar.LENGTH_LONG)
+                    .setAction("Retry", v -> viewModel.loadTemplates(true))
+                    .show();
             }
         });
+    }
 
-        viewModel.isLoading().observe(getViewLifecycleOwner(), isLoading -> {
-            Log.d(TAG, "Loading state changed: " + isLoading);
-            if (!isLoading) {
-                binding.bottomLoadingView.setVisibility(View.GONE);
-            }
-        });
+    private void setupBottomNavigation() {
+        if (getActivity() instanceof MainActivity) {
+            bottomNav = getActivity().findViewById(R.id.bottomNavigation);
+            bottomNav.setVisibility(View.VISIBLE);
+            // Set the selected item to home
+            bottomNav.setSelectedItemId(R.id.navigation_home);
+        }
     }
 
     @Override
@@ -206,7 +237,6 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
             HomeFragmentDirections.actionHomeToTemplateDetail(template.getId());
         Navigation.findNavController(requireView()).navigate(action);
     }
-
 
     @Override
     public void onDestroyView() {

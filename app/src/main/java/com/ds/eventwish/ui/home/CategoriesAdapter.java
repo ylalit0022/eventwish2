@@ -1,15 +1,19 @@
 package com.ds.eventwish.ui.home;
 
+import android.graphics.Color;
 import android.view.LayoutInflater;
+import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
-import com.ds.eventwish.databinding.ItemCategoryBinding;
+import com.ds.eventwish.R;
+import com.google.android.material.card.MaterialCardView;
 import java.util.ArrayList;
 import java.util.List;
 
 public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.CategoryViewHolder> {
-    private List<String> categories;
+    private List<String> categories = new ArrayList<>();
     private int selectedPosition = 0;
     private OnCategoryClickListener listener;
 
@@ -21,24 +25,30 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         this.listener = listener;
     }
 
-    public CategoriesAdapter() {
-        this.categories = new ArrayList<>();
-        // Add "All" category by default
-        //categories.add("All");
+    public void updateCategories(List<String> newCategories) {
+        this.categories = new ArrayList<>(newCategories);
+        notifyDataSetChanged();
+    }
+
+    public void setSelectedPosition(int position) {
+        int previousPosition = selectedPosition;
+        selectedPosition = position;
+        notifyItemChanged(previousPosition);
+        notifyItemChanged(selectedPosition);
     }
 
     @NonNull
     @Override
     public CategoryViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        ItemCategoryBinding binding = ItemCategoryBinding.inflate(
-            LayoutInflater.from(parent.getContext()), parent, false);
-        return new CategoryViewHolder(binding);
+        View view = LayoutInflater.from(parent.getContext())
+                .inflate(R.layout.item_category, parent, false);
+        return new CategoryViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull CategoryViewHolder holder, int position) {
         String category = categories.get(position);
-        holder.bind(category, position == selectedPosition, position, listener);
+        holder.bind(category, position == selectedPosition);
     }
 
     @Override
@@ -46,61 +56,31 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         return categories.size();
     }
 
-// old and working method
-//    public void updateCategories(List<String> newCategories) {
-//        categories.clear();
-//        categories.add("All");
-//
-//        if (newCategories != null) {
-//            categories.addAll(newCategories);
-//        }
-//        notifyDataSetChanged();
-//    }
+    class CategoryViewHolder extends RecyclerView.ViewHolder {
+        private final MaterialCardView cardView;
+        private final TextView categoryName;
 
-    //new mothod added
-    public void updateCategories(List<String> newCategories) {
-        categories.clear();
+        CategoryViewHolder(@NonNull View itemView) {
+            super(itemView);
+            cardView = (MaterialCardView) itemView;
+            categoryName = itemView.findViewById(R.id.categoryName);
 
-        if (newCategories != null) {
-            if (!newCategories.contains("All")) {
-                categories.add("All");  // Add "All" only if it's missing
-            }
-            categories.addAll(newCategories);
-        }
-
-        notifyDataSetChanged();
-    }
-
-
-    public void setSelectedPosition(int position) {
-        int oldPosition = selectedPosition;
-        selectedPosition = position;
-        notifyItemChanged(oldPosition);
-        notifyItemChanged(position);
-    }
-
-    static class CategoryViewHolder extends RecyclerView.ViewHolder {
-        private final ItemCategoryBinding binding;
-
-        CategoryViewHolder(ItemCategoryBinding binding) {
-            super(binding.getRoot());
-            this.binding = binding;
-        }
-
-        void bind(String category, boolean isSelected, int position, OnCategoryClickListener listener) {
-            String displayText = category;
-            if (position > 0) { // Don't show count for "All" category
-                // No count to display
-            }
-            
-            binding.categoryChip.setText(displayText);
-            binding.categoryChip.setChecked(isSelected);
-            
-            binding.categoryChip.setOnClickListener(v -> {
-                if (listener != null) {
-                    listener.onCategoryClick(category, position);
+            itemView.setOnClickListener(v -> {
+                int position = getAdapterPosition();
+                if (position != RecyclerView.NO_POSITION && listener != null) {
+                    listener.onCategoryClick(categories.get(position), position);
                 }
             });
+        }
+
+        void bind(String category, boolean isSelected) {
+            categoryName.setText(category);
+            cardView.setCardBackgroundColor(isSelected ? 
+                itemView.getContext().getColor(R.color.primary) : 
+                Color.WHITE);
+            categoryName.setTextColor(isSelected ? 
+                Color.WHITE : 
+                itemView.getContext().getColor(R.color.black));
         }
     }
 }

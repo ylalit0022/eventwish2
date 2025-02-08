@@ -59,9 +59,11 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
 
         ((AppCompatActivity) requireActivity()).getSupportActionBar().hide();
 
-        // Get bottom navigation from activity
+        // Get bottom navigation from activity and setup
         if (getActivity() instanceof MainActivity) {
             bottomNav = getActivity().findViewById(R.id.bottomNavigation);
+            // Keep bottom navigation visible but disable it temporarily
+            bottomNav.setEnabled(false);
             setupKeyboardVisibilityListener(view);
         }
         
@@ -69,7 +71,6 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         setupInputListeners();
         setupObservers();
         setupClickListeners();
-        setupBottomNavigation();
         
         // Load template data
         templateId = TemplateDetailFragmentArgs.fromBundle(getArguments()).getTemplateId();
@@ -289,39 +290,6 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         });
     }
 
-    private void setupBottomNavigation() {
-        bottomNav = requireActivity().findViewById(R.id.bottomNavigation);
-        bottomNav.setOnItemSelectedListener(item -> {
-            int itemId = item.getItemId();
-            if (itemId == R.id.navigation_home) {
-                navigateToHome();
-                return true;
-            } else if (itemId == R.id.navigation_history) {
-                navigateToHistory();
-                return true;
-            } else if (itemId == R.id.navigation_more) {
-                navigateToMore();
-                return true;
-            }
-            return false;
-        });
-    }
-    
-    private void navigateToHome() {
-        NavController navController = Navigation.findNavController(requireView());
-        navController.navigate(R.id.navigation_home);
-    }
-    
-    private void navigateToHistory() {
-        NavController navController = Navigation.findNavController(requireView());
-        navController.navigate(R.id.navigation_history);
-    }
-    
-    private void navigateToMore() {
-        NavController navController = Navigation.findNavController(requireView());
-        navController.navigate(R.id.navigation_more);
-    }
-
     @Override
     public void onPause() {
         super.onPause();
@@ -355,8 +323,9 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
             binding.webView.destroy();
         }
         
-        // Show bottom navigation when leaving
+        // Re-enable bottom navigation when leaving
         if (bottomNav != null) {
+            bottomNav.setEnabled(true);
             bottomNav.setVisibility(View.VISIBLE);
         }
         

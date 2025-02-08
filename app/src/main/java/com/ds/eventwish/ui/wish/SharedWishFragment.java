@@ -14,9 +14,14 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.activity.OnBackPressedCallback;
+import androidx.navigation.Navigation;
+import androidx.navigation.NavController;
 
+import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.response.WishResponse;
 import com.ds.eventwish.databinding.FragmentSharedWishBinding;
+import com.ds.eventwish.ui.history.HistoryViewModel;
 import com.ds.eventwish.ui.history.SharedPrefsManager;
 import com.ds.eventwish.utils.DeepLinkUtil;
 import com.ds.eventwish.data.model.SharedWish;
@@ -32,6 +37,7 @@ public class SharedWishFragment extends Fragment {
     private String shortCode;
     private String TAG = "SharedWishFragment";
     private WishResponse currentWish;
+    private OnBackPressedCallback backPressCallback;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -42,6 +48,28 @@ public class SharedWishFragment extends Fragment {
         if (getArguments() != null) {
             shortCode = SharedWishFragmentArgs.fromBundle(getArguments()).getShortCode();
         }
+
+        // Handle back press with proper navigation
+        backPressCallback = new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                try {
+                    NavController navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment);
+                    // Check if we can pop back
+                    if (navController.getPreviousBackStackEntry() != null) {
+                        navController.popBackStack();
+                    } else {
+                        // If no back stack, go to home
+                        navController.navigate(R.id.navigation_home);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error handling back press", e);
+                    // Emergency fallback
+                    requireActivity().finish();
+                }
+            }
+        };
+        requireActivity().getOnBackPressedDispatcher().addCallback(this, backPressCallback);
     }
 
     @Nullable
@@ -55,6 +83,11 @@ public class SharedWishFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        
+        // Show loading state immediately
+        binding.loadingView.setVisibility(View.VISIBLE);
+        binding.contentLayout.setVisibility(View.GONE);
+        
         setupWebView();
         setupObservers();
         setupClickListeners();
@@ -80,24 +113,30 @@ public class SharedWishFragment extends Fragment {
                 Log.d(TAG, "Received Wish JSON: " + new Gson().toJson(wish));
                 currentWish = wish;
                 loadWishContent(wish);
-        // Save to history
-        try {
-            if (prefsManager != null) {
-                SharedWish historyWish = new SharedWish();
-                historyWish.setShortCode(wish.getShortCode());
-                historyWish.setRecipientName(wish.getRecipientName());
-                historyWish.setSenderName(wish.getSenderName());
-                historyWish.setTemplate(wish.getTemplate());
                 
-                prefsManager.saveHistoryItem(historyWish);
-                Log.d(TAG, "Saved wish to history: " + wish.getShortCode());
-            } else {
-                Log.e(TAG, "SharedPrefsManager is null");
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to save to history", e);
-        }
-
+                // Save to history with preview URL
+                try {
+                    SharedWish historyWish = new SharedWish();
+                    historyWish.setShortCode(wish.getShortCode());
+                    historyWish.setRecipientName(wish.getRecipientName());
+                    historyWish.setSenderName(wish.getSenderName());
+                    historyWish.setTemplate(wish.getTemplate());
+                    
+                    // Set the preview URL from template
+                    if (wish.getTemplate() != null && wish.getTemplate().getThumbnailUrl() != null) {
+                        historyWish.setPreviewUrl(wish.getTemplate().getThumbnailUrl());
+                        Log.d(TAG, "Setting preview URL: " + wish.getTemplate().getThumbnailUrl());
+                    }
+                    
+                    // Use HistoryViewModel instead of SharedPrefsManager
+                    ViewModelProvider provider = new ViewModelProvider(requireActivity());
+                    HistoryViewModel historyViewModel = provider.get(HistoryViewModel.class);
+                    historyViewModel.addToHistory(historyWish);
+                    
+                    Log.d(TAG, "Saved wish to history: " + wish.getShortCode());
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to save to history", e);
+                }
             }
         });
 
@@ -132,7 +171,7 @@ public class SharedWishFragment extends Fragment {
         }
 
         try{
-
+       // Log.d(TAG,template.getThumbnailUrl());
         String css = template.getCssContent() != null ? template.getCssContent() : "";
         String js = template.getJsContent() != null ? template.getJsContent() : "";
         Log.d(TAG, "CSS length: " + css.length() + ", JS length: " + js.length());
@@ -187,6 +226,15 @@ public class SharedWishFragment extends Fragment {
             binding.webView.stopLoading();
             binding.webView.destroy();
             binding = null;
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        // Remove back press callback
+        if (backPressCallback != null) {
+            backPressCallback.remove();
         }
     }
 }
