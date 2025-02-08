@@ -21,6 +21,7 @@
         android:textSize="14sp"
         android:maxLines="1"
         android:ellipsize="end"
+        android:drawablePadding="4dp"
         android:textColor="@color/black" />
 
 </com.google.android.material.card.MaterialCardView>

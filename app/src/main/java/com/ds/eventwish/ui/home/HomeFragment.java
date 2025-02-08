@@ -38,6 +38,7 @@ import com.google.android.flexbox.FlexDirection;
 import com.google.android.flexbox.JustifyContent;
 import com.google.android.flexbox.AlignItems;
 import com.google.android.flexbox.FlexWrap;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemplateClickListener {
     private static final String TAG = "HomeFragment";
@@ -93,7 +94,6 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     }
 
     private void setupUI() {
-        // Setup categories RecyclerView with FlexboxLayoutManager
         categoriesAdapter = new CategoriesAdapter();
         FlexboxLayoutManager flexboxLayoutManager = new FlexboxLayoutManager(requireContext());
         flexboxLayoutManager.setFlexDirection(FlexDirection.ROW);
@@ -110,8 +110,31 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
             } else {
                 viewModel.setCategory(category);
             }
-            categoriesAdapter.setSelectedPosition(position);
         });
+
+        categoriesAdapter.setOnMoreClickListener(remainingCategories -> {
+            showCategoriesBottomSheet(remainingCategories);
+        });
+    }
+
+    private void showCategoriesBottomSheet(List<String> categories) {
+        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
+        View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_categories, null);
+        RecyclerView categoriesRecyclerView = bottomSheetView.findViewById(R.id.categoriesRecyclerView);
+        
+        CategoriesAdapter bottomSheetAdapter = new CategoriesAdapter();
+        categoriesRecyclerView.setLayoutManager(new GridLayoutManager(requireContext(), 3));
+        categoriesRecyclerView.setAdapter(bottomSheetAdapter);
+        bottomSheetAdapter.updateCategories(categories);
+
+        bottomSheetAdapter.setOnCategoryClickListener((category, position) -> {
+            viewModel.setCategory(category);
+            categoriesAdapter.updateSelectedCategory(category);
+            bottomSheetDialog.dismiss();
+        });
+
+        bottomSheetDialog.setContentView(bottomSheetView);
+        bottomSheetDialog.show();
     }
 
     private void setupRecyclerView() {

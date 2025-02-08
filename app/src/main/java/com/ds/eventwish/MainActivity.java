@@ -22,10 +22,11 @@ import java.util.List;
 import java.util.Set;
 
 public class MainActivity extends AppCompatActivity {
+    private static final String TAG = "MainActivity";
     private ActivityMainBinding binding;
     private NavController navController;
-    private static final String TAG = "MainActivity";
-    private boolean isNavigating = false; // Flag to prevent navigation loops
+    private boolean isNavigating = false;
+    private AppBarConfiguration appBarConfiguration;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,36 +34,46 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
+        // Set up toolbar
         setSupportActionBar(binding.toolbar);
+        
         setupNavigation();
-
-        if (savedInstanceState == null) {
-            handleIntent(getIntent());
-        }
+        handleIntent(getIntent());
     }
 
     private void setupNavigation() {
         NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.nav_host_fragment);
-        
+
         if (navHostFragment != null) {
             navController = navHostFragment.getNavController();
-            
+
+            // Setup ActionBar with NavController
+            appBarConfiguration = new AppBarConfiguration.Builder(
+                R.id.navigation_home,
+                R.id.navigation_reminder,
+                R.id.navigation_history,
+                R.id.navigation_more
+            ).build();
+            NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
+
             // Setup Bottom Navigation
             binding.bottomNavigation.setOnItemSelectedListener(item -> {
                 if (isNavigating) return false;
-                
+
                 int itemId = item.getItemId();
                 if (navController.getCurrentDestination() != null && 
                     navController.getCurrentDestination().getId() == itemId) {
                     return true; // Already at this destination
                 }
-                
+
                 try {
                     isNavigating = true;
-                    
                     if (itemId == R.id.navigation_home) {
-                        navController.popBackStack(R.id.navigation_home, false);
+                        navController.navigate(R.id.navigation_home);
+                        return true;
+                    } else if (itemId == R.id.navigation_reminder) {
+                        navController.navigate(R.id.navigation_reminder);
                         return true;
                     } else if (itemId == R.id.navigation_history) {
                         navController.navigate(R.id.navigation_history);
@@ -71,7 +82,6 @@ public class MainActivity extends AppCompatActivity {
                         navController.navigate(R.id.navigation_more);
                         return true;
                     }
-                    
                 } catch (Exception e) {
                     Log.e(TAG, "Navigation failed", e);
                 } finally {
@@ -84,6 +94,7 @@ public class MainActivity extends AppCompatActivity {
             navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
                 int id = destination.getId();
                 if (id == R.id.navigation_home || 
+                    id == R.id.navigation_reminder ||
                     id == R.id.navigation_history || 
                     id == R.id.navigation_more) {
                     binding.bottomNavigation.setVisibility(View.VISIBLE);
@@ -94,9 +105,6 @@ public class MainActivity extends AppCompatActivity {
                     binding.bottomNavigation.setVisibility(View.GONE);
                 }
             });
-
-            // Setup default NavController behavior
-            NavigationUI.setupActionBarWithNavController(this, navController);
         } else {
             Log.e(TAG, "NavHostFragment not found!");
         }
@@ -104,7 +112,8 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onSupportNavigateUp() {
-        return navController != null && navController.navigateUp() || super.onSupportNavigateUp();
+        return NavigationUI.navigateUp(navController, appBarConfiguration) 
+            || super.onSupportNavigateUp();
     }
 
     private void handleIntent(Intent intent) {
