@@ -15,6 +15,8 @@
     <string name="notifications">Notifications</string>
     <string name="notifications_desc">Get notified about upcoming events</string>
     <string name="cancel">Cancel</string>
+    <string name="category_icon">Category Icon</string>
+
 
     <!-- About -->
     <string name="about">About</string>
@@ -77,6 +79,10 @@
     <!-- Common -->
     <string name="error_generic">Something went wrong. Please try again.</string>
     <string name="error_network">Network error. Please check your connection.</string>
+    <string name="filter_icon">Filter Icon</string>
+    <string name="empty_list">No reminders found</string>
+    <string name="add_reminder">Add Reminder</string>
+
 
 
     <!-- Help -->
@@ -89,6 +95,30 @@
     <string name="need_more_help">Need More Help?</string>
     <string name="contact_support">Contact Support</string>
     <string name="contact_support_desc">We\'re here to help! Send us an email and we\'ll get back to you within 24 hours.</string>
+
+    <!-- Reminders -->
+<!--    <string name="empty_list">No reminders found</string>-->
+<!--    <string name="add_reminder">Add Reminder</string>-->
+<!--    <string name="filter_icon">Filter Icon</string>-->
+    <string name="priority_high">High Priority</string>
+    <string name="priority_medium">Medium Priority</string>
+    <string name="priority_low">Low Priority</string>
+    <string name="repeats_every_n_days">Repeats every %d days</string>
+    <string name="reminder_deleted">Reminder deleted</string>
+    <string name="reminder_count">%d Reminders</string>
+    <string name="reminder_count_single">1 Reminder</string>
+    <string name="clear_all">Clear All</string>
+    <string name="clear_all_title">Clear All Reminders</string>
+    <string name="clear_all_message">Are you sure you want to delete all reminders? This action cannot be undone.</string>
+    <string name="cleared_all_reminders">All reminders cleared</string>
+    <string name="no_reminders_to_clear">No reminders to clear</string>
+
+    <!-- Reminder Dialog -->
+    <string name="edit_reminder">Edit Reminder</string>
+    <string name="save">Save</string>
+    <string name="error_title_required">Title is required</string>
+    <string name="error_invalid_interval">Please enter a valid interval greater than 0</string>
+    {{ ... }}
 
     <!-- Empty States -->
     <string name="no_history">No history</string>

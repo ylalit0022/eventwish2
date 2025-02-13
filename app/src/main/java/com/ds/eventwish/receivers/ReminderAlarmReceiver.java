@@ -1,53 +1,86 @@
-package com.ds.eventwish.workers;
+package com.ds.eventwish.receivers;
 
+import android.Manifest;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Build;
+import android.os.Bundle;
 import android.util.Log;
-import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
-import androidx.work.Worker;
-import androidx.work.WorkerParameters;
+import androidx.core.content.ContextCompat;
 import com.ds.eventwish.MainActivity;
 import com.ds.eventwish.R;
-import com.ds.eventwish.receivers.ReminderActionReceiver;
+import com.ds.eventwish.data.local.ReminderDao;
+import com.ds.eventwish.data.model.Reminder;
 
-public class ReminderNotificationWorker extends Worker {
-    private static final String TAG = "ReminderNotificationWorker";
+public class ReminderAlarmReceiver extends BroadcastReceiver {
+    private static final String TAG = "ReminderAlarmReceiver";
     private static final String CHANNEL_ID = "reminder_channel";
+    public static final String ACTION_SHOW_REMINDER = "com.ds.eventwish.ACTION_SHOW_REMINDER";
 
-    public ReminderNotificationWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
-        super(context, workerParams);
-    }
-
-    @NonNull
     @Override
-    public Result doWork() {
+    public void onReceive(Context context, Intent intent) {
+        Log.d(TAG, "Received alarm intent: " + intent.getAction());
+        dumpIntent(intent);
+
+        long reminderId = intent.getLongExtra("reminderId", -1);
+        String title = intent.getStringExtra("title");
+        String description = intent.getStringExtra("description");
+
+        Log.d(TAG, String.format("Reminder data - id: %d, title: %s, description: %s", 
+            reminderId, title, description));
+
+        if (reminderId == -1 || title == null) {
+            Log.e(TAG, "Missing reminder data in intent");
+            return;
+        }
+
         try {
-            String title = getInputData().getString("title");
-            String description = getInputData().getString("description");
-            long reminderId = getInputData().getLong("reminderId", -1);
-
-            if (title == null || reminderId == -1) {
-                Log.e(TAG, "Missing required data");
-                return Result.failure();
+            if (checkNotificationPermission(context)) {
+                createNotificationChannel(context);
+                showNotification(context, reminderId, title, description);
+                Log.d(TAG, "Successfully showed notification for reminder: " + reminderId);
+            } else {
+                Log.e(TAG, "Notification permission not granted");
             }
-
-            createNotificationChannel();
-            showNotification(reminderId, title, description);
-            return Result.success();
         } catch (Exception e) {
-            Log.e(TAG, "Error showing notification: " + e.getMessage(), e);
-            return Result.failure();
+            Log.e(TAG, "Failed to show notification: " + e.getMessage(), e);
         }
     }
 
-    private void createNotificationChannel() {
+    private void dumpIntent(Intent intent) {
+        Log.d(TAG, "Dumping Intent data:");
+        Log.d(TAG, "Action: " + intent.getAction());
+        Log.d(TAG, "Component: " + intent.getComponent());
+        Log.d(TAG, "Flags: " + Integer.toHexString(intent.getFlags()));
+        Log.d(TAG, "Categories: " + intent.getCategories());
+        Log.d(TAG, "Extras:");
+        Bundle extras = intent.getExtras();
+        if (extras != null) {
+            for (String key : extras.keySet()) {
+                Log.d(TAG, key + ": " + extras.get(key));
+            }
+        }
+    }
+
+    private boolean checkNotificationPermission(Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            boolean hasPermission = ContextCompat.checkSelfPermission(context, 
+                Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+            Log.d(TAG, "Notification permission check: " + hasPermission);
+            return hasPermission;
+        }
+        return true;
+    }
+
+    private void createNotificationChannel(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
@@ -64,16 +97,18 @@ public class ReminderNotificationWorker extends Worker {
             channel.setShowBadge(true);
             channel.setBypassDnd(true);
             
-            NotificationManager manager = getApplicationContext().getSystemService(NotificationManager.class);
+            NotificationManager manager = context.getSystemService(NotificationManager.class);
             if (manager != null) {
                 manager.createNotificationChannel(channel);
                 Log.d(TAG, "Created notification channel: " + CHANNEL_ID);
+            } else {
+                Log.e(TAG, "NotificationManager is null");
             }
         }
     }
 
-    private void showNotification(long reminderId, String title, String description) {
-        Context context = getApplicationContext();
+    private void showNotification(Context context, long reminderId, String title, String description) {
+        Log.d(TAG, "Building notification for reminder: " + reminderId);
 
         // Create intent for notification tap action
         Intent contentIntent = new Intent(context, MainActivity.class)
@@ -139,7 +174,20 @@ public class ReminderNotificationWorker extends Worker {
             .setVibrate(new long[]{0, 500, 250, 500})
             .setLights(Color.RED, 1000, 1000);
 
-        NotificationManagerCompat.from(context).notify((int) reminderId, builder.build());
-        Log.d(TAG, "Notification posted for reminder: " + reminderId);
+        Log.d(TAG, "Attempting to show notification");
+        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
+        
+        if (checkNotificationPermission(context)) {
+            try {
+                notificationManager.notify((int) reminderId, builder.build());
+                Log.d(TAG, "Successfully posted notification for reminder: " + reminderId);
+            } catch (SecurityException e) {
+                Log.e(TAG, "SecurityException showing notification: " + e.getMessage(), e);
+            } catch (Exception e) {
+                Log.e(TAG, "Error showing notification: " + e.getMessage(), e);
+            }
+        } else {
+            Log.e(TAG, "Cannot show notification - permission not granted");
+        }
     }
 }

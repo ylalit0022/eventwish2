@@ -4,30 +4,33 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:layout_margin="3dp"
+    android:layout_margin="4dp"
     app:cardBackgroundColor="#E0F7FA"
     app:cardCornerRadius="16dp"
-    app:cardElevation="2dp">
+    app:cardElevation="2dp"
+    android:checkable="true"
+    app:checkedIcon="@drawable/ic_check"
+    app:checkedIconTint="@color/white"
+    app:cardForegroundColor="@color/ripple_color">
 
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="5dp">
+        android:padding="8dp">
 
         <ImageView
+            android:id="@+id/filterIcon"
             android:layout_width="20dp"
             android:layout_height="20dp"
-            android:src="@drawable/ic_category_icon"
-            android:contentDescription="@string/category_icon" />
+            android:contentDescription="@string/filter_icon" />
 
         <TextView
-            android:id="@+id/categoryName"
+            android:id="@+id/filterName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="10dp"
-            android:text="Category Name"
-            android:layout_marginStart="5dp"
+            android:layout_marginStart="6dp"
+            android:textSize="12sp"
             android:textColor="@color/black" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

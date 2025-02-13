@@ -62,6 +62,10 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         
+        // Remove any references to Action Bar or Toolbar
+        // Example of setting a background color
+        binding.getRoot().setBackgroundColor(getResources().getColor(R.color.soft_background)); // Use the soft background color
+
         setupViewModel();
         setupUI();
         setupRecyclerView();
