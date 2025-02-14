@@ -4,6 +4,7 @@ import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -109,21 +110,30 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
     class CategoryViewHolder extends RecyclerView.ViewHolder {
         private final MaterialCardView cardView;
         private final TextView categoryName;
+        private final ImageView categoryIcon;
 
         CategoryViewHolder(@NonNull View itemView) {
             super(itemView);
             cardView = (MaterialCardView) itemView;
             categoryName = itemView.findViewById(R.id.categoryName);
+            categoryIcon = itemView.findViewById(R.id.categoryIcon);
         }
 
         void bind(String category, boolean isSelected) {
             categoryName.setText(category);
-            cardView.setCardBackgroundColor(isSelected ? 
-                itemView.getContext().getColor(R.color.primary) : 
-                Color.WHITE);
-            categoryName.setTextColor(isSelected ? 
-                Color.WHITE : 
-                itemView.getContext().getColor(R.color.black));
+
+            cardView.setCardBackgroundColor(isSelected ?
+                    itemView.getContext().getColor(R.color.black) :
+                    Color.WHITE);
+
+            categoryName.setTextColor(
+                    itemView.getContext().getColor(isSelected ? R.color.white : R.color.text_primary)
+            );
+
+            categoryIcon.setColorFilter(
+                    itemView.getContext().getColor(isSelected ? R.color.white : R.color.text_primary)
+            );
+
         }
     }
 }

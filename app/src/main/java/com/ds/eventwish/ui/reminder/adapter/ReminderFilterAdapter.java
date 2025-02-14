@@ -70,8 +70,9 @@ public class ReminderFilterAdapter extends RecyclerView.Adapter<ReminderFilterAd
             binding.filterIcon.setImageResource(item.iconRes);
             binding.filterName.setText(item.name);
             binding.getRoot().setChecked(isSelected);
+
             binding.getRoot().setCardBackgroundColor(
-                itemView.getContext().getColor(isSelected ? R.color.primary : R.color.card_background)
+                itemView.getContext().getColor(isSelected ? R.color.black : R.color.card_background)
             );
             binding.filterName.setTextColor(
                 itemView.getContext().getColor(isSelected ? R.color.white : R.color.text_primary)

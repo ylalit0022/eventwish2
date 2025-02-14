@@ -8,8 +8,6 @@
     app:cardBackgroundColor="#E0F7FA"
     app:cardCornerRadius="16dp"
     app:cardElevation="2dp"
-    android:checkable="true"
-    app:checkedIcon="@drawable/ic_check"
     app:checkedIconTint="@color/white"
     app:cardForegroundColor="@color/ripple_color">
 
