@@ -140,11 +140,13 @@ public class ReminderScheduler {
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setAlarmClock(
-                        new AlarmManager.AlarmClockInfo(reminder.getDateTime(), pendingIntent),
+                    // Use setExactAndAllowWhileIdle for more reliable alarms
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        reminder.getDateTime(),
                         pendingIntent
                     );
-                    Log.d(TAG, "Scheduled exact alarm clock for reminder " + reminder.getId() + " at " + reminder.getDateTime());
+                    Log.d(TAG, "Scheduled exact alarm for reminder " + reminder.getId() + " at " + reminder.getDateTime());
                 } else {
                     alarmManager.setAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
@@ -154,12 +156,17 @@ public class ReminderScheduler {
                     Log.d(TAG, "Scheduled inexact alarm for reminder " + reminder.getId() + " at " + reminder.getDateTime());
                 }
             } else {
-                alarmManager.setAlarmClock(
-                    new AlarmManager.AlarmClockInfo(reminder.getDateTime(), pendingIntent),
+                // For older versions, use setExactAndAllowWhileIdle
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    reminder.getDateTime(),
                     pendingIntent
                 );
-                Log.d(TAG, "Scheduled exact alarm clock for reminder " + reminder.getId() + " at " + reminder.getDateTime());
+                Log.d(TAG, "Scheduled exact alarm for reminder " + reminder.getId() + " at " + reminder.getDateTime());
             }
+
+            // Also schedule with WorkManager as a backup
+            scheduleWithWorkManager(context, reminder);
         } catch (Exception e) {
             String error = String.format("Failed to schedule alarm for reminder %d: %s", 
                 reminder.getId(), e.getMessage());

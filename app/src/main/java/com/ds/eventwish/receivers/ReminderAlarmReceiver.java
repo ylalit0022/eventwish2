@@ -1,6 +1,5 @@
 package com.ds.eventwish.receivers;
 
-import android.Manifest;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -15,10 +14,16 @@ import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
+import androidx.work.BackoffPolicy;
+import androidx.work.Data;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
 import com.ds.eventwish.MainActivity;
 import com.ds.eventwish.R;
-import com.ds.eventwish.data.local.ReminderDao;
 import com.ds.eventwish.data.model.Reminder;
+import com.ds.eventwish.workers.ReminderNotificationWorker;
+import java.util.concurrent.TimeUnit;
 
 public class ReminderAlarmReceiver extends BroadcastReceiver {
     private static final String TAG = "ReminderAlarmReceiver";
@@ -73,7 +78,7 @@ public class ReminderAlarmReceiver extends BroadcastReceiver {
     private boolean checkNotificationPermission(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             boolean hasPermission = ContextCompat.checkSelfPermission(context, 
-                Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+                android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
             Log.d(TAG, "Notification permission check: " + hasPermission);
             return hasPermission;
         }
@@ -108,86 +113,87 @@ public class ReminderAlarmReceiver extends BroadcastReceiver {
     }
 
     private void showNotification(Context context, long reminderId, String title, String description) {
-        Log.d(TAG, "Building notification for reminder: " + reminderId);
-
-        // Create intent for notification tap action
-        Intent contentIntent = new Intent(context, MainActivity.class)
-            .putExtra("reminderId", reminderId)
-            .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-
-        PendingIntent pendingIntent = PendingIntent.getActivity(
+        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
+        
+        // Create an Intent for opening the app
+        Intent contentIntent = new Intent(context, MainActivity.class);
+        contentIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        contentIntent.putExtra("reminderId", reminderId);
+        
+        PendingIntent contentPendingIntent = PendingIntent.getActivity(
             context,
             (int) reminderId,
             contentIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
-        // Create action intents
-        Intent snoozeIntent = new Intent(context, ReminderActionReceiver.class)
-            .setAction("SNOOZE")
-            .putExtra("reminderId", reminderId);
-
-        Intent completeIntent = new Intent(context, ReminderActionReceiver.class)
-            .setAction("COMPLETE")
-            .putExtra("reminderId", reminderId);
-
-        Intent deleteIntent = new Intent(context, ReminderActionReceiver.class)
-            .setAction("DELETE")
-            .putExtra("reminderId", reminderId);
-
+        // Create snooze intent
+        Intent snoozeIntent = new Intent(context, com.ds.eventwish.receivers.ReminderActionReceiver.class);
+        snoozeIntent.setAction("SNOOZE");
+        snoozeIntent.putExtra("reminderId", reminderId);
         PendingIntent snoozePendingIntent = PendingIntent.getBroadcast(
             context,
-            (int) (reminderId * 10 + 1),
+            (int) (reminderId + 1),
             snoozeIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
+        // Create complete intent
+        Intent completeIntent = new Intent(context, com.ds.eventwish.receivers.ReminderActionReceiver.class);
+        completeIntent.setAction("COMPLETE");
+        completeIntent.putExtra("reminderId", reminderId);
         PendingIntent completePendingIntent = PendingIntent.getBroadcast(
             context,
-            (int) (reminderId * 10 + 2),
+            (int) (reminderId + 2),
             completeIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
-        PendingIntent deletePendingIntent = PendingIntent.getBroadcast(
-            context,
-            (int) (reminderId * 10 + 3),
-            deleteIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-
-        // Build notification
+        // Build the notification
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(description)
-            .setStyle(new NotificationCompat.BigTextStyle().bigText(description))
-            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
-            .setOngoing(true)
-            .setContentIntent(pendingIntent)
-            .setFullScreenIntent(pendingIntent, true)
-            .addAction(R.drawable.ic_snooze, "Snooze", snoozePendingIntent)
-            .addAction(R.drawable.ic_check, "Complete", completePendingIntent)
-            .addAction(R.drawable.ic_delete, "Delete", deletePendingIntent)
-            .setVibrate(new long[]{0, 500, 250, 500})
-            .setLights(Color.RED, 1000, 1000);
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setContentIntent(contentPendingIntent)
+            .addAction(R.drawable.ic_snooze, "Snooze 15min", snoozePendingIntent)
+            .addAction(R.drawable.ic_check, "Complete", completePendingIntent);
 
-        Log.d(TAG, "Attempting to show notification");
-        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
-        
-        if (checkNotificationPermission(context)) {
-            try {
-                notificationManager.notify((int) reminderId, builder.build());
-                Log.d(TAG, "Successfully posted notification for reminder: " + reminderId);
-            } catch (SecurityException e) {
-                Log.e(TAG, "SecurityException showing notification: " + e.getMessage(), e);
-            } catch (Exception e) {
-                Log.e(TAG, "Error showing notification: " + e.getMessage(), e);
-            }
-        } else {
-            Log.e(TAG, "Cannot show notification - permission not granted");
+        // Show notification
+        try {
+            notificationManager.notify((int) reminderId, builder.build());
+            Log.d(TAG, "Showed notification for reminder: " + reminderId);
+        } catch (SecurityException e) {
+            Log.e(TAG, "Security exception showing notification: " + e.getMessage());
+            // Schedule a retry using WorkManager
+            scheduleNotificationRetry(context, reminderId, title, description);
         }
+    }
+
+    private void scheduleNotificationRetry(Context context, long reminderId, String title, String description) {
+        Data inputData = new Data.Builder()
+            .putLong("reminderId", reminderId)
+            .putString("title", title)
+            .putString("description", description)
+            .build();
+
+        OneTimeWorkRequest retryWork = new OneTimeWorkRequest.Builder(ReminderNotificationWorker.class)
+            .setInputData(inputData)
+            .setInitialDelay(5, TimeUnit.MINUTES)
+            .setBackoffCriteria(BackoffPolicy.LINEAR, 5, TimeUnit.MINUTES)
+            .build();
+
+        WorkManager.getInstance(context)
+            .enqueueUniqueWork(
+                "notification_retry_" + reminderId,
+                ExistingWorkPolicy.REPLACE,
+                retryWork
+            );
+        
+        Log.d(TAG, "Scheduled notification retry for reminder: " + reminderId);
     }
 }
