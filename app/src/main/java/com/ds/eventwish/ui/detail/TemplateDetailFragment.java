@@ -57,7 +57,13 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        ((AppCompatActivity) requireActivity()).getSupportActionBar().hide();
+        // Safely hide the action bar
+        if (getActivity() instanceof AppCompatActivity) {
+            androidx.appcompat.app.ActionBar actionBar = ((AppCompatActivity) requireActivity()).getSupportActionBar();
+            if (actionBar != null) {
+                actionBar.hide();
+            }
+        }
 
         // Get bottom navigation from activity and setup
         if (getActivity() instanceof MainActivity) {
