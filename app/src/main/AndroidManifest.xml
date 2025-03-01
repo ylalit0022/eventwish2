@@ -67,6 +67,15 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.festival.TestFestivalActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <meta-data
             android:name="preloaded_fonts"
             android:resource="@array/preloaded_fonts" />
@@ -102,6 +111,15 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+        
+        <receiver
+            android:name=".receivers.CountdownNotificationReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.ds.eventwish.COUNTDOWN_NOTIFICATION" />
             </intent-filter>
         </receiver>
     </application>

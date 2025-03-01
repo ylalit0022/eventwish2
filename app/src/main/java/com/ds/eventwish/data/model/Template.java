@@ -92,6 +92,44 @@ public class Template {
     public String getCategoryIcon() { return categoryIcon; }
     public String getCreatedAt() { return createdAt; }
     public String getUpdatedAt() { return updatedAt; }
+    
+    // Get createdAt as timestamp for comparison
+    public long getCreatedAtTimestamp() {
+        try {
+            if (createdAt == null) {
+                android.util.Log.d("Template", "createdAt is null");
+                return 0;
+            }
+            
+            android.util.Log.d("Template", "Raw createdAt value: " + createdAt);
+            
+            // If createdAt is in ISO format (e.g., "2023-01-01T12:00:00.000Z")
+            if (createdAt.contains("T")) {
+                // Simple conversion - just get the milliseconds since epoch
+                return java.time.Instant.parse(createdAt).toEpochMilli();
+            }
+            
+            // Try parsing as Unix timestamp (seconds since epoch)
+            try {
+                // If it's a numeric string, it might be a Unix timestamp
+                long timestamp = Long.parseLong(createdAt);
+                // If it's in seconds (Unix timestamp), convert to milliseconds
+                if (timestamp < 2000000000L) { // If less than year ~2033, it's likely seconds
+                    timestamp *= 1000;
+                }
+                android.util.Log.d("Template", "Parsed as numeric timestamp: " + timestamp);
+                return timestamp;
+            } catch (NumberFormatException e) {
+                // Not a numeric timestamp
+                android.util.Log.d("Template", "Not a numeric timestamp: " + e.getMessage());
+            }
+            
+            return 0;
+        } catch (Exception e) {
+            android.util.Log.e("Template", "Error parsing date: " + e.getMessage() + " for value: " + createdAt);
+            return 0;
+        }
+    }
 
     // Setters
     public void setId(String id) { this.id = id; }

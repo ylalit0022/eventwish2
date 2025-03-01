@@ -1,6 +1,7 @@
 package com.ds.eventwish.ui.home;
 
 import android.graphics.Color;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -40,6 +41,10 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
     public void updateCategories(List<String> newCategories) {
         this.categories = new ArrayList<>(newCategories);
         updateVisibleCategories();
+        Log.d("CategoriesAdapter", "Categories updated: " + categories.size() + " categories, " + visibleCategories.size() + " visible");
+        for (int i = 0; i < visibleCategories.size(); i++) {
+            Log.d("CategoriesAdapter", "Visible category " + i + ": " + visibleCategories.get(i));
+        }
         notifyDataSetChanged();
     }
 
@@ -47,9 +52,27 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         visibleCategories.clear();
         if (categories.size() <= MAX_VISIBLE_CATEGORIES) {
             visibleCategories.addAll(categories);
+            Log.d("CategoriesAdapter", "All categories fit in visible list: " + categories.size());
         } else {
-            visibleCategories.addAll(categories.subList(0, MAX_VISIBLE_CATEGORIES - 1));
-            visibleCategories.add("More"); // Add "More" as the last item
+            // Always include "All" category
+            if (categories.contains("All")) {
+                visibleCategories.add("All");
+                Log.d("CategoriesAdapter", "Added 'All' category to visible list");
+            }
+            
+            // Add other categories up to MAX_VISIBLE_CATEGORIES - 1 (leaving space for "More")
+            int remainingSlots = MAX_VISIBLE_CATEGORIES - 1 - visibleCategories.size();
+            List<String> otherCategories = new ArrayList<>(categories);
+            otherCategories.remove("All"); // Remove "All" as we've already added it
+            
+            for (int i = 0; i < Math.min(remainingSlots, otherCategories.size()); i++) {
+                visibleCategories.add(otherCategories.get(i));
+                Log.d("CategoriesAdapter", "Added category to visible list: " + otherCategories.get(i));
+            }
+            
+            // Add "More" as the last item
+            visibleCategories.add("More");
+            Log.d("CategoriesAdapter", "Added 'More' category to visible list");
         }
     }
 
@@ -74,13 +97,19 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         boolean isMore = category.equals("More");
         boolean isSelected = position == selectedPosition && !isMore;
         
+        Log.d("CategoriesAdapter", "Binding category at position " + position + ": " + category + ", selected: " + isSelected);
         holder.bind(category, isSelected);
         
         holder.itemView.setOnClickListener(v -> {
+            Log.d("CategoriesAdapter", "Category clicked: " + category + " at position " + position);
             if (isMore && moreClickListener != null) {
                 List<String> remainingCategories = categories.subList(MAX_VISIBLE_CATEGORIES - 1, categories.size());
                 moreClickListener.onMoreClick(remainingCategories);
             } else if (listener != null) {
+                int oldPosition = selectedPosition;
+                selectedPosition = position;
+                notifyItemChanged(oldPosition);
+                notifyItemChanged(selectedPosition);
                 listener.onCategoryClick(category, position);
             }
         });
@@ -91,9 +120,20 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         return visibleCategories.size();
     }
 
+    // Getter for visible categories
+    public List<String> getVisibleCategories() {
+        return new ArrayList<>(visibleCategories);
+    }
+
     // Update selected category from bottom sheet
     public void updateSelectedCategory(String category) {
-        int newPosition = categories.indexOf(category);
+        int newPosition;
+        if (category.equals("All")) {
+            newPosition = 0; // "All" is always at position 0
+        } else {
+            newPosition = categories.indexOf(category);
+        }
+        
         if (newPosition >= 0) {
             // If category is in visible list, update selection
             int visiblePosition = visibleCategories.indexOf(category);
@@ -101,8 +141,10 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
                 setSelectedPosition(visiblePosition);
             } else {
                 // Replace last visible category before "More" with selected category
-                visibleCategories.set(MAX_VISIBLE_CATEGORIES - 2, category);
-                setSelectedPosition(MAX_VISIBLE_CATEGORIES - 2);
+                if (visibleCategories.size() > MAX_VISIBLE_CATEGORIES - 2) {
+                    visibleCategories.set(MAX_VISIBLE_CATEGORIES - 2, category);
+                    setSelectedPosition(MAX_VISIBLE_CATEGORIES - 2);
+                }
             }
         }
     }

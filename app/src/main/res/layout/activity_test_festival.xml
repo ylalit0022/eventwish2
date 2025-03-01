@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:gravity="center"
+    tools:context=".ui.festival.TestFestivalActivity">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Festival Notification Test"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="32dp"/>
+
+    <Button
+        android:id="@+id/add_test_festival_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Add Test Festival"
+        android:layout_marginBottom="16dp"/>
+
+    <Button
+        android:id="@+id/trigger_notification_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Trigger Notification"
+        android:layout_marginBottom="16dp"/>
+
+    <Button
+        android:id="@+id/clear_festivals_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Clear All Festivals"
+        android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Instructions:\n1. Add a test festival\n2. Trigger notification\n3. Check notification and badge count"
+        android:textSize="16sp"
+        android:layout_marginTop="32dp"
+        android:gravity="center"/>
+
+</LinearLayout>

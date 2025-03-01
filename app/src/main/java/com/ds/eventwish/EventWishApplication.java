@@ -62,10 +62,26 @@ public class EventWishApplication extends Application implements Configuration.P
             reminderChannel.setLightColor(Color.RED);
             reminderChannel.setShowBadge(true);
             reminderChannel.setBypassDnd(true);
+            
+            // Create festival notification channel
+            NotificationChannel festivalChannel = new NotificationChannel(
+                "festival_channel",
+                "Festival Alerts",
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            festivalChannel.setDescription("Notifications for upcoming festivals");
+            festivalChannel.enableVibration(true);
+            festivalChannel.setVibrationPattern(new long[]{0, 500, 250, 500});
+            festivalChannel.setLockscreenVisibility(NotificationCompat.VISIBILITY_PUBLIC);
+            festivalChannel.enableLights(true);
+            festivalChannel.setLightColor(Color.BLUE);
+            festivalChannel.setShowBadge(true);
+            festivalChannel.setBypassDnd(true);
 
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
                 manager.createNotificationChannel(reminderChannel);
+                manager.createNotificationChannel(festivalChannel);
             }
         }
     }
