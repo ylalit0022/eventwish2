@@ -137,14 +137,12 @@ public class ReminderViewModel extends ViewModel {
             return;
         }
 
-        long now = System.currentTimeMillis();
         int count = (int) allReminders.stream()
-            .filter(r -> !r.isCompleted() && r.getDateTime() <= now)
-            .count();
-        
+                .filter(Reminder::isUnread)
+                .count();
         badgeCount.setValue(count);
-
-        // Update app badge
+        
+        // Update app icon badge (optional)
         try {
             ShortcutBadger.applyCount(context, count);
         } catch (Exception e) {
@@ -155,10 +153,26 @@ public class ReminderViewModel extends ViewModel {
     public void saveReminder(Reminder reminder) {
         isLoading.setValue(true);
         try {
-            reminderDao.addReminder(reminder);
+            // If the reminder has an ID, check if it's a restore operation
+            if (reminder.getId() > 0) {
+                Reminder existingReminder = reminderDao.getReminderById(reminder.getId());
+                if (existingReminder == null) {
+                    // This is a restore operation, preserve the original ID
+                    reminderDao.addReminder(reminder);
+                } else {
+                    // This is an update operation
+                    reminderDao.updateReminder(reminder);
+                }
+            } else {
+                // This is a new reminder
+                reminderDao.addReminder(reminder);
+            }
+            
+            // Schedule notification if needed
             if (!reminder.isCompleted() && reminder.getDateTime() > System.currentTimeMillis()) {
                 ReminderScheduler.scheduleReminder(context, reminder);
             }
+            
             // Get the updated list directly from DAO
             List<Reminder> allReminders = reminderDao.getAllReminders();
             applyFilter(allReminders);
@@ -282,6 +296,24 @@ public class ReminderViewModel extends ViewModel {
         }
     }
 
+    public void markAllAsRead() {
+        reminderDao.markAllAsRead();
+        loadReminders();
+    }
+
+    public void markAsRead(long reminderId) {
+        reminderDao.markAsRead(reminderId);
+        loadReminders();
+    }
+
+    public LiveData<Integer> getBadgeCount() {
+        return badgeCount;
+    }
+
+    public ReminderDao getReminderDao() {
+        return reminderDao;
+    }
+
     public LiveData<List<Reminder>> getReminders() {
         return reminders;
     }
@@ -292,10 +324,6 @@ public class ReminderViewModel extends ViewModel {
 
     public LiveData<String> getError() {
         return error;
-    }
-
-    public LiveData<Integer> getBadgeCount() {
-        return badgeCount;
     }
 
     public void setAppInForeground(boolean isInForeground) {

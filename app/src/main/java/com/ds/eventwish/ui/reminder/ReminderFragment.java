@@ -4,6 +4,7 @@ import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -29,6 +30,8 @@ import com.ds.eventwish.databinding.FragmentReminderBinding;
 import com.ds.eventwish.ui.reminder.adapter.ReminderAdapter;
 import com.ds.eventwish.ui.reminder.adapter.ReminderFilterAdapter;
 import com.ds.eventwish.ui.reminder.viewmodel.ReminderViewModel;
+import com.ds.eventwish.utils.CountdownNotificationScheduler;
+import com.ds.eventwish.utils.ReminderScheduler;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.snackbar.Snackbar;
@@ -42,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 public class ReminderFragment extends Fragment {
     private static final int MENU_CLEAR_ALL = 1;
@@ -112,23 +116,7 @@ public class ReminderFragment extends Fragment {
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
                 int position = viewHolder.getAdapterPosition();
                 Reminder reminder = adapter.getCurrentList().get(position);
-                
-                if (direction == ItemTouchHelper.LEFT) {
-                    viewModel.deleteReminder(reminder);
-                    // Store original ID when restoring deleted reminder
-                    long originalId = reminder.getId();
-                    showUndoSnackbar("Reminder deleted", () -> {
-                        reminder.setId(originalId);
-                        viewModel.updateReminder(reminder);
-                    });
-                } else if (direction == ItemTouchHelper.RIGHT) {
-                    viewModel.toggleReminderCompleted(reminder);
-                    String message = reminder.isCompleted() ? "Reminder marked as completed" : "Reminder marked as active";
-                    showUndoSnackbar(message, () -> {
-                        reminder.setCompleted(!reminder.isCompleted());
-                        viewModel.updateReminder(reminder);
-                    });
-                }
+                onReminderSwiped(reminder, direction);
             }
         }).attachToRecyclerView(binding.remindersRecyclerView);
     }
@@ -140,36 +128,19 @@ public class ReminderFragment extends Fragment {
     private void setupObservers() {
         viewModel.getReminders().observe(getViewLifecycleOwner(), reminders -> {
             adapter.submitList(reminders);
-            
-            // Update reminder count text
-            String countText = reminders.size() == 1 ? 
-                getString(R.string.reminder_count_single) :
-                getString(R.string.reminder_count, reminders.size());
-            binding.textTodayCount.setText(countText);
-            
-            // Show/hide empty state
-            if (reminders.isEmpty()) {
-                binding.emptyView.setVisibility(View.VISIBLE);
-                binding.remindersRecyclerView.setVisibility(View.GONE);
-            } else {
-                binding.emptyView.setVisibility(View.GONE);
-                binding.remindersRecyclerView.setVisibility(View.VISIBLE);
-            }
+            updateEmptyState(reminders);
+            updateCounts();
         });
 
         viewModel.isLoading().observe(getViewLifecycleOwner(), isLoading -> {
             binding.swipeRefresh.setRefreshing(isLoading);
+            binding.progressBar.setVisibility(isLoading ? View.VISIBLE : View.GONE);
         });
 
         viewModel.getError().observe(getViewLifecycleOwner(), error -> {
-            if (error != null) {
+            if (error != null && !error.isEmpty()) {
                 Snackbar.make(binding.getRoot(), error, Snackbar.LENGTH_LONG).show();
             }
-        });
-
-        viewModel.getBadgeCount().observe(getViewLifecycleOwner(), count -> {
-            // Update badge count in bottom navigation if needed
-            // This will be handled by the activity
         });
     }
 
@@ -199,6 +170,19 @@ public class ReminderFragment extends Fragment {
             .setPositiveButton("Save", (dialogInterface, which) -> {
                 Reminder reminder = createReminderFromDialog(dialogBinding);
                 viewModel.saveReminder(reminder);
+                
+                // Schedule countdown notifications if reminder is more than 3 days away
+                long daysUntilReminder = TimeUnit.MILLISECONDS.toDays(reminder.getDateTime() - System.currentTimeMillis());
+                try {
+                    // Always schedule countdown notifications
+                    // The scheduler will handle the logic for determining if notifications should be scheduled
+                    CountdownNotificationScheduler.scheduleCountdownNotifications(requireContext(), reminder);
+                    Log.d("ReminderFragment", "Scheduled countdown notifications for new reminder");
+                    showInfoSnackbar("Countdown reminders scheduled");
+                } catch (Exception e) {
+                    Log.e("ReminderFragment", "Failed to schedule countdown notifications: " + e.getMessage(), e);
+                    showErrorSnackbar("Failed to schedule countdown notifications");
+                }
             })
             .setNegativeButton("Cancel", null)
             .create();
@@ -231,6 +215,15 @@ public class ReminderFragment extends Fragment {
             dialogBinding.repeatChip.setText(getString(R.string.repeats_every_n_days, reminder.getRepeatInterval()));
         }
 
+        // Add countdown info if applicable
+        long daysUntilReminder = TimeUnit.MILLISECONDS.toDays(reminder.getDateTime() - System.currentTimeMillis());
+        if (daysUntilReminder > 0 && daysUntilReminder <= 7 && !reminder.isCompleted()) {
+            dialogBinding.countdownChip.setVisibility(View.VISIBLE);
+            dialogBinding.countdownChip.setText(daysUntilReminder + " days left");
+        } else {
+            dialogBinding.countdownChip.setVisibility(View.GONE);
+        }
+
         AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
             .setView(dialogBinding.getRoot())
             .create();
@@ -245,11 +238,29 @@ public class ReminderFragment extends Fragment {
         dialogBinding.deleteButton.setOnClickListener(v -> {
             dialog.dismiss();
             viewModel.deleteReminder(reminder);
+            
+            // Cancel countdown notifications
+            try {
+                CountdownNotificationScheduler.cancelCountdownNotifications(requireContext(), reminder.getId());
+            } catch (Exception e) {
+                Log.e("ReminderFragment", "Failed to cancel countdown notifications: " + e.getMessage());
+            }
+            
             showUndoSnackbar(
                 getString(R.string.reminder_deleted),
                 () -> {
                     reminder.setId(reminder.getId());
                     viewModel.updateReminder(reminder);
+                    
+                    // Re-schedule countdown notifications if needed
+                    long daysLeft = TimeUnit.MILLISECONDS.toDays(reminder.getDateTime() - System.currentTimeMillis());
+                    if (daysLeft > 3 && !reminder.isCompleted()) {
+                        try {
+                            CountdownNotificationScheduler.scheduleCountdownNotifications(requireContext(), reminder);
+                        } catch (Exception e) {
+                            Log.e("ReminderFragment", "Failed to re-schedule countdown notifications: " + e.getMessage());
+                        }
+                    }
                 }
             );
         });
@@ -274,45 +285,43 @@ public class ReminderFragment extends Fragment {
             case HIGH:
                 dialogBinding.priorityHigh.setChecked(true);
                 break;
+            case MEDIUM:
+                dialogBinding.priorityMedium.setChecked(true);
+                break;
             case LOW:
                 dialogBinding.priorityLow.setChecked(true);
                 break;
-            default:
-                dialogBinding.priorityMedium.setChecked(true);
         }
         
-        // Set repeat options
+        // Set repeat
         dialogBinding.repeatSwitch.setChecked(reminder.isRepeating());
         if (reminder.isRepeating()) {
-            dialogBinding.repeatIntervalInput.setText(String.valueOf(reminder.getRepeatInterval()));
             dialogBinding.repeatIntervalLayout.setVisibility(View.VISIBLE);
+            dialogBinding.repeatIntervalInput.setText(String.valueOf(reminder.getRepeatInterval()));
         } else {
             dialogBinding.repeatIntervalLayout.setVisibility(View.GONE);
         }
         
+        // Set button listeners
+        dialogBinding.dateButton.setOnClickListener(v -> showDatePicker(dialogBinding));
+        dialogBinding.timeButton.setOnClickListener(v -> showTimePicker(dialogBinding));
         dialogBinding.repeatSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             dialogBinding.repeatIntervalLayout.setVisibility(isChecked ? View.VISIBLE : View.GONE);
         });
         
-        // Set date/time pickers
-        dialogBinding.dateButton.setOnClickListener(v -> showDatePicker(dialogBinding));
-        dialogBinding.timeButton.setOnClickListener(v -> showTimePicker(dialogBinding));
-
+        // Create dialog
         AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.edit_reminder)
+            .setTitle("Edit Reminder")
             .setView(dialogBinding.getRoot())
-            .setPositiveButton(android.R.string.ok, (dialogInterface, which) -> {
-                // Update existing reminder instead of creating new one
-                reminder.setTitle(dialogBinding.titleInput.getText().toString().trim());
-                reminder.setDescription(dialogBinding.descriptionInput.getText().toString().trim());
-                
+            .setPositiveButton("Save", (dialogInterface, which) -> {
                 // Get priority
-                Reminder.Priority priority = Reminder.Priority.MEDIUM;
-                int checkedId = dialogBinding.priorityGroup.getCheckedRadioButtonId();
-                if (checkedId == R.id.priorityHigh) {
+                Reminder.Priority priority;
+                if (dialogBinding.priorityHigh.isChecked()) {
                     priority = Reminder.Priority.HIGH;
-                } else if (checkedId == R.id.priorityLow) {
+                } else if (dialogBinding.priorityLow.isChecked()) {
                     priority = Reminder.Priority.LOW;
+                } else {
+                    priority = Reminder.Priority.MEDIUM;
                 }
                 
                 // Get repeat settings
@@ -326,18 +335,39 @@ public class ReminderFragment extends Fragment {
                             return;
                         }
                     } catch (NumberFormatException e) {
-                        dialogBinding.repeatIntervalInput.setError(getString(R.string.error_invalid_interval));
-                        return;
+                        // Use default value of 1
                     }
                 }
                 
+                // Cancel existing countdown notifications
+                try {
+                    CountdownNotificationScheduler.cancelCountdownNotifications(requireContext(), reminder.getId());
+                } catch (Exception e) {
+                    Log.e("ReminderFragment", "Failed to cancel existing countdown notifications: " + e.getMessage());
+                }
+                
                 // Update reminder
+                reminder.setTitle(dialogBinding.titleInput.getText().toString().trim());
+                reminder.setDescription(dialogBinding.descriptionInput.getText().toString().trim());
                 reminder.setDateTime(calendar.getTimeInMillis());
                 reminder.setPriority(priority);
                 reminder.setRepeating(isRepeating);
                 reminder.setRepeatInterval(repeatInterval);
                 
                 viewModel.updateReminder(reminder);
+                
+                // Schedule new countdown notifications if needed
+                long daysUntilReminder = TimeUnit.MILLISECONDS.toDays(reminder.getDateTime() - System.currentTimeMillis());
+                try {
+                    // Always schedule countdown notifications regardless of days until reminder
+                    // The scheduler will handle the logic for determining if notifications should be scheduled
+                    CountdownNotificationScheduler.scheduleCountdownNotifications(requireContext(), reminder);
+                    Log.d("ReminderFragment", "Scheduled countdown notifications for reminder: " + reminder.getId());
+                    showInfoSnackbar("Countdown reminders updated");
+                } catch (Exception e) {
+                    Log.e("ReminderFragment", "Failed to schedule countdown notifications: " + e.getMessage(), e);
+                    showErrorSnackbar("Failed to schedule countdown notifications");
+                }
             })
             .setNegativeButton(android.R.string.cancel, null)
             .create();
@@ -417,6 +447,108 @@ public class ReminderFragment extends Fragment {
         Snackbar.make(binding.getRoot(), error, Snackbar.LENGTH_LONG).show();
     }
 
+    private void showInfoSnackbar(String message) {
+        Snackbar.make(binding.getRoot(), message, Snackbar.LENGTH_SHORT).show();
+    }
+
+    private void updateCounts() {
+        List<Reminder> allReminders = viewModel.getReminderDao().getAllReminders();
+        if (allReminders == null) {
+            binding.textTodayCount.setText("0 Today");
+            binding.textUpcomingCount.setText("0 Upcoming");
+            return;
+        }
+
+        // Count today's reminders
+        Calendar today = Calendar.getInstance();
+        today.set(Calendar.HOUR_OF_DAY, 0);
+        today.set(Calendar.MINUTE, 0);
+        today.set(Calendar.SECOND, 0);
+        today.set(Calendar.MILLISECOND, 0);
+        
+        Calendar tomorrow = Calendar.getInstance();
+        tomorrow.setTimeInMillis(today.getTimeInMillis());
+        tomorrow.add(Calendar.DAY_OF_MONTH, 1);
+        
+        int todayCount = (int) allReminders.stream()
+            .filter(r -> {
+                long reminderTime = r.getDateTime();
+                return reminderTime >= today.getTimeInMillis() && 
+                       reminderTime < tomorrow.getTimeInMillis() &&
+                       !r.isCompleted();
+            })
+            .count();
+        
+        // Count upcoming reminders
+        long now = System.currentTimeMillis();
+        int upcomingCount = (int) allReminders.stream()
+            .filter(r -> r.getDateTime() > tomorrow.getTimeInMillis() && !r.isCompleted())
+            .count();
+        
+        // Update TextViews
+        binding.textTodayCount.setText(todayCount + " Today");
+        binding.textUpcomingCount.setText(upcomingCount + " Upcoming");
+    }
+
+    private void onReminderSwiped(Reminder reminder, int direction) {
+        if (direction == ItemTouchHelper.LEFT) {
+            viewModel.deleteReminder(reminder);
+            // Store original ID when restoring deleted reminder
+            long originalId = reminder.getId();
+            
+            // Cancel any scheduled countdown notifications
+            try {
+                CountdownNotificationScheduler.cancelCountdownNotifications(requireContext(), originalId);
+            } catch (Exception e) {
+                Log.e("ReminderFragment", "Failed to cancel countdown notifications: " + e.getMessage());
+            }
+            
+            showUndoSnackbar("Reminder deleted", () -> {
+                reminder.setId(originalId);
+                viewModel.updateReminder(reminder);
+                
+                // Re-schedule countdown notifications if needed
+                long daysUntilReminder = TimeUnit.MILLISECONDS.toDays(reminder.getDateTime() - System.currentTimeMillis());
+                if (daysUntilReminder > 3) {
+                    try {
+                        CountdownNotificationScheduler.scheduleCountdownNotifications(requireContext(), reminder);
+                    } catch (Exception e) {
+                        Log.e("ReminderFragment", "Failed to re-schedule countdown notifications: " + e.getMessage());
+                    }
+                }
+            });
+        } else if (direction == ItemTouchHelper.RIGHT) {
+            viewModel.toggleReminderCompleted(reminder);
+            String message = reminder.isCompleted() ? "Reminder marked as completed" : "Reminder marked as active";
+            
+            // If marked as completed, cancel countdown notifications
+            if (reminder.isCompleted()) {
+                try {
+                    CountdownNotificationScheduler.cancelCountdownNotifications(requireContext(), reminder.getId());
+                } catch (Exception e) {
+                    Log.e("ReminderFragment", "Failed to cancel countdown notifications: " + e.getMessage());
+                }
+            }
+            
+            showUndoSnackbar(message, () -> {
+                reminder.setCompleted(!reminder.isCompleted());
+                viewModel.updateReminder(reminder);
+                
+                // If uncompleted and far enough in the future, reschedule countdown notifications
+                if (!reminder.isCompleted()) {
+                    long daysUntilReminder = TimeUnit.MILLISECONDS.toDays(reminder.getDateTime() - System.currentTimeMillis());
+                    if (daysUntilReminder > 3) {
+                        try {
+                            CountdownNotificationScheduler.scheduleCountdownNotifications(requireContext(), reminder);
+                        } catch (Exception e) {
+                            Log.e("ReminderFragment", "Failed to re-schedule countdown notifications: " + e.getMessage());
+                        }
+                    }
+                }
+            });
+        }
+    }
+
     @Override
     public void onCreateOptionsMenu(@NonNull Menu menu, @NonNull MenuInflater inflater) {
         super.onCreateOptionsMenu(menu, inflater);
@@ -428,8 +560,12 @@ public class ReminderFragment extends Fragment {
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == MENU_CLEAR_ALL) {
-            List<Reminder> currentReminders = new ArrayList<>(viewModel.getReminders().getValue());
-            if (currentReminders == null || currentReminders.isEmpty()) {
+            List<Reminder> currentReminders = new ArrayList<>();
+            if (viewModel.getReminders().getValue() != null) {
+                currentReminders.addAll(viewModel.getReminders().getValue());
+            }
+            
+            if (currentReminders.isEmpty()) {
                 Snackbar.make(binding.getRoot(), R.string.no_reminders_to_clear, Snackbar.LENGTH_SHORT).show();
                 return true;
             }
@@ -438,13 +574,46 @@ public class ReminderFragment extends Fragment {
                 .setTitle(R.string.clear_all_title)
                 .setMessage(R.string.clear_all_message)
                 .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+                    // Make a deep copy of the reminders before clearing
+                    final List<Reminder> remindersCopy = new ArrayList<>();
+                    for (Reminder reminder : currentReminders) {
+                        remindersCopy.add(new Reminder(
+                            reminder.getId(),
+                            reminder.getTitle(),
+                            reminder.getDescription(),
+                            reminder.getDateTime(),
+                            reminder.isCompleted(),
+                            reminder.getPriority(),
+                            reminder.isRepeating(),
+                            reminder.getRepeatInterval()
+                        ));
+                        
+                        // Cancel any scheduled countdown notifications
+                        try {
+                            CountdownNotificationScheduler.cancelCountdownNotifications(requireContext(), reminder.getId());
+                        } catch (Exception e) {
+                            Log.e("ReminderFragment", "Failed to cancel countdown notifications: " + e.getMessage());
+                        }
+                    }
+                    
                     viewModel.clearAllReminders();
+                    
                     showUndoSnackbar(
                         getString(R.string.cleared_all_reminders),
                         () -> {
-                            for (Reminder reminder : currentReminders) {
-                                // Preserve original IDs when restoring cleared reminders
-                                viewModel.updateReminder(reminder);
+                            // Restore all reminders
+                            for (Reminder reminder : remindersCopy) {
+                                viewModel.saveReminder(reminder);
+                                
+                                // Re-schedule countdown notifications if needed
+                                long daysUntilReminder = TimeUnit.MILLISECONDS.toDays(reminder.getDateTime() - System.currentTimeMillis());
+                                if (daysUntilReminder > 3) {
+                                    try {
+                                        CountdownNotificationScheduler.scheduleCountdownNotifications(requireContext(), reminder);
+                                    } catch (Exception e) {
+                                        Log.e("ReminderFragment", "Failed to re-schedule countdown notifications: " + e.getMessage());
+                                    }
+                                }
                             }
                         }
                     );
@@ -459,7 +628,7 @@ public class ReminderFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        viewModel.onResume();
+        viewModel.markAllAsRead();
     }
 
     @Override
@@ -472,5 +641,11 @@ public class ReminderFragment extends Fragment {
     public void onDestroyView() {
         super.onDestroyView();
         binding = null;
+    }
+
+    private void updateEmptyState(List<Reminder> reminders) {
+        boolean isEmpty = reminders == null || reminders.isEmpty();
+        binding.emptyView.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        binding.remindersRecyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
     }
 }

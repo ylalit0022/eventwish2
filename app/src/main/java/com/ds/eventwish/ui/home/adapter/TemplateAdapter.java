@@ -42,8 +42,15 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
 
     @Override
     public void onBindViewHolder(@NonNull TemplateViewHolder holder, int position) {
-        Template template = getItem(position);
-        holder.bind(template);
+        try {
+            Template template = getItem(position);
+            if (template != null) {
+                holder.bind(template);
+            }
+        } catch (IndexOutOfBoundsException e) {
+            // Prevent crashes due to RecyclerView inconsistency
+            android.util.Log.e("TemplateAdapter", "Error binding view holder at position " + position, e);
+        }
     }
 
     class TemplateViewHolder extends RecyclerView.ViewHolder {

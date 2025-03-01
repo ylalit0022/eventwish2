@@ -11,6 +11,7 @@ public class Reminder {
     private Priority priority;
     private boolean isRepeating;
     private int repeatInterval; // in days
+    private boolean isUnread = true;  // New field for badge count
 
     public enum Priority {
         HIGH(0),
@@ -45,6 +46,7 @@ public class Reminder {
         this.completed = false;
         this.isRepeating = false;
         this.repeatInterval = 0;
+        this.isUnread = true;
     }
 
     public Reminder(String title, String description, long dateTime, Priority priority, boolean isRepeating, int repeatInterval) {
@@ -62,6 +64,19 @@ public class Reminder {
         this.completed = false;
         this.isRepeating = false;
         this.repeatInterval = 0;
+    }
+
+    public Reminder(long id, String title, String description, long dateTime, boolean completed, 
+                   Priority priority, boolean isRepeating, int repeatInterval) {
+        this.id = id;
+        this.title = title;
+        this.description = description;
+        this.dateTime = dateTime;
+        this.completed = completed;
+        this.priority = priority;
+        this.isRepeating = isRepeating;
+        this.repeatInterval = repeatInterval;
+        this.isUnread = false;  // When restoring, don't mark as unread
     }
 
     public long getId() {
@@ -126,6 +141,14 @@ public class Reminder {
 
     public void setRepeatInterval(int repeatInterval) {
         this.repeatInterval = repeatInterval;
+    }
+
+    public boolean isUnread() {
+        return isUnread;
+    }
+
+    public void setUnread(boolean unread) {
+        isUnread = unread;
     }
 
     public boolean isToday() {

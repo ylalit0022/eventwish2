@@ -130,15 +130,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupBadge() {
-        reminderBadge = binding.bottomNavigation.getOrCreateBadge(R.id.navigation_reminder);
-        reminderBadge.setBackgroundColor(getResources().getColor(R.color.accent));
-        reminderBadge.setBadgeTextColor(getResources().getColor(android.R.color.white));
+        BottomNavigationView bottomNav = binding.bottomNavigation;
+        reminderBadge = bottomNav.getOrCreateBadge(R.id.navigation_reminder);
+        reminderBadge.setBackgroundColor(getResources().getColor(R.color.badge_background, getTheme()));
+        reminderBadge.setBadgeTextColor(getResources().getColor(R.color.badge_text, getTheme()));
         
-        // Observe badge count changes
-        viewModel.getBadgeCount().observe(this, count -> {
+        // Observe unread count
+        reminderDao.getUnreadCount().observe(this, count -> {
             if (count > 0) {
-                reminderBadge.setNumber(count);
                 reminderBadge.setVisible(true);
+                reminderBadge.setNumber(count);
             } else {
                 reminderBadge.setVisible(false);
             }

@@ -1,5 +1,6 @@
 package com.ds.eventwish.data.remote;
 
+import com.ds.eventwish.data.model.Festival;
 import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.model.response.TemplateResponse;
@@ -42,4 +43,17 @@ public interface ApiService {
 
     @DELETE("wishes/clear")
     Call<Void> clearHistory();
+    
+    // Festival endpoints
+    @GET("festivals/upcoming")
+    Call<List<Festival>> getAllFestivals();
+    
+    @GET("festivals/upcoming/next")
+    Call<List<Festival>> getUpcomingFestivals();
+    
+    @GET("festivals/category/{category}")
+    Call<List<Festival>> getFestivalsByCategory(@Path("category") String category);
+    
+    @GET("festivals/{id}")
+    Call<Festival> getFestivalById(@Path("id") String id);
 }
