@@ -19,7 +19,8 @@
             android:id="@+id/categoryIcon"
             android:layout_width="24dp"
             android:layout_height="24dp"
-            android:src="@android:drawable/ic_menu_gallery"
+            android:scaleType="centerCrop"
+            tools:src="@android:drawable/ic_menu_gallery"
             app:tint="@android:color/black" />
 
         <TextView

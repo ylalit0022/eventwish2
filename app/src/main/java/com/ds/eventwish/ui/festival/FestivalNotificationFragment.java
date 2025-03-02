@@ -24,20 +24,18 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
 import com.ds.eventwish.R;
+import com.ds.eventwish.data.model.CategoryIcon;
 import com.ds.eventwish.data.model.Festival;
 import com.ds.eventwish.data.model.FestivalTemplate;
 import com.ds.eventwish.ui.festival.adapter.TemplateAdapter;
 
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
 public class FestivalNotificationFragment extends Fragment {
     private static final String TAG = "FestivalNotification";
-    
+
     private FestivalViewModel viewModel;
     private LinearLayout festivalsContainer;
     private LinearLayout loadingLayout;
@@ -61,13 +59,13 @@ public class FestivalNotificationFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        
+    
         // Initialize ViewModel
         viewModel = new ViewModelProvider(this).get(FestivalViewModel.class);
-        
+    
         // Get NavController for navigation
         navController = Navigation.findNavController(view);
-        
+    
         // Initialize views
         festivalsContainer = view.findViewById(R.id.festivalsContainer);
         loadingLayout = view.findViewById(R.id.loadingLayout);
@@ -76,10 +74,10 @@ public class FestivalNotificationFragment extends Fragment {
         retryButton = view.findViewById(R.id.retryButton);
         swipeRefreshLayout = view.findViewById(R.id.swipeRefreshLayout);
         errorText = errorLayout.findViewById(R.id.errorTextView);
-        
+    
         // Set up retry button
         retryButton.setOnClickListener(v -> loadFestivals());
-        
+    
         // Set up swipe refresh
         swipeRefreshLayout.setOnRefreshListener(this::loadFestivals);
         swipeRefreshLayout.setColorSchemeResources(
@@ -88,11 +86,36 @@ public class FestivalNotificationFragment extends Fragment {
                 android.R.color.holo_orange_light,
                 android.R.color.holo_red_light
         );
-        
+    
         // Load upcoming festivals
         loadFestivals();
     }
-    
+
+    private void setCategoryIcon(ImageView imageView, Festival festival) {
+        if (festival.getCategoryIcon() != null && festival.getCategoryIcon().getCategoryIcon() != null) {
+            CategoryIcon icon = festival.getCategoryIcon();
+            String iconUrl = icon.getCategoryIcon();
+            Log.d(TAG, "Setting category icon - Category: " + festival.getCategory() + ", URL: " + iconUrl);
+            
+            // Load the icon from URL using Glide
+            Glide.with(imageView.getContext())
+                    .load(iconUrl)
+                    .apply(new RequestOptions()
+                            .placeholder(R.drawable.ic_launcher_foreground)
+                            .error(R.drawable.ic_launcher_foreground))
+                    .centerCrop()
+                    .into(imageView);
+        } else {
+            // Load default icon if no URL is available
+            Log.w(TAG, "No icon URL found for category: " + festival.getCategory() +" - ICON URL: "+ 
+                  (festival.getCategoryIcon() != null ? festival.getCategoryIcon().getCategoryIcon() : "null"));
+            Glide.with(imageView.getContext())
+                    .load(R.drawable.ic_launcher_foreground)
+                    .centerCrop()
+                    .into(imageView);
+        }
+    }
+
     private void loadFestivals() {
         loadingLayout.setVisibility(View.VISIBLE);
         errorLayout.setVisibility(View.GONE);
@@ -102,7 +125,8 @@ public class FestivalNotificationFragment extends Fragment {
         viewModel.loadFestivals();
         viewModel.getFestivals().observe(getViewLifecycleOwner(), result -> {
             loadingLayout.setVisibility(View.GONE);
-            
+            swipeRefreshLayout.setRefreshing(false);
+
             if (result.isSuccess()) {
                 List<Festival> festivals = result.getData();
                 if (festivals != null && !festivals.isEmpty()) {
@@ -123,21 +147,20 @@ public class FestivalNotificationFragment extends Fragment {
 
     private void displayFestivals(List<Festival> festivals) {
         festivalsContainer.removeAllViews();
-        
         for (Festival festival : festivals) {
             View festivalView = getLayoutInflater().inflate(R.layout.item_festival_category, festivalsContainer, false);
-            
+
             TextView festivalName = festivalView.findViewById(R.id.festivalName);
             TextView festivalDate = festivalView.findViewById(R.id.festivalDate);
             TextView festivalDescription = festivalView.findViewById(R.id.festivalDescription);
             TextView categoryTitle = festivalView.findViewById(R.id.categoryTitle);
             ImageView categoryIcon = festivalView.findViewById(R.id.categoryIcon);
             RecyclerView templatesRecyclerView = festivalView.findViewById(R.id.templatesRecyclerView);
-            
+
             festivalName.setText(festival.getName());
             festivalDescription.setText(festival.getDescription());
             categoryTitle.setText(festival.getCategory());
-            
+
             // Format and set the date
             try {
                 SimpleDateFormat outputFormat = new SimpleDateFormat("MMMM dd, yyyy", Locale.US);
@@ -146,13 +169,13 @@ public class FestivalNotificationFragment extends Fragment {
                 festivalDate.setText("Date unavailable");
                 Log.e(TAG, "Error formatting date", e);
             }
-            
+
             // Set category icon
-            setCategoryIcon(categoryIcon, festival.getCategory());
-            
+            setCategoryIcon(categoryIcon, festival);
+
             // Setup templates RecyclerView
             templatesRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false));
-            
+
             List<FestivalTemplate> templates = festival.getTemplates();
             if (templates != null && !templates.isEmpty()) {
                 TemplateAdapter adapter = new TemplateAdapter(templates, template -> {
@@ -165,49 +188,17 @@ public class FestivalNotificationFragment extends Fragment {
                 templatesRecyclerView.setVisibility(View.GONE);
                 Log.d(TAG, "No templates available for festival: " + festival.getName());
             }
-            
+
             // Add the festival view to the container
             festivalsContainer.addView(festivalView);
         }
     }
-    
-    private void setCategoryIcon(ImageView imageView, String category) {
-        int iconResId;
-        
-        if (category == null) {
-            category = "";
-        }
-        
-        switch (category.toLowerCase()) {
-            case "love":
-                iconResId = R.drawable.ic_launcher_foreground; // Replace with proper icon when available
-                break;
-            case "cultural":
-                iconResId = R.drawable.ic_launcher_foreground; // Replace with proper icon when available
-                break;
-            case "environmental":
-                iconResId = R.drawable.ic_launcher_foreground; // Replace with proper icon when available
-                break;
-            case "national":
-                iconResId = R.drawable.ic_launcher_foreground; // Replace with proper icon when available
-                break;
-            default:
-                iconResId = R.drawable.ic_launcher_foreground; // Default icon
-                break;
-        }
-        
-        // Load the icon using Glide for better image handling
-        Glide.with(imageView.getContext())
-            .load(iconResId)
-            .centerCrop()
-            .into(imageView);
-    }
-    
+
     private void navigateToTemplateDetail(FestivalTemplate template) {
         // Navigate to template detail screen with the template ID
         if (template != null && template.getId() != null) {
             Log.d(TAG, "Navigating to template detail with ID: " + template.getId());
-            
+
             // Navigate using NavController with the template ID
             if (navController != null) {
                 Bundle args = new Bundle();

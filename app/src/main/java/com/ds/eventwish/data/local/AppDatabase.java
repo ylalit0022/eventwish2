@@ -7,12 +7,13 @@ import androidx.room.Room;
 import androidx.room.RoomDatabase;
 import androidx.room.TypeConverters;
 
+import com.ds.eventwish.data.converter.CategoryIconConverter;
 import com.ds.eventwish.data.local.converters.DateConverter;
 import com.ds.eventwish.data.local.converters.TemplateListConverter;
 import com.ds.eventwish.data.model.Festival;
 
-@Database(entities = {Festival.class}, version = 1, exportSchema = false)
-@TypeConverters({DateConverter.class, TemplateListConverter.class})
+@Database(entities = {Festival.class}, version = 2, exportSchema = false)
+@TypeConverters({DateConverter.class, TemplateListConverter.class, CategoryIconConverter.class})
 public abstract class AppDatabase extends RoomDatabase {
     
     private static final String DATABASE_NAME = "eventwish_db";

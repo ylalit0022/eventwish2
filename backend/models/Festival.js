@@ -17,6 +17,10 @@ const festivalSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    categoryIcon: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'CategoryIcon'
+    },
     imageUrl: {
         type: String,
         default: ''
@@ -33,4 +37,4 @@ const festivalSchema = new mongoose.Schema({
     timestamps: true
 });
 
-module.exports = mongoose.model('Festival', festivalSchema, 'festivals'); 
+module.exports = mongoose.model('Festival', festivalSchema, 'festivals');

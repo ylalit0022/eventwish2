@@ -6,6 +6,7 @@ import androidx.room.Ignore;
 import androidx.room.PrimaryKey;
 import androidx.room.TypeConverters;
 
+import com.ds.eventwish.data.converter.CategoryIconConverter;
 import com.ds.eventwish.data.local.converters.DateConverter;
 import com.ds.eventwish.data.local.converters.TemplateListConverter;
 import com.google.gson.annotations.SerializedName;
@@ -15,7 +16,7 @@ import java.util.Date;
 import java.util.List;
 
 @Entity(tableName = "festivals")
-@TypeConverters({DateConverter.class, TemplateListConverter.class})
+@TypeConverters({DateConverter.class, TemplateListConverter.class, CategoryIconConverter.class})
 public class Festival {
     
     @PrimaryKey
@@ -35,6 +36,10 @@ public class Festival {
     @SerializedName("category")
     private String category;
     
+    @SerializedName("categoryIcon")
+    @TypeConverters(CategoryIconConverter.class)
+    private CategoryIcon categoryIcon;
+    
     @SerializedName("imageUrl")
     private String imageUrl;
     
@@ -47,26 +52,23 @@ public class Festival {
     private boolean isNotified = false;
     
     private boolean isUnread = true;
-    
-    public Festival() {
-        // Required by Room
-    }
-    
+
     @Ignore
     public Festival(@NonNull String id, String name, String description, Date date, 
-                    String category, String imageUrl, boolean isActive, 
-                    List<FestivalTemplate> templates) {
+                   String category, CategoryIcon categoryIcon, String imageUrl, 
+                   boolean isActive, List<FestivalTemplate> templates) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.date = date;
         this.category = category;
+        this.categoryIcon = categoryIcon;
         this.imageUrl = imageUrl;
         this.isActive = isActive;
         this.templates = templates != null ? templates : new ArrayList<>();
-        this.isNotified = false;
-        this.isUnread = true;
     }
+
+    public Festival() {}
 
     @NonNull
     public String getId() {
@@ -109,6 +111,14 @@ public class Festival {
         this.category = category;
     }
 
+    public CategoryIcon getCategoryIcon() {
+        return categoryIcon;
+    }
+
+    public void setCategoryIcon(CategoryIcon categoryIcon) {
+        this.categoryIcon = categoryIcon;
+    }
+
     public String getImageUrl() {
         return imageUrl;
     }
@@ -132,19 +142,19 @@ public class Festival {
     public void setTemplates(List<FestivalTemplate> templates) {
         this.templates = templates != null ? templates : new ArrayList<>();
     }
-    
+
     public boolean isNotified() {
         return isNotified;
     }
-    
+
     public void setNotified(boolean notified) {
         isNotified = notified;
     }
-    
+
     public boolean isUnread() {
         return isUnread;
     }
-    
+
     public void setUnread(boolean unread) {
         isUnread = unread;
     }
