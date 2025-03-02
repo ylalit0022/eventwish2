@@ -193,12 +193,11 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
             return true;
         });
         
+        // Set up notification badge click listener
         binding.notificationIcon.setOnClickListener(v -> {
-            // Navigate to notifications or show notification panel
-            Toast.makeText(requireContext(), "Notifications", Toast.LENGTH_SHORT).show();
-            // You can add navigation to a notification screen here
-            // NavController navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment);
-            // navController.navigate(R.id.action_homeFragment_to_notificationFragment);
+            // Navigate to notification fragment
+            NavController navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment);
+            navController.navigate(R.id.action_home_to_festival_notification);
             
             // Mark all festivals as read
             festivalViewModel.markAllAsRead();

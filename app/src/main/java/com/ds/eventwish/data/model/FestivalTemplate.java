@@ -17,11 +17,20 @@ public class FestivalTemplate {
     @SerializedName("content")
     private String content;
     
-    @SerializedName("imageUrl")
-    private String imageUrl;
+    @SerializedName(value = "imageUrl", alternate = {"previewUrl"})
     
+    private String imageUrl;    
     @SerializedName("category")
     private String category;
+    
+    @SerializedName("htmlContent")
+    private String htmlContent;
+    
+    @SerializedName("cssContent")
+    private String cssContent;
+    
+    @SerializedName("jsContent")
+    private String jsContent;
     
     public FestivalTemplate() {
         // Required for Gson
@@ -33,6 +42,18 @@ public class FestivalTemplate {
         this.content = content;
         this.imageUrl = imageUrl;
         this.category = category;
+    }
+    
+    public FestivalTemplate(String id, String title, String content, String imageUrl, String category,
+                           String htmlContent, String cssContent, String jsContent) {
+        this.id = id;
+        this.title = title;
+        this.content = content;
+        this.imageUrl = imageUrl;
+        this.category = category;
+        this.htmlContent = htmlContent;
+        this.cssContent = cssContent;
+        this.jsContent = jsContent;
     }
     
     public String getId() {
@@ -75,12 +96,36 @@ public class FestivalTemplate {
         this.category = category;
     }
     
+    public String getHtmlContent() {
+        return htmlContent;
+    }
+    
+    public void setHtmlContent(String htmlContent) {
+        this.htmlContent = htmlContent;
+    }
+    
+    public String getCssContent() {
+        return cssContent;
+    }
+    
+    public void setCssContent(String cssContent) {
+        this.cssContent = cssContent;
+    }
+    
+    public String getJsContent() {
+        return jsContent;
+    }
+    
+    public void setJsContent(String jsContent) {
+        this.jsContent = jsContent;
+    }
+    
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        FestivalTemplate template = (FestivalTemplate) o;
-        return Objects.equals(id, template.id);
+        FestivalTemplate that = (FestivalTemplate) o;
+        return Objects.equals(id, that.id);
     }
     
     @Override
@@ -88,11 +133,14 @@ public class FestivalTemplate {
         return Objects.hash(id);
     }
     
+    @NonNull
     @Override
     public String toString() {
         return "FestivalTemplate{" +
                 "id='" + id + '\'' +
                 ", title='" + title + '\'' +
+                ", content='" + content + '\'' +
+                ", imageUrl='" + imageUrl + '\'' +
                 ", category='" + category + '\'' +
                 '}';
     }

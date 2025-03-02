@@ -74,6 +74,9 @@ dependencies {
     implementation libs.glide
     annotationProcessor libs.glide.compiler
     
+    // Facebook Shimmer
+    implementation 'com.facebook.shimmer:shimmer:0.5.0'
+    
     // Google Fonts
     implementation 'androidx.compose.ui:ui-text-google-fonts:1.5.4'
     implementation 'androidx.compose.ui:ui-text-google-fonts:1.5.4'
