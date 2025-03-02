@@ -152,7 +152,8 @@ public class FestivalRepository {
         }
         
         isLoading.postValue(true);
-        apiService.getUpcomingFestivals().enqueue(new Callback<List<Festival>>() {
+        // Use getAllFestivals endpoint since the /upcoming/next endpoint doesn't exist
+        apiService.getAllFestivals().enqueue(new Callback<List<Festival>>() {
             @Override
             public void onResponse(Call<List<Festival>> call, Response<List<Festival>> response) {
                 if (response.isSuccessful() && response.body() != null) {
@@ -161,7 +162,16 @@ public class FestivalRepository {
                         Log.d(TAG, "No upcoming festivals returned from API");
                     } else {
                         executor.execute(() -> {
+                            // Insert all festivals into the database
                             festivalDao.insertAllFestivals(festivals);
+                            Log.d(TAG, "Inserted " + festivals.size() + " festivals into database");
+                            
+                            // Log template information for debugging
+                            for (Festival festival : festivals) {
+                                Log.d(TAG, "Festival: " + festival.getName() + 
+                                      ", Templates: " + (festival.getTemplates() != null ? 
+                                      festival.getTemplates().size() : 0));
+                            }
                         });
                     }
                 } else {

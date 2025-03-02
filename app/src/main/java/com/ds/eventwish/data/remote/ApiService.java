@@ -45,10 +45,12 @@ public interface ApiService {
     Call<Void> clearHistory();
     
     // Festival endpoints
+    // The backend only has /api/festivals/upcoming endpoint
     @GET("festivals/upcoming")
     Call<List<Festival>> getAllFestivals();
     
-    @GET("festivals/upcoming/next")
+    // Using the same endpoint for upcoming festivals
+    @GET("festivals/upcoming")
     Call<List<Festival>> getUpcomingFestivals();
     
     @GET("festivals/category/{category}")

@@ -15,6 +15,7 @@ import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
 
 import com.ds.eventwish.data.model.Festival;
+import com.ds.eventwish.data.model.Result;
 import com.ds.eventwish.data.repository.FestivalRepository;
 import com.ds.eventwish.workers.FestivalNotificationWorker;
 
@@ -27,7 +28,7 @@ public class FestivalViewModel extends AndroidViewModel {
     
     private final FestivalRepository repository;
     private final MutableLiveData<String> currentCategory = new MutableLiveData<>("All");
-    private final MediatorLiveData<List<Festival>> festivals = new MediatorLiveData<>();
+    private final MediatorLiveData<Result<List<Festival>>> festivalsResult = new MediatorLiveData<>();
     
     public FestivalViewModel(@NonNull Application application) {
         super(application);
@@ -36,18 +37,36 @@ public class FestivalViewModel extends AndroidViewModel {
         // Set up the worker for checking upcoming festivals
         setupFestivalNotificationWorker();
         
-        // Set up the festivals LiveData based on the selected category
-        festivals.addSource(Transformations.switchMap(currentCategory, category -> {
-            if ("All".equals(category)) {
-                return repository.getAllFestivals();
-            } else {
-                return repository.getFestivalsByCategory(category);
-            }
-        }), festivals::setValue);
+        // Load festivals when the view model is created
+        loadFestivals();
     }
     
-    public LiveData<List<Festival>> getFestivals() {
-        return festivals;
+    /**
+     * Load festivals from the repository
+     */
+    public void loadFestivals() {
+        // Set loading state
+        festivalsResult.setValue(Result.loading());
+        
+        // Observe the repository data
+        repository.getUpcomingFestivals().observeForever(festivals -> {
+            if (festivals != null) {
+                festivalsResult.setValue(Result.success(festivals));
+            } else {
+                festivalsResult.setValue(Result.error("Failed to load festivals"));
+            }
+        });
+        
+        // Observe errors
+        repository.getErrorMessage().observeForever(error -> {
+            if (error != null && !error.isEmpty()) {
+                festivalsResult.setValue(Result.error(error));
+            }
+        });
+    }
+    
+    public LiveData<Result<List<Festival>>> getFestivals() {
+        return festivalsResult;
     }
     
     public LiveData<Boolean> getIsLoading() {
@@ -65,6 +84,7 @@ public class FestivalViewModel extends AndroidViewModel {
     public void setCategory(String category) {
         if (!category.equals(currentCategory.getValue())) {
             currentCategory.setValue(category);
+            loadFestivals();
         }
     }
     
@@ -78,6 +98,14 @@ public class FestivalViewModel extends AndroidViewModel {
     
     public void markAsRead(String festivalId) {
         repository.markAsRead(festivalId);
+    }
+    
+    /**
+     * Get upcoming festivals for the notification fragment
+     * @return LiveData containing a list of upcoming festivals
+     */
+    public LiveData<List<Festival>> getUpcomingFestivals() {
+        return repository.getUpcomingFestivals();
     }
     
     private void setupFestivalNotificationWorker() {
