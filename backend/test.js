@@ -4,6 +4,7 @@ const connectDB = require('./config/db');
 const Festival = require('./models/Festival');
 const Template = require('./models/Template');
 const { startOfDay, addDays } = require('date-fns');
+const CategoryIcon = require('./models/CategoryIcon');
 
 // Connect to MongoDB
 connectDB();
@@ -128,12 +129,20 @@ const createFestivalsWithTemplates = async () => {
         // Create festivals
         const today = startOfDay(new Date());
         
+        // First, get all category icons to reference them
+        const categoryIcons = await CategoryIcon.find();
+        const categoryIconMap = {};
+        categoryIcons.forEach(icon => {
+            categoryIconMap[icon.category] = icon._id;
+        });
+        
         const festivals = [
             {
                 name: "Valentine's Day",
                 date: addDays(today, 1),
                 description: "Day of Love",
                 category: "Cultural",
+                categoryIcon: categoryIconMap["Cultural"],
                 imageUrl: "https://currentedu365.in/wp-content/uploads/2024/09/nwes-7-1024x576.png",
                 templates: templatesByCategory["Love"] || [],
                 isActive: true
@@ -143,6 +152,7 @@ const createFestivalsWithTemplates = async () => {
                 date: addDays(today, 3),
                 description: "Festival of Colors",
                 category: "Cultural",
+                categoryIcon: categoryIconMap["Cultural"],
                 imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Holi_Celebration_at_Barsana.jpg/1200px-Holi_Celebration_at_Barsana.jpg",
                 templates: templatesByCategory["Cultural"] || [],
                 isActive: true
@@ -152,6 +162,7 @@ const createFestivalsWithTemplates = async () => {
                 date: addDays(today, 5),
                 description: "Environmental Awareness Day",
                 category: "Environmental",
+                categoryIcon: categoryIconMap["Other"],
                 imageUrl: "https://www.un.org/sites/un2.un.org/files/field/image/earthday.jpg",
                 templates: templatesByCategory["Environmental"] || [],
                 isActive: true
@@ -161,6 +172,7 @@ const createFestivalsWithTemplates = async () => {
                 date: addDays(today, -30),
                 description: "Celebration of the New Year",
                 category: "Cultural",
+                categoryIcon: categoryIconMap["New Year"],
                 imageUrl: "https://img.freepik.com/free-vector/gradient-happy-new-year-2023-background_23-2149856295.jpg",
                 templates: templatesByCategory["Cultural"] || [],
                 isActive: true
@@ -170,6 +182,7 @@ const createFestivalsWithTemplates = async () => {
                 date: addDays(today, -15),
                 description: "National Independence Day",
                 category: "National",
+                categoryIcon: categoryIconMap["Other"],
                 imageUrl: "https://img.freepik.com/free-vector/gradient-15th-august-indian-independence-day-illustration_23-2149466252.jpg",
                 templates: templatesByCategory["Cultural"] || [],
                 isActive: true

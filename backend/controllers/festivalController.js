@@ -14,6 +14,7 @@ exports.getUpcomingFestivals = async (req, res) => {
             isActive: true
         })
         .populate('templates')
+        .populate('categoryIcon')
         .sort({ date: 1 });
 
         res.json(festivals);
@@ -30,10 +31,11 @@ exports.getFestivalsByCategory = async (req, res) => {
             isActive: true 
         })
         .populate('templates')
+        .populate('categoryIcon')
         .sort({ date: 1 });
 
         res.json(festivals);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
-}; 
+};

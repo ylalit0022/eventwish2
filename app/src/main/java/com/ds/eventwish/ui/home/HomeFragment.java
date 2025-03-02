@@ -236,6 +236,8 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
             } else {
                 viewModel.setCategory(category);
             }
+            // Update the adapter's selected position
+            categoriesAdapter.setSelectedPosition(position);
         });
 
         categoriesAdapter.setOnMoreClickListener(remainingCategories -> {

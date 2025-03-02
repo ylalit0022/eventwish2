@@ -1,5 +1,6 @@
 package com.ds.eventwish.data.remote;
 
+import com.ds.eventwish.data.model.CategoryIcon;
 import com.ds.eventwish.data.model.Festival;
 import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.data.model.Template;
@@ -58,4 +59,8 @@ public interface ApiService {
     
     @GET("festivals/{id}")
     Call<Festival> getFestivalById(@Path("id") String id);
+
+    @GET("categoryIcons")
+    Call<List<CategoryIcon>> getCategoryIcons();
+
 }

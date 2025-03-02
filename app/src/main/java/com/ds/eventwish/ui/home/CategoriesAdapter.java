@@ -39,13 +39,12 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
     }
 
     public void updateCategories(List<String> newCategories) {
-        this.categories = new ArrayList<>(newCategories);
-        updateVisibleCategories();
-        Log.d("CategoriesAdapter", "Categories updated: " + categories.size() + " categories, " + visibleCategories.size() + " visible");
-        for (int i = 0; i < visibleCategories.size(); i++) {
-            Log.d("CategoriesAdapter", "Visible category " + i + ": " + visibleCategories.get(i));
+        if (!categories.equals(newCategories)) {
+            this.categories = new ArrayList<>(newCategories);
+            updateVisibleCategories();
+            Log.d("CategoriesAdapter", "Categories updated: " + categories.size() + " categories, " + visibleCategories.size() + " visible");
+            notifyDataSetChanged();
         }
-        notifyDataSetChanged();
     }
 
     private void updateVisibleCategories() {
@@ -54,25 +53,40 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
             visibleCategories.addAll(categories);
             Log.d("CategoriesAdapter", "All categories fit in visible list: " + categories.size());
         } else {
-            // Always include "All" category
+            // Always include "All" category if it exists
             if (categories.contains("All")) {
                 visibleCategories.add("All");
                 Log.d("CategoriesAdapter", "Added 'All' category to visible list");
             }
             
-            // Add other categories up to MAX_VISIBLE_CATEGORIES - 1 (leaving space for "More")
-            int remainingSlots = MAX_VISIBLE_CATEGORIES - 1 - visibleCategories.size();
+            // Create a list of other categories excluding "All"
             List<String> otherCategories = new ArrayList<>(categories);
-            otherCategories.remove("All"); // Remove "All" as we've already added it
+            otherCategories.remove("All");
             
+            // If we have a selected category that's not "All", ensure it's included
+            String selectedCategory = selectedPosition < visibleCategories.size() ? 
+                    visibleCategories.get(selectedPosition) : null;
+            if (selectedCategory != null && !selectedCategory.equals("All") && 
+                    otherCategories.contains(selectedCategory)) {
+                visibleCategories.add(selectedCategory);
+                otherCategories.remove(selectedCategory);
+                Log.d("CategoriesAdapter", "Added selected category to visible list: " + selectedCategory);
+            }
+            
+            // Calculate remaining slots for other categories
+            int remainingSlots = MAX_VISIBLE_CATEGORIES - 1 - visibleCategories.size();
+            
+            // Add other categories up to the remaining slots
             for (int i = 0; i < Math.min(remainingSlots, otherCategories.size()); i++) {
                 visibleCategories.add(otherCategories.get(i));
                 Log.d("CategoriesAdapter", "Added category to visible list: " + otherCategories.get(i));
             }
             
-            // Add "More" as the last item
-            visibleCategories.add("More");
-            Log.d("CategoriesAdapter", "Added 'More' category to visible list");
+            // Add "More" as the last item if we have more categories
+            if (otherCategories.size() > remainingSlots) {
+                visibleCategories.add("More");
+                Log.d("CategoriesAdapter", "Added 'More' category to visible list");
+            }
         }
     }
 
@@ -105,11 +119,8 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
             if (isMore && moreClickListener != null) {
                 List<String> remainingCategories = categories.subList(MAX_VISIBLE_CATEGORIES - 1, categories.size());
                 moreClickListener.onMoreClick(remainingCategories);
-            } else if (listener != null) {
-                int oldPosition = selectedPosition;
-                selectedPosition = position;
-                notifyItemChanged(oldPosition);
-                notifyItemChanged(selectedPosition);
+            } else if (listener != null && !isMore) {
+                setSelectedPosition(position);
                 listener.onCategoryClick(category, position);
             }
         });
@@ -127,24 +138,18 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
 
     // Update selected category from bottom sheet
     public void updateSelectedCategory(String category) {
-        int newPosition;
-        if (category.equals("All")) {
-            newPosition = 0; // "All" is always at position 0
+        int visiblePosition = visibleCategories.indexOf(category);
+        if (visiblePosition >= 0) {
+            // Category is already in visible list, just update selection
+            setSelectedPosition(visiblePosition);
+        } else if (category.equals("All")) {
+            // "All" should always be at position 0
+            setSelectedPosition(0);
         } else {
-            newPosition = categories.indexOf(category);
-        }
-        
-        if (newPosition >= 0) {
-            // If category is in visible list, update selection
-            int visiblePosition = visibleCategories.indexOf(category);
-            if (visiblePosition >= 0) {
-                setSelectedPosition(visiblePosition);
-            } else {
-                // Replace last visible category before "More" with selected category
-                if (visibleCategories.size() > MAX_VISIBLE_CATEGORIES - 2) {
-                    visibleCategories.set(MAX_VISIBLE_CATEGORIES - 2, category);
-                    setSelectedPosition(MAX_VISIBLE_CATEGORIES - 2);
-                }
+            // Category is in the full list but not visible
+            // Don't modify the visible categories, just trigger the click listener
+            if (listener != null) {
+                listener.onCategoryClick(category, categories.indexOf(category));
             }
         }
     }

@@ -76,8 +76,8 @@ app.get('/wish/:shortCode', (req, res) => {
 // Routes
 app.use('/api/templates', require('./routes/templates'));
 app.use('/api/wishes', require('./routes/wishes'));
-app.use('/api/categories', require('./routes/categories')); // Add categories route
 app.use('/api/festivals', require('./routes/festivals'));
+app.use('/api/categoryIcons', require('./routes/categoryIcons'));
 
 // Debug logging middleware
 app.use((req, res, next) => {
