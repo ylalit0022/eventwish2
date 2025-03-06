@@ -19,6 +19,7 @@ import com.ds.eventwish.MainActivity;
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.local.ReminderDao;
 import com.ds.eventwish.data.model.Reminder;
+import com.ds.eventwish.utils.NotificationHelper;
 
 /**
  * BroadcastReceiver for handling countdown notifications
@@ -61,26 +62,12 @@ public class CountdownNotificationReceiver extends BroadcastReceiver {
         }
         
         try {
-            if (checkNotificationPermission(context)) {
-                createNotificationChannel(context);
-                showCountdownNotification(context, reminderId, title, daysLeft);
-                Log.d(TAG, "Successfully showed countdown notification for reminder: " + reminderId);
-            } else {
-                Log.e(TAG, "Notification permission not granted");
-            }
+            createNotificationChannel(context);
+            showCountdownNotification(context, reminderId, title, daysLeft);
+            Log.d(TAG, "Successfully showed countdown notification for reminder: " + reminderId);
         } catch (Exception e) {
             Log.e(TAG, "Failed to show countdown notification: " + e.getMessage(), e);
         }
-    }
-    
-    private boolean checkNotificationPermission(Context context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            boolean hasPermission = ContextCompat.checkSelfPermission(context, 
-                    android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
-            Log.d(TAG, "Notification permission check: " + hasPermission);
-            return hasPermission;
-        }
-        return true;
     }
     
     private void createNotificationChannel(Context context) {
@@ -110,8 +97,6 @@ public class CountdownNotificationReceiver extends BroadcastReceiver {
     }
     
     private void showCountdownNotification(Context context, long reminderId, String title, int daysLeft) {
-        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
-        
         // Create content text based on days left
         String contentText;
         if (daysLeft == 1) {
@@ -146,11 +131,8 @@ public class CountdownNotificationReceiver extends BroadcastReceiver {
         
         // Show notification with a unique ID based on reminder ID and days left
         int notificationId = (int) ((reminderId * 100) + daysLeft);
-        try {
-            notificationManager.notify(notificationId, builder.build());
-            Log.d(TAG, "Showed countdown notification for reminder: " + reminderId + " with " + daysLeft + " days left");
-        } catch (SecurityException e) {
-            Log.e(TAG, "Security exception showing notification: " + e.getMessage());
-        }
+        
+        // Use NotificationHelper to handle permission checks
+        NotificationHelper.showNotification(context, notificationId, builder.build());
     }
 }

@@ -5,12 +5,17 @@ import android.app.AlarmManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
+import android.view.Window;
+import android.view.animation.AnimationUtils;
+import android.widget.ImageView;
+
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
@@ -18,11 +23,13 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
+import androidx.navigation.Navigation;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
 import com.ds.eventwish.databinding.ActivityMainBinding;
+import com.ds.eventwish.ui.reminder.ReminderFragment;
 import com.ds.eventwish.utils.DeepLinkUtil;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.snackbar.Snackbar;
@@ -146,46 +153,114 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void setupNavigation() {
-        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.nav_host_fragment);
+//    private void setupNavigation() {
+//
+//        binding.bottomNavigation.setItemIconTintList(null); // Disable default tint
+//
+//        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
+//                .findFragmentById(R.id.nav_host_fragment);
+//
+//        if (navHostFragment != null) {
+//            navController = navHostFragment.getNavController();
+//
+//            binding.bottomNavigation.setOnItemSelectedListener(item -> {
+//                if (isNavigating) return false;
+//
+//                int itemId = item.getItemId();
+//                if (navController.getCurrentDestination() != null &&
+//                    navController.getCurrentDestination().getId() == itemId) {
+//                    return true;
+//                }
+//
+//                try {
+//                    isNavigating = true;
+//                    // Clear badge when navigating to reminder fragment
+//                    if (itemId == R.id.navigation_reminder) {
+//                        viewModel.clearBadgeCount();
+//                    }
+//                    navController.navigate(itemId);
+//                } catch (Exception e) {
+//                    Log.e(TAG, "Navigation failed", e);
+//                } finally {
+//                    isNavigating = false;
+//                }
+//                return true;
+//            });
+//
+//            navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
+//                int id = destination.getId();
+//                binding.bottomNavigation.setVisibility(View.VISIBLE);
+//                binding.bottomNavigation.setSelectedItemId(id);
+//            });
+//        } else {
+//            Log.e(TAG, "NavHostFragment not found!");
+//        }
+//    }
+private void setupNavigation() {
+    Window window = getWindow();
+    window.getDecorView().setSystemUiVisibility(View.VISIBLE);
 
-        if (navHostFragment != null) {
-            navController = navHostFragment.getNavController();
+    window.setStatusBarColor(Color.parseColor("#DEDBE0")); // Edge-to-Edge Status Bar
 
-            binding.bottomNavigation.setOnItemSelectedListener(item -> {
-                if (isNavigating) return false;
+    // 4. Force status bar icons to be dark (black)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        View decorView = window.getDecorView();
+        int flags = decorView.getSystemUiVisibility();
+        // Clear the light status bar flag to force dark icons
+        decorView.setSystemUiVisibility(flags);
+    }
 
-                int itemId = item.getItemId();
-                if (navController.getCurrentDestination() != null && 
-                    navController.getCurrentDestination().getId() == itemId) {
-                    return true;
-                }
+    NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);
+    if (navHostFragment != null) {
+        navController = navHostFragment.getNavController(); // Initialize NavController correctly
+    } else {
+        Log.e("MainActivity", "NavHostFragment not found");
+        return; // Stop execution if NavController is not found
+    }
 
-                try {
-                    isNavigating = true;
-                    // Clear badge when navigating to reminder fragment
-                    if (itemId == R.id.navigation_reminder) {
-                        viewModel.clearBadgeCount();
-                    }
-                    navController.navigate(itemId);
-                } catch (Exception e) {
-                    Log.e(TAG, "Navigation failed", e);
-                } finally {
-                    isNavigating = false;
-                }
-                return true;
-            });
+    //binding.bottomNavigation.setItemIconTintList(null); // Disable Default Tint
 
-            navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
-                int id = destination.getId();
-                binding.bottomNavigation.setVisibility(View.VISIBLE);
-                binding.bottomNavigation.setSelectedItemId(id);
-            });
+    binding.bottomNavigation.setOnItemSelectedListener(item -> {
+        resetNavItems(); // Reset All Items
+
+        View navItem = binding.bottomNavigation.findViewById(item.getItemId());
+
+        if (navItem != null) {
+            navItem.setBackgroundResource(R.drawable.bottom_nav_background); // Active Background
+            navItem.startAnimation(AnimationUtils.loadAnimation(this, R.anim.nav_item_zoom)); // Ripple Animation
+
+            ImageView icon = (ImageView) navItem.findViewById(androidx.appcompat.R.id.icon);
+            if (icon != null) {
+                icon.setBackgroundResource(R.drawable.icon_circle); // Shape Background to Icon
+                icon.setColorFilter(getResources().getColor(R.color.black)); // Active Icon Color
+            }
+        }
+
+        if (navController != null) {
+            return NavigationUI.onNavDestinationSelected(item, navController); // Navigate to Destination
         } else {
-            Log.e(TAG, "NavHostFragment not found!");
+            Log.e("MainActivity", "NavController is null");
+            return false;
+        }
+    });
+}
+
+    private void resetNavItems() {
+        for (int i = 0; i < binding.bottomNavigation.getMenu().size(); i++) {
+            View navItem = binding.bottomNavigation.findViewById(binding.bottomNavigation.getMenu().getItem(i).getItemId());
+
+            if (navItem != null) {
+                navItem.setBackgroundResource(R.drawable.nav_inactive_background);
+                ImageView icon = (ImageView) navItem.findViewById(androidx.appcompat.R.id.icon);
+                if (icon != null) {
+                    icon.setColorFilter(getResources().getColor(R.color.gray));
+                }
+            }
         }
     }
+
+
+
 
     @Override
     public boolean onSupportNavigateUp() {
@@ -221,12 +296,30 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+//    @Override
+//    protected void onNewIntent(Intent intent) {
+//        super.onNewIntent(intent);
+//        setIntent(intent);
+//        handleIntent(intent);
+//    }
+
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        setIntent(intent);
-        handleIntent(intent);
+        if (intent != null && "reminder".equals(intent.getStringExtra("navigate_to"))) {
+            long reminderId = intent.getLongExtra("reminderId", -1);
+            if (reminderId != -1) {
+                Bundle bundle = new Bundle();
+                bundle.putLong("reminderId", reminderId);
+
+                NavController navController = Navigation.findNavController(this, R.id.fragment_container);
+                navController.navigate(R.id.navigation_reminder, bundle);
+            }
+        }
     }
+
+
+
 
     @Override
     protected void onDestroy() {

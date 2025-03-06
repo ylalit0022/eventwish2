@@ -74,8 +74,8 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         
         // Remove any references to Action Bar or Toolbar
         // Example of setting a background color
-        binding.getRoot().setBackgroundColor(getResources().getColor(R.color.soft_background)); // Use the soft background color
-        
+        binding.getRoot().setBackgroundColor(getResources().getColor(R.color.white)); // Use the soft background color
+
         setupUI();
         setupRecyclerView();
         setupImpressionTracking();
@@ -117,8 +117,6 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
             List<Template> currentTemplates = viewModel.getTemplates().getValue();
             if (currentTemplates != null && !currentTemplates.isEmpty()) {
                 Log.d(TAG, "Checking for new templates on resume");
-                viewModel.checkForNewTemplates(currentTemplates);
-                
                 // Restore scroll position safely
                 final int position = viewModel.getLastVisiblePosition();
                 if (position > 0 && position < currentTemplates.size()) {
@@ -126,16 +124,22 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                     binding.templatesRecyclerView.post(() -> {
                         Log.d(TAG, "Restoring scroll position in onResume: " + position);
                         layoutManager.scrollToPosition(position);
-                        
-                        // Load more templates if needed to restore previous state
-                        if (viewModel.getCurrentPage() > 1) {
-                            Log.d(TAG, "Ensuring all pages are loaded up to: " + viewModel.getCurrentPage());
-                            for (int i = 1; i <= viewModel.getCurrentPage(); i++) {
+                    });
+                }
+                
+                // Load templates with a delay to prevent timeout
+                binding.templatesRecyclerView.postDelayed(() -> {
+                    if (isAdded() && !isDetached() && !isRemoving()) {
+                        // Only check for new templates if we're still active
+                        if (!viewModel.getLoading().getValue()) {
+                            viewModel.checkForNewTemplates(currentTemplates);
+                            if (viewModel.getCurrentPage() > 1) {
+                                Log.d(TAG, "Ensuring all pages are loaded up to: " + viewModel.getCurrentPage());
                                 viewModel.loadTemplates(false);
                             }
                         }
-                    });
-                }
+                    }
+                }, 1000); // Increased delay to 1 second
             }
         }
     }
@@ -291,7 +295,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
 
     private void setupRecyclerView() {
         adapter = new TemplateAdapter(this);
-        layoutManager = new GridLayoutManager(requireContext(), 2);
+        layoutManager = new GridLayoutManager(requireContext(), 1);
         binding.templatesRecyclerView.setLayoutManager(layoutManager);
         binding.templatesRecyclerView.setAdapter(adapter);
         
@@ -375,6 +379,15 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     }
 
     private void setupSwipeRefresh() {
+        //hide Retry Layout
+        binding.retryLayout.setVisibility(View.GONE);
+        binding.swipeRefreshLayout.setColorSchemeResources(
+            android.R.color.holo_blue_bright,
+            android.R.color.holo_green_light,
+            android.R.color.holo_orange_light,
+            android.R.color.holo_red_light
+        );
+
         binding.swipeRefreshLayout.setOnRefreshListener(() -> {
             // Reset scroll position to avoid inconsistency
             viewModel.saveScrollPosition(0);
@@ -421,13 +434,17 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
             binding.refreshIcon.setEnabled(!isLoading);
             binding.refreshIcon.setAlpha(isLoading ? 0.5f : 1.0f);
         });
-        
+
+        binding.retryLayout.setVisibility(View.GONE);
         // Templates observer
         viewModel.getTemplates().observe(getViewLifecycleOwner(), templates -> {
             if (templates != null && !templates.isEmpty()) {
+                binding.retryLayout.setVisibility(View.GONE);
                 binding.templatesRecyclerView.setVisibility(View.VISIBLE);
                 binding.emptyView.setVisibility(View.GONE);
-                
+                binding.loadingProgressBar.setVisibility(View.GONE);
+
+
                 // Use a new list to avoid RecyclerView inconsistency
                 List<Template> newList = new ArrayList<>(templates);
                 
@@ -449,7 +466,9 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                 viewModel.checkForNewTemplates(templates);
             } else {
                 binding.templatesRecyclerView.setVisibility(View.GONE);
-                binding.emptyView.setVisibility(View.VISIBLE);
+                binding.emptyView.setVisibility(View.GONE);
+                binding.loadingProgressBar.setVisibility(View.VISIBLE);
+
             }
             
             binding.swipeRefreshLayout.setRefreshing(false);
@@ -506,10 +525,33 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         // Error observer
         viewModel.getError().observe(getViewLifecycleOwner(), error -> {
             if (error != null) {
-                binding.templatesRecyclerView.setVisibility(View.VISIBLE);
+                //Remove loadingPregressBar
+                binding.loadingProgressBar.setVisibility(View.GONE);
+                //set Retry Layout FIle
+                binding.retryLayout.setVisibility(View.VISIBLE);
+                binding.retryButton.setOnClickListener(v -> {
+                    binding.retryLayout.setVisibility(View.GONE);
+                    viewModel.loadTemplates(true);
+                });
+
+                binding.templatesRecyclerView.setVisibility(View.GONE);
+
                 Snackbar.make(binding.getRoot(), error, Snackbar.LENGTH_LONG)
-                    .setAction("Retry", v -> viewModel.loadTemplates(true))
+                    .setBackgroundTint(getResources().getColor(R.color.priority_high))
+                    .setTextColor(getResources().getColor(android.R.color.white))
+                    .setActionTextColor(getResources().getColor(android.R.color.white))
+                    .setAction("Retry", v -> {
+                        binding.retryLayout.setVisibility(View.GONE);
+                        binding.loadingProgressBar.setVisibility(View.VISIBLE);
+                        viewModel.loadTemplates(true);
+                    })
                     .show();
+
+                // Set margins for the Snackbar
+                View snackbarView = Snackbar.make(binding.getRoot(), "", Snackbar.LENGTH_LONG).getView();
+                ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) snackbarView.getLayoutParams();
+                params.setMargins(16, 0, 16, 16);
+                snackbarView.setLayoutParams(params);
             }
         });
     }

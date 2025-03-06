@@ -31,6 +31,12 @@ public interface FestivalDao {
     @Query("DELETE FROM festivals")
     void deleteAllFestivals();
     
+    @Query("DELETE FROM festivals WHERE id = :festivalId")
+    void deleteFestivalById(String festivalId);
+    
+    @Query("DELETE FROM festivals WHERE category = :category")
+    void deleteFestivalsByCategory(String category);
+    
     @Query("SELECT * FROM festivals ORDER BY date ASC")
     LiveData<List<Festival>> getAllFestivals();
     
@@ -40,11 +46,20 @@ public interface FestivalDao {
     @Query("SELECT * FROM festivals WHERE date BETWEEN :startDate AND :endDate AND isActive = 1 ORDER BY date ASC")
     LiveData<List<Festival>> getUpcomingFestivals(Date startDate, Date endDate);
     
+    @Query("SELECT * FROM festivals WHERE date BETWEEN :startDate AND :endDate AND isActive = 1 ORDER BY date ASC")
+    List<Festival> getUpcomingFestivalsSync(Date startDate, Date endDate);
+    
     @Query("SELECT * FROM festivals WHERE category = :category AND isActive = 1 ORDER BY date ASC")
     LiveData<List<Festival>> getFestivalsByCategory(String category);
     
+    @Query("SELECT * FROM festivals WHERE category = :category AND isActive = 1 ORDER BY date ASC")
+    List<Festival> getFestivalsByCategorySync(String category);
+    
     @Query("SELECT COUNT(*) FROM festivals WHERE isUnread = 1")
     LiveData<Integer> getUnreadCount();
+    
+    @Query("SELECT COUNT(*) FROM festivals WHERE isUnread = 1")
+    int getUnreadCountSync();
     
     @Query("UPDATE festivals SET isUnread = 0")
     void markAllAsRead();

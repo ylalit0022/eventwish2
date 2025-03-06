@@ -14,6 +14,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
@@ -27,7 +28,10 @@ import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.CategoryIcon;
 import com.ds.eventwish.data.model.Festival;
 import com.ds.eventwish.data.model.FestivalTemplate;
+import com.ds.eventwish.data.model.Result;
+import com.ds.eventwish.databinding.FragmentFestivalNotificationBinding;
 import com.ds.eventwish.ui.festival.adapter.TemplateAdapter;
+import com.facebook.shimmer.ShimmerFrameLayout;
 
 import java.text.SimpleDateFormat;
 import java.util.List;
@@ -41,10 +45,13 @@ public class FestivalNotificationFragment extends Fragment {
     private LinearLayout loadingLayout;
     private LinearLayout errorLayout;
     private LinearLayout emptyLayout;
+    private ShimmerFrameLayout shimmerFrameLayout;
     private Button retryButton;
     private SwipeRefreshLayout swipeRefreshLayout;
     private NavController navController;
     private TextView errorText;
+    private Observer<Result<List<Festival>>> festivalsObserver;
+    private boolean isDataLoaded = false;
 
     public static FestivalNotificationFragment newInstance() {
         return new FestivalNotificationFragment();
@@ -61,7 +68,7 @@ public class FestivalNotificationFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
     
         // Initialize ViewModel
-        viewModel = new ViewModelProvider(this).get(FestivalViewModel.class);
+        viewModel = new ViewModelProvider(requireActivity()).get(FestivalViewModel.class);
     
         // Get NavController for navigation
         navController = Navigation.findNavController(view);
@@ -74,21 +81,83 @@ public class FestivalNotificationFragment extends Fragment {
         retryButton = view.findViewById(R.id.retryButton);
         swipeRefreshLayout = view.findViewById(R.id.swipeRefreshLayout);
         errorText = errorLayout.findViewById(R.id.errorTextView);
-    
+        shimmerFrameLayout = view.findViewById(R.id.shimmerFrameLayout);
+
+        shimmerFrameLayout.startShimmer();
+
+
         // Set up retry button
-        retryButton.setOnClickListener(v -> loadFestivals());
+        retryButton.setOnClickListener(v -> refreshFestivals());
     
         // Set up swipe refresh
-        swipeRefreshLayout.setOnRefreshListener(this::loadFestivals);
+        swipeRefreshLayout.setOnRefreshListener(this::refreshFestivals);
         swipeRefreshLayout.setColorSchemeResources(
                 android.R.color.holo_blue_bright,
                 android.R.color.holo_green_light,
                 android.R.color.holo_orange_light,
                 android.R.color.holo_red_light
         );
+        
+        // Create the festivals observer
+        createFestivalsObserver();
+        
+        // Observe festivals
+        viewModel.getFestivals().observe(getViewLifecycleOwner(), festivalsObserver);
     
-        // Load upcoming festivals
-        loadFestivals();
+        // Only load festivals if we haven't loaded them yet
+        if (!isDataLoaded) {
+            loadFestivals();
+        }
+    }
+    
+    private void createFestivalsObserver() {
+
+       shimmerFrameLayout.startShimmer();
+       shimmerFrameLayout.setVisibility(View.VISIBLE);
+        loadingLayout.setVisibility(View.VISIBLE);
+        // Create a single observer that we can reuse
+        festivalsObserver = result -> {
+            loadingLayout.setVisibility(View.GONE);
+            swipeRefreshLayout.setRefreshing(false);
+
+            if (result.isSuccess()) {
+                List<Festival> festivals = result.getData();
+                if (festivals != null && !festivals.isEmpty()) {
+                    displayFestivals(festivals);
+                    festivalsContainer.setVisibility(View.VISIBLE);
+                    emptyLayout.setVisibility(View.GONE);
+                    errorLayout.setVisibility(View.GONE);
+                    isDataLoaded = true;
+                } else {
+                    festivalsContainer.setVisibility(View.GONE);
+                    emptyLayout.setVisibility(View.VISIBLE);
+                    errorLayout.setVisibility(View.GONE);
+                }
+            } else {
+                errorLayout.setVisibility(View.VISIBLE);
+                festivalsContainer.setVisibility(View.GONE);
+                emptyLayout.setVisibility(View.GONE);
+                errorText.setText(result.getError());
+            }
+        };
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Only load data on first app launch, not when switching fragments
+        if (!isDataLoaded) {
+            Log.d(TAG, "First time loading data");
+            loadFestivals();
+        } else {
+            Log.d(TAG, "Data already loaded, not refreshing");
+        }
+    }
+    
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        // No need to remove observer - it will be handled by the lifecycle owner
     }
 
     private void setCategoryIcon(ImageView imageView, Festival festival) {
@@ -116,37 +185,34 @@ public class FestivalNotificationFragment extends Fragment {
         }
     }
 
+    private void refreshFestivals() {
+        Log.d(TAG, "Manually refreshing festivals from server");
+        swipeRefreshLayout.setRefreshing(true);
+        errorLayout.setVisibility(View.GONE);
+        shimmerFrameLayout.startShimmer();
+        shimmerFrameLayout.setVisibility(View.VISIBLE);
+        loadingLayout.setVisibility(View.VISIBLE);
+        
+        // Force a refresh from the server
+        viewModel.refreshFestivals();
+    }
+
     private void loadFestivals() {
+        shimmerFrameLayout.startShimmer();
+        shimmerFrameLayout.setVisibility(View.VISIBLE);
         loadingLayout.setVisibility(View.VISIBLE);
         errorLayout.setVisibility(View.GONE);
         emptyLayout.setVisibility(View.GONE);
         festivalsContainer.setVisibility(View.GONE);
 
+        // Load festivals from cache first
         viewModel.loadFestivals();
-        viewModel.getFestivals().observe(getViewLifecycleOwner(), result -> {
-            loadingLayout.setVisibility(View.GONE);
-            swipeRefreshLayout.setRefreshing(false);
-
-            if (result.isSuccess()) {
-                List<Festival> festivals = result.getData();
-                if (festivals != null && !festivals.isEmpty()) {
-                    displayFestivals(festivals);
-                    festivalsContainer.setVisibility(View.VISIBLE);
-                    emptyLayout.setVisibility(View.GONE);
-                } else {
-                    festivalsContainer.setVisibility(View.GONE);
-                    emptyLayout.setVisibility(View.VISIBLE);
-                }
-            } else {
-                errorLayout.setVisibility(View.VISIBLE);
-                festivalsContainer.setVisibility(View.GONE);
-                errorText.setText(result.getError());
-            }
-        });
     }
 
     private void displayFestivals(List<Festival> festivals) {
         festivalsContainer.removeAllViews();
+        Log.d(TAG, "Displaying " + festivals.size() + " festivals");
+        
         for (Festival festival : festivals) {
             View festivalView = getLayoutInflater().inflate(R.layout.item_festival_category, festivalsContainer, false);
 
@@ -157,60 +223,51 @@ public class FestivalNotificationFragment extends Fragment {
             ImageView categoryIcon = festivalView.findViewById(R.id.categoryIcon);
             RecyclerView templatesRecyclerView = festivalView.findViewById(R.id.templatesRecyclerView);
 
-            festivalName.setText(festival.getName());
-            festivalDescription.setText(festival.getDescription());
-            categoryTitle.setText(festival.getCategory());
+            // Set festival data
 
-            // Format and set the date
-            try {
-                SimpleDateFormat outputFormat = new SimpleDateFormat("MMMM dd, yyyy", Locale.US);
-                festivalDate.setText(outputFormat.format(festival.getDate()));
-            } catch (Exception e) {
-                festivalDate.setText("Date unavailable");
-                Log.e(TAG, "Error formatting date", e);
-            }
+            // Set festival data
+            festivalName.setText(festival.getName());
+
+            // Format date
+            SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
+            festivalDate.setText(dateFormat.format(festival.getDate()));
+
+            // Set description
+            festivalDescription.setText(festival.getDescription());
+
+            // Set category
+            categoryTitle.setText(festival.getCategory());
 
             // Set category icon
             setCategoryIcon(categoryIcon, festival);
 
-            // Setup templates RecyclerView
-            templatesRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false));
-
-            List<FestivalTemplate> templates = festival.getTemplates();
-            if (templates != null && !templates.isEmpty()) {
-                TemplateAdapter adapter = new TemplateAdapter(templates, template -> {
-                    navigateToTemplateDetail(template);
-                });
-                templatesRecyclerView.setAdapter(adapter);
+            // Set up templates recycler view
+            if (festival.getTemplates() != null && !festival.getTemplates().isEmpty()) {
                 templatesRecyclerView.setVisibility(View.VISIBLE);
-            } else {
-                // No templates available
-                templatesRecyclerView.setVisibility(View.GONE);
-                Log.d(TAG, "No templates available for festival: " + festival.getName());
-            }
+                templatesRecyclerView.setLayoutManager(new LinearLayoutManager(
+                        requireContext(), LinearLayoutManager.HORIZONTAL, false));
 
-            // Add the festival view to the container
+                // Create click listener
+                TemplateAdapter.OnTemplateClickListener clickListener = template -> {
+                    Log.d(TAG, "Template clicked: " + template.getId());
+                    navigateToTemplateDetail(template);
+                };
+
+                // Create adapter with templates and click listener
+                TemplateAdapter adapter = new TemplateAdapter(festival.getTemplates(), clickListener);
+                templatesRecyclerView.setAdapter(adapter);
+            } else {
+                templatesRecyclerView.setVisibility(View.GONE);
+            }
+            
             festivalsContainer.addView(festivalView);
         }
     }
-
+    
     private void navigateToTemplateDetail(FestivalTemplate template) {
-        // Navigate to template detail screen with the template ID
-        if (template != null && template.getId() != null) {
-            Log.d(TAG, "Navigating to template detail with ID: " + template.getId());
-
-            // Navigate using NavController with the template ID
-            if (navController != null) {
-                Bundle args = new Bundle();
-                args.putString("templateId", template.getId());
-                navController.navigate(R.id.navigation_template_detail, args);
-            } else {
-                Log.e(TAG, "NavController is null, cannot navigate");
-                Toast.makeText(requireContext(), "Error navigating to template", Toast.LENGTH_SHORT).show();
-            }
-        } else {
-            Log.e(TAG, "Cannot navigate: template or template ID is null");
-            Toast.makeText(requireContext(), "Invalid template", Toast.LENGTH_SHORT).show();
-        }
+        // Navigate to template detail fragment
+        Bundle args = new Bundle();
+        args.putString("templateId", template.getId());
+        navController.navigate(R.id.action_festival_notification_to_template_detail, args);
     }
 }
