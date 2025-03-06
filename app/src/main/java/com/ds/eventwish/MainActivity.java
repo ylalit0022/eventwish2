@@ -198,16 +198,10 @@ public class MainActivity extends AppCompatActivity {
 //    }
 private void setupNavigation() {
     Window window = getWindow();
-    window.getDecorView().setSystemUiVisibility(View.VISIBLE);
-
-    window.setStatusBarColor(Color.parseColor("#DEDBE0")); // Edge-to-Edge Status Bar
-
-    // 4. Force status bar icons to be dark (black)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
         View decorView = window.getDecorView();
-        int flags = decorView.getSystemUiVisibility();
-        // Clear the light status bar flag to force dark icons
-        decorView.setSystemUiVisibility(flags);
+        decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+        window.setStatusBarColor(Color.parseColor("#DEDBE0")); // Set status bar color to white
     }
 
     NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);
