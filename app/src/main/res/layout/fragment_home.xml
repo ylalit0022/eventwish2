@@ -17,7 +17,7 @@
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@color/primary"
+            android:background="@color/custom_grey"
             android:padding="16dp"
             android:clipChildren="true"
             android:clipToPadding="false"
@@ -154,23 +154,78 @@
                 android:text="No templates found"
                 android:textSize="16sp"
                 android:visibility="gone" />
+
+            <ProgressBar
+                android:id="@+id/loadingProgressBar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:visibility="gone"
+                android:indeterminate="true"
+                android:progress="0"
+                android:indeterminateDrawable="@drawable/progress_bg"
+                android:indeterminateTint="@color/priority_high"
+                />
+
+<!--            <include-->
+<!--                android:id="@+id/retryLayout"-->
+<!--                layout="@layout/layout_retry"-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="match_parent"-->
+<!--                android:visibility="gone" />-->
+
+           <LinearLayout
+               android:id="@+id/retryLayout"
+               android:layout_width="match_parent"
+               android:layout_height="wrap_content"
+               android:layout_gravity="center"
+               android:gravity="center"
+               android:visibility="gone"
+               android:orientation="vertical"
+               android:padding="16dp">
+
+
+               <ImageView
+                   android:id="@+id/errorImage"
+                   android:layout_width="120dp"
+                   android:layout_height="120dp"
+                   android:src="@drawable/ic_error"
+                   android:contentDescription="@string/error_image" />
+
+               <TextView
+                   android:id="@+id/errorText"
+                   android:layout_width="wrap_content"
+                   android:layout_height="wrap_content"
+                   android:layout_marginTop="16dp"
+                   android:gravity="center"
+                   android:textSize="16sp"
+                   android:textColor="@color/black"
+                   android:text="@string/error_message" />
+
+               <Button
+                   android:id="@+id/retryButton"
+                   android:layout_width="wrap_content"
+                   android:layout_height="wrap_content"
+                   android:layout_marginTop="16dp"
+                   android:text="@string/retry"
+                   android:textAllCaps="false"
+                   style="@style/Widget.MaterialComponents.Button" />
+
+
+           </LinearLayout>
+
         </FrameLayout>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <!-- Bottom loading indicator for pagination -->
     <FrameLayout
         android:id="@+id/bottomLoadingView"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
+        android:layout_gravity="center_horizontal"
         android:background="#80FFFFFF"
         android:visibility="gone"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <ProgressBar
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_margin="16dp" />
     </FrameLayout>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

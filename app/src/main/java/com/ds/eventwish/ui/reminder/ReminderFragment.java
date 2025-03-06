@@ -171,17 +171,16 @@ public class ReminderFragment extends Fragment {
                 Reminder reminder = createReminderFromDialog(dialogBinding);
                 viewModel.saveReminder(reminder);
                 
-                // Schedule countdown notifications if reminder is more than 3 days away
-                long daysUntilReminder = TimeUnit.MILLISECONDS.toDays(reminder.getDateTime() - System.currentTimeMillis());
+                // Schedule countdown notifications
                 try {
-                    // Always schedule countdown notifications
-                    // The scheduler will handle the logic for determining if notifications should be scheduled
                     CountdownNotificationScheduler.scheduleCountdownNotifications(requireContext(), reminder);
-                    Log.d("ReminderFragment", "Scheduled countdown notifications for new reminder");
-                    showInfoSnackbar("Countdown reminders scheduled");
+                    Log.d("ReminderFragment", "Scheduled countdown notifications for reminder ID: " + reminder.getId());
+                    
+                    // Show a toast or snackbar to confirm scheduling
+                    showInfoSnackbar("Reminder set with countdown notifications");
                 } catch (Exception e) {
                     Log.e("ReminderFragment", "Failed to schedule countdown notifications: " + e.getMessage(), e);
-                    showErrorSnackbar("Failed to schedule countdown notifications");
+                    showErrorSnackbar("Reminder set but countdown notifications failed");
                 }
             })
             .setNegativeButton("Cancel", null)

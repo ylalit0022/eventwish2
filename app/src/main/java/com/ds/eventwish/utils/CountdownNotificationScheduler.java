@@ -36,15 +36,20 @@ public class CountdownNotificationScheduler {
         long daysUntilReminder = TimeUnit.MILLISECONDS.toDays(reminderTime - currentTime);
         Log.d(TAG, "Days until reminder: " + daysUntilReminder);
         
-        // Only schedule countdown notifications if the reminder is more than 3 days away
-        if (daysUntilReminder <= COUNTDOWN_DAYS[0]) {
+        // Only schedule countdown notifications if the reminder is more than 1 day away
+        if (daysUntilReminder < 1) {
             Log.d(TAG, "Reminder is too close for countdown notifications");
             return;
         }
         
-        // Schedule notifications for each countdown day
+        // Schedule notifications for each countdown day that is still in the future
         for (int daysLeft : COUNTDOWN_DAYS) {
-            scheduleCountdownForDay(context, reminder, daysLeft);
+            // Only schedule if the countdown day is still in the future
+            if (daysLeft <= daysUntilReminder) {
+                scheduleCountdownForDay(context, reminder, daysLeft);
+            } else {
+                Log.d(TAG, "Skipping " + daysLeft + " day countdown as it's already passed");
+            }
         }
     }
     
@@ -99,22 +104,26 @@ public class CountdownNotificationScheduler {
         }
         
         // Schedule the alarm
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    notificationTime.getTimeInMillis(),
-                    pendingIntent
-            );
-        } else {
-            alarmManager.setExact(
-                    AlarmManager.RTC_WAKEUP,
-                    notificationTime.getTimeInMillis(),
-                    pendingIntent
-            );
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        notificationTime.getTimeInMillis(),
+                        pendingIntent
+                );
+            } else {
+                alarmManager.setExact(
+                        AlarmManager.RTC_WAKEUP,
+                        notificationTime.getTimeInMillis(),
+                        pendingIntent
+                );
+            }
+            
+            Log.d(TAG, "Scheduled countdown notification for reminder " + reminderId + 
+                    " with " + daysLeft + " days left at " + notificationTime.getTime());
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to schedule countdown notification: " + e.getMessage(), e);
         }
-        
-        Log.d(TAG, "Scheduled countdown notification for reminder " + reminderId + 
-                " with " + daysLeft + " days left at " + notificationTime.getTime());
     }
     
     /**
@@ -140,8 +149,12 @@ public class CountdownNotificationScheduler {
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
             );
             
-            alarmManager.cancel(pendingIntent);
-            pendingIntent.cancel();
+            try {
+                alarmManager.cancel(pendingIntent);
+                pendingIntent.cancel();
+            } catch (Exception e) {
+                Log.e(TAG, "Error cancelling countdown notification: " + e.getMessage(), e);
+            }
         }
         
         Log.d(TAG, "Cancelled all countdown notifications for reminder " + reminderId);

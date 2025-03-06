@@ -13,8 +13,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from the public directory
-app.use(express.static('public'));
+// Serve static files from the backendUi directory
+app.use(express.static('backendUi'));
 
 // Serve assetlinks.json file
 app.get('/.well-known/assetlinks.json', (req, res) => {

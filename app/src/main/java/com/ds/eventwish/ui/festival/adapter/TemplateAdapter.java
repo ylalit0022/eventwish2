@@ -14,8 +14,10 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.RequestOptions;
 import com.bumptech.glide.request.target.Target;
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.FestivalTemplate;
@@ -48,6 +50,11 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.Templa
     @Override
     public void onBindViewHolder(@NonNull TemplateViewHolder holder, int position) {
         FestivalTemplate template = templates.get(position);
+        // Set programmatic width and height for template items
+        ViewGroup.LayoutParams params = holder.itemView.getLayoutParams();
+        params.width = 450; // Width in pixels
+        params.height = 600; // Height in pixels
+        holder.itemView.setLayoutParams(params);
         holder.bind(template, listener);
     }
 
@@ -66,28 +73,36 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.Templa
             thumbnailImage = itemView.findViewById(R.id.thumbnailImage);
             titleText = itemView.findViewById(R.id.titleText);
             categoryText = itemView.findViewById(R.id.categoryText);
+
+            thumbnailImage.setPadding(2,2,2, 2);
         }
 
         public void bind(FestivalTemplate template, OnTemplateClickListener listener) {
             titleText.setText(template.getTitle());
             categoryText.setText(template.getCategory());
 
-            // Log the image URL for debugging
+            // Get the image URL
             String imageUrl = template.getImageUrl();
-            Log.d(TAG, "Template: " + template.getTitle() + ", Image URL: " + imageUrl);
 
             // Load image with Glide
             if (imageUrl != null && !imageUrl.isEmpty()) {
                 Log.d(TAG, "Attempting to load image from URL: " + imageUrl);
-                Glide.with(itemView.getContext())
-                        .load(imageUrl)
+
+                // Create request options with cache invalidation
+                RequestOptions requestOptions = new RequestOptions()
                         .placeholder(R.drawable.ic_launcher_background)
                         .error(R.drawable.error_image)
+                        .diskCacheStrategy(DiskCacheStrategy.NONE)  // Don't cache on disk
+                        .skipMemoryCache(true);  // Don't cache in memory
+
+                Glide.with(itemView.getContext())
+                        .load(imageUrl)
+                        .apply(requestOptions)
                         .listener(new RequestListener<Drawable>() {
                             @Override
                             public boolean onLoadFailed(@Nullable GlideException e, Object model,
                                                       Target<Drawable> target, boolean isFirstResource) {
-                                Log.e(TAG, "Image load failed for URL: " + imageUrl + 
+                                Log.e(TAG, "Image load failed for URL: " + imageUrl +
                                          ", Template: " + template.getTitle(), e);
                                 return false; // let Glide handle the error image
                             }
@@ -108,7 +123,11 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.Templa
             }
 
             // Set click listener
-            itemView.setOnClickListener(v -> listener.onTemplateClick(template));
+            itemView.setOnClickListener(v -> {
+                if (listener != null) {
+                    listener.onTemplateClick(template);
+                }
+            });
         }
     }
 }

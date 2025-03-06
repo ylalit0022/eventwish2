@@ -119,6 +119,7 @@ public class ReminderAlarmReceiver extends BroadcastReceiver {
         Intent contentIntent = new Intent(context, MainActivity.class);
         contentIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         contentIntent.putExtra("reminderId", reminderId);
+        contentIntent.setData(android.net.Uri.parse("reminder://fragment"));
         
         PendingIntent contentPendingIntent = PendingIntent.getActivity(
             context,

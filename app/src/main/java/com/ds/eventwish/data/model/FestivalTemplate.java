@@ -18,8 +18,8 @@ public class FestivalTemplate {
     private String content;
     
     @SerializedName(value = "imageUrl", alternate = {"previewUrl"})
-    
-    private String imageUrl;    
+    private String imageUrl;   
+     
     @SerializedName("category")
     private String category;
     

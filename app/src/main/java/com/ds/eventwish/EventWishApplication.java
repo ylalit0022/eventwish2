@@ -3,17 +3,22 @@ package com.ds.eventwish;
 import android.app.Application;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.content.Context;
 import android.graphics.Color;
 import android.os.Build;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
+import androidx.room.Room;
 import androidx.work.Configuration;
 import androidx.work.WorkManager;
+import com.ds.eventwish.data.local.AppDatabase;
 import com.ds.eventwish.data.local.ReminderDao;
 import com.ds.eventwish.data.model.Reminder;
+import com.ds.eventwish.data.repository.FestivalRepository;
 import com.ds.eventwish.utils.ReminderScheduler;
 import com.ds.eventwish.workers.ReminderCheckWorker;
 import java.util.List;
+import java.util.concurrent.Executors;
 
 public class EventWishApplication extends Application implements Configuration.Provider {
     private static final String TAG = "EventWishApplication";
@@ -29,6 +34,15 @@ public class EventWishApplication extends Application implements Configuration.P
             // WorkManager not initialized, initialize it
             WorkManager.initialize(this, getWorkManagerConfiguration());
         }
+        
+        // Initialize the repository to trigger data loading
+        FestivalRepository repository = FestivalRepository.getInstance(this);
+        
+        // Clear database cache on app start to ensure fresh data
+        clearDatabaseCache();
+        
+        // Refresh data from server
+        repository.refreshUpcomingFestivals();
         
         // Create notification channels
         createNotificationChannels();
@@ -108,5 +122,20 @@ public class EventWishApplication extends Application implements Configuration.P
         } catch (Exception e) {
             Log.e(TAG, "Failed to restore reminders: " + e.getMessage());
         }
+    }
+    
+    private void clearDatabaseCache() {
+        Log.d(TAG, "Clearing database cache on app start");
+        
+        // Use a background thread to clear the cache
+        Executors.newSingleThreadExecutor().execute(() -> {
+            try {
+                AppDatabase database = AppDatabase.getInstance(this);
+                database.festivalDao().deleteAllFestivals();
+                Log.d(TAG, "Database cache cleared successfully");
+            } catch (Exception e) {
+                Log.e(TAG, "Error clearing database cache", e);
+            }
+        });
     }
 }

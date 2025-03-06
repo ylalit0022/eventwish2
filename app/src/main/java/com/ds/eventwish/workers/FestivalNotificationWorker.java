@@ -7,7 +7,6 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
-import androidx.core.app.NotificationManagerCompat;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
@@ -55,7 +54,7 @@ public class FestivalNotificationWorker extends Worker {
             }
             
             // Update badge count
-            updateBadgeCount(getApplicationContext(), upcomingFestivals.size());
+            updateBadgeCount(getApplicationContext());
         } else {
             Log.d(TAG, "No upcoming festivals to notify");
         }
@@ -90,26 +89,26 @@ public class FestivalNotificationWorker extends Worker {
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true);
         
-        // Show the notification
-        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
-        notificationManager.notify(NOTIFICATION_ID + festival.hashCode(), builder.build());
+        // Show the notification using NotificationHelper
+        NotificationHelper.showNotification(context, NOTIFICATION_ID + festival.hashCode(), builder.build());
     }
     
-    private void updateBadgeCount(Context context, int newFestivalsCount) {
+    private void updateBadgeCount(Context context) {
         // Get the current unread count from the repository
         FestivalRepository repository = FestivalRepository.getInstance(context);
         int unreadCount = 0;
         
         try {
             // This is a synchronous call to get the current value from LiveData
-            // In a real app, you might want to use a different approach
-            unreadCount = repository.getUnreadCount().getValue() != null ? 
-                    repository.getUnreadCount().getValue() : 0;
+            Integer count = repository.getUnreadCount().getValue();
+            unreadCount = count != null ? count : 0;
+            Log.d(TAG, "Current unread count: " + unreadCount);
         } catch (Exception e) {
             Log.e(TAG, "Error getting unread count", e);
         }
         
         // Update the badge count
         ShortcutBadger.applyCount(context, unreadCount);
+        Log.d(TAG, "Updated badge count to: " + unreadCount);
     }
 }

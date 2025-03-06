@@ -12,10 +12,13 @@
     <color name="colorBackground">#FFFFFFFF</color>
     <color name="inactive_background">#FFE0E0E0</color> <!-- Light gray for inactive reminders -->
 
-    <color name="colorPrimary">#6200EE</color>
+    <color name="colorPrimary">#BCE3DDE9</color>
     <color name="colorPrimaryDark">#3700B3</color>
     <color name="colorGray">#B0BEC5</color>
-    
+
+    <color name="light_gray">#F5F5F5</color>
+
+
     <!-- Custom colors -->
     <color name="chip_stroke_color">#BDBDBD</color>
     <color name="chip_text_color">#212121</color>
@@ -66,9 +69,16 @@
     <color name="text_color">#333333</color> <!-- Dark Gray -->
 
 
+    <color name="orange">#FF9800</color>
+    <color name="blue_light">#BBDEFB</color>
+    <color name="gray_text">#757575</color>
+
+
+
     <color name="priority_high">#F44336</color>
     <color name="priority_medium">#FF9800</color>
     <color name="priority_low">#4CAF50</color>
+    <color name="custom_grey">#DEDBE0</color>
 <!--    <color name="text_primary">#212121</color>-->
 <!--    <color name="text_secondary">#757575</color>-->
 <!--    <color name="background">#F5F5F5</color>-->
