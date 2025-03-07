@@ -217,6 +217,32 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         });
 
         binding.customizeButton.setVisibility(View.GONE);
+
+        View rootView = binding.getRoot();
+        rootView.setOnTouchListener((v, event) -> {
+            hideKeyboard();
+            return false;
+        });
+
+        binding.webView.setOnTouchListener((v, event) -> {
+            hideKeyboard();
+            return false;
+        });
+
+        binding.templatePreview.setOnTouchListener((v, event) -> {
+            hideKeyboard();
+            return false;
+        });
+    }
+
+    private void hideKeyboard() {
+        View view = requireActivity().getCurrentFocus();
+        if (view != null) {
+            android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager)
+                    requireActivity().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+            view.clearFocus();
+        }
     }
 
     private void setupObservers() {

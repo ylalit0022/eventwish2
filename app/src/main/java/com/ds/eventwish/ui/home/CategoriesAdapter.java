@@ -6,8 +6,10 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.ds.eventwish.R;
 import com.google.android.material.card.MaterialCardView;
@@ -155,13 +157,16 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
     }
 
     class CategoryViewHolder extends RecyclerView.ViewHolder {
-        private final MaterialCardView cardView;
+      //  private final MaterialCardView cardView;
         private final TextView categoryName;
         private final ImageView categoryIcon;
 
+        private LinearLayout linearLayout;
+
         CategoryViewHolder(@NonNull View itemView) {
             super(itemView);
-            cardView = (MaterialCardView) itemView;
+           // cardView = (MaterialCardView) itemView;
+            linearLayout = (LinearLayout) itemView;
             categoryName = itemView.findViewById(R.id.categoryName);
             categoryIcon = itemView.findViewById(R.id.categoryIcon);
         }
@@ -169,16 +174,16 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         void bind(String category, boolean isSelected) {
             categoryName.setText(category);
 
-            cardView.setCardBackgroundColor(isSelected ?
-                    itemView.getContext().getColor(R.color.black) :
-                    Color.WHITE);
+            // Set background based on selection state
+            linearLayout.setSelected(isSelected);
 
+            // Set text and icon colors based on selection state
             categoryName.setTextColor(
-                    itemView.getContext().getColor(isSelected ? R.color.white : R.color.text_primary)
+                    itemView.getContext().getColor(isSelected ? R.color.black : R.color.text_primary)
             );
 
             categoryIcon.setColorFilter(
-                    itemView.getContext().getColor(isSelected ? R.color.white : R.color.text_primary)
+                    itemView.getContext().getColor(isSelected ? R.color.black : R.color.text_primary)
             );
 
         }

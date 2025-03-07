@@ -16,7 +16,10 @@
         android:layout_height="match_parent"
         android:background="#80FFFFFF"
         android:visibility="gone"
-        android:gravity="center">
+        android:gravity="center"
+        android:focusableInTouchMode="true"
+        android:focusable="true"
+        android:clickable="true">
 
         <ProgressBar
             android:layout_gravity="center"
@@ -29,12 +32,19 @@
         android:id="@+id/contentLayout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="16dp"
-        android:fillViewport="true">
+        android:fillViewport="true"
+        android:focusableInTouchMode="true"
+        android:focusable="true"
+        android:clickable="true">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:paddingTop="16dp"
+            android:paddingHorizontal="16dp"
+            android:focusableInTouchMode="true"
+            android:focusable="true"
+            android:clickable="true">
 
             <!-- Input Section -->
             <com.google.android.material.card.MaterialCardView
@@ -52,7 +62,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:padding="16dp">
+                    android:padding="10dp">
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/senderNameLayout"
@@ -60,15 +70,21 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:hint="Your Name">
-
+                        android:hint="Your Name"
+                        app:boxStrokeWidth="2dp"
+                        app:boxStrokeColor="@color/design_default_color_primary"
+                        app:hintAnimationEnabled="true"
+                        app:hintTextColor="@color/design_default_color_primary"
+                        app:errorEnabled="true"
+                        app:counterEnabled="true"
+                        app:counterMaxLength="60">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/senderNameInput"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:inputType="textPersonName" />
+                            android:inputType="textPersonName"
+                            android:maxLength="60" />
                     </com.google.android.material.textfield.TextInputLayout>
-
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/recipientNameLayout"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
@@ -76,96 +92,88 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="16dp"
                         android:layout_weight="1"
-                        android:hint="Recipient's Name">
-
+                        android:hint="Recipient's Name"
+                        app:boxStrokeWidth="2dp"
+                        app:boxStrokeColor="@color/design_default_color_primary"
+                        app:hintAnimationEnabled="true"
+                        app:hintTextColor="@color/design_default_color_primary"
+                        app:errorEnabled="true"
+                        app:counterEnabled="true"
+                        app:counterMaxLength="60">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/recipientNameInput"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:inputType="textPersonName" />
+                            android:inputType="textPersonName"
+                            android:maxLength="60" />
                     </com.google.android.material.textfield.TextInputLayout>
-
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
+
             <!-- Template Preview -->
+            <FrameLayout
+                android:id="@+id/templatePreview"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="80dp"
+                app:layout_constraintTop_toBottomOf="@id/materialCardView"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:focusableInTouchMode="true"
+                android:focusable="true"
+                android:clickable="true">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="4dp"
+                    android:focusableInTouchMode="true"
+                    android:focusable="true"
+                    android:clickable="true">
+
+                    <WebView
+                        android:id="@+id/webView"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:visibility="visible"
+                        android:focusableInTouchMode="true"
+                        android:focusable="true"
+                        android:clickable="true" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <ProgressBar
+                    android:id="@+id/webViewProgress"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:visibility="gone" />
+
+            </FrameLayout>
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.core.widget.NestedScrollView>
 
-    <FrameLayout
-        android:id="@+id/templatePreview"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginTop="132dp"
-        android:layout_marginBottom="70dp"
-        android:padding="10dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="1.0"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
-
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp"
-            app:layout_anchor="@+id/webView"
-            app:layout_anchorGravity="center"
-            app:layout_constraintHeight_percent="0.6">
-        <WebView
-            android:id="@+id/webView"
-            android:layout_gravity="center"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:visibility="visible"
-            app:layout_anchor="@+id/contentLayout"
-            app:layout_anchorGravity="center"
-            />
-        </com.google.android.material.card.MaterialCardView>
-
-
-        <ProgressBar
-            android:id="@+id/webViewProgress"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:visibility="gone" />
-
-    </FrameLayout>
-
     <!-- Floating Buttons -->
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/customizeButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Customize"
-        app:icon="@drawable/ic_edit"
-        android:visibility="gone"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"/>
-
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/shareButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Share"
-        app:icon="@drawable/ic_share"
         android:layout_gravity="bottom|end"
-        android:layout_marginEnd="20dp"
-        android:layout_marginBottom="65dp"/>
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="88dp"
+        android:text="Share"
+        app:icon="@drawable/ic_share" />
 
-
-<!--    <com.google.android.material.card.MaterialCardView-->
-<!--        android:layout_width="match_parent"-->
-<!--        android:layout_height="wrap_content"-->
-<!--        android:layout_marginBottom="16dp"-->
-<!--        app:cardCornerRadius="12dp"-->
-<!--        app:cardElevation="4dp"-->
-<!--        app:layout_anchor="@+id/webView"-->
-<!--        app:layout_anchorGravity="center"-->
-<!--        app:layout_constraintHeight_percent="0.6">-->
-
-<!--    </com.google.android.material.card.MaterialCardView>-->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/customizeButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="16dp"
+        android:text="Customize"
+        android:visibility="gone"
+        app:icon="@drawable/ic_edit" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -81,19 +81,42 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+<!--    <FrameLayout-->
+<!--        android:id="@+id/loadingView"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="match_parent"-->
+<!--        android:background="#80FFFFFF"-->
+<!--        android:visibility="visible">-->
+
+<!--        <ProgressBar-->
+<!--            android:id="@+id/progressBar"-->
+<!--            android:layout_width="wrap_content"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:layout_gravity="center" />-->
+
+<!--    </FrameLayout>-->
+
     <FrameLayout
         android:id="@+id/loadingView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#80FFFFFF"
-        android:visibility="visible">
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/rounded_grey_background"
+        android:padding="24dp"
+        android:visibility="gone"
+        android:elevation="4dp"
+        android:focusableInTouchMode="true"
+        android:focusable="true"
+        android:clickable="true">
 
         <ProgressBar
             android:id="@+id/progressBar"
+            android:layout_gravity="center"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center" />
-
+            android:indeterminate="true"
+            android:indeterminateTint="@color/design_default_color_primary"
+            android:indeterminateDrawable="@drawable/circular_progress_indicator"/>
     </FrameLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

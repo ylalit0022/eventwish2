@@ -17,7 +17,7 @@
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@color/custom_grey"
+            android:background="@color/white"
             android:padding="16dp"
             android:clipChildren="true"
             android:clipToPadding="false"
@@ -114,17 +114,44 @@
                 </FrameLayout>
             </LinearLayout>
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/categoriesRecyclerView"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_below="@id/headerIconsLayout"
-                android:layout_marginTop="16dp"
-                android:clipToPadding="false"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp" />
+                android:orientation="vertical"
+                android:layout_margin="5dp"
+                android:layout_below="@id/headerIconsLayout">
+
+                <TextView
+                    android:layout_width="120dp"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/icon_category_bg_platinum_grey"
+                    android:text="Categories"
+                    android:textSize="18sp"
+                    android:padding="5dp"
+                    android:layout_margin="5dp"
+                    android:textColor="@color/purple_700"
+                    android:textStyle="bold"/>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@drawable/icon_circle"
+                     />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/categoriesRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:clipToPadding="false"
+                    android:paddingStart="2dp"
+                    android:paddingEnd="2dp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp" />
+
+            </LinearLayout>
+
+
         </RelativeLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -155,17 +182,27 @@
                 android:textSize="16sp"
                 android:visibility="gone" />
 
-            <ProgressBar
+            <FrameLayout
                 android:id="@+id/loadingProgressBar"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
+                android:background="@drawable/rounded_grey_background"
+                android:padding="24dp"
                 android:visibility="gone"
-                android:indeterminate="true"
-                android:progress="0"
-                android:indeterminateDrawable="@drawable/progress_bg"
-                android:indeterminateTint="@color/priority_high"
-                />
+                android:elevation="4dp"
+                android:focusableInTouchMode="true"
+                android:focusable="true"
+                android:clickable="true">
+
+                <ProgressBar
+                    android:layout_gravity="center"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:indeterminate="true"
+                    android:indeterminateTint="@color/design_default_color_primary"
+                    android:indeterminateDrawable="@drawable/circular_progress_indicator"/>
+            </FrameLayout>
 
 <!--            <include-->
 <!--                android:id="@+id/retryLayout"-->
