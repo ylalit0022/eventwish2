@@ -66,13 +66,13 @@ public class FestivalNotificationFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-    
+
         // Initialize ViewModel
         viewModel = new ViewModelProvider(requireActivity()).get(FestivalViewModel.class);
-    
+
         // Get NavController for navigation
         navController = Navigation.findNavController(view);
-    
+
         // Initialize views
         festivalsContainer = view.findViewById(R.id.festivalsContainer);
         loadingLayout = view.findViewById(R.id.loadingLayout);
@@ -88,7 +88,7 @@ public class FestivalNotificationFragment extends Fragment {
 
         // Set up retry button
         retryButton.setOnClickListener(v -> refreshFestivals());
-    
+
         // Set up swipe refresh
         swipeRefreshLayout.setOnRefreshListener(this::refreshFestivals);
         swipeRefreshLayout.setColorSchemeResources(
@@ -97,23 +97,23 @@ public class FestivalNotificationFragment extends Fragment {
                 android.R.color.holo_orange_light,
                 android.R.color.holo_red_light
         );
-        
+
         // Create the festivals observer
         createFestivalsObserver();
-        
+
         // Observe festivals
         viewModel.getFestivals().observe(getViewLifecycleOwner(), festivalsObserver);
-    
+
         // Only load festivals if we haven't loaded them yet
         if (!isDataLoaded) {
             loadFestivals();
         }
     }
-    
+
     private void createFestivalsObserver() {
 
-       shimmerFrameLayout.startShimmer();
-       shimmerFrameLayout.setVisibility(View.VISIBLE);
+        shimmerFrameLayout.startShimmer();
+        shimmerFrameLayout.setVisibility(View.VISIBLE);
         loadingLayout.setVisibility(View.VISIBLE);
         // Create a single observer that we can reuse
         festivalsObserver = result -> {
@@ -153,7 +153,7 @@ public class FestivalNotificationFragment extends Fragment {
             Log.d(TAG, "Data already loaded, not refreshing");
         }
     }
-    
+
     @Override
     public void onDestroyView() {
         super.onDestroyView();
@@ -165,7 +165,7 @@ public class FestivalNotificationFragment extends Fragment {
             CategoryIcon icon = festival.getCategoryIcon();
             String iconUrl = icon.getCategoryIcon();
             Log.d(TAG, "Setting category icon - Category: " + festival.getCategory() + ", URL: " + iconUrl);
-            
+
             // Load the icon from URL using Glide
             Glide.with(imageView.getContext())
                     .load(iconUrl)
@@ -176,8 +176,8 @@ public class FestivalNotificationFragment extends Fragment {
                     .into(imageView);
         } else {
             // Load default icon if no URL is available
-            Log.w(TAG, "No icon URL found for category: " + festival.getCategory() +" - ICON URL: "+ 
-                  (festival.getCategoryIcon() != null ? festival.getCategoryIcon().getCategoryIcon() : "null"));
+            Log.w(TAG, "No icon URL found for category: " + festival.getCategory() +" - ICON URL: "+
+                    (festival.getCategoryIcon() != null ? festival.getCategoryIcon().getCategoryIcon() : "null"));
             Glide.with(imageView.getContext())
                     .load(R.drawable.ic_launcher_foreground)
                     .centerCrop()
@@ -192,7 +192,7 @@ public class FestivalNotificationFragment extends Fragment {
         shimmerFrameLayout.startShimmer();
         shimmerFrameLayout.setVisibility(View.VISIBLE);
         loadingLayout.setVisibility(View.VISIBLE);
-        
+
         // Force a refresh from the server
         viewModel.refreshFestivals();
     }
@@ -212,7 +212,7 @@ public class FestivalNotificationFragment extends Fragment {
     private void displayFestivals(List<Festival> festivals) {
         festivalsContainer.removeAllViews();
         Log.d(TAG, "Displaying " + festivals.size() + " festivals");
-        
+
         for (Festival festival : festivals) {
             View festivalView = getLayoutInflater().inflate(R.layout.item_festival_category, festivalsContainer, false);
 
@@ -259,11 +259,11 @@ public class FestivalNotificationFragment extends Fragment {
             } else {
                 templatesRecyclerView.setVisibility(View.GONE);
             }
-            
+
             festivalsContainer.addView(festivalView);
         }
     }
-    
+
     private void navigateToTemplateDetail(FestivalTemplate template) {
         // Navigate to template detail fragment
         Bundle args = new Bundle();

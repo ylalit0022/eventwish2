@@ -1,0 +1,30 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <!-- Transparent Background to Avoid Rectangle -->
+        <shape android:shape="oval">
+            <solid android:color="@android:color/transparent"/>
+            <size android:width="48dp" android:height="48dp"/>
+        </shape>
+    </item>
+
+    <item>
+        <!-- Rotating Colorful Ring -->
+        <rotate
+            android:fromDegrees="0"
+            android:toDegrees="360"
+            android:pivotX="50%"
+            android:pivotY="50%"
+            android:repeatCount="infinite">
+            <shape android:shape="ring"
+                android:innerRadiusRatio="2.3"
+                android:thicknessRatio="0.1"
+                android:useLevel="false">
+                <gradient
+                    android:type="sweep"
+                    android:startColor="@android:color/transparent"
+                    android:endColor="#1A73E8"
+                    android:angle="360"/>
+            </shape>
+        </rotate>
+    </item>
+</layer-list>

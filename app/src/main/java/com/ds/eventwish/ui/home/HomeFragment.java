@@ -20,6 +20,7 @@ import androidx.navigation.Navigation;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 
 import com.ds.eventwish.MainActivity;
 import com.ds.eventwish.R;
@@ -297,6 +298,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         adapter = new TemplateAdapter(this);
         layoutManager = new GridLayoutManager(requireContext(), 1);
         binding.templatesRecyclerView.setLayoutManager(layoutManager);
+
         binding.templatesRecyclerView.setAdapter(adapter);
         
         // Set item animator to null to prevent animation glitches

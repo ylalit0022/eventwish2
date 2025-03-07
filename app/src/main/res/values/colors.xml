@@ -43,6 +43,12 @@
     <color name="surface_light">#FFFFFFFF</color>
     <color name="text_primary_light">#DE000000</color>
     <color name="text_secondary_light">#99000000</color>
+
+    //on Category clicked fill colors in home_fragment
+    <color name="category_fill_color">#A2D4BEE2</color>
+    <color name="category_grey_color_ececec">#ececec</color>
+
+
     
      <!-- Badge colors -->
     <color name="badge_background">#FF5722</color>

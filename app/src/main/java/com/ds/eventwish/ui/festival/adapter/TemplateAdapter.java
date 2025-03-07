@@ -52,8 +52,7 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.Templa
         FestivalTemplate template = templates.get(position);
         // Set programmatic width and height for template items
         ViewGroup.LayoutParams params = holder.itemView.getLayoutParams();
-        params.width = 450; // Width in pixels
-        params.height = 600; // Height in pixels
+        params.width = 700;
         holder.itemView.setLayoutParams(params);
         holder.bind(template, listener);
     }
@@ -101,16 +100,16 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.Templa
                         .listener(new RequestListener<Drawable>() {
                             @Override
                             public boolean onLoadFailed(@Nullable GlideException e, Object model,
-                                                      Target<Drawable> target, boolean isFirstResource) {
+                                                        Target<Drawable> target, boolean isFirstResource) {
                                 Log.e(TAG, "Image load failed for URL: " + imageUrl +
-                                         ", Template: " + template.getTitle(), e);
+                                        ", Template: " + template.getTitle(), e);
                                 return false; // let Glide handle the error image
                             }
 
                             @Override
                             public boolean onResourceReady(Drawable resource, Object model,
-                                                        Target<Drawable> target, DataSource dataSource,
-                                                        boolean isFirstResource) {
+                                                           Target<Drawable> target, DataSource dataSource,
+                                                           boolean isFirstResource) {
                                 Log.d(TAG, "Image loaded successfully for: " + template.getTitle());
                                 return false; // let Glide handle setting the resource
                             }
