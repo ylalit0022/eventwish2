@@ -31,7 +31,14 @@ const templateSchema = new mongoose.Schema({
     },
     categoryIcon: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'CategoryIcon'
+        ref: 'CategoryIcon',
+        required: false,
+        validate: {
+            validator: function(v) {
+                return mongoose.Types.ObjectId.isValid(v);
+            },
+            message: props => `${props.value} is not a valid ObjectId!`
+        }
     }
 }, {
     timestamps: true
