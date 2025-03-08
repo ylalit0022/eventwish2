@@ -30,8 +30,8 @@ const templateSchema = new mongoose.Schema({
         default: true
     },
     categoryIcon: {
-        type: String,
-        default: 'ic_other'
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'CategoryIcon'
     }
 }, {
     timestamps: true
