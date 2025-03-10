@@ -32,7 +32,11 @@ const templateSchema = new mongoose.Schema({
     categoryIcon: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'CategoryIcon',
+<<<<<<< HEAD
         required: true,
+=======
+        required: false,
+>>>>>>> 1e1ae0b5d1a51738de9a76d1458f67af0e80a103
         validate: {
             validator: function(v) {
                 return mongoose.Types.ObjectId.isValid(v);
