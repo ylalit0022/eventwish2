@@ -8,17 +8,23 @@ import android.graphics.Color;
 import android.os.Build;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
-import androidx.room.Room;
 import androidx.work.Configuration;
+import androidx.work.Constraints;
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.NetworkType;
+import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
 import com.ds.eventwish.data.local.AppDatabase;
 import com.ds.eventwish.data.local.ReminderDao;
 import com.ds.eventwish.data.model.Reminder;
-import com.ds.eventwish.data.repository.FestivalRepository;
+import com.ds.eventwish.data.repository.CategoryIconRepository;
+import com.ds.eventwish.utils.CacheManager;
 import com.ds.eventwish.utils.ReminderScheduler;
 import com.ds.eventwish.workers.ReminderCheckWorker;
+import com.ds.eventwish.workers.TemplateUpdateWorker;
 import java.util.List;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class EventWishApplication extends Application implements Configuration.Provider {
     private static final String TAG = "EventWishApplication";
@@ -27,37 +33,39 @@ public class EventWishApplication extends Application implements Configuration.P
     public void onCreate() {
         super.onCreate();
         
-        try {
-            // Try to get WorkManager instance to check if it's initialized
-            WorkManager.getInstance(this);
-        } catch (IllegalStateException e) {
-            // WorkManager not initialized, initialize it
-            WorkManager.initialize(this, getWorkManagerConfiguration());
-        }
-        
-        // Initialize the repository to trigger data loading
-        FestivalRepository repository = FestivalRepository.getInstance(this);
-        
-        // Clear database cache on app start to ensure fresh data
-        clearDatabaseCache();
-        
-        // Refresh data from server
-        repository.refreshUpcomingFestivals();
-        
         // Create notification channels
         createNotificationChannels();
         
-        // Schedule periodic reminder check
+        // Note: We don't need to initialize WorkManager here since we're using Configuration.Provider
+        // WorkManager will be initialized automatically using the configuration from getWorkManagerConfiguration()
+        
+        // Schedule periodic reminder check using the helper method
         ReminderCheckWorker.schedule(this);
+        
+        // Schedule template update check
+        scheduleTemplateUpdateCheck();
+        
+        // Initialize cache manager
+        CacheManager.getInstance(this);
+        
+        // Clear database cache if needed
+        clearDatabaseCache();
         
         // Restore any pending reminders
         restorePendingReminders();
+        
+        // Initialize CategoryIconRepository and preload icons
+        Log.d(TAG, "Initializing CategoryIconRepository");
+        CategoryIconRepository.getInstance().loadCategoryIcons();
+        
+        // Log initialization complete
+        Log.i(TAG, "Application initialized successfully");
     }
 
     @Override
     public Configuration getWorkManagerConfiguration() {
         return new Configuration.Builder()
-            .setMinimumLoggingLevel(Log.DEBUG)
+            .setMinimumLoggingLevel(android.util.Log.INFO)
             .build();
     }
 
@@ -131,11 +139,39 @@ public class EventWishApplication extends Application implements Configuration.P
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
                 AppDatabase database = AppDatabase.getInstance(this);
-                database.festivalDao().deleteAllFestivals();
-                Log.d(TAG, "Database cache cleared successfully");
+                if (database != null) {
+                    // Only clear festivals, not other data
+                    database.festivalDao().deleteAllFestivals();
+                    Log.d(TAG, "Festival database cache cleared successfully");
+                } else {
+                    Log.w(TAG, "Database instance is null, skipping cache clear");
+                }
             } catch (Exception e) {
                 Log.e(TAG, "Error clearing database cache", e);
             }
         });
+    }
+
+    /**
+     * Schedule a worker to check for template updates every 15 minutes
+     */
+    private void scheduleTemplateUpdateCheck() {
+        Constraints constraints = new Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build();
+        
+        PeriodicWorkRequest workRequest = new PeriodicWorkRequest.Builder(
+            TemplateUpdateWorker.class,
+            15, TimeUnit.MINUTES)
+            .setConstraints(constraints)
+            .build();
+        
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "template_update_check",
+            ExistingPeriodicWorkPolicy.KEEP,
+            workRequest
+        );
+        
+        Log.d(TAG, "Scheduled template update check worker");
     }
 }

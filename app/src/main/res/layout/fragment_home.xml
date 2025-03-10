@@ -12,7 +12,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@android:color/transparent"
-        app:elevation="0dp">
+        app:elevation="0dp"
+        app:layout_scrollFlags="scroll|enterAlways|snap">
 
         <RelativeLayout
             android:layout_width="match_parent"
@@ -31,30 +32,16 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/searchCard"
-                    android:layout_width="0dp"
-                    android:layout_height="40dp"
-                    android:layout_weight="1"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="EventWish"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/purple_700"
                     android:layout_marginStart="16dp"
                     android:layout_marginEnd="16dp"
-                    app:cardBackgroundColor="#F5F5F5"
-                    app:cardCornerRadius="20dp"
-                    app:cardElevation="0dp">
-
-                    <androidx.appcompat.widget.SearchView
-                        android:id="@+id/searchView"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:background="@null"
-                        android:iconifiedByDefault="false"
-                        android:queryHint="Search templates"
-                        android:textColorHint="@color/black"
-                        android:layout_gravity="center_vertical"
-                        app:queryBackground="@android:color/transparent"
-                        app:searchIcon="@drawable/ic_search"
-                        app:closeIcon="@drawable/ic_close" />
-                </com.google.android.material.card.MaterialCardView>
+                    android:layout_weight="1"/>
 
                 <FrameLayout
                     android:layout_width="wrap_content"
@@ -112,21 +99,147 @@
                         tools:text="3"
                         tools:visibility="visible" />
                 </FrameLayout>
+
+                <ImageView
+                    android:id="@+id/filterIcon"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_filter"
+                    app:tint="@android:color/black"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:layout_marginStart="16dp"/>
             </LinearLayout>
+
+
+            <!-- Filter Chips Section -->
+            <HorizontalScrollView
+                android:id="@+id/filterChipsScrollView"
+                android:layout_width="match_parent"
+                android:layout_height="45dp"
+                android:padding="2dp"
+                android:layout_below="@id/headerIconsLayout"
+                android:layout_marginTop="8dp"
+                android:visibility="visible"
+                android:scrollbars="none">
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/filterChipGroup"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:singleSelection="true"
+                    app:singleLine="true">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipTrending"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="10sp"
+                        android:text="Trending"
+                        android:checked="true"/>
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipNewest"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="10sp"
+                        android:text="Newest"/>
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipOldest"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="10sp"
+                        android:text="Oldest"/>
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipMostUsed"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="10sp"
+                        android:text="Most Used"/>
+                </com.google.android.material.chip.ChipGroup>
+            </HorizontalScrollView>
+
+            <!-- Time Filter Chips -->
+            <HorizontalScrollView
+                android:id="@+id/timeFilterScrollView"
+                android:layout_width="match_parent"
+                android:layout_height="45dp"
+                android:padding="2dp"
+                android:layout_below="@id/filterChipsScrollView"
+                android:visibility="visible"
+                android:scrollbars="none">
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/timeFilterChipGroup"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:singleSelection="true"
+                    app:singleLine="true">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipAllTime"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="All Time"
+                        android:textSize="10sp"
+                        android:checked="true"/>
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipToday"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="10sp"
+                        android:text="Today"/>
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipThisWeek"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="10sp"
+                        android:text="This Week"/>
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipThisMonth"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="10sp"
+                        android:text="This Month"/>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/advancedFilterButton"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Advanced"
+                        android:textSize="10sp"
+                        android:minHeight="30dp" />
+                </com.google.android.material.chip.ChipGroup>
+            </HorizontalScrollView>
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:layout_margin="5dp"
-                android:layout_below="@id/headerIconsLayout">
+                android:layout_below="@id/timeFilterScrollView">
 
                 <TextView
-                    android:layout_width="120dp"
+                    android:layout_width="100dp"
                     android:layout_height="wrap_content"
                     android:background="@drawable/icon_category_bg_platinum_grey"
                     android:text="Categories"
-                    android:textSize="18sp"
+                    android:textSize="14sp"
                     android:padding="5dp"
                     android:layout_margin="5dp"
                     android:textColor="@color/purple_700"
@@ -135,8 +248,7 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="@drawable/icon_circle"
-                     />
+                    android:background="@drawable/icon_circle" />
 
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/categoriesRecyclerView"
@@ -150,8 +262,6 @@
                     android:paddingBottom="8dp" />
 
             </LinearLayout>
-
-
         </RelativeLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -171,7 +281,8 @@
                 android:layout_height="match_parent"
                 android:clipToPadding="false"
                 android:paddingHorizontal="16dp"
-                android:paddingBottom="16dp" />
+                android:paddingBottom="16dp"
+                app:layout_behavior="@string/appbar_scrolling_view_behavior"/>
 
             <TextView
                 android:id="@+id/emptyView"
@@ -204,13 +315,6 @@
                     android:indeterminateDrawable="@drawable/circular_progress_indicator"/>
             </FrameLayout>
 
-<!--            <include-->
-<!--                android:id="@+id/retryLayout"-->
-<!--                layout="@layout/layout_retry"-->
-<!--                android:layout_width="match_parent"-->
-<!--                android:layout_height="match_parent"-->
-<!--                android:visibility="gone" />-->
-
            <LinearLayout
                android:id="@+id/retryLayout"
                android:layout_width="match_parent"
@@ -220,7 +324,6 @@
                android:visibility="gone"
                android:orientation="vertical"
                android:padding="16dp">
-
 
                <ImageView
                    android:id="@+id/errorImage"
@@ -248,7 +351,6 @@
                    android:textAllCaps="false"
                    style="@style/Widget.MaterialComponents.Button" />
 
-
            </LinearLayout>
 
         </FrameLayout>
@@ -265,4 +367,9 @@
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
     </FrameLayout>
+
+    <!-- Filter Bottom Sheet -->
+    <include
+        android:id="@+id/filterBottomSheet"
+        layout="@layout/bottom_sheet_filter" />
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

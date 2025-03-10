@@ -587,38 +587,34 @@ public class ReminderFragment extends Fragment {
                             reminder.getRepeatInterval()
                         ));
                         
-                        // Cancel any scheduled countdown notifications
+                        // Cancel any scheduled notifications
                         try {
-                            CountdownNotificationScheduler.cancelCountdownNotifications(requireContext(), reminder.getId());
+                            ReminderScheduler.cancelReminder(requireContext(), reminder.getId());
                         } catch (Exception e) {
-                            Log.e("ReminderFragment", "Failed to cancel countdown notifications: " + e.getMessage());
+                            Log.e("ReminderFragment", "Failed to cancel reminder: " + e.getMessage());
                         }
                     }
                     
+                    // Clear all reminders
                     viewModel.clearAllReminders();
                     
+                    // Show undo snackbar
                     showUndoSnackbar(
                         getString(R.string.cleared_all_reminders),
                         () -> {
                             // Restore all reminders
                             for (Reminder reminder : remindersCopy) {
                                 viewModel.saveReminder(reminder);
-                                
-                                // Re-schedule countdown notifications if needed
-                                long daysUntilReminder = TimeUnit.MILLISECONDS.toDays(reminder.getDateTime() - System.currentTimeMillis());
-                                if (daysUntilReminder > 3) {
-                                    try {
-                                        CountdownNotificationScheduler.scheduleCountdownNotifications(requireContext(), reminder);
-                                    } catch (Exception e) {
-                                        Log.e("ReminderFragment", "Failed to re-schedule countdown notifications: " + e.getMessage());
-                                    }
-                                }
                             }
                         }
                     );
+                    
+                    // Update UI
+                    updateCounts();
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+            
             return true;
         }
         return super.onOptionsItemSelected(item);

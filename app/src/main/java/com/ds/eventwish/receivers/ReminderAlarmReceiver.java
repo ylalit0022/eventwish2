@@ -115,11 +115,12 @@ public class ReminderAlarmReceiver extends BroadcastReceiver {
     private void showNotification(Context context, long reminderId, String title, String description) {
         NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
         
-        // Create an Intent for opening the app
+        // Create an Intent for opening the app directly to the ReminderFragment
         Intent contentIntent = new Intent(context, MainActivity.class);
         contentIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         contentIntent.putExtra("reminderId", reminderId);
-        contentIntent.setData(android.net.Uri.parse("reminder://fragment"));
+        contentIntent.putExtra("navigate_to", "reminder");
+        contentIntent.setData(android.net.Uri.parse("reminder://" + reminderId));
         
         PendingIntent contentPendingIntent = PendingIntent.getActivity(
             context,

@@ -4,7 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:layout_margin="2dp"
+    android:layout_margin="1dp"
     android:orientation="horizontal"
     android:background="@drawable/bg_category_selector"
     android:gravity="center"
@@ -26,7 +26,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="4dp"
         android:text="Category Name"
-        android:textSize="12sp"
+        android:textSize="11sp"
         android:gravity="center"
         android:textColor="@color/black"
         android:fontFamily="sans-serif-medium" />

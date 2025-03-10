@@ -2,7 +2,7 @@ package com.ds.eventwish.data.model;
 
 /**
  * A generic class that holds a result with its loading status.
- * @param <T> The type of data that is being loaded
+ * @param <T> The type of data
  */
 public class Result<T> {
     private final Status status;

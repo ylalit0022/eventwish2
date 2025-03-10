@@ -28,6 +28,7 @@ public class ReminderViewModel extends ViewModel {
     private final MutableLiveData<Boolean> isLoading;
     private final MutableLiveData<String> error;
     private final MutableLiveData<Integer> badgeCount;
+    private final MutableLiveData<Integer> todayRemindersCount = new MutableLiveData<>(0);
     private Filter currentFilter;
     private boolean isAppInForeground = false;
 
@@ -71,10 +72,17 @@ public class ReminderViewModel extends ViewModel {
         isLoading.setValue(true);
         try {
             List<Reminder> allReminders = reminderDao.getAllReminders();
-            applyFilter(allReminders);
-            updateBadgeCount(allReminders);
+            if (allReminders != null) {
+                applyFilter(allReminders);
+                updateBadgeCount(allReminders);
+                updateTodayRemindersCount(allReminders);
+            } else {
+                reminders.setValue(new ArrayList<>());
+                badgeCount.setValue(0);
+                todayRemindersCount.setValue(0);
+            }
         } catch (Exception e) {
-            error.setValue("Error loading reminders");
+            error.setValue("Failed to load reminders");
             Log.e("ReminderViewModel", "Error loading reminders: " + e.getMessage(), e);
         } finally {
             isLoading.setValue(false);
@@ -359,5 +367,46 @@ public class ReminderViewModel extends ViewModel {
 
     public void onPause() {
         isAppInForeground = false;
+    }
+
+    /**
+     * Update the count of today's reminders
+     */
+    private void updateTodayRemindersCount(List<Reminder> allReminders) {
+        if (allReminders == null) {
+            todayRemindersCount.setValue(0);
+            return;
+        }
+        
+        // Get today's start and end time
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        long todayStart = calendar.getTimeInMillis();
+        
+        calendar.add(Calendar.DAY_OF_MONTH, 1);
+        long tomorrowStart = calendar.getTimeInMillis();
+        
+        // Count reminders for today
+        int count = 0;
+        for (Reminder reminder : allReminders) {
+            if (!reminder.isCompleted() && 
+                reminder.getDateTime() >= todayStart && 
+                reminder.getDateTime() < tomorrowStart) {
+                count++;
+            }
+        }
+        
+        todayRemindersCount.setValue(count);
+        Log.d("ReminderViewModel", "Today's reminders count: " + count);
+    }
+
+    /**
+     * Get the LiveData for today's reminders count
+     */
+    public LiveData<Integer> getTodayRemindersCount() {
+        return todayRemindersCount;
     }
 }

@@ -78,7 +78,20 @@ public class TemplateRepository {
         currentCall = call;
     }
 
+    /**
+     * Set the current category filter
+     * @param category The category to filter by, or null for all categories
+     */
     public void setCategory(String category) {
+        setCategory(category, true);
+    }
+
+    /**
+     * Set the current category filter
+     * @param category The category to filter by, or null for all categories
+     * @param reload Whether to reload templates after setting the category
+     */
+    public void setCategory(String category, boolean reload) {
         if ((category == null && currentCategory == null) || 
             (category != null && category.equals(currentCategory))) {
             return;
@@ -88,11 +101,19 @@ public class TemplateRepository {
             (currentCategory != null ? currentCategory : "All") + " to " + 
             (category != null ? category : "All"));
             
+        // Save current templates before changing category
+        List<Template> currentTemplateList = templates.getValue();
+        
         currentCategory = category;
         currentPage = 1;
         hasMorePages = true;
-        templates.setValue(new ArrayList<>());
-        loadTemplates(true);
+        
+        // Don't clear templates immediately to prevent UI flicker
+        // templates.setValue(new ArrayList<>());
+        
+        if (reload) {
+            loadTemplates(true);
+        }
     }
 
     public void loadTemplates(boolean forceRefresh) {
@@ -106,13 +127,18 @@ public class TemplateRepository {
         if (forceRefresh) {
             currentPage = 1;
             hasMorePages = true;
-            if (templates.getValue() != null) {
-                templates.getValue().clear();
-                // Notify observers of the empty list to clear the UI
-                templates.setValue(new ArrayList<>());
-            } else {
-                templates.setValue(new ArrayList<>());
+            
+            // Only clear templates if we're not filtering by category or if this is the initial load
+            if (currentCategory == null || templates.getValue() == null || templates.getValue().isEmpty()) {
+                if (templates.getValue() != null) {
+                    templates.getValue().clear();
+                    // Notify observers of the empty list to clear the UI
+                    templates.setValue(new ArrayList<>());
+                } else {
+                    templates.setValue(new ArrayList<>());
+                }
             }
+            // If we're filtering by category, we'll keep the existing templates until new ones arrive
         }
         
         // If we've already loaded all pages, don't make another request
@@ -207,5 +233,44 @@ public class TemplateRepository {
      */
     public int getCurrentPage() {
         return currentPage;
+    }
+
+    /**
+     * Clear the template cache and reset pagination
+     */
+    public void clearCache() {
+        android.util.Log.d("TemplateRepository", "Clearing template cache");
+        
+        // Save current categories before clearing
+        Map<String, Integer> currentCategories = categories.getValue();
+        
+        // Reset pagination
+        currentPage = 1;
+        hasMorePages = true;
+        
+        // Clear templates
+        if (templates.getValue() != null) {
+            templates.getValue().clear();
+            templates.setValue(new ArrayList<>());
+        } else {
+            templates.setValue(new ArrayList<>());
+        }
+        
+        // Cancel any ongoing requests
+        if (currentCall != null && !currentCall.isCanceled()) {
+            currentCall.cancel();
+        }
+        
+        // Reset error state
+        error.setValue(null);
+        
+        // Reset loading state
+        loading.setValue(false);
+        
+        // Restore categories if they were available
+        if (currentCategories != null && !currentCategories.isEmpty()) {
+            android.util.Log.d("TemplateRepository", "Restoring " + currentCategories.size() + " categories after cache clear");
+            categories.setValue(currentCategories);
+        }
     }
 }

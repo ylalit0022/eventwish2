@@ -4,6 +4,7 @@ import com.ds.eventwish.data.model.CategoryIcon;
 import com.ds.eventwish.data.model.Festival;
 import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.data.model.Template;
+import com.ds.eventwish.data.model.response.CategoryIconResponse;
 import com.ds.eventwish.data.model.response.TemplateResponse;
 import com.ds.eventwish.data.model.response.WishResponse;
 
@@ -61,6 +62,6 @@ public interface ApiService {
     Call<Festival> getFestivalById(@Path("id") String id);
 
     @GET("categoryIcons")
-    Call<List<CategoryIcon>> getCategoryIcons();
+    Call<CategoryIconResponse> getCategoryIcons();
 
 }

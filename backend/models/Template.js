@@ -30,11 +30,27 @@ const templateSchema = new mongoose.Schema({
         default: true
     },
     categoryIcon: {
-        type: String,
-        default: 'ic_other'
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'CategoryIcon',
+        required: true,
+        validate: {
+            validator: function(v) {
+                return mongoose.Types.ObjectId.isValid(v);
+            },
+            message: props => `${props.value} is not a valid ObjectId!`
+        }
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    toJSON: {
+        virtuals: true,
+        transform: function(doc, ret) {
+            if (ret.categoryIcon && typeof ret.categoryIcon === 'object') {
+                ret.categoryIcon = ret.categoryIcon._id;
+            }
+            return ret;
+        }
+    }
 });
 
 module.exports = mongoose.model('Template', templateSchema, 'templates');

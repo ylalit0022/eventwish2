@@ -32,6 +32,7 @@ import com.ds.eventwish.data.model.Result;
 import com.ds.eventwish.databinding.FragmentFestivalNotificationBinding;
 import com.ds.eventwish.ui.festival.adapter.TemplateAdapter;
 import com.facebook.shimmer.ShimmerFrameLayout;
+import com.google.android.material.snackbar.Snackbar;
 
 import java.text.SimpleDateFormat;
 import java.util.List;
@@ -104,6 +105,16 @@ public class FestivalNotificationFragment extends Fragment {
         // Observe festivals
         viewModel.getFestivals().observe(getViewLifecycleOwner(), festivalsObserver);
 
+        // Observe cache snackbar
+        viewModel.getShowCacheSnackbar().observe(getViewLifecycleOwner(), showSnackbar -> {
+            if (showSnackbar != null && showSnackbar && getView() != null) {
+                Snackbar.make(getView(), "Showing data from cache", Snackbar.LENGTH_LONG)
+                        .setAction("Refresh", v -> refreshFestivals())
+                        .show();
+                viewModel.clearCacheSnackbarFlag();
+            }
+        });
+
         // Only load festivals if we haven't loaded them yet
         if (!isDataLoaded) {
             loadFestivals();
@@ -119,6 +130,8 @@ public class FestivalNotificationFragment extends Fragment {
         festivalsObserver = result -> {
             loadingLayout.setVisibility(View.GONE);
             swipeRefreshLayout.setRefreshing(false);
+            shimmerFrameLayout.stopShimmer();
+            shimmerFrameLayout.setVisibility(View.GONE);
 
             if (result.isSuccess()) {
                 List<Festival> festivals = result.getData();
@@ -269,5 +282,12 @@ public class FestivalNotificationFragment extends Fragment {
         Bundle args = new Bundle();
         args.putString("templateId", template.getId());
         navController.navigate(R.id.action_festival_notification_to_template_detail, args);
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        // Clear memory cache when fragment is paused
+        viewModel.clearMemoryCache();
     }
 }

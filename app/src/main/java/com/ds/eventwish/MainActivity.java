@@ -9,8 +9,10 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -31,7 +33,7 @@ import androidx.navigation.ui.NavigationUI;
 
 import com.ds.eventwish.databinding.ActivityMainBinding;
 import com.ds.eventwish.ui.reminder.ReminderFragment;
-import com.ds.eventwish.utils.DeepLinkUtil;
+import com.ds.eventwish.utils.DeepLinkHandler;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.badge.BadgeDrawable;
@@ -39,9 +41,16 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.ds.eventwish.data.local.ReminderDao;
 import com.ds.eventwish.ui.reminder.viewmodel.ReminderViewModel;
 import com.ds.eventwish.ui.reminder.viewmodel.ReminderViewModelFactory;
+import com.ds.eventwish.utils.PermissionUtils;
+import com.ds.eventwish.utils.AppUpdateChecker;
+import com.ds.eventwish.data.repository.FestivalRepository;
+import com.ds.eventwish.ui.festival.FestivalViewModel;
+import com.ds.eventwish.utils.NotificationHelper;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
+    private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 100;
+
     private ActivityMainBinding binding;
     private NavController navController;
     private boolean isNavigating = false;
@@ -50,6 +59,10 @@ public class MainActivity extends AppCompatActivity {
     private ReminderDao reminderDao;
     private BadgeDrawable reminderBadge;
     private ActivityResultLauncher<String> requestPermissionLauncher;
+    private BottomNavigationView bottomNavigationView;
+    private FestivalViewModel festivalViewModel;
+    private String currentFragmentTag = "";
+    private boolean isFirstLaunch = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,6 +86,21 @@ public class MainActivity extends AppCompatActivity {
         setupNavigation();
         setupBadge();
         handleIntent(getIntent());
+
+        // Initialize notification channels
+        NotificationHelper.createNotificationChannels(this);
+
+        // Request notification permission if needed
+        NotificationHelper.requestNotificationPermission(this, NOTIFICATION_PERMISSION_REQUEST_CODE);
+
+        // Initialize view model
+        festivalViewModel = new ViewModelProvider(this).get(FestivalViewModel.class);
+
+        // Clear all cache on first launch
+        if (isFirstLaunch) {
+            FestivalRepository.getInstance(this).clearAllCache();
+            isFirstLaunch = false;
+        }
     }
 
     private void setupPermissionLauncher() {
@@ -84,63 +112,31 @@ public class MainActivity extends AppCompatActivity {
                     checkAlarmPermission();
                 } else {
                     Log.w(TAG, "Notification permission denied");
-                    showPermissionDeniedDialog();
+                    PermissionUtils.showNotificationPermissionDeniedDialog(this);
                 }
             }
         );
     }
 
     private void checkAndRequestPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            int permission = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS);
-            if (permission != PackageManager.PERMISSION_GRANTED) {
-                Log.d(TAG, "Requesting notification permission");
-                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
-            } else {
-                Log.d(TAG, "Notification permission already granted");
-                checkAlarmPermission();
-            }
+        // Check notification permission
+        if (!PermissionUtils.hasNotificationPermission(this)) {
+            Log.d(TAG, "Requesting notification permission");
+            PermissionUtils.requestNotificationPermission(this, requestPermissionLauncher);
         } else {
+            Log.d(TAG, "Notification permission already granted");
             checkAlarmPermission();
         }
     }
 
     private void checkAlarmPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-            if (alarmManager != null && !alarmManager.canScheduleExactAlarms()) {
-                Log.w(TAG, "Exact alarm permission not granted");
-                showAlarmPermissionDialog();
-            } else {
-                Log.d(TAG, "Alarm permission granted");
-            }
+        // Check exact alarm permission
+        if (!PermissionUtils.canScheduleExactAlarms(this)) {
+            Log.w(TAG, "Exact alarm permission not granted");
+            PermissionUtils.showExactAlarmPermissionDialog(this);
+        } else {
+            Log.d(TAG, "Alarm permission granted");
         }
-    }
-
-    private void showPermissionDeniedDialog() {
-        new MaterialAlertDialogBuilder(this)
-            .setTitle("Notification Permission Required")
-            .setMessage("This app needs notification permission to alert you about your reminders. Please grant this permission in Settings.")
-            .setPositiveButton("Settings", (dialog, which) -> {
-                Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                Uri uri = Uri.fromParts("package", getPackageName(), null);
-                intent.setData(uri);
-                startActivity(intent);
-            })
-            .setNegativeButton("Cancel", null)
-            .show();
-    }
-
-    private void showAlarmPermissionDialog() {
-        new MaterialAlertDialogBuilder(this)
-            .setTitle("Alarm Permission Required")
-            .setMessage("This app needs permission to schedule exact alarms for your reminders. Please grant this permission in Settings.")
-            .setPositiveButton("Settings", (dialog, which) -> {
-                Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
-                startActivity(intent);
-            })
-            .setNegativeButton("Cancel", null)
-            .show();
     }
 
     private void setupBadge() {
@@ -148,103 +144,95 @@ public class MainActivity extends AppCompatActivity {
         reminderBadge = bottomNav.getOrCreateBadge(R.id.navigation_reminder);
         reminderBadge.setBackgroundColor(getResources().getColor(R.color.badge_background, getTheme()));
         reminderBadge.setBadgeTextColor(getResources().getColor(R.color.badge_text, getTheme()));
-        
-        // Observe unread count
-        reminderDao.getUnreadCount().observe(this, count -> {
-            if (count > 0) {
-                reminderBadge.setVisible(true);
-                reminderBadge.setNumber(count);
+
+        // Observe today's reminders count
+        if (viewModel != null) {
+            viewModel.getTodayRemindersCount().observe(this, count -> {
+                if (count > 0) {
+                    reminderBadge.setVisible(true);
+                    reminderBadge.setNumber(count);
+                    Log.d(TAG, "Today's reminders count: " + count);
+                } else {
+                    reminderBadge.setVisible(false);
+                }
+            });
+
+            // Initial load of reminders
+            viewModel.loadReminders();
+        } else {
+            Log.e(TAG, "ReminderViewModel is null in setupBadge");
+        }
+
+        // Clear badge when navigating to reminder fragment
+        // ✅ FIX: Ensure navController is not null before using it
+        if (navController != null) {
+            navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
+                if (destination.getId() == R.id.navigation_reminder) {
+                    if (reminderBadge != null) {
+                        reminderBadge.setVisible(false);
+                    }
+                } else if (reminderBadge != null && viewModel != null) {
+                    Integer count = viewModel.getTodayRemindersCount().getValue();
+                    if (count != null && count > 0) {
+                        reminderBadge.setVisible(true);
+                    }
+                }
+            });
+        } else {
+            Log.e(TAG, "navController is null in setupBadge");
+        }    }
+
+    private void setupNavigation() {
+        Window window = getWindow();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            View decorView = window.getDecorView();
+            decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+            window.setStatusBarColor(Color.parseColor("#DEDBE0")); // Set status bar color to white
+        }
+
+            NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);
+            if (navHostFragment != null) {
+                navController = navHostFragment.getNavController();
+                Log.d("MainActivity", "NavController initialized successfully");
+
+                binding.bottomNavigation.setOnItemSelectedListener(item -> {
+                    return NavigationUI.onNavDestinationSelected(item, navController);
+                });
+
+                navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
+                    Log.d("MainActivity", "Navigated to: " + destination.getId());
+                });
+
             } else {
-                reminderBadge.setVisible(false);
+                Log.e("MainActivity", "NavHostFragment is NULL!");
+            }
+
+        //binding.bottomNavigation.setItemIconTintList(null); // Disable Default Tint
+
+        binding.bottomNavigation.setOnItemSelectedListener(item -> {
+            resetNavItems(); // Reset All Items
+
+            View navItem = binding.bottomNavigation.findViewById(item.getItemId());
+
+            if (navItem != null) {
+                navItem.setBackgroundResource(R.drawable.bottom_nav_background); // Active Background
+                navItem.startAnimation(AnimationUtils.loadAnimation(this, R.anim.nav_item_zoom)); // Ripple Animation
+
+                ImageView icon = (ImageView) navItem.findViewById(androidx.appcompat.R.id.icon);
+                if (icon != null) {
+                    icon.setBackgroundResource(R.drawable.icon_circle); // Shape Background to Icon
+                    icon.setColorFilter(getResources().getColor(R.color.black)); // Active Icon Color
+                }
+            }
+
+            if (navController != null) {
+                return NavigationUI.onNavDestinationSelected(item, navController); // Navigate to Destination
+            } else {
+                Log.e("MainActivity", "NavController is null");
+                return false;
             }
         });
     }
-
-//    private void setupNavigation() {
-//
-//        binding.bottomNavigation.setItemIconTintList(null); // Disable default tint
-//
-//        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
-//                .findFragmentById(R.id.nav_host_fragment);
-//
-//        if (navHostFragment != null) {
-//            navController = navHostFragment.getNavController();
-//
-//            binding.bottomNavigation.setOnItemSelectedListener(item -> {
-//                if (isNavigating) return false;
-//
-//                int itemId = item.getItemId();
-//                if (navController.getCurrentDestination() != null &&
-//                    navController.getCurrentDestination().getId() == itemId) {
-//                    return true;
-//                }
-//
-//                try {
-//                    isNavigating = true;
-//                    // Clear badge when navigating to reminder fragment
-//                    if (itemId == R.id.navigation_reminder) {
-//                        viewModel.clearBadgeCount();
-//                    }
-//                    navController.navigate(itemId);
-//                } catch (Exception e) {
-//                    Log.e(TAG, "Navigation failed", e);
-//                } finally {
-//                    isNavigating = false;
-//                }
-//                return true;
-//            });
-//
-//            navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
-//                int id = destination.getId();
-//                binding.bottomNavigation.setVisibility(View.VISIBLE);
-//                binding.bottomNavigation.setSelectedItemId(id);
-//            });
-//        } else {
-//            Log.e(TAG, "NavHostFragment not found!");
-//        }
-//    }
-private void setupNavigation() {
-    Window window = getWindow();
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        View decorView = window.getDecorView();
-        decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
-        window.setStatusBarColor(Color.parseColor("#DEDBE0")); // Set status bar color to white
-    }
-
-    NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment);
-    if (navHostFragment != null) {
-        navController = navHostFragment.getNavController(); // Initialize NavController correctly
-    } else {
-        Log.e("MainActivity", "NavHostFragment not found");
-        return; // Stop execution if NavController is not found
-    }
-
-    //binding.bottomNavigation.setItemIconTintList(null); // Disable Default Tint
-
-    binding.bottomNavigation.setOnItemSelectedListener(item -> {
-        resetNavItems(); // Reset All Items
-
-        View navItem = binding.bottomNavigation.findViewById(item.getItemId());
-
-        if (navItem != null) {
-            navItem.setBackgroundResource(R.drawable.bottom_nav_background); // Active Background
-            navItem.startAnimation(AnimationUtils.loadAnimation(this, R.anim.nav_item_zoom)); // Ripple Animation
-
-            ImageView icon = (ImageView) navItem.findViewById(androidx.appcompat.R.id.icon);
-            if (icon != null) {
-                icon.setBackgroundResource(R.drawable.icon_circle); // Shape Background to Icon
-                icon.setColorFilter(getResources().getColor(R.color.black)); // Active Icon Color
-            }
-        }
-
-        if (navController != null) {
-            return NavigationUI.onNavDestinationSelected(item, navController); // Navigate to Destination
-        } else {
-            Log.e("MainActivity", "NavController is null");
-            return false;
-        }
-    });
-}
 
     private void resetNavItems() {
         for (int i = 0; i < binding.bottomNavigation.getMenu().size(); i++) {
@@ -260,9 +248,6 @@ private void setupNavigation() {
         }
     }
 
-
-
-
     @Override
     public boolean onSupportNavigateUp() {
         return NavigationUI.navigateUp(navController, appBarConfiguration)
@@ -274,53 +259,102 @@ private void setupNavigation() {
 
         String action = intent.getAction();
         Uri data = intent.getData();
-        
+
+        // Use the DeepLinkHandler to handle deep links
         if (Intent.ACTION_VIEW.equals(action) && data != null) {
-            String shortCode = DeepLinkUtil.extractShortCode(data);
-            if (shortCode != null) {
-                try {
-                    Bundle args = new Bundle();
-                    args.putString("shortCode", shortCode);
-                    navController.navigate(R.id.action_global_resourceFragment, args);
-                } catch (Exception e) {
-                    Log.e(TAG, "Deep link navigation failed", e);
-                }
+            // Let the DeepLinkHandler handle the deep link
+            if (DeepLinkHandler.handleDeepLink(this, intent)) {
+                // Deep link was handled by DeepLinkHandler
+                Log.d(TAG, "Deep link handled by DeepLinkHandler");
+                return;
             }
         }
 
         // Check if the intent is for showing reminders
         if (intent != null && intent.getAction() != null) {
             if (intent.getAction().equals("SHOW_REMINDERS")) {
-                // Navigate to the reminders fragment or activity
-                // Example: navController.navigate(R.id.navigation_reminder);
+                // Navigate to the reminders fragment
+                navController.navigate(R.id.navigation_reminder);
+            }
+        }
+
+        // Handle extras from DeepLinkHandler
+        if (intent != null) {
+            // Handle SHORT_CODE extra
+            if (intent.hasExtra("SHORT_CODE")) {
+                String shortCode = intent.getStringExtra("SHORT_CODE");
+                if (shortCode != null && !shortCode.isEmpty()) {
+                    Log.d(TAG, "Handling SHORT_CODE from intent: " + shortCode);
+                    Bundle args = new Bundle();
+                    args.putString("shortCode", shortCode);
+                    navController.navigate(R.id.action_global_resourceFragment, args);
+                }
+            }
+
+            // Handle FESTIVAL_ID extra
+            if (intent.hasExtra("FESTIVAL_ID")) {
+                String festivalId = intent.getStringExtra("FESTIVAL_ID");
+                if (festivalId != null && !festivalId.isEmpty()) {
+                    Log.d(TAG, "Handling FESTIVAL_ID from intent: " + festivalId);
+                    Bundle args = new Bundle();
+                    args.putString("festivalId", festivalId);
+                    navController.navigate(R.id.navigation_festival_notification, args);
+                }
+            }
+
+            // Handle TEMPLATE_ID extra
+            if (intent.hasExtra("TEMPLATE_ID")) {
+                String templateId = intent.getStringExtra("TEMPLATE_ID");
+                if (templateId != null && !templateId.isEmpty()) {
+                    Log.d(TAG, "Handling TEMPLATE_ID from intent: " + templateId);
+                    Bundle args = new Bundle();
+                    args.putString("templateId", templateId);
+                    navController.navigate(R.id.navigation_template_detail, args);
+                }
             }
         }
     }
-
-//    @Override
-//    protected void onNewIntent(Intent intent) {
-//        super.onNewIntent(intent);
-//        setIntent(intent);
-//        handleIntent(intent);
-//    }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        if (intent != null && "reminder".equals(intent.getStringExtra("navigate_to"))) {
-            long reminderId = intent.getLongExtra("reminderId", -1);
-            if (reminderId != -1) {
-                Bundle bundle = new Bundle();
-                bundle.putLong("reminderId", reminderId);
 
-                NavController navController = Navigation.findNavController(this, R.id.fragment_container);
-                navController.navigate(R.id.navigation_reminder, bundle);
+        // Set the new intent to be processed
+        setIntent(intent);
+
+        if (intent != null) {
+            String navigateTo = intent.getStringExtra("navigate_to");
+
+            if ("reminder".equals(navigateTo)) {
+                // Navigate to reminder fragment
+                long reminderId = intent.getLongExtra("reminderId", -1);
+                if (reminderId != -1) {
+                    Log.d(TAG, "Navigating to reminder fragment with ID: " + reminderId);
+                    Bundle bundle = new Bundle();
+                    bundle.putLong("reminderId", reminderId);
+
+                    NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment);
+                    navController.navigate(R.id.navigation_reminder, bundle);
+                    return;
+                }
+            } else if ("festival".equals(navigateTo)) {
+                // Navigate to festival notification fragment
+                String festivalId = intent.getStringExtra("FESTIVAL_ID");
+                if (festivalId != null && !festivalId.isEmpty()) {
+                    Log.d(TAG, "Navigating to festival notification fragment with ID: " + festivalId);
+                    Bundle bundle = new Bundle();
+                    bundle.putString("festivalId", festivalId);
+
+                    NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment);
+                    navController.navigate(R.id.navigation_festival_notification, bundle);
+                    return;
+                }
             }
         }
+
+        // If no specific navigation was handled, process the intent normally
+        handleIntent(intent);
     }
-
-
-
 
     @Override
     protected void onDestroy() {
@@ -343,6 +377,52 @@ private void setupNavigation() {
     @Override
     protected void onResume() {
         super.onResume();
-        checkAndRequestPermissions();
+
+        // Check for app updates
+        AppUpdateChecker.checkForUpdate(this);
+
+        // Set app in foreground state
+        if (viewModel != null) {
+            viewModel.setAppInForeground(true);
+        }
+
+        // Check if we need to refresh data
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Log.d(TAG, "Notification permission granted");
+                // Permission granted, you can now show notifications
+            } else {
+                Log.d(TAG, "Notification permission denied");
+                // Permission denied, show a message to the user
+                Snackbar.make(
+                        findViewById(android.R.id.content),
+                        "Notification permission is required to receive festival updates",
+                        Snackbar.LENGTH_LONG
+                ).setAction("Settings", v -> {
+                    // Open app settings
+                    Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                    intent.setData(android.net.Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                }).show();
+            }
+        }
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        return NavigationUI.onNavDestinationSelected(item, navController)
+                || super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Don't clear cache when app is paused/backgrounded
     }
 }

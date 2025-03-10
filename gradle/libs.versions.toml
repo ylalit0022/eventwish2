@@ -14,6 +14,7 @@ recyclerview = "1.3.2"
 cardview = "1.0.0"
 glide = "4.16.0"
 transport-api = "4.0.0"
+app-update = "2.1.0"
 
 [libraries]
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
@@ -32,6 +33,7 @@ cardview = { group = "androidx.cardview", name = "cardview", version.ref = "card
 glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
 glide-compiler = { group = "com.github.bumptech.glide", name = "compiler", version.ref = "glide" }
 transport-api = { group = "com.google.android.datatransport", name = "transport-api", version.ref = "transport-api" }
+app-update = { group = "com.google.android.play", name = "app-update", version.ref = "app-update" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

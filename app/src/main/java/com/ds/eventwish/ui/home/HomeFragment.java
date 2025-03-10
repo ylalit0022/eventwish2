@@ -9,6 +9,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.SearchView;
 import android.widget.Toast;
+import android.widget.ImageView;
+import android.widget.RadioButton;
+import android.widget.Button;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -39,8 +42,10 @@ import com.google.android.flexbox.FlexDirection;
 import com.google.android.flexbox.JustifyContent;
 import com.google.android.flexbox.AlignItems;
 import com.google.android.flexbox.FlexWrap;
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.ds.eventwish.ui.festival.FestivalViewModel;
+import com.ds.eventwish.data.repository.CategoryIconRepository;
 
 public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemplateClickListener {
     private static final String TAG = "HomeFragment";
@@ -54,6 +59,8 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     private BottomNavigationView bottomNav;
     private long backPressedTime;
     private static final long BACK_PRESS_DELAY = 2000; // 2 seconds
+    private CategoryIconRepository categoryIconRepository;
+    private boolean wasInBackground = false;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -66,50 +73,153 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        
-        Log.d(TAG, "onViewCreated");
-        
-        // Initialize ViewModel with context for template update manager
-        viewModel.init(requireContext());
-        festivalViewModel = new ViewModelProvider(this).get(FestivalViewModel.class);
-        
-        // Remove any references to Action Bar or Toolbar
-        // Example of setting a background color
-        binding.getRoot().setBackgroundColor(getResources().getColor(R.color.white)); // Use the soft background color
 
+        Log.d(TAG, "onViewCreated called");
+
+        // Initialize ViewModel
+        viewModel = new ViewModelProvider(this).get(HomeViewModel.class);
+        viewModel.init(requireContext());
+
+        // Initialize FestivalViewModel
+        festivalViewModel = new ViewModelProvider(this).get(FestivalViewModel.class);
+
+        // Initialize CategoryIconRepository
+        categoryIconRepository = CategoryIconRepository.getInstance();
+
+        // Set up UI components
         setupUI();
+
+        // Set up RecyclerView
         setupRecyclerView();
-        setupImpressionTracking();
-        setupSearch();
+
+        // Set up SwipeRefreshLayout
         setupSwipeRefresh();
+
+        // Set up observers
         setupObservers();
+
+        // Set up bottom navigation
         setupBottomNavigation();
-        
-        // Initial load of templates
-        viewModel.loadTemplates(false);
+
+        // Ensure filter chips are initially hidden
+        binding.filterChipsScrollView.setVisibility(View.GONE);
+        binding.timeFilterScrollView.setVisibility(View.GONE);
+
+        // Explicitly load categories to ensure they're displayed
+        Log.d(TAG, "Explicitly loading categories in onViewCreated");
+        viewModel.loadCategories();
+
+        // Ensure categories are visible
+        ensureCategoriesVisible();
     }
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
+
+        // Initialize the CategoryIconRepository
+        categoryIconRepository = CategoryIconRepository.getInstance();
+        Log.d(TAG, "CategoryIconRepository initialized in onCreate");
+
         // Handle back press for exit confirmation
         requireActivity().getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (backPressedTime + BACK_PRESS_DELAY > System.currentTimeMillis()) {
-                    requireActivity().finish();
+                if (binding.timeFilterScrollView.getVisibility() == View.VISIBLE ||
+                        binding.filterChipsScrollView.getVisibility() == View.VISIBLE) {
+
+                    binding.timeFilterScrollView.setVisibility(View.GONE);
+                    binding.filterChipsScrollView.setVisibility(View.GONE);
+
                 } else {
-                    Toast.makeText(requireContext(), "Press back again to exit", Toast.LENGTH_SHORT).show();
+                    if (Navigation.findNavController(requireActivity(), R.id.nav_host_fragment)
+                            .getCurrentDestination().getId() == R.id.navigation_home) {
+                        if (backPressedTime + BACK_PRESS_DELAY > System.currentTimeMillis()) {
+                            requireActivity().finish();
+                        } else {
+                            Toast.makeText(requireContext(), "Press back again to exit", Toast.LENGTH_SHORT).show();
+                            backPressedTime = System.currentTimeMillis();
+                        }
+                    } else {
+                        setEnabled(false);
+                        requireActivity().onBackPressed();
+                        setEnabled(true);
+                    }
                 }
-                backPressedTime = System.currentTimeMillis();
             }
         });
-    }
 
-    @Override
+    }
+        @Override
     public void onResume() {
         super.onResume();
+        
+        Log.d(TAG, "onResume called");
+        
+        // Check if we're coming back from another fragment
+        if (wasInBackground) {
+            Log.d(TAG, "Returning from background");
+            
+            // Refresh category icons
+            if (categoryIconRepository != null) {
+                categoryIconRepository.refreshCategoryIcons();
+            }
+            
+            // Always load categories when returning to the fragment
+            if (viewModel != null) {
+                Log.d(TAG, "Loading categories in onResume");
+                viewModel.loadCategories();
+            }
+            
+            // Restore selected category
+            if (categoriesAdapter != null && viewModel != null) {
+                String selectedCategory = viewModel.getSelectedCategory();
+                Log.d(TAG, "Restoring selected category: " + (selectedCategory != null ? selectedCategory : "All"));
+                
+                // Update the selected category in the adapter
+                categoriesAdapter.updateSelectedCategory(selectedCategory);
+                
+                // Make sure the categories adapter is refreshed
+                categoriesAdapter.notifyDataSetChanged();
+            }
+            
+            // Refresh templates if needed
+            if (viewModel != null && viewModel.shouldRefreshOnReturn()) {
+                viewModel.loadTemplates(true);
+            }
+            
+            // Update chip selections based on current filters
+            updateChipSelections();
+            
+            // Restore scroll position if needed
+            if (layoutManager != null && viewModel != null) {
+                int lastPosition = viewModel.getLastVisiblePosition();
+                if (lastPosition > 0) {
+                    layoutManager.scrollToPosition(lastPosition);
+                }
+            }
+            
+            wasInBackground = false;
+        }
+        
+        // Ensure categories are visible
+        ensureCategoriesVisible();
+        
+        // Check for unread festivals - using the correct method
+        if (festivalViewModel != null) {
+            // Refresh festivals to check for new ones
+            festivalViewModel.refreshFestivals();
+            
+            // Update the notification badge based on unread count
+            festivalViewModel.getUnreadCount().observe(getViewLifecycleOwner(), count -> {
+                if (count != null && count > 0) {
+                    binding.notificationBadge.setVisibility(View.VISIBLE);
+                    binding.notificationBadge.setText(count <= 9 ? String.valueOf(count) : "9+");
+                } else {
+                    binding.notificationBadge.setVisibility(View.GONE);
+                }
+            });
+        }
         
         Log.d(TAG, "onResume - Last position: " + viewModel.getLastVisiblePosition());
         
@@ -149,6 +259,8 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     public void onPause() {
         super.onPause();
         
+        Log.d(TAG, "onPause called");
+        
         // Save the current scroll position
         int position = layoutManager.findFirstVisibleItemPosition();
         if (position >= 0) {
@@ -160,28 +272,22 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         if (viewModel.getCurrentPage() > 1) {
             Log.d(TAG, "Saved current page in onPause: " + viewModel.getCurrentPage());
         }
+        
+        // Mark that we're going to background
+        wasInBackground = true;
     }
 
     private void setupUI() {
         // Setup header icons
         binding.refreshIcon.setOnClickListener(v -> {
-            // Disable the refresh icon temporarily to prevent multiple clicks
-            binding.refreshIcon.setEnabled(false);
+            // Show loading indicator
+            binding.swipeRefreshLayout.setRefreshing(true);
             
-            // Clear the new templates indicator
-            viewModel.clearNewTemplatesFlag();
+            // Clear cache and refresh data
+            viewModel.clearCacheAndRefresh();
             
-            // Refresh templates
-            viewModel.loadTemplates(true);
-            
-            // Reset scroll position to avoid inconsistency
-            viewModel.saveScrollPosition(0);
-            
-            // Hide the indicator immediately
+            // Hide the refresh indicator
             binding.refreshIndicator.setVisibility(View.GONE);
-            
-            // Re-enable the refresh icon after a delay
-            binding.refreshIcon.postDelayed(() -> binding.refreshIcon.setEnabled(true), 1000);
         });
         
         // Setup test button for debugging
@@ -234,6 +340,41 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
 
         binding.categoriesRecyclerView.setLayoutManager(flexboxLayoutManager);
         binding.categoriesRecyclerView.setAdapter(categoriesAdapter);
+        
+        // Ensure the categories RecyclerView is visible
+        binding.categoriesRecyclerView.setVisibility(View.VISIBLE);
+        
+        // Log the initial state
+        Log.d(TAG, "Categories RecyclerView initial visibility: " + 
+              (binding.categoriesRecyclerView.getVisibility() == View.VISIBLE ? "VISIBLE" : "NOT VISIBLE"));
+        
+        // Always add the "All" category first
+        List<String> initialCategories = new ArrayList<>();
+        initialCategories.add("All");
+        categoriesAdapter.updateCategories(initialCategories);
+        
+        // If we already have categories in the ViewModel, update the adapter immediately
+        if (viewModel != null) {
+            Map<String, Integer> categories = viewModel.getCategories().getValue();
+            if (categories != null && !categories.isEmpty()) {
+                Log.d(TAG, "Setting up categories adapter with " + categories.size() + " categories from ViewModel");
+                
+                // Convert categories map to list for the adapter
+                List<String> categoryList = new ArrayList<>(categories.keySet());
+                
+                // Add "All" category if it doesn't exist
+                if (!categoryList.contains("All")) {
+                    categoryList.add(0, "All");
+                }
+                
+                // Update the adapter
+                categoriesAdapter.updateCategories(categoryList);
+            } else {
+                // If no categories are available, load them
+                Log.d(TAG, "No categories available in ViewModel, loading categories");
+                viewModel.loadCategories();
+            }
+        }
 
         categoriesAdapter.setOnCategoryClickListener((category, position) -> {
             if (category.equals("All")) {
@@ -255,44 +396,230 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
             Log.d(TAG, "Showing more categories, count: " + allCategoriesExceptAll.size());
             showCategoriesBottomSheet(allCategoriesExceptAll);
         });
+
+        // Set up filter chips
+        setupFilterChips();
+        
+        // Set up filter icon
+        ImageView filterIcon = binding.filterIcon;
+        filterIcon.setOnClickListener(v -> {
+            // Check if filter chips are visible
+            boolean areChipsVisible = binding.filterChipsScrollView.getVisibility() == View.VISIBLE;
+            
+            if (areChipsVisible) {
+                // Hide filter chips
+                binding.filterChipsScrollView.setVisibility(View.GONE);
+                binding.timeFilterScrollView.setVisibility(View.GONE);
+            } else {
+                // Show filter chips
+                binding.filterChipsScrollView.setVisibility(View.VISIBLE);
+                binding.timeFilterScrollView.setVisibility(View.VISIBLE);
+                
+                // Update chip selections to reflect current state
+                updateChipSelections();
+            }
+        });
+        
+        // Set up long click listener to show the bottom sheet for advanced filtering
+        filterIcon.setOnLongClickListener(v -> {
+            showFilterBottomSheet();
+            return true;
+        });
+    }
+
+    private void setupFilterChips() {
+        // Set up sort option chips
+        binding.chipTrending.setOnClickListener(v -> 
+            viewModel.setSortOption(HomeViewModel.SortOption.TRENDING));
+        binding.chipNewest.setOnClickListener(v -> 
+            viewModel.setSortOption(HomeViewModel.SortOption.NEWEST));
+        binding.chipOldest.setOnClickListener(v -> 
+            viewModel.setSortOption(HomeViewModel.SortOption.OLDEST));
+        binding.chipMostUsed.setOnClickListener(v -> 
+            viewModel.setSortOption(HomeViewModel.SortOption.MOST_USED));
+        
+        // Set up time filter chips
+        binding.chipAllTime.setOnClickListener(v -> 
+            viewModel.setTimeFilter(HomeViewModel.TimeFilter.ALL_TIME));
+        binding.chipToday.setOnClickListener(v -> 
+            viewModel.setTimeFilter(HomeViewModel.TimeFilter.TODAY));
+        binding.chipThisWeek.setOnClickListener(v -> 
+            viewModel.setTimeFilter(HomeViewModel.TimeFilter.THIS_WEEK));
+        binding.chipThisMonth.setOnClickListener(v -> 
+            viewModel.setTimeFilter(HomeViewModel.TimeFilter.THIS_MONTH));
+        
+        // Add a button to show advanced filter options
+        if (binding.advancedFilterButton != null) {
+            binding.advancedFilterButton.setOnClickListener(v -> showFilterBottomSheet());
+        }
+        
+        updateChipSelections();
+    }
+    
+    private void updateChipSelections() {
+        // Update sort option chips
+        binding.chipTrending.setChecked(viewModel.getCurrentSortOption() == HomeViewModel.SortOption.TRENDING);
+        binding.chipNewest.setChecked(viewModel.getCurrentSortOption() == HomeViewModel.SortOption.NEWEST);
+        binding.chipOldest.setChecked(viewModel.getCurrentSortOption() == HomeViewModel.SortOption.OLDEST);
+        binding.chipMostUsed.setChecked(viewModel.getCurrentSortOption() == HomeViewModel.SortOption.MOST_USED);
+        
+        // Update time filter chips
+        binding.chipAllTime.setChecked(viewModel.getCurrentTimeFilter() == HomeViewModel.TimeFilter.ALL_TIME);
+        binding.chipToday.setChecked(viewModel.getCurrentTimeFilter() == HomeViewModel.TimeFilter.TODAY);
+        binding.chipThisWeek.setChecked(viewModel.getCurrentTimeFilter() == HomeViewModel.TimeFilter.THIS_WEEK);
+        binding.chipThisMonth.setChecked(viewModel.getCurrentTimeFilter() == HomeViewModel.TimeFilter.THIS_MONTH);
+    }
+    
+    private void showFilterBottomSheet() {
+        // Get the bottom sheet view directly from the binding
+        View bottomSheetView = binding.filterBottomSheet.getRoot();
+        BottomSheetBehavior<View> bottomSheetBehavior = BottomSheetBehavior.from(bottomSheetView);
+        
+        // Set up radio buttons
+        RadioButton radioTrending = bottomSheetView.findViewById(R.id.radioTrending);
+        RadioButton radioNewest = bottomSheetView.findViewById(R.id.radioNewest);
+        RadioButton radioOldest = bottomSheetView.findViewById(R.id.radioOldest);
+        RadioButton radioMostUsed = bottomSheetView.findViewById(R.id.radioMostUsed);
+        
+        RadioButton radioAllTime = bottomSheetView.findViewById(R.id.radioAllTime);
+        RadioButton radioToday = bottomSheetView.findViewById(R.id.radioToday);
+        RadioButton radioThisWeek = bottomSheetView.findViewById(R.id.radioThisWeek);
+        RadioButton radioThisMonth = bottomSheetView.findViewById(R.id.radioThisMonth);
+        
+        Button applyButton = bottomSheetView.findViewById(R.id.applyFiltersButton);
+        Button resetButton = bottomSheetView.findViewById(R.id.resetFiltersButton);
+        
+        // Set initial state based on current selections
+        HomeViewModel.SortOption currentSortOption = viewModel.getCurrentSortOption();
+        HomeViewModel.TimeFilter currentTimeFilter = viewModel.getCurrentTimeFilter();
+        
+        // Set the appropriate radio button checked based on current sort option
+        switch (currentSortOption) {
+            case TRENDING:
+                radioTrending.setChecked(true);
+                break;
+            case NEWEST:
+                radioNewest.setChecked(true);
+                break;
+            case OLDEST:
+                radioOldest.setChecked(true);
+                break;
+            case MOST_USED:
+                radioMostUsed.setChecked(true);
+                break;
+        }
+        
+        // Set the appropriate radio button checked based on current time filter
+        switch (currentTimeFilter) {
+            case ALL_TIME:
+                radioAllTime.setChecked(true);
+                break;
+            case TODAY:
+                radioToday.setChecked(true);
+                break;
+            case THIS_WEEK:
+                radioThisWeek.setChecked(true);
+                break;
+            case THIS_MONTH:
+                radioThisMonth.setChecked(true);
+                break;
+        }
+        
+        // Apply button click listener
+        applyButton.setOnClickListener(v -> {
+            // Determine which sort option is selected
+            HomeViewModel.SortOption selectedSortOption;
+            if (radioTrending.isChecked()) {
+                selectedSortOption = HomeViewModel.SortOption.TRENDING;
+            } else if (radioNewest.isChecked()) {
+                selectedSortOption = HomeViewModel.SortOption.NEWEST;
+            } else if (radioOldest.isChecked()) {
+                selectedSortOption = HomeViewModel.SortOption.OLDEST;
+            } else {
+                selectedSortOption = HomeViewModel.SortOption.MOST_USED;
+            }
+            
+            // Determine which time filter is selected
+            HomeViewModel.TimeFilter selectedTimeFilter;
+            if (radioAllTime.isChecked()) {
+                selectedTimeFilter = HomeViewModel.TimeFilter.ALL_TIME;
+            } else if (radioToday.isChecked()) {
+                selectedTimeFilter = HomeViewModel.TimeFilter.TODAY;
+            } else if (radioThisWeek.isChecked()) {
+                selectedTimeFilter = HomeViewModel.TimeFilter.THIS_WEEK;
+            } else {
+                selectedTimeFilter = HomeViewModel.TimeFilter.THIS_MONTH;
+            }
+            
+            // Apply the filters
+            viewModel.setSortOption(selectedSortOption);
+            viewModel.setTimeFilter(selectedTimeFilter);
+            
+            // Update chip selections
+            updateChipSelections();
+            
+            // Hide the bottom sheet
+            bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
+        });
+        
+        // Reset button click listener
+        resetButton.setOnClickListener(v -> {
+            // Reset to default values
+            viewModel.setSortOption(HomeViewModel.SortOption.TRENDING);
+            viewModel.setTimeFilter(HomeViewModel.TimeFilter.ALL_TIME);
+            viewModel.setCategory(null);
+            
+            // Update UI
+            updateChipSelections();
+            
+            // Hide the bottom sheet
+            bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
+        });
+        
+        // Show the bottom sheet
+        bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
     }
 
     private void showCategoriesBottomSheet(List<String> categories) {
         BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
         View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_categories, null);
+        bottomSheetDialog.setContentView(bottomSheetView);
+
+        // Set rounded corners
+        bottomSheetView.setBackgroundResource(R.drawable.rounded_corners_bg);
+
         RecyclerView categoriesRecyclerView = bottomSheetView.findViewById(R.id.categoriesRecyclerView);
-        
-        // Add "All" category to the list if not already present
-        List<String> allCategories = new ArrayList<>();
-        if (!categories.contains("All")) {
-            allCategories.add("All");
-        }
-        allCategories.addAll(categories);
-        
-        Log.d(TAG, "Bottom sheet showing " + allCategories.size() + " categories");
-        for (String category : allCategories) {
-            Log.d(TAG, "Bottom sheet category: " + category);
-        }
-        
+
+        List<String> visibleCategories = categoriesAdapter.getVisibleCategories();
+        List<String> allCategories = new ArrayList<>(viewModel.getCategories().getValue().keySet());
+
+        // Remove all visible categories including "All" and "More"
+        List<String> bottomSheetCategories = new ArrayList<>(allCategories);
+        bottomSheetCategories.removeAll(visibleCategories);
+        bottomSheetCategories.remove("More"); // Just in case "More" is not in visibleCategories
+
+        Log.d(TAG, "Showing " + bottomSheetCategories.size() + " categories in bottom sheet");
+
         CategoriesAdapter bottomSheetAdapter = new CategoriesAdapter();
-        categoriesRecyclerView.setLayoutManager(new GridLayoutManager(requireContext(), 3));
+        GridLayoutManager gridLayoutManager = new GridLayoutManager(requireContext(), 3);
+        categoriesRecyclerView.setLayoutManager(gridLayoutManager);
+        // Add padding and rounded corners to the RecyclerView
+        categoriesRecyclerView.setPadding(16, 16, 16, 16);
+        categoriesRecyclerView.setClipToPadding(false);
+        categoriesRecyclerView.setBackgroundResource(R.drawable.rounded_corners_bg); // Make sure to create this drawable
         categoriesRecyclerView.setAdapter(bottomSheetAdapter);
-        bottomSheetAdapter.updateCategories(allCategories);
+        bottomSheetAdapter.updateCategories(bottomSheetCategories);
 
         bottomSheetAdapter.setOnCategoryClickListener((category, position) -> {
-            Log.d(TAG, "Bottom sheet category selected: " + category);
-            if (category.equals("All")) {
-                viewModel.setCategory(null);
-            } else {
-                viewModel.setCategory(category);
-            }
+            Log.d(TAG, "Selected category from bottom sheet: " + category);
+            viewModel.setCategory(category);
             categoriesAdapter.updateSelectedCategory(category);
             bottomSheetDialog.dismiss();
         });
 
-        bottomSheetDialog.setContentView(bottomSheetView);
         bottomSheetDialog.show();
     }
+
 
     private void setupRecyclerView() {
         adapter = new TemplateAdapter(this);
@@ -305,31 +632,42 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         binding.templatesRecyclerView.setItemAnimator(null);
 
         binding.templatesRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            private int scrollThreshold = 20;  // Increased threshold for better detection
+            private int totalDy = 0; // Track total scroll distance
+            private boolean isAppBarHidden = false;
+
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
 
+                totalDy += dy; // Track total scroll distance
+
                 try {
-                    if (dy > 0) { // Check if scrolling down
-                        int totalItemCount = layoutManager.getItemCount();
-                        int lastVisibleItem = layoutManager.findLastCompletelyVisibleItemPosition();
-    
-                        Log.d(TAG, "Scrolling - last visible: " + lastVisibleItem +
-                                " - total: " + totalItemCount +
-                                " - threshold: " + (totalItemCount - VISIBLE_THRESHOLD));
-    
-                        // Load more when last visible item is within VISIBLE_THRESHOLD of the end
-                        if (lastVisibleItem >= 0 && 
-                            totalItemCount > 0 && 
+                    if (totalDy > scrollThreshold && !isAppBarHidden) {
+                        // Scrolling Down → Collapse AppBar
+                        isAppBarHidden = true;
+                        binding.appBarLayout.setExpanded(false, true);
+                    } else if (totalDy < -scrollThreshold && isAppBarHidden) {
+                        // Scrolling Up → Expand AppBar
+                        isAppBarHidden = false;
+                        binding.appBarLayout.setExpanded(true, true);
+                    }
+
+                    // Preserve existing "Load More" logic
+                    int totalItemCount = layoutManager.getItemCount();
+                    int lastVisibleItem = layoutManager.findLastCompletelyVisibleItemPosition();
+
+                    if (lastVisibleItem >= 0 &&
+                            totalItemCount > 0 &&
                             lastVisibleItem >= totalItemCount - VISIBLE_THRESHOLD) {
-                            loadMoreItems();
-                        }
+                        loadMoreItems();
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "Error in scroll listener", e);
                 }
             }
         });
+
     }
 
     private void setupImpressionTracking() {
@@ -409,151 +747,110 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         });
     }
 
-    private void setupSearch() {
-        binding.searchView.setIconified(false); // Ensure it's always expanded
-        binding.searchView.clearFocus(); // Prevents immediate focus on load
-
-        binding.searchView.setOnQueryTextListener(new androidx.appcompat.widget.SearchView.OnQueryTextListener() {
-            @Override
-            public boolean onQueryTextSubmit(String query) {
-                viewModel.setSearchQuery(query);
-                return true;
-            }
-
-            @Override
-            public boolean onQueryTextChange(String newText) {
-                viewModel.setSearchQuery(newText);
-                return true;
-            }
-        });
-    }
-
     private void setupObservers() {
-        // Loading state observer
-        viewModel.getLoading().observe(getViewLifecycleOwner(), isLoading -> {
-            binding.swipeRefreshLayout.setRefreshing(isLoading);
-            // Disable refresh icon during loading
-            binding.refreshIcon.setEnabled(!isLoading);
-            binding.refreshIcon.setAlpha(isLoading ? 0.5f : 1.0f);
-        });
-
-        binding.retryLayout.setVisibility(View.GONE);
-        // Templates observer
+        // Observe templates from the ViewModel
         viewModel.getTemplates().observe(getViewLifecycleOwner(), templates -> {
-            if (templates != null && !templates.isEmpty()) {
-                binding.retryLayout.setVisibility(View.GONE);
-                binding.templatesRecyclerView.setVisibility(View.VISIBLE);
-                binding.emptyView.setVisibility(View.GONE);
-                binding.loadingProgressBar.setVisibility(View.GONE);
-
-
-                // Use a new list to avoid RecyclerView inconsistency
+            Log.d(TAG, "Templates updated - size: " + (templates != null ? templates.size() : 0));
+            if (templates != null) {
+                // Create a new list to avoid modification issues
                 List<Template> newList = new ArrayList<>(templates);
                 
-                // Important: Use post to avoid RecyclerView inconsistency
+                // Check for new templates
+                viewModel.checkForNewTemplates(newList);
+                
+                // Update the adapter with the new list
                 binding.templatesRecyclerView.post(() -> {
                     adapter.submitList(newList);
                     
-                    // Restore scroll position if returning from template detail
-                    // Only after the list has been updated
-                    if (viewModel.getLastVisiblePosition() > 0 && 
-                        viewModel.getLastVisiblePosition() < newList.size()) {
-                        int position = viewModel.getLastVisiblePosition();
-                        Log.d(TAG, "Restoring scroll position to: " + position);
-                        layoutManager.scrollToPosition(position);
+                    // Restore scroll position if needed
+                    int savedPosition = viewModel.getLastVisiblePosition();
+                    if (savedPosition > 0 && savedPosition < newList.size()) {
+                        Log.d(TAG, "Restoring scroll position to: " + savedPosition);
+                        layoutManager.scrollToPosition(savedPosition);
                     }
+                    
+                    // Show empty state if needed
+                    binding.emptyView.setVisibility(newList.isEmpty() ? View.VISIBLE : View.GONE);
                 });
-                
-                // Check for new templates
-                viewModel.checkForNewTemplates(templates);
-            } else {
+            }
+        });
+        
+        // Observe new template IDs
+        viewModel.getNewTemplateIds().observe(getViewLifecycleOwner(), newIds -> {
+            if (newIds != null && adapter != null) {
+                Log.d(TAG, "New template IDs updated: " + newIds.size());
+                adapter.setNewTemplates(newIds);
+            }
+        });
+        
+        // Observe loading state
+        viewModel.getLoading().observe(getViewLifecycleOwner(), isLoading -> {
+            Log.d(TAG, "Loading state updated: " + isLoading);
+            binding.swipeRefreshLayout.setRefreshing(isLoading);
+            
+            // Show/hide shimmer based on loading state
+            if (isLoading) {
+//                binding.shimmerLayout.setVisibility(View.VISIBLE);
+//                binding.shimmerLayout.startShimmer();
                 binding.templatesRecyclerView.setVisibility(View.GONE);
                 binding.emptyView.setVisibility(View.GONE);
-                binding.loadingProgressBar.setVisibility(View.VISIBLE);
-
-            }
-            
-            binding.swipeRefreshLayout.setRefreshing(false);
-            binding.bottomLoadingView.setVisibility(View.GONE);
-        });
-
-        // Categories observer
-        viewModel.getCategories().observe(getViewLifecycleOwner(), categories -> {
-            Log.d(TAG, "Categories updated - size: " + (categories != null ? categories.size() : 0));
-            if (categories != null && !categories.isEmpty()) {
-                List<String> categoryList = new ArrayList<>();
-                categoryList.add("All"); // Add "All" as the first category
-                categoryList.addAll(categories.keySet());
-                
-                Log.d(TAG, "Category list created with " + categoryList.size() + " items");
-                for (String category : categoryList) {
-                    Log.d(TAG, "Category in list: " + category);
-                }
-                
-                categoriesAdapter.updateCategories(categoryList);
-                
-                // Maintain selected position if category is selected
-                if (viewModel.getCurrentCategory() != null) {
-                    int position = categoryList.indexOf(viewModel.getCurrentCategory());
-                    Log.d(TAG, "Selected category: " + viewModel.getCurrentCategory() + " at position: " + position);
-                    if (position >= 0) {
-                        categoriesAdapter.setSelectedPosition(position);
-                    }
-                } else {
-                    Log.d(TAG, "No category selected, defaulting to All");
-                    categoriesAdapter.setSelectedPosition(0); // Select "All" by default
-                }
             } else {
-                Log.d(TAG, "Categories map is empty or null");
-                // If no categories, just show "All"
-                List<String> defaultList = new ArrayList<>();
-                defaultList.add("All");
-                categoriesAdapter.updateCategories(defaultList);
-                categoriesAdapter.setSelectedPosition(0);
+//                binding.shimmerLayout.stopShimmer();
+//                binding.shimmerLayout.setVisibility(View.GONE);
+                binding.templatesRecyclerView.setVisibility(View.VISIBLE);
             }
         });
-
-        // New templates indicator observer
+        
+        // Observe error state
+        viewModel.getError().observe(getViewLifecycleOwner(), error -> {
+            if (error != null && !error.isEmpty()) {
+                Log.e(TAG, "Error: " + error);
+                Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show();
+            }
+        });
+        
+        // Observe category icons
+        categoryIconRepository.getCategoryIcons().observe(getViewLifecycleOwner(), categoryIcons -> {
+            Log.d(TAG, "Received " + (categoryIcons != null ? categoryIcons.size() : 0) + " category icons");
+            // Force refresh of categories adapter if we have categories
+            if (categoriesAdapter != null && categoriesAdapter.getItemCount() > 0) {
+                categoriesAdapter.notifyDataSetChanged();
+            }
+        });
+        
+        // Observe categories from the ViewModel
+        viewModel.getCategories().observe(getViewLifecycleOwner(), categories -> {
+            if (categories != null && !categories.isEmpty()) {
+                Log.d(TAG, "Received " + categories.size() + " categories");
+                
+                // Make sure category icons are loaded
+                categoryIconRepository.loadCategoryIcons();
+                
+                // Convert categories map to list for the adapter
+                List<String> categoryList = new ArrayList<>(categories.keySet());
+                
+                // Add "All" category if it doesn't exist
+                if (!categoryList.contains("All")) {
+                    categoryList.add(0, "All");
+                }
+                
+                // Update the adapter
+                categoriesAdapter.updateCategories(categoryList);
+            }
+        });
+        
+        // Observe new templates indicator
         viewModel.getHasNewTemplates().observe(getViewLifecycleOwner(), hasNew -> {
             binding.refreshIndicator.setVisibility(hasNew ? View.VISIBLE : View.GONE);
-            Log.d(TAG, "New templates indicator updated: " + hasNew);
-            
-            // For debugging - show a toast when the indicator changes
-            if (hasNew) {
-                Toast.makeText(requireContext(), "New templates available!", Toast.LENGTH_SHORT).show();
-            }
         });
-
-        // Error observer
-        viewModel.getError().observe(getViewLifecycleOwner(), error -> {
-            if (error != null) {
-                //Remove loadingPregressBar
-                binding.loadingProgressBar.setVisibility(View.GONE);
-                //set Retry Layout FIle
-                binding.retryLayout.setVisibility(View.VISIBLE);
-                binding.retryButton.setOnClickListener(v -> {
-                    binding.retryLayout.setVisibility(View.GONE);
-                    viewModel.loadTemplates(true);
-                });
-
-                binding.templatesRecyclerView.setVisibility(View.GONE);
-
-                Snackbar.make(binding.getRoot(), error, Snackbar.LENGTH_LONG)
-                    .setBackgroundTint(getResources().getColor(R.color.priority_high))
-                    .setTextColor(getResources().getColor(android.R.color.white))
-                    .setActionTextColor(getResources().getColor(android.R.color.white))
-                    .setAction("Retry", v -> {
-                        binding.retryLayout.setVisibility(View.GONE);
-                        binding.loadingProgressBar.setVisibility(View.VISIBLE);
-                        viewModel.loadTemplates(true);
-                    })
-                    .show();
-
-                // Set margins for the Snackbar
-                View snackbarView = Snackbar.make(binding.getRoot(), "", Snackbar.LENGTH_LONG).getView();
-                ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) snackbarView.getLayoutParams();
-                params.setMargins(16, 0, 16, 16);
-                snackbarView.setLayoutParams(params);
+        
+        // Observe unread festival count
+        festivalViewModel.getUnreadCount().observe(getViewLifecycleOwner(), count -> {
+            if (count != null && count > 0) {
+                binding.notificationBadge.setVisibility(View.VISIBLE);
+                binding.notificationBadge.setText(count <= 9 ? String.valueOf(count) : "9+");
+            } else {
+                binding.notificationBadge.setVisibility(View.GONE);
             }
         });
     }
@@ -569,27 +866,21 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
 
     @Override
     public void onTemplateClick(Template template) {
-        try {
-            // Save the current scroll position before navigating
-            int position = layoutManager.findFirstVisibleItemPosition();
-            if (position >= 0) {
-                viewModel.saveScrollPosition(position);
-                Log.d(TAG, "Saving position before navigation: " + position);
-            }
-            
-            // Mark the template as viewed to avoid showing the indicator for it
-            if (template.getId() != null) {
-                viewModel.markTemplateAsViewed(template.getId());
-            }
-            
-            // Navigate to template detail
-            HomeFragmentDirections.ActionHomeToTemplateDetail action = 
-                HomeFragmentDirections.actionHomeToTemplateDetail(template.getId());
-            Navigation.findNavController(requireView()).navigate(action);
-        } catch (Exception e) {
-            Log.e(TAG, "Error navigating to template detail", e);
-            Toast.makeText(requireContext(), "Error opening template", Toast.LENGTH_SHORT).show();
+        if (template == null) return;
+        
+        // Mark the template as viewed
+        viewModel.markTemplateAsViewed(template.getId());
+        
+        // Save the current scroll position
+        int position = layoutManager.findFirstVisibleItemPosition();
+        if (position >= 0) {
+            viewModel.saveScrollPosition(position);
         }
+        
+        // Navigate to the template detail screen
+        Bundle args = new Bundle();
+        args.putString("templateId", template.getId());
+        Navigation.findNavController(requireView()).navigate(R.id.action_home_to_template_detail, args);
     }
 
     @Override
@@ -614,5 +905,66 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                       Toast.LENGTH_SHORT).show();
         
         Log.d(TAG, "Test: Toggled new templates indicator to " + !currentState);
+    }
+
+    /**
+     * Ensure that the categories section is visible
+     */
+    private void ensureCategoriesVisible() {
+        // Make sure the categories RecyclerView is visible
+        if (binding.categoriesRecyclerView != null) {
+            binding.categoriesRecyclerView.setVisibility(View.VISIBLE);
+            
+            // Log the current state
+            Log.d(TAG, "Categories RecyclerView visibility: " + 
+                  (binding.categoriesRecyclerView.getVisibility() == View.VISIBLE ? "VISIBLE" : "NOT VISIBLE"));
+            
+            // Check if adapter is set
+            if (binding.categoriesRecyclerView.getAdapter() == null) {
+                Log.d(TAG, "Categories RecyclerView adapter is null, setting adapter");
+                binding.categoriesRecyclerView.setAdapter(categoriesAdapter);
+            }
+            
+            // Check if adapter has data
+            if (categoriesAdapter != null) {
+                Log.d(TAG, "Categories adapter item count: " + categoriesAdapter.getItemCount());
+                
+                // If adapter is empty or only has "All" category, check for categories in ViewModel
+                if ((categoriesAdapter.getItemCount() <= 1) && viewModel != null) {
+                    Map<String, Integer> categories = viewModel.getCategories().getValue();
+                    if (categories != null && !categories.isEmpty()) {
+                        Log.d(TAG, "Updating categories adapter with " + categories.size() + " categories");
+                        
+                        // Convert categories map to list for the adapter
+                        List<String> categoryList = new ArrayList<>(categories.keySet());
+                        
+                        // Add "All" category if it doesn't exist
+                        if (!categoryList.contains("All")) {
+                            categoryList.add(0, "All");
+                        }
+                        
+                        // Update the adapter
+                        categoriesAdapter.updateCategories(categoryList);
+                    } else {
+                        // If no categories are available, load them
+                        Log.d(TAG, "No categories available in ViewModel, loading categories");
+                        viewModel.loadCategories();
+                        
+                        // Add "All" category as a fallback
+                        if (categoriesAdapter.getItemCount() == 0) {
+                            List<String> fallbackList = new ArrayList<>();
+                            fallbackList.add("All");
+                            categoriesAdapter.updateCategories(fallbackList);
+                        }
+                    }
+                    
+                    // Make sure the selected category is highlighted
+                    if (viewModel != null) {
+                        String selectedCategory = viewModel.getSelectedCategory();
+                        categoriesAdapter.updateSelectedCategory(selectedCategory);
+                    }
+                }
+            }
+        }
     }
 }

@@ -33,7 +33,13 @@ public class CountdownNotificationReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         Log.d(TAG, "Received countdown notification intent");
         
-        // Extract data from intent
+        // Check if this is a festival notification
+        if (intent.hasExtra("festivalId")) {
+            handleFestivalCountdown(context, intent);
+            return;
+        }
+        
+        // Extract data from intent for reminders
         long reminderId = intent.getLongExtra("reminderId", -1);
         String title = intent.getStringExtra("title");
         int daysLeft = intent.getIntExtra("daysLeft", 0);
@@ -68,6 +74,82 @@ public class CountdownNotificationReceiver extends BroadcastReceiver {
         } catch (Exception e) {
             Log.e(TAG, "Failed to show countdown notification: " + e.getMessage(), e);
         }
+    }
+    
+    /**
+     * Handle festival countdown notifications
+     * @param context The context
+     * @param intent The intent containing festival data
+     */
+    private void handleFestivalCountdown(Context context, Intent intent) {
+        String festivalId = intent.getStringExtra("festivalId");
+        String title = intent.getStringExtra("title");
+        int daysLeft = intent.getIntExtra("daysLeft", 0);
+        
+        Log.d(TAG, String.format("Festival countdown data - id: %s, title: %s, daysLeft: %d", 
+                festivalId, title, daysLeft));
+        
+        if (festivalId == null || title == null || daysLeft <= 0) {
+            Log.e(TAG, "Missing or invalid festival countdown data in intent");
+            return;
+        }
+        
+        try {
+            createNotificationChannel(context);
+            showFestivalCountdownNotification(context, festivalId, title, daysLeft);
+            Log.d(TAG, "Successfully showed countdown notification for festival: " + festivalId);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to show festival countdown notification: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Show a countdown notification for a festival
+     * @param context The context
+     * @param festivalId The festival ID
+     * @param title The festival title
+     * @param daysLeft Days left until the festival
+     */
+    private void showFestivalCountdownNotification(Context context, String festivalId, String title, int daysLeft) {
+        // Create content text based on days left
+        String contentText;
+        if (daysLeft == 1) {
+            contentText = title + " is tomorrow! Get ready to celebrate.";
+        } else {
+            contentText = daysLeft + " days left until " + title + ". Mark your calendar!";
+        }
+        
+        // Create an Intent for opening the app
+        Intent contentIntent = new Intent(context, MainActivity.class);
+        contentIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        contentIntent.putExtra("FESTIVAL_ID", festivalId);
+        contentIntent.putExtra("navigate_to", "festival");
+        contentIntent.setData(android.net.Uri.parse("festival://" + festivalId));
+        
+        PendingIntent contentPendingIntent = PendingIntent.getActivity(
+                context,
+                (festivalId.hashCode() * 1000 + daysLeft),
+                contentIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        // Build the notification
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle("Upcoming Festival: " + title)
+                .setContentText(contentText)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(contentText))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_EVENT)
+                .setAutoCancel(true)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setContentIntent(contentPendingIntent);
+        
+        // Show notification with a unique ID based on festival ID and days left
+        int notificationId = (festivalId.hashCode() * 100) + daysLeft;
+        
+        // Use NotificationHelper to handle permission checks
+        NotificationHelper.showNotification(context, notificationId, builder.build());
     }
     
     private void createNotificationChannel(Context context) {

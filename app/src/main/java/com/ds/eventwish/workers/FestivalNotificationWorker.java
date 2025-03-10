@@ -55,11 +55,12 @@ public class FestivalNotificationWorker extends Worker {
             
             // Update badge count
             updateBadgeCount(getApplicationContext());
+            
+            return Result.success();
         } else {
             Log.d(TAG, "No upcoming festivals to notify");
+            return Result.success();
         }
-        
-        return Result.success();
     }
     
     private void createFestivalNotification(Festival festival) {
@@ -72,7 +73,9 @@ public class FestivalNotificationWorker extends Worker {
         // Create an intent for when the notification is tapped
         Intent intent = new Intent(context, MainActivity.class);
         intent.putExtra("FESTIVAL_ID", festival.getId());
+        intent.putExtra("navigate_to", "festival");
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        intent.setData(android.net.Uri.parse("festival://" + festival.getId()));
         PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, 
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         

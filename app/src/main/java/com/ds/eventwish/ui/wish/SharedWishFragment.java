@@ -29,6 +29,10 @@ import com.ds.eventwish.data.model.Template;
 import com.google.gson.Gson;
 
 import android.content.Intent;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 public class SharedWishFragment extends Fragment {
     private SharedPrefsManager prefsManager;
@@ -199,24 +203,69 @@ public class SharedWishFragment extends Fragment {
 
     private void shareWish() {
         if (currentWish == null) return;
+        
+        // Create the share URL
+        String shareUrl = getString(R.string.share_url_format, shortCode);
+        
+        // Create the share text
+        String shareText = getString(R.string.share_wish_text, shareUrl);
+        
+        // Show the share bottom sheet
+        View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_share, null);
+        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
+        bottomSheetDialog.setContentView(bottomSheetView);
+        
+        // Set up click listeners for share options
+        bottomSheetView.findViewById(R.id.whatsappShare).setOnClickListener(v -> {
+            shareViaWhatsApp(shareText);
+            bottomSheetDialog.dismiss();
+        });
+        
+        bottomSheetView.findViewById(R.id.moreOptions).setOnClickListener(v -> {
+            shareViaOther(shareText);
+            bottomSheetDialog.dismiss();
+        });
+        
+        bottomSheetView.findViewById(R.id.copyLink).setOnClickListener(v -> {
+            copyLinkToClipboard(shareUrl);
+            bottomSheetDialog.dismiss();
+        });
+        
+        bottomSheetDialog.show();
+    }
 
-        String shareUrl = DeepLinkUtil.generateWebUrl(currentWish.getShortCode());
-        String message = String.format("Check out this greeting from %s to %s!\n%s",
-            currentWish.getSenderName(), currentWish.getRecipientName(), shareUrl);
+    private void shareViaWhatsApp(String shareText) {
+        try {
+            Intent whatsappIntent = new Intent(Intent.ACTION_SEND);
+            whatsappIntent.setType("text/plain");
+            whatsappIntent.setPackage("com.whatsapp");
+            whatsappIntent.putExtra(Intent.EXTRA_TEXT, shareText);
+            startActivity(whatsappIntent);
+        } catch (Exception e) {
+            Log.e(TAG, "Error sharing via WhatsApp", e);
+            Toast.makeText(requireContext(), "WhatsApp not installed", Toast.LENGTH_SHORT).show();
+            // Fallback to other share
+            shareViaOther(shareText);
+        }
+    }
 
+    private void shareViaOther(String shareText) {
         Intent shareIntent = new Intent(Intent.ACTION_SEND);
         shareIntent.setType("text/plain");
-        shareIntent.putExtra(Intent.EXTRA_TEXT, message);
+        shareIntent.putExtra(Intent.EXTRA_TEXT, shareText);
         
         // Create a chooser with a custom title
-        Intent chooser = Intent.createChooser(shareIntent, "Share Greeting");
+        Intent chooser = Intent.createChooser(shareIntent, getString(R.string.share_via));
         
-        // Verify the intent will resolve to at least one activity
-        if (shareIntent.resolveActivity(requireContext().getPackageManager()) != null) {
-            startActivity(chooser);
-        } else {
-            Toast.makeText(requireContext(), "No apps available to share", Toast.LENGTH_SHORT).show();
-        }
+        // Start the chooser activity
+        startActivity(chooser);
+    }
+
+    private void copyLinkToClipboard(String link) {
+        ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
+        ClipData clip = ClipData.newPlainText("EventWish Link", link);
+        clipboard.setPrimaryClip(clip);
+        Toast.makeText(requireContext(), R.string.link_copied, Toast.LENGTH_SHORT).show();
     }
 
     @Override

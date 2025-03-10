@@ -1,5 +1,10 @@
 package com.ds.eventwish.data.model;
 
+import android.util.Log;
+
+import androidx.room.TypeConverters;
+
+import com.ds.eventwish.data.converter.CategoryIconConverter;
 import com.google.gson.annotations.SerializedName;
 
 public class Template {
@@ -38,7 +43,8 @@ public class Template {
     private boolean status;
     
     @SerializedName("categoryIcon")
-    private String categoryIcon;
+    @TypeConverters(CategoryIconConverter.class)
+    private CategoryIcon categoryIcon;
     
     @SerializedName("createdAt")
     private String createdAt;
@@ -89,7 +95,8 @@ public class Template {
     public String getPreviewUrl() { return previewUrl; }
     public String getThumbnailUrl() { return thumbnailUrl != null ? thumbnailUrl : previewUrl; }
     public boolean isStatus() { return status; }
-    public String getCategoryIcon() { return categoryIcon; }
+    public CategoryIcon getCategoryIcon() { return categoryIcon; }
+    public void setCategoryIcon(CategoryIcon categoryIcon) { this.categoryIcon = categoryIcon; }
     public String getCreatedAt() { return createdAt; }
     public String getUpdatedAt() { return updatedAt; }
     
@@ -141,7 +148,6 @@ public class Template {
     public void setPreviewUrl(String previewUrl) { this.previewUrl = previewUrl; }
     public void setThumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; }
     public void setStatus(boolean status) { this.status = status; }
-    public void setCategoryIcon(String categoryIcon) { this.categoryIcon = categoryIcon; }
     public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
     public void setUpdatedAt(String updatedAt) { this.updatedAt = updatedAt; }
 }
