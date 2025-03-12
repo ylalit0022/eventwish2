@@ -13,3 +13,38 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Firebase service account keys
+**/serviceAccountKey.json
+**/google-services.json
+
+# Sensitive configuration files
+**/secrets.xml
+**/keys.xml
+
+# Keystore files
+*.jks
+*.keystore
+
+# Log files
+*.log
+
+# Android Studio generated files
+/.idea/dictionaries
+/.idea/jarRepositories.xml
+/.idea/compiler.xml
+/.idea/misc.xml
+/.idea/gradle.xml
+/.idea/runConfigurations.xml
+
+# Generated files
+bin/
+gen/
+out/
+
+# Gradle files
+.gradle/
+build/
+
+# Local configuration file (sdk path, etc)
+local.properties
