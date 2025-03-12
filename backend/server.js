@@ -78,6 +78,7 @@ app.use('/api/templates', require('./routes/templates'));
 app.use('/api/wishes', require('./routes/wishes'));
 app.use('/api/festivals', require('./routes/festivals'));
 app.use('/api/categoryIcons', require('./routes/categoryIcons'));
+app.use('/api/test/time', require('./routes/timeRoutes'));
 
 // Debug logging middleware
 app.use((req, res, next) => {

@@ -22,6 +22,7 @@ import com.ds.eventwish.data.model.Festival;
 import com.ds.eventwish.data.model.Result;
 import com.ds.eventwish.data.repository.FestivalRepository;
 import com.ds.eventwish.workers.FestivalNotificationWorker;
+import com.ds.eventwish.utils.TimeUtils;
 
 import java.util.Date;
 import java.util.List;
@@ -136,9 +137,9 @@ public class FestivalViewModel extends AndroidViewModel {
             SharedPreferences prefs = getApplication().getSharedPreferences(
                     "festival_notifications", Context.MODE_PRIVATE);
             
-            // Get today's date as a string (yyyy-MM-dd)
+            // Get today's date as a string (yyyy-MM-dd) using server time
             java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US);
-            String today = dateFormat.format(new Date());
+            String today = dateFormat.format(TimeUtils.getCurrentServerTime());
             
             // Check if we've already scheduled notifications today
             String lastScheduled = prefs.getString("last_notification_schedule", "");
@@ -149,9 +150,9 @@ public class FestivalViewModel extends AndroidViewModel {
                 // Save that we've scheduled notifications today
                 prefs.edit().putString("last_notification_schedule", today).apply();
                 
-                Log.d(TAG, "Scheduled countdown notifications for today: " + today);
+                Log.d(TAG, "Scheduled countdown notifications for today (server time): " + today);
             } else {
-                Log.d(TAG, "Notifications already scheduled today, skipping");
+                Log.d(TAG, "Notifications already scheduled today (server time), skipping");
             }
         }
     }

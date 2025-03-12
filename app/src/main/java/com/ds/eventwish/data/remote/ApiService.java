@@ -7,6 +7,7 @@ import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.model.response.CategoryIconResponse;
 import com.ds.eventwish.data.model.response.TemplateResponse;
 import com.ds.eventwish.data.model.response.WishResponse;
+import com.ds.eventwish.data.model.ServerTimeResponse;
 
 import java.util.List;
 import retrofit2.Call;
@@ -16,6 +17,8 @@ import retrofit2.http.GET;
 import retrofit2.http.POST;
 import retrofit2.http.Path;
 import retrofit2.http.Query;
+
+import com.google.gson.JsonObject;
 
 public interface ApiService {
     @GET("templates")
@@ -64,4 +67,13 @@ public interface ApiService {
     @GET("categoryIcons")
     Call<CategoryIconResponse> getCategoryIcons();
 
+    @GET("test/time")
+    Call<ServerTimeResponse> getServerTime();
+
+    @GET("festivals/upcoming")
+    Call<List<Festival>> getFestivals();
+
+    // FCM token registration
+    @POST("tokens/register")
+    Call<Void> registerToken(@Body JsonObject token);
 }

@@ -60,10 +60,14 @@ com.ds.eventwish/
 │   ├── DeepLinkHandler.java
 │   ├── LinkChooserUtil.java
 │   ├── WebViewLinkHandler.java
+│   ├── FirebaseTokenLogger.java        # Firebase token logging utility
+│   ├── FirebaseInAppMessagingHandler.java  # Firebase In-App Messaging handler
+│   ├── FlashyMessageManager.java       # Flashy message management
 │   └── ...
 ├── workers/               # Background workers
 ├── receivers/             # Broadcast receivers
 ├── MainActivity.java      # Main activity
+├── TestFlashyMessageActivity.java      # Test activity for flashy messages
 └── EventWishApplication.java  # Application class
 ```
 
@@ -71,13 +75,14 @@ com.ds.eventwish/
 
 #### Activities
 - `MainActivity`: Main entry point handling navigation and deep links
-- `TestNotificationActivity`: For testing notification functionality
+- `TestFlashyMessageActivity`: For testing notification and flashy message functionality
 
 #### Application Class
 - `EventWishApplication`: Handles app-wide initialization
   - Properly initializes WorkManager using Configuration.Provider interface
   - Sets up notification channels
   - Initializes repositories and loads initial data
+  - Initializes Firebase services and logs Firebase project information
 
 #### UI Components
 - **Home Screen**: Template grid with category filtering and advanced sorting options
@@ -86,6 +91,7 @@ com.ds.eventwish/
 - **History**: Past greetings and shared wishes
 - **Reminder**: Event reminder management
 - **More**: Additional settings and options
+- **Test Flashy Message**: Testing interface for flashy messages and Firebase features
 
 #### Navigation
 - Single activity, multiple fragments architecture
@@ -145,6 +151,7 @@ backend/
 - `GET /api/wish/:shortCode`: Get shared wish by short code
 - `GET /api/wishes/my`: Get user's wish history
 - `DELETE /api/wishes/clear`: Clear wish history
+- `POST /api/wish/{shortCode}/share`: Update sharing platform information
 
 ### Deep Linking
 - Custom URI scheme: `eventwish://wish/{shortCode}`, `eventwish://festival/{id}`, `eventwish://template/{id}`
@@ -170,6 +177,12 @@ backend/
 - ✅ Category icons with fallback mechanism
 - ✅ External link handling with chooser dialog
 - ✅ WebView link handling
+- ✅ Firebase Cloud Messaging integration
+- ✅ Firebase In-App Messaging integration
+- ✅ Flashy message system for notifications
+- ✅ Firebase token logging and verification
+- ✅ Share platform tracking (WhatsApp, Facebook, etc.)
+- ✅ Full-screen mode for resource viewing
 
 ### In Progress Features
 - 🔄 Event reminder system
@@ -177,6 +190,8 @@ backend/
 - 🔄 User preferences
 - 🔄 Real-time notifications
 - 🔄 Enhanced caching mechanism
+- 🔄 Improved Firebase In-App Messaging handling
+- 🔄 MongoDB integration for share platform tracking
 
 ### Planned Features
 - 📝 Enhanced sharing options
@@ -185,6 +200,8 @@ backend/
 - 📝 Custom template creation
 - 📝 AI-powered recommendations
 - 📝 Location-based features
+- 📝 Premium templates and subscription model
+- 📝 In-app purchases for special features
 
 ## Technical Implementation Details
 
@@ -197,6 +214,11 @@ backend/
 - **Background Processing**: WorkManager
 - **Local Storage**: Room Database
 - **Notification Badges**: ShortcutBadger
+- **Cloud Messaging**: Firebase Cloud Messaging (FCM)
+- **In-App Messaging**: Firebase In-App Messaging
+- **Analytics**: Firebase Analytics
+- **Installation ID**: Firebase Installations
+- **Monetization**: Google Play Billing Library, AdMob
 
 ### Android Features Used
 - Permissions handling for notifications and alarms
@@ -206,6 +228,8 @@ backend/
 - Boot completed receiver for persistence
 - WebView link handling
 - Intent chooser for external links
+- Firebase integration for messaging and analytics
+- In-app purchases and subscriptions
 
 ## Development Guidelines
 
@@ -237,6 +261,8 @@ backend/
 - Input validation on all API endpoints
 - Proper error handling to prevent information leakage
 - Safe handling of deep links
+- Secure storage of purchase information
+- Validation of subscription status
 
 ## Recent Changes and Fixes
 
@@ -313,174 +339,321 @@ public void onPause() {
   - Implemented proper MIME type detection for file handling
   - Added fallback mechanisms for when no app can handle a link
 
-## Real-Time Notification Plans
+### 7. Firebase Integration
+- Implemented Firebase Cloud Messaging (FCM) for push notifications:
+  - Added Firebase dependencies to build.gradle
+  - Created FirebaseTokenLogger utility to verify FCM token generation
+  - Added logging for Firebase project ID and application ID
+  - Created test interface for verifying Firebase integration
+
+### 8. Firebase In-App Messaging
+- Implemented Firebase In-App Messaging for in-app notifications:
+  - Created FirebaseInAppMessagingHandler to handle in-app messages
+  - Integrated with FlashyMessageManager to convert in-app messages to flashy messages
+  - Added test functionality to trigger in-app message events
+  - Fixed API compatibility issues with the Firebase In-App Messaging library
+
+### 9. Flashy Message System
+- Enhanced the flashy message system:
+  - Created TestFlashyMessageActivity for testing flashy messages
+  - Added Firebase verification buttons to test activity
+  - Implemented FlashyMessageManager for managing flashy messages
+  - Added support for converting Firebase In-App Messages to flashy messages
+
+### 10. Resource Fragment Enhancement
+- Improved the ResourceFragment for better user experience:
+  - Added full-screen mode with adaptive background color
+  - Implemented auto-hide for bottom navigation
+  - Added touch listener to toggle UI visibility
+  - Extracted dominant color from WebView content for background
+  - Added fullscreen toggle button
+
+### 11. Share Platform Tracking
+- Implemented tracking of sharing platforms:
+  - Added constants for different sharing platforms (WhatsApp, Facebook, etc.)
+  - Created method to save the sharing platform in local database
+  - Added API endpoint for updating sharing platform in MongoDB
+  - Enhanced SharedWishFragment to detect which app was used for sharing
+  - Added visual indicators for different sharing platforms in history view
+
+## Real-Time Notification Implementation
 
 ### Current Implementation
-- Basic notification system using AlarmManager and BroadcastReceivers
-- Festival notifications based on predefined dates
-- Reminder notifications with snooze and complete actions
+- Firebase Cloud Messaging (FCM) for push notifications
+- Firebase In-App Messaging for in-app notifications
+- Custom flashy message system for displaying notifications within the app
 - Notification channels for different types of notifications
+- Test interface for verifying notification functionality
 
-### Planned Enhancements
-1. **Firebase Cloud Messaging (FCM) Integration**
-   - Real-time push notifications for new content
-   - Silent notifications for background data sync
+### Firebase Integration
+1. **Firebase Cloud Messaging (FCM)**
+   - Device token registration and logging
    - Topic-based subscriptions for user preferences
+   - Background message handling
+   - Foreground message handling with conversion to flashy messages
 
-2. **Notification Categories**
-   - **Content Updates**: New templates, festivals, features
-   - **Social Notifications**: Shares, likes, comments
-   - **Reminders**: Event reminders, scheduled wishes
-   - **System**: App updates, maintenance alerts
+2. **Firebase In-App Messaging**
+   - Custom message display component
+   - Event-based triggering of in-app messages
+   - Conversion of in-app messages to flashy messages
+   - Test functionality for triggering events
 
-3. **Smart Notification Scheduling**
-   - Time-zone aware notifications
-   - User activity pattern recognition
-   - Batching of notifications to reduce interruptions
-   - Priority-based delivery
+3. **Firebase Analytics**
+   - Event tracking for user actions
+   - Screen tracking for navigation
+   - User property tracking for personalization
+   - Campaign tracking for marketing
 
-4. **Rich Notifications**
-   - Image previews for new templates
-   - Action buttons for quick responses
-   - Expandable notifications with more details
-   - Progress indicators for background tasks
+4. **Firebase Installations**
+   - Unique installation ID for device identification
+   - Logging of installation ID for debugging
+   - Verification of Firebase integration
 
-5. **Notification Analytics**
-   - Tracking of notification engagement
-   - A/B testing of notification content
-   - User preference learning
+### Flashy Message System
+1. **Message Management**
+   - Storage of messages in SharedPreferences
+   - Unique message IDs for tracking
+   - Message expiration handling
+   - Message priority handling
 
-## Recommended Features
+2. **Message Display**
+   - Custom UI for displaying messages
+   - Animation for message appearance and disappearance
+   - Action buttons for user interaction
+   - Automatic dismissal after timeout
 
-### Personalization
-1. **AI-Powered Recommendations**
-   - Personalized template suggestions based on user history
-   - Smart categorization of templates
-   - Predictive text for wish messages
+3. **Message Testing**
+   - Test interface for creating and clearing messages
+   - Default message templates for quick testing
+   - Firebase integration testing
+   - Event triggering for in-app messages
 
-2. **Custom Templates**
-   - User-created templates with custom layouts
-   - Template editor with drag-and-drop interface
-   - Custom color schemes and fonts
+## App Monetization Strategy
 
-3. **Favorites System**
-   - Save favorite templates for quick access
-   - Organize favorites into collections
-   - Smart suggestions based on favorites
+### Monetization Models
 
-### Social Features
-1. **Collaborative Wishes**
-   - Multiple users contributing to a single wish
-   - Group signatures and messages
-   - Shared editing capabilities
+#### 1. Freemium Model
+- **Basic Features (Free)**:
+  - Access to limited template categories
+  - Basic customization options
+  - Standard sharing options
+  - Ad-supported experience
+  
+- **Premium Features (Paid)**:
+  - Access to all template categories
+  - Advanced customization options
+  - Premium templates and effects
+  - Ad-free experience
+  - Priority support
 
-2. **Social Sharing Integration**
-   - Deep integration with social platforms
-   - Share progress and achievements
-   - Friend connections and recommendations
+#### 2. Subscription Tiers
+- **Free Tier**:
+  - Limited templates per month
+  - Basic features
+  - Ad-supported
+  
+- **Basic Subscription ($2.99/month)**:
+  - Unlimited templates
+  - No ads
+  - Premium templates
+  
+- **Pro Subscription ($4.99/month)**:
+  - All Basic features
+  - Custom template creation
+  - Advanced effects and animations
+  - Priority support
+  - Early access to new features
 
-3. **Community Templates**
-   - User-submitted templates
-   - Voting and ranking system
-   - Featured community creations
+#### 3. In-App Purchases
+- **Template Packs**: Themed collections of premium templates
+- **Special Effects**: Advanced animations and transitions
+- **Custom Elements**: Special decorative elements for templates
+- **Fonts and Styles**: Premium typography options
+- **Seasonal Content**: Holiday-specific templates and effects
 
-### Enhanced Filtering and Discovery
-1. **Location-Based Filters**
-   - Region-specific templates and festivals
-   - Local event integration
-   - Cultural customization
+#### 4. Advertising
+- **Banner Ads**: Non-intrusive banner ads in free version
+- **Interstitial Ads**: Full-screen ads at natural transition points
+- **Rewarded Ads**: Watch ads to unlock premium templates temporarily
+- **Native Ads**: Integrated ads that match the app's look and feel
 
-2. **Trending by Region**
-   - See what's popular in different areas
-   - Regional trending categories
-   - Cultural event highlights
+### Implementation Plan
 
-3. **Advanced Search Capabilities**
-   - Natural language search queries
-   - Visual search (search by image)
-   - Voice search integration
+#### Phase 1: Foundation (1-2 months)
+1. **Integrate Google Play Billing Library**:
+   - Add dependency to build.gradle
+   - Create BillingManager class to handle purchases
+   - Implement purchase verification
+   
+2. **Create Subscription Management**:
+   - Design subscription tiers
+   - Implement subscription status checking
+   - Create UI for subscription management
+   
+3. **Basic AdMob Integration**:
+   - Add AdMob SDK
+   - Implement banner ads in free version
+   - Create ad-free experience for premium users
 
-### Content Enrichment
-1. **Rich Media Templates**
-   - Video backgrounds
-   - Animated elements
-   - Audio messages and music
+#### Phase 2: Enhanced Monetization (2-3 months)
+1. **Template Marketplace**:
+   - Create backend for template marketplace
+   - Implement template browsing and preview
+   - Add purchase flow for individual templates
+   
+2. **Advanced Ad Strategy**:
+   - Implement interstitial ads at natural breaks
+   - Add rewarded ads for temporary premium access
+   - Optimize ad placement for better user experience
+   
+3. **Analytics Enhancement**:
+   - Track purchase funnel
+   - Analyze user behavior for monetization optimization
+   - Implement A/B testing for pricing and offers
 
-2. **Advanced Template Customization**
-   - Layer-based editing
-   - Advanced text formatting
-   - Photo filters and effects
+#### Phase 3: Optimization and Expansion (3+ months)
+1. **Personalized Offers**:
+   - Implement user segmentation
+   - Create targeted promotions based on usage patterns
+   - Develop seasonal and event-based offers
+   
+2. **Referral Program**:
+   - Create referral system with rewards
+   - Implement tracking for referral conversions
+   - Design referral UI and sharing flow
+   
+3. **Enterprise Solutions**:
+   - Develop business accounts for corporate use
+   - Create bulk purchase options for businesses
+   - Implement custom branding options
 
-3. **Seasonal Collections**
-   - Curated template collections for seasons
-   - Limited-time special templates
-   - Themed user interface changes
+### Technical Implementation
 
-### Engagement Features
-1. **Gamification Elements**
-   - Achievement badges for app usage
-   - Points for creating and sharing wishes
-   - Leaderboards and challenges
+#### 1. Google Play Billing Integration
+```java
+// BillingManager.java
+public class BillingManager {
+    private BillingClient billingClient;
+    private final Context context;
+    private final BillingUpdatesListener listener;
+    
+    public BillingManager(Context context, BillingUpdatesListener listener) {
+        this.context = context;
+        this.listener = listener;
+        billingClient = BillingClient.newBuilder(context)
+                .setListener(this::onPurchasesUpdated)
+                .enablePendingPurchases()
+                .build();
+        startConnection();
+    }
+    
+    private void startConnection() {
+        billingClient.startConnection(new BillingClientStateListener() {
+            @Override
+            public void onBillingSetupFinished(BillingResult billingResult) {
+                if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK) {
+                    // The BillingClient is ready
+                    listener.onBillingClientReady();
+                    queryPurchases();
+                }
+            }
+            
+            @Override
+            public void onBillingServiceDisconnected() {
+                // Try to restart the connection on the next request
+                listener.onBillingServiceDisconnected();
+            }
+        });
+    }
+    
+    // Additional methods for querying products, handling purchases, etc.
+}
+```
 
-2. **Daily Challenges**
-   - Creative prompts for wish creation
-   - Daily template highlights
-   - Timed exclusive content
+#### 2. Subscription Management
+```java
+// SubscriptionManager.java
+public class SubscriptionManager {
+    private static final String BASIC_SUBSCRIPTION = "com.ds.eventwish.subscription.basic";
+    private static final String PRO_SUBSCRIPTION = "com.ds.eventwish.subscription.pro";
+    
+    private final BillingManager billingManager;
+    private final MutableLiveData<SubscriptionStatus> subscriptionStatus = new MutableLiveData<>();
+    
+    public SubscriptionManager(Context context) {
+        billingManager = new BillingManager(context, new BillingUpdatesListener() {
+            @Override
+            public void onBillingClientReady() {
+                querySubscriptionStatus();
+            }
+            
+            @Override
+            public void onPurchasesUpdated(List<Purchase> purchases) {
+                processPurchases(purchases);
+            }
+            
+            @Override
+            public void onBillingServiceDisconnected() {
+                // Handle disconnection
+            }
+        });
+    }
+    
+    // Methods for subscription management
+}
+```
 
-3. **Streaks and Rewards**
-   - Consecutive day usage rewards
-   - Milestone celebrations
-   - Premium content unlocks
+#### 3. AdMob Integration
+```java
+// AdManager.java
+public class AdManager {
+    private static final String TAG = "AdManager";
+    private final Context context;
+    private final SubscriptionManager subscriptionManager;
+    private InterstitialAd interstitialAd;
+    private RewardedAd rewardedAd;
+    
+    public AdManager(Context context, SubscriptionManager subscriptionManager) {
+        this.context = context;
+        this.subscriptionManager = subscriptionManager;
+        
+        // Initialize the Mobile Ads SDK
+        MobileAds.initialize(context, initializationStatus -> {
+            Log.d(TAG, "AdMob SDK initialized");
+        });
+        
+        // Load ads
+        loadInterstitialAd();
+        loadRewardedAd();
+    }
+    
+    // Methods for ad management
+}
+```
 
-### Technical Improvements
-1. **Offline Mode**
-   - Full functionality without internet
-   - Background sync when connection returns
-   - Bandwidth-saving options
+### Revenue Projection and Analysis
 
-2. **Performance Optimization**
-   - Reduced app size
-   - Faster loading times
-   - Battery usage optimization
+#### Estimated Revenue Streams
+1. **Subscriptions**: 60-70% of total revenue
+2. **In-App Purchases**: 20-25% of total revenue
+3. **Advertising**: 10-15% of total revenue
 
-3. **Accessibility Enhancements**
-   - Screen reader compatibility
-   - Dynamic text sizing
-   - Color contrast options
+#### Key Performance Indicators (KPIs)
+1. **Average Revenue Per User (ARPU)**
+2. **Customer Lifetime Value (CLV)**
+3. **Conversion Rate** (free to paid)
+4. **Subscription Renewal Rate**
+5. **Churn Rate**
+6. **Ad Engagement Rate**
 
-### Monetization Opportunities
-1. **Premium Templates**
-   - Exclusive high-quality templates
-   - Early access to new designs
-   - Premium effects and animations
-
-2. **Subscription Tiers**
-   - Basic (free) with ads
-   - Premium (paid) with additional features
-   - Pro (paid) with all features and no ads
-
-3. **In-App Purchases**
-   - Template packs
-   - Special effects
-   - Custom fonts and styles
-
-### Integration and Expansion
-1. **Calendar Integration**
-   - Automatic event detection
-   - Reminder scheduling
-   - Birthday and anniversary tracking
-
-2. **Smart Home Integration**
-   - Display wishes on smart displays
-   - Voice assistant integration
-   - IoT device notifications
-
-3. **Cross-Platform Support**
-   - Web application
-   - iOS version
-   - Desktop companion
+#### Analytics Implementation
+- Firebase Analytics for user behavior tracking
+- Google Play Console for purchase analytics
+- Custom events for monetization funnel analysis
+- A/B testing framework for optimizing pricing and offers
 
 ## Known Issues
+
 1. Category icon loading may fail on slow connections
 2. Deep links may not work consistently on all Android versions
 3. Reminder notifications may be delayed on some devices
@@ -488,6 +661,47 @@ public void onPause() {
 5. ~~Navigation to HomeFragment from other fragments doesn't refresh data~~ (Fixed)
 6. ~~WorkManager initialization error~~ (Fixed)
 7. ~~Category icon JSON parsing error~~ (Fixed)
+8. **Flashy Message Persistence Issue**: When first creating an in-app message or on new app installation, flashy messages display correctly. However, subsequent messages don't appear until the app data and cache are cleared. This suggests a potential issue with message storage or display logic that needs investigation.
+
+## Troubleshooting Flashy Messages
+
+### Current Behavior
+- First message after installation or clearing app data displays correctly
+- Subsequent messages are created but not displayed
+- Clearing app data and cache resolves the issue temporarily
+
+### Potential Causes
+1. **Message Storage**: Messages may not be properly stored or retrieved from SharedPreferences
+2. **Display Logic**: The display component may not be properly refreshed after the first message
+3. **Message Queue**: There might be issues with the message queue management
+4. **Firebase Integration**: Firebase In-App Messaging might be interfering with the flashy message system
+5. **Lifecycle Issues**: Activity or fragment lifecycle methods might not be properly handling message display
+
+### Recommended Fixes
+1. **Improve Message Storage**:
+   - Ensure proper synchronization when accessing SharedPreferences
+   - Implement a more robust storage mechanism (e.g., Room database)
+   - Add logging to verify message storage and retrieval
+
+2. **Enhance Display Logic**:
+   - Implement a message observer pattern to react to new messages
+   - Ensure UI is updated when new messages are available
+   - Add refresh mechanisms for the message display component
+
+3. **Review Message Queue**:
+   - Implement proper queue management for messages
+   - Ensure messages are properly prioritized and displayed in order
+   - Add mechanisms to prevent message loss
+
+4. **Firebase Integration**:
+   - Ensure Firebase In-App Messaging is properly initialized
+   - Verify that the custom display component is working correctly
+   - Add more robust error handling for Firebase integration
+
+5. **Lifecycle Management**:
+   - Review activity and fragment lifecycle methods
+   - Ensure messages are checked and displayed at appropriate lifecycle points
+   - Implement proper state restoration for message display
 
 ## Development Environment
 - Android Studio Arctic Fox or newer

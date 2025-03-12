@@ -22,6 +22,9 @@ public interface FestivalDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insertAllFestivals(List<Festival> festivals);
     
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    void insertAll(List<Festival> festivals);
+    
     @Update
     void updateFestival(Festival festival);
     

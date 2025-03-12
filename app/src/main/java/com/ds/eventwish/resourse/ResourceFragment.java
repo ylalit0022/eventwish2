@@ -1,20 +1,27 @@
 package com.ds.eventwish.resourse;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.widget.ImageButton;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.graphics.ColorUtils;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavDirections;
 import androidx.navigation.Navigation;
+import androidx.palette.graphics.Palette;
 import com.ds.eventwish.MainActivity;
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.Template;
@@ -31,12 +38,24 @@ public class ResourceFragment extends Fragment {
     private ResourceViewModel viewModel;
     private String shortCode;
     private BottomNavigationView bottomNav;
+    private boolean isFullScreenMode = true;
+    private boolean isBottomNavVisible = false;
+    private Handler autoHideHandler = new Handler();
+    private Runnable autoHideRunnable;
+    private static final int AUTO_HIDE_DELAY_MILLIS = 3000;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.d(TAG, "onCreate: ResourceFragment created");
         viewModel = new ViewModelProvider(this).get(ResourceViewModel.class);
+        
+        // Initialize auto-hide runnable
+        autoHideRunnable = () -> {
+            if (isBottomNavVisible && isFullScreenMode) {
+                hideBottomNav();
+            }
+        };
     }
 
     @Override
@@ -76,6 +95,143 @@ public class ResourceFragment extends Fragment {
         setupWebView();
         setupObservers();
         setupRetryButton();
+        setupFullScreenToggle();
+        setupTouchListener();
+        
+        // Enable full screen mode by default
+        enableFullScreenMode();
+    }
+    
+    private boolean isComingFromExternalSource() {
+        // Check if we're coming from an external source (social media)
+        if (getActivity() != null && getActivity().getIntent() != null) {
+            String action = getActivity().getIntent().getAction();
+            return Intent.ACTION_VIEW.equals(action);
+        }
+        return false;
+    }
+    
+    private void setupFullScreenToggle() {
+        // Setup full screen toggle button
+        binding.fullscreenToggle.setOnClickListener(v -> {
+            if (isFullScreenMode) {
+                disableFullScreenMode();
+            } else {
+                enableFullScreenMode();
+            }
+        });
+        
+        // Set the correct icon for fullscreen mode (since we start in fullscreen)
+        binding.fullscreenToggle.setImageResource(R.drawable.ic_fullscreen_exit);
+        
+        // Show the toggle button by default
+        binding.fullscreenToggle.setVisibility(View.VISIBLE);
+    }
+    
+    private void enableFullScreenMode() {
+        isFullScreenMode = true;
+        binding.fullscreenToggle.setImageResource(R.drawable.ic_fullscreen_exit);
+        
+        // Hide bottom navigation
+        hideBottomNav();
+        
+        // Hide app bar if it exists
+        if (getActivity() instanceof MainActivity) {
+            View appBar = getActivity().findViewById(R.id.appBarLayout);
+            if (appBar != null) {
+                appBar.setVisibility(View.GONE);
+            }
+        }
+        
+        // Expand webview to full screen
+        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) binding.webView.getLayoutParams();
+        params.setMargins(0, 0, 0, 0);
+        binding.webView.setLayoutParams(params);
+        
+        // Schedule auto-hide for UI elements
+        delayedHide();
+    }
+    
+    private void disableFullScreenMode() {
+        isFullScreenMode = false;
+        binding.fullscreenToggle.setImageResource(R.drawable.ic_fullscreen);
+        
+        // Show bottom navigation
+        showBottomNav();
+        
+        // Show app bar if it exists
+        if (getActivity() instanceof MainActivity) {
+            View appBar = getActivity().findViewById(R.id.appBarLayout);
+            if (appBar != null) {
+                appBar.setVisibility(View.VISIBLE);
+            }
+        }
+        
+        // Restore webview margins
+        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) binding.webView.getLayoutParams();
+        int margin = getResources().getDimensionPixelSize(R.dimen.standard_margin);
+        params.setMargins(margin, margin, margin, margin);
+        binding.webView.setLayoutParams(params);
+        
+        // Remove any pending auto-hide callbacks
+        autoHideHandler.removeCallbacks(autoHideRunnable);
+    }
+    
+    private void showBottomNav() {
+        if (bottomNav != null && !isBottomNavVisible) {
+            bottomNav.setVisibility(View.VISIBLE);
+            isBottomNavVisible = true;
+        }
+    }
+    
+    private void hideBottomNav() {
+        if (bottomNav != null && isBottomNavVisible) {
+            bottomNav.setVisibility(View.GONE);
+            isBottomNavVisible = false;
+        }
+    }
+    
+    private void delayedHide() {
+        autoHideHandler.removeCallbacks(autoHideRunnable);
+        autoHideHandler.postDelayed(autoHideRunnable, AUTO_HIDE_DELAY_MILLIS);
+    }
+    
+    private void setupTouchListener() {
+        // Set up touch listener to show/hide UI elements on tap
+        binding.webView.setOnTouchListener((v, event) -> {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                if (isFullScreenMode) {
+                    // Toggle visibility of UI elements
+                    if (isBottomNavVisible) {
+                        hideBottomNav();
+                    } else {
+                        showBottomNav();
+                        // Auto-hide after delay
+                        delayedHide();
+                    }
+                }
+            }
+            // Return false to allow the WebView to handle the touch event as well
+            return false;
+        });
+        
+        // Set up touch listener for the entire fragment view
+        binding.getRoot().setOnTouchListener((v, event) -> {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                if (isFullScreenMode) {
+                    // Toggle visibility of UI elements
+                    if (isBottomNavVisible) {
+                        hideBottomNav();
+                    } else {
+                        showBottomNav();
+                        // Auto-hide after delay
+                        delayedHide();
+                    }
+                }
+            }
+            // Return false to allow other views to handle the touch event
+            return false;
+        });
     }
 
     private void setupWebView() {
@@ -86,15 +242,59 @@ public class ResourceFragment extends Fragment {
             webSettings.setLoadWithOverviewMode(true);
             webSettings.setUseWideViewPort(true);
             webSettings.setDomStorageEnabled(true);
-            binding.webView.setWebViewClient(new SafeWebViewClient());
+            
+            // Set up WebView client with background color extraction
+            binding.webView.setWebViewClient(new SafeWebViewClient() {
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    super.onPageFinished(view, url);
+                    
+                    // Show fullscreen toggle once content is loaded
+                    binding.fullscreenToggle.setVisibility(View.VISIBLE);
+                    
+                    // Capture the WebView as a bitmap to extract dominant color
+                    binding.webView.setDrawingCacheEnabled(true);
+                    Bitmap bitmap = Bitmap.createBitmap(binding.webView.getDrawingCache());
+                    binding.webView.setDrawingCacheEnabled(false);
+                    
+                    // Extract dominant color using Palette API
+                    extractDominantColor(bitmap);
+                }
+            });
+            
             Log.d(TAG, "setupWebView: WebView configured successfully");
         } else {
             Log.e(TAG, "setupWebView: binding or webView is null");
         }
     }
+    
+    private void extractDominantColor(Bitmap bitmap) {
+        if (bitmap != null && !bitmap.isRecycled()) {
+            try {
+                Palette.from(bitmap).generate(palette -> {
+                    if (palette != null) {
+                        // Get the dominant color
+                        int dominantColor = palette.getDominantColor(Color.WHITE);
+                        
+                        // Make it lighter for better readability
+                        int lightColor = ColorUtils.blendARGB(dominantColor, Color.WHITE, 0.7f);
+                        
+                        // Apply the color to the background
+                        binding.getRoot().setBackgroundColor(lightColor);
+                        
+                        // Also apply to content layout
+                        binding.contentLayout.setBackgroundColor(lightColor);
+                        
+                        Log.d(TAG, "Applied extracted background color");
+                    }
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Error extracting color", e);
+            }
+        }
+    }
 
     private void setupRetryButton() {
-
         if (binding != null && binding.retryLayout != null) {
             binding.retryLayout.retryButton.setOnClickListener(v -> {
                 if (shortCode != null) {
@@ -116,6 +316,12 @@ public class ResourceFragment extends Fragment {
                 if (wishResponse.getTemplate() != null) {
                     Log.d(TAG, "Setting up WebView content for wish");
                     setupWebViewContent(wishResponse);
+                    
+                    // Show fullscreen toggle
+                    binding.fullscreenToggle.setVisibility(View.VISIBLE);
+                    
+                    // Always enable full screen mode by default
+                    enableFullScreenMode();
                 } else {
                     Log.e(TAG, "Template is null in wish response");
                     showError("Invalid wish template");
@@ -149,6 +355,9 @@ public class ResourceFragment extends Fragment {
             String css = wishResponse.getTemplate().getCssContent();
             String js = wishResponse.getTemplate().getJsContent();
 
+            // Add background color matching to the CSS
+            css += "\nbody { background-color: transparent !important; }\n";
+
             String fullHtml = String.format(
                 "<html>" +
                         "<head>" +
@@ -161,6 +370,9 @@ public class ResourceFragment extends Fragment {
                 css, html, js
             );
             binding.webView.loadDataWithBaseURL(null, fullHtml, "text/html", "UTF-8", null);
+            
+            // Make WebView background transparent to match fragment background
+            binding.webView.setBackgroundColor(Color.TRANSPARENT);
         }
     }
 
@@ -173,6 +385,23 @@ public class ResourceFragment extends Fragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        
+        // Remove any pending callbacks
+        autoHideHandler.removeCallbacks(autoHideRunnable);
+        
+        // Restore bottom navigation visibility
+        if (bottomNav != null) {
+            bottomNav.setVisibility(View.VISIBLE);
+        }
+        
+        // Restore app bar if it exists
+        if (getActivity() instanceof MainActivity) {
+            View appBar = getActivity().findViewById(R.id.appBarLayout);
+            if (appBar != null) {
+                appBar.setVisibility(View.VISIBLE);
+            }
+        }
+        
         if (binding != null && binding.webView != null) {
             binding.webView.stopLoading();
             binding.webView.clearCache(true);

@@ -2,7 +2,7 @@
 
 During your interaction with the user, if you find anything reusable in this project (e.g. version of a library, model name), especially about a fix to a mistake you made or a correction you received, you should take note in the `Lessons` section in the `.cursorrules` file so you will not make the same mistake again. 
 
-You should also use the `.cursorrules` file as a Scratchpad to organize your thoughts. Especially when you receive a new task, you should first review the content of the Scratchpad, clear old different tasks if necessary, first explain the task, and plan the steps you need to take to complete the task. You can use todo markers to indicate the progress, e.g.
+You should also use the `.cursorrules` file as a Scratchpad to organize your thoughts. Especially when you receive a new task, you should first review the content of the Scratchpad, clear old different task if necessary, first explain the task, and plan the steps you need to take to complete the task. You can use todo markers to indicate the progress, e.g.
 [X] Task 1
 [ ] Task 2
 
@@ -101,16 +101,6 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 - Add debug information to stderr while keeping the main output clean in stdout for better pipeline integration
 - When using seaborn styles in matplotlib, use 'seaborn-v0_8' instead of 'seaborn' as the style name due to recent seaborn version changes
 - Use 'gpt-4o' as the model name for OpenAI's GPT-4 with vision capabilities
-
-## Project-Specific Lessons
-
-- Ensure that the `EventNotificationWorker` correctly updates the app icon badge using `ShortcutBadger`.
-- Always check for the existence of activities (like `TemplateSelectionActivity`) before referencing them in intents to avoid "cannot find symbol" errors.
-- Use `SharedPreferences` to store and retrieve user interests and upcoming reminders count for badge updates.
+- When searching for recent news, use the current year (2025) instead of previous years, or simply use the "recent" keyword to get the latest information
 
 # Scratchpad
-
-- [ ] Implement app icon badge for event reminders.
-- [ ] Test badge updates with various reminder scenarios.
-- [ ] Ensure badge count reflects the correct number of upcoming reminders.
-- [ ] Verify user interaction with the badge and navigation to the reminders list.

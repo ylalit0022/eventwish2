@@ -15,18 +15,30 @@ public class ApiClient {
     private static final int READ_TIMEOUT = 15;
     private static final int WRITE_TIMEOUT = 15;
     private static final int MAX_RETRIES = 3;
+    private static final String BASE_URL = "https://eventwishes.onrender.com/api/";
     private static Retrofit retrofit = null;
+    private static ApiService apiService = null;
     private static final String TAG = "ApiClient";
 
     public static ApiService getClient() {
-        if (retrofit == null) {
+        if (apiService == null) {
+            // Create logging interceptor
+            HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
+            logging.setLevel(HttpLoggingInterceptor.Level.BODY);
+
+            // Create OkHttp Client
+            OkHttpClient.Builder httpClient = new OkHttpClient.Builder();
+            httpClient.addInterceptor(logging);
+
             retrofit = new Retrofit.Builder()
-                .baseUrl(BuildConfig.BASE_URL)
-                .client(getOkHttpClient())
-                .addConverterFactory(GsonConverterFactory.create())
-                .build();
+                    .baseUrl(BASE_URL)
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .client(httpClient.build())
+                    .build();
+
+            apiService = retrofit.create(ApiService.class);
         }
-        return retrofit.create(ApiService.class);
+        return apiService;
     }
 
     private static OkHttpClient getOkHttpClient() {

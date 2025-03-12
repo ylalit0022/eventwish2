@@ -32,7 +32,11 @@ import android.content.Intent;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+
+import java.util.List;
 
 public class SharedWishFragment extends Fragment {
     private SharedPrefsManager prefsManager;
@@ -42,6 +46,16 @@ public class SharedWishFragment extends Fragment {
     private String TAG = "SharedWishFragment";
     private WishResponse currentWish;
     private OnBackPressedCallback backPressCallback;
+
+    // Constants for share platforms
+    private static final String SHARE_VIA_WHATSAPP = "whatsapp";
+    private static final String SHARE_VIA_FACEBOOK = "facebook";
+    private static final String SHARE_VIA_TWITTER = "twitter";
+    private static final String SHARE_VIA_INSTAGRAM = "instagram";
+    private static final String SHARE_VIA_EMAIL = "email";
+    private static final String SHARE_VIA_SMS = "sms";
+    private static final String SHARE_VIA_OTHER = "other";
+    private static final String SHARE_VIA_CLIPBOARD = "clipboard";
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -240,6 +254,10 @@ public class SharedWishFragment extends Fragment {
             whatsappIntent.setType("text/plain");
             whatsappIntent.setPackage("com.whatsapp");
             whatsappIntent.putExtra(Intent.EXTRA_TEXT, shareText);
+            
+            // Save the share platform before starting the activity
+            saveSharePlatform(SHARE_VIA_WHATSAPP);
+            
             startActivity(whatsappIntent);
         } catch (Exception e) {
             Log.e(TAG, "Error sharing via WhatsApp", e);
@@ -257,8 +275,45 @@ public class SharedWishFragment extends Fragment {
         // Create a chooser with a custom title
         Intent chooser = Intent.createChooser(shareIntent, getString(R.string.share_via));
         
-        // Start the chooser activity
-        startActivity(chooser);
+        // Create a listener to detect which app was chosen
+        startActivityForResult(chooser, 100);
+    }
+    
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        
+        if (requestCode == 100) {
+            // This is called when returning from the share chooser
+            // We need to detect which app was used
+            if (data != null && data.getComponent() != null) {
+                String packageName = data.getComponent().getPackageName().toLowerCase();
+                String sharePlatform = SHARE_VIA_OTHER;
+                
+                // Determine which platform was used
+                if (packageName.contains("whatsapp")) {
+                    sharePlatform = SHARE_VIA_WHATSAPP;
+                } else if (packageName.contains("facebook") || packageName.contains("fb")) {
+                    sharePlatform = SHARE_VIA_FACEBOOK;
+                } else if (packageName.contains("twitter") || packageName.contains("tweet")) {
+                    sharePlatform = SHARE_VIA_TWITTER;
+                } else if (packageName.contains("instagram")) {
+                    sharePlatform = SHARE_VIA_INSTAGRAM;
+                } else if (packageName.contains("mail") || packageName.contains("gmail")) {
+                    sharePlatform = SHARE_VIA_EMAIL;
+                } else if (packageName.contains("sms") || packageName.contains("mms") || packageName.contains("message")) {
+                    sharePlatform = SHARE_VIA_SMS;
+                }
+                
+                // Save the share platform
+                saveSharePlatform(sharePlatform);
+                Log.d(TAG, "Shared via: " + sharePlatform + " (package: " + packageName + ")");
+            } else {
+                // If we can't determine the app, save as "other"
+                saveSharePlatform(SHARE_VIA_OTHER);
+                Log.d(TAG, "Shared via: unknown app");
+            }
+        }
     }
 
     private void copyLinkToClipboard(String link) {
@@ -266,6 +321,30 @@ public class SharedWishFragment extends Fragment {
         ClipData clip = ClipData.newPlainText("EventWish Link", link);
         clipboard.setPrimaryClip(clip);
         Toast.makeText(requireContext(), R.string.link_copied, Toast.LENGTH_SHORT).show();
+        
+        // Save the share platform
+        saveSharePlatform(SHARE_VIA_CLIPBOARD);
+    }
+    
+    private void saveSharePlatform(String platform) {
+        if (currentWish != null && shortCode != null) {
+            try {
+                // Use HistoryViewModel to update the shared wish with the platform
+                ViewModelProvider provider = new ViewModelProvider(requireActivity());
+                HistoryViewModel historyViewModel = provider.get(HistoryViewModel.class);
+                
+                // Update the shared wish with the platform
+                boolean updated = historyViewModel.updateSharedWish(shortCode, platform);
+                
+                if (updated) {
+                    Log.d(TAG, "Saved share platform for " + shortCode + ": " + platform);
+                } else {
+                    Log.w(TAG, "Failed to update share platform for " + shortCode);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error saving share platform", e);
+            }
+        }
     }
 
     @Override

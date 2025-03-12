@@ -18,10 +18,16 @@ import com.ds.eventwish.data.local.AppDatabase;
 import com.ds.eventwish.data.local.ReminderDao;
 import com.ds.eventwish.data.model.Reminder;
 import com.ds.eventwish.data.repository.CategoryIconRepository;
+import com.ds.eventwish.data.repository.TokenRepository;
+import com.ds.eventwish.data.remote.ApiClient;
+import com.ds.eventwish.data.remote.ApiService;
 import com.ds.eventwish.utils.CacheManager;
 import com.ds.eventwish.utils.ReminderScheduler;
 import com.ds.eventwish.workers.ReminderCheckWorker;
 import com.ds.eventwish.workers.TemplateUpdateWorker;
+import com.ds.eventwish.utils.FirebaseInAppMessagingHandler;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -33,8 +39,26 @@ public class EventWishApplication extends Application implements Configuration.P
     public void onCreate() {
         super.onCreate();
         
+        // Initialize Firebase with logging
+        try {
+            FirebaseApp.initializeApp(this);
+            FirebaseOptions options = FirebaseApp.getInstance().getOptions();
+            Log.d(TAG, "Firebase initialized successfully");
+            Log.d(TAG, "Firebase project ID: " + options.getProjectId());
+            Log.d(TAG, "Firebase application ID: " + options.getApplicationId());
+        } catch (Exception e) {
+            Log.e(TAG, "Firebase initialization failed", e);
+        }
+        
         // Create notification channels
         createNotificationChannels();
+        
+        // Initialize Firebase In-App Messaging Handler
+        FirebaseInAppMessagingHandler.initialize(this);
+        
+        // Initialize TokenRepository and check for unsent tokens
+        TokenRepository.getInstance(this, ApiClient.getClient())
+                .checkAndSendToken();
         
         // Note: We don't need to initialize WorkManager here since we're using Configuration.Provider
         // WorkManager will be initialized automatically using the configuration from getWorkManagerConfiguration()

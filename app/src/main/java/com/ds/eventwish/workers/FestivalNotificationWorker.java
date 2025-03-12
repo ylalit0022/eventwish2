@@ -19,6 +19,7 @@ import com.ds.eventwish.utils.NotificationHelper;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.TimeZone;
 
 import me.leolin.shortcutbadger.ShortcutBadger;
 
@@ -66,8 +67,9 @@ public class FestivalNotificationWorker extends Worker {
     private void createFestivalNotification(Festival festival) {
         Context context = getApplicationContext();
         
-        // Format the date
+        // Format the date using server timezone
         SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
+        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC")); // Use UTC for server time
         String formattedDate = dateFormat.format(festival.getDate());
         
         // Create an intent for when the notification is tapped

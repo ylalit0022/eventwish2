@@ -13,10 +13,12 @@ import androidx.lifecycle.MutableLiveData;
 import com.ds.eventwish.data.local.AppDatabase;
 import com.ds.eventwish.data.local.FestivalDao;
 import com.ds.eventwish.data.model.Festival;
+import com.ds.eventwish.data.model.ServerTimeResponse;
 import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.data.remote.ApiService;
 import com.ds.eventwish.utils.CacheManager;
 import com.google.gson.reflect.TypeToken;
+import com.ds.eventwish.utils.TimeUtils;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -29,6 +31,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.TimeZone;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -184,10 +187,8 @@ public class FestivalRepository {
             throw new IllegalStateException("Cannot access database on the main thread");
         }
         
-        Date now = new Date();
-        Calendar calendar = Calendar.getInstance();
-        calendar.add(Calendar.MONTH, 1); // Get festivals for the next month
-        Date endDate = calendar.getTime();
+        Date now = TimeUtils.getCurrentServerTime();
+        Date endDate = TimeUtils.addMonthsToServerTime(1); // Get festivals for the next month
         
         return festivalDao.getUnnotifiedUpcomingFestivals(now, endDate);
     }
@@ -218,14 +219,50 @@ public class FestivalRepository {
      * This method will clear the local database first
      */
     public void refreshUpcomingFestivals() {
-        isLoading.setValue(true);
-        isFromCache.setValue(false);
-        
-        // Clear cache for festivals
-        cacheManager.clearCache(CACHE_KEY_FESTIVALS);
-        
-        // Fetch from server
-        fetchUpcomingFestivalsFromServer();
+        executor.execute(() -> {
+            // First sync server time
+            try {
+                Call<ServerTimeResponse> timeCall = apiService.getServerTime();
+                retrofit2.Response<ServerTimeResponse> timeResponse = timeCall.execute();
+                if (timeResponse.isSuccessful() && timeResponse.body() != null) {
+                    ServerTimeResponse timeData = timeResponse.body();
+                    if (timeData.isSuccess()) {
+                        TimeUtils.syncWithServerTime(timeData.getTimestamp(), timeData.getDate());
+                    } else {
+                        Log.e(TAG, "Server time sync failed: success is false");
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error syncing server time", e);
+            }
+
+            // Then fetch festivals
+            try {
+                Call<List<Festival>> call = apiService.getFestivals();
+                retrofit2.Response<List<Festival>> response = call.execute();
+                
+                if (response.isSuccessful() && response.body() != null) {
+                    List<Festival> festivals = response.body();
+                    
+                    // Update database
+                    festivalDao.insertAll(festivals);
+                    
+                    // Update cache timestamp
+                    updateCacheTimestamp();
+                    
+                    // Set error message to null since request was successful
+                    errorMessage.postValue(null);
+                    
+                    // Refresh unread count
+                    refreshUnreadCount();
+                } else {
+                    errorMessage.postValue("Failed to fetch festivals from server");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error fetching festivals", e);
+                errorMessage.postValue("Network error: " + e.getMessage());
+            }
+        });
     }
     
     /**
@@ -552,11 +589,11 @@ public class FestivalRepository {
      * @param festival The festival to schedule notifications for
      */
     private void scheduleCountdownNotification(Festival festival) {
-        // Calculate days until festival
-        Calendar festivalDate = Calendar.getInstance();
+        // Calculate days until festival using server time
+        Calendar festivalDate = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
         festivalDate.setTime(festival.getDate());
         
-        Calendar today = Calendar.getInstance();
+        Calendar today = TimeUtils.getServerCalendar();
         
         // Clear time portion for accurate day calculation
         clearTimeFields(festivalDate);
@@ -566,7 +603,7 @@ public class FestivalRepository {
         long diffInMillis = festivalDate.getTimeInMillis() - today.getTimeInMillis();
         int daysUntil = (int) (diffInMillis / (24 * 60 * 60 * 1000));
         
-        Log.d(TAG, "Festival: " + festival.getName() + " is in " + daysUntil + " days");
+        Log.d(TAG, "Festival: " + festival.getName() + " is in " + daysUntil + " days (using server time)");
         
         // Schedule notifications at 7 days, 3 days, and 1 day before the festival
         scheduleNotificationIfNeeded(festival, daysUntil, 7);
@@ -676,5 +713,16 @@ public class FestivalRepository {
         calendar.set(Calendar.MINUTE, 0);
         calendar.set(Calendar.SECOND, 0);
         calendar.set(Calendar.MILLISECOND, 0);
+    }
+
+    /**
+     * Update the cache timestamp for festivals
+     */
+    private void updateCacheTimestamp() {
+        if (cacheManager != null) {
+            // Save current time as cache timestamp
+            cacheManager.saveToCache(CACHE_KEY_FESTIVALS + "_timestamp", new Date().getTime());
+            Log.d(TAG, "Updated cache timestamp for festivals");
+        }
     }
 }

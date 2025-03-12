@@ -115,6 +115,16 @@
 
         </activity>
 
+        <activity
+            android:name=".TestFlashyMessageActivity"
+            android:exported="true"
+            android:label="Test Flashy Messages">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
 <!--        <activity-->
 <!--            android:name=".TestNotificationActivity"-->
 <!--            android:exported="true">-->
@@ -170,6 +180,26 @@
                 <action android:name="com.ds.eventwish.COUNTDOWN_NOTIFICATION" />
             </intent-filter>
         </receiver>
+
+        <!-- Firebase Messaging Service -->
+        <service
+            android:name=".services.FirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        
+        <!-- Default notification icon and color -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/colorPrimary" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="fcm_channel" />
     </application>
 
     <queries>

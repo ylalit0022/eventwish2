@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".TestFlashyMessageActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Create Flashy Messages"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Use this tool to create test flashy messages without using Firebase. You can also use Firebase verification tools to check your Firebase integration."
+            android:layout_marginBottom="16dp" />
+
+        <EditText
+            android:id="@+id/edit_text_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Title"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/edit_text_message"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Message"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/button_create"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Create Flashy Message"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/button_create_default"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Create Default Flashy Message"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/button_clear"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Clear All Flashy Messages"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/button_go_to_main"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Go to Main Activity"
+            android:layout_marginBottom="16dp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#CCCCCC"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Firebase Verification"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/button_show_token"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Show Firebase FCM Token"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/button_show_install_id"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Show Firebase Installation ID"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/button_trigger_in_app"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Trigger In-App Message Test"
+            android:layout_marginBottom="16dp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#CCCCCC"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Flashy Message Debugging"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Use these tools to debug issues with flashy messages not appearing after the first message."
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/button_dump_messages"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Dump Flashy Messages"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/button_force_refresh"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Force Refresh Flashy Messages"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/button_reset_state"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Reset Display State"
+            android:layout_marginBottom="16dp" />
+
+    </LinearLayout>
+</ScrollView> 

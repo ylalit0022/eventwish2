@@ -46,6 +46,10 @@ import com.ds.eventwish.utils.AppUpdateChecker;
 import com.ds.eventwish.data.repository.FestivalRepository;
 import com.ds.eventwish.ui.festival.FestivalViewModel;
 import com.ds.eventwish.utils.NotificationHelper;
+import com.ds.eventwish.ui.common.FlashyMessageDialog;
+import com.ds.eventwish.utils.FlashyMessageManager;
+import com.ds.eventwish.utils.FlashyMessageManager.FlashyMessage;
+import com.google.firebase.messaging.FirebaseMessaging;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -101,6 +105,9 @@ public class MainActivity extends AppCompatActivity {
             FestivalRepository.getInstance(this).clearAllCache();
             isFirstLaunch = false;
         }
+
+        // Initialize Firebase Messaging
+        initializeFirebaseMessaging();
     }
 
     private void setupPermissionLauncher() {
@@ -386,6 +393,9 @@ public class MainActivity extends AppCompatActivity {
             viewModel.setAppInForeground(true);
         }
 
+        // Check for flashy messages when the app is resumed
+        checkForFlashyMessages();
+
         // Check if we need to refresh data
     }
 
@@ -424,5 +434,67 @@ public class MainActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         // Don't clear cache when app is paused/backgrounded
+    }
+
+    /**
+     * Initialize Firebase Cloud Messaging
+     */
+    private void initializeFirebaseMessaging() {
+        FirebaseMessaging.getInstance().getToken()
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful()) {
+                        Log.w(TAG, "Fetching FCM registration token failed", task.getException());
+                        return;
+                    }
+
+                    // Get new FCM registration token
+                    String token = task.getResult();
+
+                    // Log and send the token to your server
+                    Log.d(TAG, "FCM Token: " + token);
+                    sendRegistrationToServer(token);
+                    
+                    // Subscribe to topics
+                    FirebaseMessaging.getInstance().subscribeToTopic("all_users")
+                            .addOnCompleteListener(task1 -> {
+                                if (task1.isSuccessful()) {
+                                    Log.d(TAG, "Subscribed to all_users topic");
+                                } else {
+                                    Log.e(TAG, "Failed to subscribe to all_users topic", task1.getException());
+                                }
+                            });
+                });
+    }
+
+    /**
+     * Send registration token to server
+     */
+    private void sendRegistrationToServer(String token) {
+        // TODO: Implement API call to send token to backend
+        // This will be implemented in the TokenRepository
+    }
+
+    /**
+     * Check for flashy messages and display them
+     */
+    private void checkForFlashyMessages() {
+        // Reset display state to ensure we can show messages
+        FlashyMessageManager.resetDisplayState(this);
+        
+        // Get the next message to display
+        FlashyMessageManager.FlashyMessage message = FlashyMessageManager.getNextMessage(this);
+        if (message != null) {
+            Log.d(TAG, "Showing flashy message: " + message.getTitle());
+            
+            // Show the flashy message dialog
+            FlashyMessageDialog dialog = FlashyMessageDialog.newInstance(
+                    message.getId(),
+                    message.getTitle(),
+                    message.getMessage()
+            );
+            dialog.show(getSupportFragmentManager(), "flashy_message");
+        } else {
+            Log.d(TAG, "No flashy messages to show");
+        }
     }
 }

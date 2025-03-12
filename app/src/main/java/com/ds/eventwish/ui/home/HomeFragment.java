@@ -751,7 +751,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         // Observe templates from the ViewModel
         viewModel.getTemplates().observe(getViewLifecycleOwner(), templates -> {
             Log.d(TAG, "Templates updated - size: " + (templates != null ? templates.size() : 0));
-            if (templates != null) {
+            if (templates != null && binding != null) {
                 // Create a new list to avoid modification issues
                 List<Template> newList = new ArrayList<>(templates);
                 
@@ -760,6 +760,12 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                 
                 // Update the adapter with the new list
                 binding.templatesRecyclerView.post(() -> {
+                    // Check if binding is still valid
+                    if (binding == null) {
+                        Log.d(TAG, "Binding is null in post runnable, skipping UI update");
+                        return;
+                    }
+                    
                     adapter.submitList(newList);
                     
                     // Restore scroll position if needed
@@ -770,7 +776,9 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                     }
                     
                     // Show empty state if needed
-                    binding.emptyView.setVisibility(newList.isEmpty() ? View.VISIBLE : View.GONE);
+                    if (binding != null && binding.emptyView != null) {
+                        binding.emptyView.setVisibility(newList.isEmpty() ? View.VISIBLE : View.GONE);
+                    }
                 });
             }
         });
@@ -786,24 +794,28 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         // Observe loading state
         viewModel.getLoading().observe(getViewLifecycleOwner(), isLoading -> {
             Log.d(TAG, "Loading state updated: " + isLoading);
-            binding.swipeRefreshLayout.setRefreshing(isLoading);
-            
-            // Show/hide shimmer based on loading state
-            if (isLoading) {
-//                binding.shimmerLayout.setVisibility(View.VISIBLE);
-//                binding.shimmerLayout.startShimmer();
-                binding.templatesRecyclerView.setVisibility(View.GONE);
-                binding.emptyView.setVisibility(View.GONE);
-            } else {
-//                binding.shimmerLayout.stopShimmer();
-//                binding.shimmerLayout.setVisibility(View.GONE);
-                binding.templatesRecyclerView.setVisibility(View.VISIBLE);
+            if (binding != null) {
+                binding.swipeRefreshLayout.setRefreshing(isLoading);
+                
+                // Show/hide shimmer based on loading state
+                if (isLoading) {
+//                    binding.shimmerLayout.setVisibility(View.VISIBLE);
+//                    binding.shimmerLayout.startShimmer();
+                    binding.templatesRecyclerView.setVisibility(View.GONE);
+                    if (binding.emptyView != null) {
+                        binding.emptyView.setVisibility(View.GONE);
+                    }
+                } else {
+//                    binding.shimmerLayout.stopShimmer();
+//                    binding.shimmerLayout.setVisibility(View.GONE);
+                    binding.templatesRecyclerView.setVisibility(View.VISIBLE);
+                }
             }
         });
         
         // Observe error state
         viewModel.getError().observe(getViewLifecycleOwner(), error -> {
-            if (error != null && !error.isEmpty()) {
+            if (error != null && !error.isEmpty() && getContext() != null) {
                 Log.e(TAG, "Error: " + error);
                 Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show();
             }
@@ -841,16 +853,20 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         
         // Observe new templates indicator
         viewModel.getHasNewTemplates().observe(getViewLifecycleOwner(), hasNew -> {
-            binding.refreshIndicator.setVisibility(hasNew ? View.VISIBLE : View.GONE);
+            if (binding != null) {
+                binding.refreshIndicator.setVisibility(hasNew ? View.VISIBLE : View.GONE);
+            }
         });
         
         // Observe unread festival count
         festivalViewModel.getUnreadCount().observe(getViewLifecycleOwner(), count -> {
-            if (count != null && count > 0) {
-                binding.notificationBadge.setVisibility(View.VISIBLE);
-                binding.notificationBadge.setText(count <= 9 ? String.valueOf(count) : "9+");
-            } else {
-                binding.notificationBadge.setVisibility(View.GONE);
+            if (binding != null) {
+                if (count != null && count > 0) {
+                    binding.notificationBadge.setVisibility(View.VISIBLE);
+                    binding.notificationBadge.setText(count <= 9 ? String.valueOf(count) : "9+");
+                } else {
+                    binding.notificationBadge.setVisibility(View.GONE);
+                }
             }
         });
     }
@@ -890,11 +906,25 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         // Don't clear the position when destroying the view
         // This allows us to restore the position when coming back
         
+        // Cancel any pending operations on the RecyclerView
+        if (binding != null && binding.templatesRecyclerView != null) {
+            binding.templatesRecyclerView.removeCallbacks(null);
+        }
+        
+        // Clear binding reference
         binding = null;
+        
+        Log.d(TAG, "onDestroyView: binding set to null");
     }
 
     // Test method to simulate new templates (for development/testing only)
     private void testNewTemplatesIndicator() {
+        // Check if binding is still valid
+        if (binding == null) {
+            Log.d(TAG, "Binding is null in testNewTemplatesIndicator, skipping UI update");
+            return;
+        }
+        
         // Toggle the indicator for testing
         boolean currentState = binding.refreshIndicator.getVisibility() == View.VISIBLE;
         binding.refreshIndicator.setVisibility(currentState ? View.GONE : View.VISIBLE);

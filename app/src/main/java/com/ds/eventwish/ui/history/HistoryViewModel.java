@@ -34,6 +34,58 @@ public class HistoryViewModel extends AndroidViewModel {
         loadHistory();
     }
 
+    /**
+     * Updates the sharedVia field of a SharedWish in the history list
+     * @param shortCode The shortCode of the wish to update
+     * @param platform The platform used for sharing (e.g., "whatsapp", "facebook")
+     * @return true if the wish was found and updated, false otherwise
+     */
+    public boolean updateSharedWish(String shortCode, String platform) {
+        if (shortCode == null || platform == null) {
+            Log.e(TAG, "Cannot update wish with null shortCode or platform");
+            return false;
+        }
+
+        Log.d(TAG, "updateSharedWish: Updating wish " + shortCode + " with platform: " + platform);
+        
+        List<SharedWish> currentItems = historyItems.getValue();
+        if (currentItems == null) {
+            currentItems = new ArrayList<>();
+            return false;
+        }
+
+        boolean updated = false;
+        for (SharedWish wish : currentItems) {
+            if (wish.getShortCode() != null && wish.getShortCode().equals(shortCode)) {
+                wish.setSharedVia(platform);
+                wish.setLastSharedAt(new Date());
+                updated = true;
+                Log.d(TAG, "Updated wish " + shortCode + " with platform: " + platform);
+                break;
+            }
+        }
+        
+        if (updated) {
+            try {
+                // Save to SharedPreferences
+                String jsonHistory = gson.toJson(currentItems);
+                preferences.edit().putString(KEY_HISTORY, jsonHistory).apply();
+                
+                // Update UI
+                historyItems.setValue(currentItems);
+                Log.d(TAG, "Wish updated successfully");
+                return true;
+            } catch (Exception e) {
+                Log.e(TAG, "Error saving updated history to local storage", e);
+                error.setValue("Failed to update history");
+                return false;
+            }
+        } else {
+            Log.w(TAG, "No wish found with shortCode: " + shortCode);
+            return false;
+        }
+    }
+
     public void loadHistory() {
         Log.d(TAG, "loadHistory: Loading history from local storage");
         loading.setValue(true);

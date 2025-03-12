@@ -150,11 +150,54 @@ public class HistoryAdapter extends ListAdapter<SharedWish, HistoryAdapter.ViewH
         Log.d(TAG, "No preview URL available for wish");
     }
 
-//            if (wish.getTemplate() != null && wish.getTemplate().getHtmlContent() != null) {
-//                setupWebView(wish);
-//            }
-
-            binding.statusChip.setText(wish.getSharedVia());
+            // Set the sharing platform in the status chip with a user-friendly label
+            String sharedVia = wish.getSharedVia();
+            if (sharedVia != null) {
+                String displayText;
+                int chipColor;
+                
+                switch (sharedVia.toLowerCase()) {
+                    case "whatsapp":
+                        displayText = "WhatsApp";
+                        chipColor = R.color.whatsapp_green;
+                        break;
+                    case "facebook":
+                        displayText = "Facebook";
+                        chipColor = R.color.facebook_blue;
+                        break;
+                    case "twitter":
+                        displayText = "Twitter";
+                        chipColor = R.color.twitter_blue;
+                        break;
+                    case "instagram":
+                        displayText = "Instagram";
+                        chipColor = R.color.instagram_purple;
+                        break;
+                    case "email":
+                        displayText = "Email";
+                        chipColor = R.color.email_red;
+                        break;
+                    case "sms":
+                        displayText = "SMS";
+                        chipColor = R.color.sms_blue;
+                        break;
+                    case "clipboard":
+                        displayText = "Copied";
+                        chipColor = R.color.clipboard_gray;
+                        break;
+                    case "link":
+                    default:
+                        displayText = "Link";
+                        chipColor = R.color.link_blue;
+                        break;
+                }
+                
+                binding.statusChip.setText(displayText);
+                binding.statusChip.setChipBackgroundColorResource(chipColor);
+                binding.statusChip.setVisibility(View.VISIBLE);
+            } else {
+                binding.statusChip.setVisibility(View.GONE);
+            }
         }
 
 //        private void setupWebView(SharedWish wish) {
