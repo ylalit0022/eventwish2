@@ -116,8 +116,6 @@ public class SharedWishFragment extends Fragment {
         // Initialize WebView
         setupWebView();
 
-
-
         // Set up click listeners
         setupClickListeners();
 
@@ -192,6 +190,15 @@ public class SharedWishFragment extends Fragment {
                     historyWish.setRecipientName(wish.getRecipientName());
                     historyWish.setSenderName(wish.getSenderName());
                     historyWish.setTemplate(wish.getTemplate());
+                    
+                    // Set templateId if available
+                    if (wish.getTemplateId() != null) {
+                        historyWish.setTemplateId(wish.getTemplateId());
+                        Log.d(TAG, "Setting templateId: " + wish.getTemplateId());
+                    } else if (wish.getTemplate() != null && wish.getTemplate().getId() != null) {
+                        historyWish.setTemplateId(wish.getTemplate().getId());
+                        Log.d(TAG, "Setting templateId from template: " + wish.getTemplate().getId());
+                    }
 
                     // Set the preview URL from template or from the wish
                     if (wish.getPreviewUrl() != null && !wish.getPreviewUrl().isEmpty()) {
@@ -223,7 +230,10 @@ public class SharedWishFragment extends Fragment {
                     historyWish.setJsContent(wish.getJsContent());
 
                     // Log content lengths for debugging
-                    Log.d(TAG, "Saving to history - customizedHtml length: " +
+                    Log.d(TAG, "Saving to history - " +
+                          "previewUrl: " + historyWish.getPreviewUrl() +
+                          ", templateId: " + historyWish.getTemplateId() +
+                          ", customizedHtml length: " +
                           (historyWish.getCustomizedHtml() != null ? historyWish.getCustomizedHtml().length() : 0) +
                           ", cssContent length: " +
                           (historyWish.getCssContent() != null ? historyWish.getCssContent().length() : 0) +
@@ -419,15 +429,9 @@ public class SharedWishFragment extends Fragment {
             bottomSheetDialog.dismiss();
         });
 
-        // Add a home button to navigate directly to home
-//        bottomSheetView.findViewById(R.id.homeButton).setOnClickListener(v -> {
-//            // Navigate to home
-//            navigateToHome();
-//            bottomSheetDialog.dismiss();
-//            Log.d(TAG, "Navigated to home from share bottom sheet");
-//        });
-//
-//        bottomSheetDialog.show();
+        // Show the bottom sheet dialog
+        bottomSheetDialog.show();
+        Log.d(TAG, "Share bottom sheet dialog shown");
     }
 
     /**
@@ -487,9 +491,20 @@ public class SharedWishFragment extends Fragment {
         String deepLink = "eventwish://wish/" + currentWish.getShortCode();
         sharedWish.setDeepLink(deepLink);
 
+        // Set templateId if available
+        if (currentWish.getTemplateId() != null) {
+            sharedWish.setTemplateId(currentWish.getTemplateId());
+            Log.d(TAG, "Setting templateId: " + currentWish.getTemplateId());
+        } else if (currentWish.getTemplate() != null && currentWish.getTemplate().getId() != null) {
+            sharedWish.setTemplateId(currentWish.getTemplate().getId());
+            Log.d(TAG, "Setting templateId from template: " + currentWish.getTemplate().getId());
+        }
+
         Log.d(TAG, "Sharing wish with title: " + title +
               ", description: " + description +
               ", deepLink: " + deepLink +
+              ", previewUrl: " + sharedWish.getPreviewUrl() +
+              ", templateId: " + sharedWish.getTemplateId() +
               ", customizedHtml length: " + (sharedWish.getCustomizedHtml() != null ? sharedWish.getCustomizedHtml().length() : 0) +
               ", cssContent length: " + (sharedWish.getCssContent() != null ? sharedWish.getCssContent().length() : 0) +
               ", jsContent length: " + (sharedWish.getJsContent() != null ? sharedWish.getJsContent().length() : 0));
@@ -760,24 +775,4 @@ public class SharedWishFragment extends Fragment {
             // You could also show an error view in the UI
         }
     }
-
-    /**
-     * Set up the toolbar with navigation icon and title
-     */
-//    private void setupToolbar() {
-//        if (binding.toolbar != null) {
-//            // Set navigation icon (back button)
-//            binding.toolbar.setNavigationIcon(R.drawable.ic_back);
-//
-//            // Set title
-//            binding.toolbar.setTitle("Shared Wish");
-//
-//            // Set navigation click listener
-//            binding.toolbar.setNavigationOnClickListener(v -> {
-//                // Navigate to home
-//                navigateToHome();
-//                Log.d(TAG, "Navigated to home from toolbar back button");
-//            });
-//        }
-//    }
 }

@@ -46,6 +46,14 @@ exports.createSharedWish = async (req, res) => {
         
         const shortCode = generateShortCode();
         
+        // Get the preview URL from the template
+        let previewUrl = template.previewUrl || template.thumbnailUrl || '';
+        
+        // Make sure the URL is absolute
+        if (previewUrl && !previewUrl.startsWith('http')) {
+            previewUrl = `https://eventwish2.onrender.com${previewUrl.startsWith('/') ? '' : '/'}${previewUrl}`;
+        }
+        
         // Create the shared wish with template field correctly set
         const sharedWish = new SharedWish({
             shortCode,
@@ -55,10 +63,10 @@ exports.createSharedWish = async (req, res) => {
             customizedHtml: customizedHtml || '',
             cssContent: cssContent || '',
             jsContent: jsContent || '',
-            previewUrl: template.previewUrl || '' // Set previewUrl from template
+            previewUrl: previewUrl // Set previewUrl from template
         });
 
-        console.log(`Creating shared wish with shortCode: ${shortCode}, templateId: ${templateId}, previewUrl: ${template.previewUrl || 'none'}`);
+        console.log(`Creating shared wish with shortCode: ${shortCode}, templateId: ${templateId}, previewUrl: ${previewUrl || 'none'}`);
         
         await sharedWish.save();
         
@@ -102,10 +110,23 @@ exports.getSharedWish = async (req, res) => {
         }
 
         // Check if previewUrl is missing and template exists
-        if ((!sharedWish.previewUrl || sharedWish.previewUrl === '') && sharedWish.template && sharedWish.template.previewUrl) {
+        if ((!sharedWish.previewUrl || sharedWish.previewUrl === '') && sharedWish.template) {
             // Update the previewUrl from the template
-            sharedWish.previewUrl = sharedWish.template.previewUrl;
-            console.log(`Updated missing previewUrl for wish ${shortCode} with template previewUrl: ${sharedWish.previewUrl}`);
+            let templatePreviewUrl = sharedWish.template.previewUrl || sharedWish.template.thumbnailUrl || '';
+            
+            // Make sure the URL is absolute
+            if (templatePreviewUrl && !templatePreviewUrl.startsWith('http')) {
+                templatePreviewUrl = `https://eventwish2.onrender.com${templatePreviewUrl.startsWith('/') ? '' : '/'}${templatePreviewUrl}`;
+            }
+            
+            if (templatePreviewUrl) {
+                sharedWish.previewUrl = templatePreviewUrl;
+                console.log(`Updated missing previewUrl for wish ${shortCode} with template previewUrl: ${templatePreviewUrl}`);
+            }
+        } else if (sharedWish.previewUrl && !sharedWish.previewUrl.startsWith('http')) {
+            // Make sure existing previewUrl is absolute
+            sharedWish.previewUrl = `https://eventwish2.onrender.com${sharedWish.previewUrl.startsWith('/') ? '' : '/'}${sharedWish.previewUrl}`;
+            console.log(`Updated relative previewUrl for wish ${shortCode} to absolute URL: ${sharedWish.previewUrl}`);
         }
 
         // Increment views

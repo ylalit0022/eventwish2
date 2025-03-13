@@ -11,7 +11,17 @@ const generateWishLandingPage = (wish, shortCode) => {
 
     const title = wish.title || 'EventWish Greeting';
     const description = wish.description || `A special wish from ${wish.senderName} to ${wish.recipientName}`;
-    const previewUrl = wish.template?.thumbnailUrl || '/images/default-preview.png';
+    
+    // Get the preview URL, ensuring it's an absolute URL
+    let previewUrl = wish.previewUrl || (wish.template && wish.template.thumbnailUrl) || '/images/default-preview.png';
+    
+    // Make sure the URL is absolute
+    if (!previewUrl.startsWith('http')) {
+        previewUrl = `https://eventwish2.onrender.com${previewUrl.startsWith('/') ? '' : '/'}${previewUrl}`;
+    }
+    
+    console.log(`Using preview URL for wish ${shortCode}: ${previewUrl}`);
+    
     const appUrl = 'https://play.google.com/store/apps/details?id=com.ds.eventwish';
     const deepLink = `eventwish://wish/${shortCode}`;
 
@@ -30,6 +40,8 @@ const generateWishLandingPage = (wish, shortCode) => {
             <meta property="og:title" content="${title}">
             <meta property="og:description" content="${description}">
             <meta property="og:image" content="${previewUrl}">
+            <meta property="og:image:width" content="1200">
+            <meta property="og:image:height" content="630">
             
             <!-- Twitter -->
             <meta property="twitter:card" content="summary_large_image">
@@ -129,7 +141,7 @@ const generateWishLandingPage = (wish, shortCode) => {
 const generateFallbackLandingPage = (shortCode) => {
     const title = 'EventWish Greeting';
     const description = 'Someone sent you a special wish!';
-    const previewUrl = '/images/default-preview.png';
+    const previewUrl = 'https://eventwish2.onrender.com/images/default-preview.png';
     const appUrl = 'https://play.google.com/store/apps/details?id=com.ds.eventwish';
     const deepLink = `eventwish://wish/${shortCode}`;
 
@@ -148,6 +160,8 @@ const generateFallbackLandingPage = (shortCode) => {
             <meta property="og:title" content="${title}">
             <meta property="og:description" content="${description}">
             <meta property="og:image" content="${previewUrl}">
+            <meta property="og:image:width" content="1200">
+            <meta property="og:image:height" content="630">
             
             <!-- Twitter -->
             <meta property="twitter:card" content="summary_large_image">

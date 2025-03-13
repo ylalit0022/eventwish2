@@ -1,84 +1,85 @@
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const mongoose = require('mongoose');
 const SharedWish = require('../models/SharedWish');
 const Template = require('../models/Template');
-require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 
-async function updateSharedWishesPreviewUrl() {
+const updateSharedWishesPreviewUrl = async () => {
     try {
         // Connect to MongoDB
         await mongoose.connect(process.env.MONGODB_URI, {
             useNewUrlParser: true,
             useUnifiedTopology: true
         });
-        console.log('Connected to MongoDB successfully');
+        console.log('Connected to MongoDB');
 
-        // Get all shared wishes that don't have a previewUrl
-        const sharedWishes = await SharedWish.find({
-            $or: [
-                { previewUrl: { $exists: false } },
-                { previewUrl: null },
-                { previewUrl: "" }
-            ]
-        }).populate('template');
-        
-        console.log(`Found ${sharedWishes.length} shared wishes without previewUrl`);
+        // Find all shared wishes
+        const sharedWishes = await SharedWish.find().populate('template');
+        console.log(`Found ${sharedWishes.length} shared wishes`);
 
-        // Update each shared wish with the previewUrl from its template
         let updatedCount = 0;
-        let errorCount = 0;
-        
+        let missingPreviewUrlCount = 0;
+        let absoluteUrlCount = 0;
+        let relativeUrlCount = 0;
+
+        // Update each shared wish
         for (const wish of sharedWishes) {
-            try {
-                if (!wish.template) {
-                    console.log(`Wish ${wish.shortCode} has no associated template`);
-                    continue;
+            let needsUpdate = false;
+            
+            // Check if previewUrl is missing
+            if (!wish.previewUrl || wish.previewUrl === '') {
+                missingPreviewUrlCount++;
+                
+                // Try to get previewUrl from template
+                if (wish.template) {
+                    let templatePreviewUrl = wish.template.previewUrl || wish.template.thumbnailUrl || '';
+                    
+                    if (templatePreviewUrl) {
+                        // Make sure the URL is absolute
+                        if (!templatePreviewUrl.startsWith('http')) {
+                            templatePreviewUrl = `https://eventwish2.onrender.com${templatePreviewUrl.startsWith('/') ? '' : '/'}${templatePreviewUrl}`;
+                        }
+                        
+                        wish.previewUrl = templatePreviewUrl;
+                        console.log(`Updated missing previewUrl for wish ${wish.shortCode} with template previewUrl: ${templatePreviewUrl}`);
+                        needsUpdate = true;
+                    }
                 }
+            } 
+            // Check if previewUrl is relative
+            else if (!wish.previewUrl.startsWith('http')) {
+                relativeUrlCount++;
                 
-                // Get the template's previewUrl
-                const templateId = wish.template._id;
-                const template = await Template.findById(templateId);
-                
-                if (!template) {
-                    console.log(`Template ${templateId} not found for wish ${wish.shortCode}`);
-                    continue;
-                }
-                
-                if (!template.previewUrl) {
-                    console.log(`Template ${templateId} has no previewUrl for wish ${wish.shortCode}`);
-                    continue;
-                }
-                
-                // Update the shared wish with the template's previewUrl
-                wish.previewUrl = template.previewUrl;
+                // Make it absolute
+                wish.previewUrl = `https://eventwish2.onrender.com${wish.previewUrl.startsWith('/') ? '' : '/'}${wish.previewUrl}`;
+                console.log(`Updated relative previewUrl for wish ${wish.shortCode} to absolute URL: ${wish.previewUrl}`);
+                needsUpdate = true;
+            } else {
+                absoluteUrlCount++;
+            }
+            
+            // Save the wish if it was updated
+            if (needsUpdate) {
                 await wish.save();
-                
-                console.log(`Updated wish ${wish.shortCode} with previewUrl: ${wish.previewUrl}`);
                 updatedCount++;
-            } catch (error) {
-                console.error(`Error updating wish ${wish.shortCode}:`, error);
-                errorCount++;
             }
         }
 
-        console.log(`Updated ${updatedCount} shared wishes with previewUrl`);
-        console.log(`Encountered errors with ${errorCount} shared wishes`);
-        
-        // Get count of shared wishes that still don't have a previewUrl
-        const remainingCount = await SharedWish.countDocuments({
-            $or: [
-                { previewUrl: { $exists: false } },
-                { previewUrl: null },
-                { previewUrl: "" }
-            ]
-        });
-        
-        console.log(`${remainingCount} shared wishes still don't have a previewUrl`);
+        console.log(`
+Update Summary:
+- Total shared wishes: ${sharedWishes.length}
+- Wishes with missing previewUrl: ${missingPreviewUrlCount}
+- Wishes with relative previewUrl: ${relativeUrlCount}
+- Wishes with absolute previewUrl: ${absoluteUrlCount}
+- Total wishes updated: ${updatedCount}
+        `);
+
+        // Disconnect from MongoDB
+        await mongoose.disconnect();
+        console.log('Disconnected from MongoDB');
     } catch (error) {
         console.error('Error updating shared wishes:', error);
-    } finally {
-        mongoose.connection.close();
-        console.log('MongoDB connection closed');
     }
-}
+};
 
+// Run the update function
 updateSharedWishesPreviewUrl(); 
