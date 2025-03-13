@@ -35,6 +35,15 @@ exports.createSharedWish = async (req, res) => {
             });
         }
         
+        // Get the template to access its previewUrl
+        const template = await require('../models/Template').findById(templateId);
+        if (!template) {
+            return res.status(404).json({
+                success: false,
+                message: 'Template not found'
+            });
+        }
+        
         const shortCode = generateShortCode();
         
         // Create the shared wish with template field correctly set
@@ -45,10 +54,11 @@ exports.createSharedWish = async (req, res) => {
             senderName: senderName || 'Someone',
             customizedHtml: customizedHtml || '',
             cssContent: cssContent || '',
-            jsContent: jsContent || ''
+            jsContent: jsContent || '',
+            previewUrl: template.previewUrl || '' // Set previewUrl from template
         });
 
-        console.log(`Creating shared wish with shortCode: ${shortCode}, templateId: ${templateId}`);
+        console.log(`Creating shared wish with shortCode: ${shortCode}, templateId: ${templateId}, previewUrl: ${template.previewUrl || 'none'}`);
         
         await sharedWish.save();
         
@@ -89,6 +99,13 @@ exports.getSharedWish = async (req, res) => {
                 success: false,
                 message: 'Shared wish not found' 
             });
+        }
+
+        // Check if previewUrl is missing and template exists
+        if ((!sharedWish.previewUrl || sharedWish.previewUrl === '') && sharedWish.template && sharedWish.template.previewUrl) {
+            // Update the previewUrl from the template
+            sharedWish.previewUrl = sharedWish.template.previewUrl;
+            console.log(`Updated missing previewUrl for wish ${shortCode} with template previewUrl: ${sharedWish.previewUrl}`);
         }
 
         // Increment views

@@ -117,6 +117,7 @@ public class SharedWishFragment extends Fragment {
         setupWebView();
 
 
+
         // Set up click listeners
         setupClickListeners();
 
@@ -168,8 +169,8 @@ public class SharedWishFragment extends Fragment {
             @Override
             public boolean onConsoleMessage(android.webkit.ConsoleMessage consoleMessage) {
                 Log.d(TAG, "WebView Console: " + consoleMessage.message() +
-                        " -- From line " + consoleMessage.lineNumber() +
-                        " of " + consoleMessage.sourceId());
+                      " -- From line " + consoleMessage.lineNumber() +
+                      " of " + consoleMessage.sourceId());
                 return true;
             }
         });
@@ -223,11 +224,11 @@ public class SharedWishFragment extends Fragment {
 
                     // Log content lengths for debugging
                     Log.d(TAG, "Saving to history - customizedHtml length: " +
-                            (historyWish.getCustomizedHtml() != null ? historyWish.getCustomizedHtml().length() : 0) +
-                            ", cssContent length: " +
-                            (historyWish.getCssContent() != null ? historyWish.getCssContent().length() : 0) +
-                            ", jsContent length: " +
-                            (historyWish.getJsContent() != null ? historyWish.getJsContent().length() : 0));
+                          (historyWish.getCustomizedHtml() != null ? historyWish.getCustomizedHtml().length() : 0) +
+                          ", cssContent length: " +
+                          (historyWish.getCssContent() != null ? historyWish.getCssContent().length() : 0) +
+                          ", jsContent length: " +
+                          (historyWish.getJsContent() != null ? historyWish.getJsContent().length() : 0));
 
                     // Use HistoryViewModel instead of SharedPrefsManager
                     ViewModelProvider provider = new ViewModelProvider(requireActivity());
@@ -310,19 +311,19 @@ public class SharedWishFragment extends Fragment {
 
         // Construct the full HTML document
         String fullHtml = String.format(
-                "<!DOCTYPE html>" +
-                        "<html>" +
-                        "<head>" +
-                        "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
-                        "<meta charset='UTF-8'>" +
-                        "<style>%s</style>" +
-                        "</head>" +
-                        "<body>" +
-                        "%s" +
-                        "<script>%s</script>" +
-                        "</body>" +
-                        "</html>",
-                cssContent, htmlContent, jsContent
+            "<!DOCTYPE html>" +
+            "<html>" +
+            "<head>" +
+            "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+            "<meta charset='UTF-8'>" +
+            "<style>%s</style>" +
+            "</head>" +
+            "<body>" +
+            "%s" +
+            "<script>%s</script>" +
+            "</body>" +
+            "</html>",
+            cssContent, htmlContent, jsContent
         );
 
         // Log a sample of the full HTML for debugging
@@ -350,11 +351,11 @@ public class SharedWishFragment extends Fragment {
         // Load the HTML content into the WebView with a base URL
         try {
             binding.webView.loadDataWithBaseURL(
-                    "https://eventwish2.onrender.com/",
-                    fullHtml,
-                    "text/html",
-                    "UTF-8",
-                    null
+                "https://eventwish2.onrender.com/",
+                fullHtml,
+                "text/html",
+                "UTF-8",
+                null
             );
         } catch (Exception e) {
             Log.e(TAG, "Error loading HTML into WebView", e);
@@ -418,11 +419,19 @@ public class SharedWishFragment extends Fragment {
             bottomSheetDialog.dismiss();
         });
 
+        // Add a home button to navigate directly to home
+//        bottomSheetView.findViewById(R.id.homeButton).setOnClickListener(v -> {
+//            // Navigate to home
+//            navigateToHome();
+//            bottomSheetDialog.dismiss();
+//            Log.d(TAG, "Navigated to home from share bottom sheet");
+//        });
+//
+//        bottomSheetDialog.show();
     }
 
     /**
      * Handle sharing via a specific platform
-     *
      * @param platform The platform to share on
      */
     private void handleShareVia(String platform) {
@@ -479,11 +488,11 @@ public class SharedWishFragment extends Fragment {
         sharedWish.setDeepLink(deepLink);
 
         Log.d(TAG, "Sharing wish with title: " + title +
-                ", description: " + description +
-                ", deepLink: " + deepLink +
-                ", customizedHtml length: " + (sharedWish.getCustomizedHtml() != null ? sharedWish.getCustomizedHtml().length() : 0) +
-                ", cssContent length: " + (sharedWish.getCssContent() != null ? sharedWish.getCssContent().length() : 0) +
-                ", jsContent length: " + (sharedWish.getJsContent() != null ? sharedWish.getJsContent().length() : 0));
+              ", description: " + description +
+              ", deepLink: " + deepLink +
+              ", customizedHtml length: " + (sharedWish.getCustomizedHtml() != null ? sharedWish.getCustomizedHtml().length() : 0) +
+              ", cssContent length: " + (sharedWish.getCssContent() != null ? sharedWish.getCssContent().length() : 0) +
+              ", jsContent length: " + (sharedWish.getJsContent() != null ? sharedWish.getJsContent().length() : 0));
 
         // Save the wish to history
         try {
@@ -560,7 +569,6 @@ public class SharedWishFragment extends Fragment {
 
     /**
      * Show or hide loading indicator
-     *
      * @param show True to show, false to hide
      */
     private void showLoading(boolean show) {
@@ -573,7 +581,6 @@ public class SharedWishFragment extends Fragment {
 
     /**
      * Copy text to clipboard
-     *
      * @param text The text to copy
      */
     private void copyToClipboard(String text) {
@@ -585,7 +592,6 @@ public class SharedWishFragment extends Fragment {
 
     /**
      * Copy link to clipboard
-     *
      * @param shareUrl The URL to copy
      */
     private void copyLinkToClipboard(String shareUrl) {
@@ -597,7 +603,6 @@ public class SharedWishFragment extends Fragment {
 
     /**
      * Track a share event
-     *
      * @param platform The platform used for sharing
      */
     private void trackShare(String platform) {
@@ -692,7 +697,6 @@ public class SharedWishFragment extends Fragment {
 
     /**
      * Get a display name for a platform
-     *
      * @param platform The platform code
      * @return The display name
      */
@@ -723,7 +727,6 @@ public class SharedWishFragment extends Fragment {
 
     /**
      * Update analytics display
-     *
      * @param analytics The analytics data
      */
     private void updateAnalyticsDisplay(JsonObject analytics) {
@@ -749,7 +752,6 @@ public class SharedWishFragment extends Fragment {
 
     /**
      * Show an error message to the user
-     *
      * @param message The error message
      */
     private void showError(String message) {
@@ -759,4 +761,23 @@ public class SharedWishFragment extends Fragment {
         }
     }
 
+    /**
+     * Set up the toolbar with navigation icon and title
+     */
+//    private void setupToolbar() {
+//        if (binding.toolbar != null) {
+//            // Set navigation icon (back button)
+//            binding.toolbar.setNavigationIcon(R.drawable.ic_back);
+//
+//            // Set title
+//            binding.toolbar.setTitle("Shared Wish");
+//
+//            // Set navigation click listener
+//            binding.toolbar.setNavigationOnClickListener(v -> {
+//                // Navigate to home
+//                navigateToHome();
+//                Log.d(TAG, "Navigated to home from toolbar back button");
+//            });
+//        }
+//    }
 }
