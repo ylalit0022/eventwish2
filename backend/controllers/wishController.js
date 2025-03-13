@@ -40,25 +40,30 @@ exports.createSharedWish = async (req, res) => {
         // Create the shared wish with template field correctly set
         const sharedWish = new SharedWish({
             shortCode,
-            template: templateId, // Map templateId to template field
+            templateId, // This will automatically set the template field via the setter
             recipientName: recipientName || 'You',
             senderName: senderName || 'Someone',
-            customizedHtml,
-            cssContent,
-            jsContent
+            customizedHtml: customizedHtml || '',
+            cssContent: cssContent || '',
+            jsContent: jsContent || ''
         });
 
-        console.log(`Creating shared wish with shortCode: ${shortCode}, template: ${templateId}`);
+        console.log(`Creating shared wish with shortCode: ${shortCode}, templateId: ${templateId}`);
         
         await sharedWish.save();
         
+        // Populate the template field for the response
+        await sharedWish.populate('template');
+        
         console.log(`Shared wish created successfully with shortCode: ${shortCode}`);
         
-        // Return the created wish with success flag
+        // Return the created wish with consistent response format
         res.status(201).json({
             success: true,
-            shortCode: shortCode,
-            ...sharedWish.toObject()
+            data: {
+                ...sharedWish.toJSON(),
+                templateId: templateId // Ensure templateId is included in response
+            }
         });
     } catch (error) {
         console.error('Error creating shared wish:', error);
@@ -112,7 +117,10 @@ exports.getSharedWish = async (req, res) => {
         // Format the response to match what the app expects
         const response = {
             success: true,
-            data: sharedWish
+            data: {
+                ...sharedWish.toJSON(),
+                templateId: sharedWish.template ? sharedWish.template._id.toString() : null
+            }
         };
         
         res.json(response);

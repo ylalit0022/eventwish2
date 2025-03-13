@@ -109,6 +109,7 @@ public class SharedWish {
 
     public String getTitle() {
         return title != null ? title : "";
+
     }
 
     public void setTitle(String title) {
@@ -245,3 +246,4 @@ public class SharedWish {
         return Objects.hash(id, shortCode, templateId);
     }
 }
+

@@ -11,6 +11,16 @@ const sharedWishSchema = new mongoose.Schema({
         ref: 'Template',
         required: true
     },
+    templateId: {
+        type: String,
+        get: function() {
+            return this.template ? this.template.toString() : null;
+        },
+        set: function(val) {
+            this.template = val;
+            return val;
+        }
+    },
     title: {
         type: String,
         default: 'EventWish Greeting'
@@ -87,7 +97,8 @@ const sharedWishSchema = new mongoose.Schema({
         default: null
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    toJSON: { getters: true }
 });
 
 module.exports = mongoose.model('SharedWish', sharedWishSchema, 'sharedwishes');
