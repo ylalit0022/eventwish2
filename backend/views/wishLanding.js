@@ -15,13 +15,34 @@ const generateWishLandingPage = (wish, shortCode) => {
     // Get the preview URL, ensuring it's an absolute URL
     let previewUrl = wish.previewUrl || (wish.template && wish.template.thumbnailUrl) || '/images/default-preview.png';
     
+    // Debug logging for preview URL
+    console.log(`Original preview URL for wish ${shortCode}: ${previewUrl}`);
+    console.log(`Preview URL type: ${typeof previewUrl}`);
+    
+    // Handle null or undefined previewUrl
+    if (!previewUrl) {
+        console.log(`No preview URL found for wish ${shortCode}, using default`);
+        previewUrl = '/images/default-preview.png';
+    }
+    
     // Make sure the URL is absolute
     if (!previewUrl.startsWith('http')) {
         previewUrl = `https://eventwish2.onrender.com${previewUrl.startsWith('/') ? '' : '/'}${previewUrl}`;
     }
     
+    // Ensure the URL is properly formatted
+    try {
+        // Test if the URL is valid by creating a URL object
+        new URL(previewUrl);
+    } catch (error) {
+        console.error(`Invalid preview URL for wish ${shortCode}: ${previewUrl}`, error);
+        previewUrl = 'https://eventwish2.onrender.com/images/default-preview.png';
+    }
+    
     // Create an optimized version of the image for social media sharing
-    const encodedUrl = Buffer.from(previewUrl).toString('base64');
+    // Use encodeURIComponent to handle special characters in the URL
+    const safeUrl = encodeURIComponent(previewUrl);
+    const encodedUrl = Buffer.from(safeUrl).toString('base64');
     const optimizedImageUrl = `https://eventwish2.onrender.com/api/images/social/${encodedUrl}`;
     
     console.log(`Using preview URL for wish ${shortCode}: ${previewUrl}`);
@@ -123,7 +144,7 @@ const generateWishLandingPage = (wish, shortCode) => {
         </head>
         <body>
             <div class="container">
-                <img src="${previewUrl}" alt="${title}" class="preview-image">
+                <img src="${previewUrl}" alt="${title}" class="preview-image" onerror="this.src='https://eventwish2.onrender.com/images/default-preview.png';">
                 <h1 class="title">${title}</h1>
                 <p class="description">${description}</p>
                 <a href="${deepLink}" class="button">Open in App</a>
@@ -157,7 +178,8 @@ const generateFallbackLandingPage = (shortCode) => {
     const previewUrl = 'https://eventwish2.onrender.com/images/default-preview.png';
     
     // Create an optimized version of the image for social media sharing
-    const encodedUrl = Buffer.from(previewUrl).toString('base64');
+    const safeUrl = encodeURIComponent(previewUrl);
+    const encodedUrl = Buffer.from(safeUrl).toString('base64');
     const optimizedImageUrl = `https://eventwish2.onrender.com/api/images/social/${encodedUrl}`;
     
     const appUrl = 'https://play.google.com/store/apps/details?id=com.ds.eventwish';
@@ -256,7 +278,7 @@ const generateFallbackLandingPage = (shortCode) => {
         </head>
         <body>
             <div class="container">
-                <img src="${previewUrl}" alt="${title}" class="preview-image">
+                <img src="${previewUrl}" alt="${title}" class="preview-image" onerror="this.src='https://eventwish2.onrender.com/images/default-preview.png';">
                 <h1 class="title">${title}</h1>
                 <p class="description">${description}</p>
                 <a href="${deepLink}" class="button">Open in App</a>
