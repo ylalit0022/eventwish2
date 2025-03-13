@@ -85,7 +85,7 @@
     <string name="from_format">From: %s</string>
     <string name="created_format">Created: %s</string>
     <string name="code_format">Code: %s</string>
-    <string name="share_url_format">https://eventwishes.onrender.com/wish/%s</string>
+    <string name="share_url_format">https://eventwish2.onrender.com/wish/%s</string>
     <string name="online">Online</string>
     <string name="offline">Offline</string>
     <string name="share">Share</string>
@@ -239,5 +239,5 @@
     <string name="notification_reminder_content">%1$d days until %2$s</string>
 
     <!-- API URLs -->
-    <string name="base_url">https://eventwishes.onrender.com/api/</string>
+    <string name="base_url">https://eventwish2.onrender.com/api/</string>
 </resources>

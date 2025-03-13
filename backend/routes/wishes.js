@@ -140,7 +140,7 @@ router.get('/share/:templateId', async (req, res) => {
         const shortCode = generateShortCode();
         
         // Create a shareable URL
-        const shareableUrl = `https://eventwishes.onrender.com/wish/${shortCode}`;
+        const shareableUrl = `https://eventwish2.onrender.com/wish/${shortCode}`;
         
         // Create a temporary wish record to track this share
         const sharedWish = new SharedWish({

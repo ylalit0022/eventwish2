@@ -101,18 +101,24 @@ app.get('/wish/:shortCode', async (req, res) => {
         res.send(html);
     } catch (error) {
         console.error('Error generating landing page:', error);
-        const html = generateFallbackLandingPage(req.params.shortCode);
+        const html = generateFallbackLandingPage(req.params.shortCode, error);
         res.send(html);
     }
 });
 
 // Routes
-app.use('/api/templates', require('./routes/templates'));
-app.use('/api/wishes', require('./routes/wishes'));
+const templatesRoutes = require('./routes/templates');
+const wishesRoutes = require('./routes/wishes');
+const wishRoute = require('./routes/wish');
+const imagesRoutes = require('./routes/images');
+app.use('/api/templates', templatesRoutes);
+app.use('/api/wishes', wishesRoutes);
+app.use('/api/wish', wishRoute);
 app.use('/api/festivals', require('./routes/festivals'));
 app.use('/api/categoryIcons', require('./routes/categoryIcons'));
 app.use('/api/test/time', require('./routes/timeRoutes'));
-app.use('/api/images', require('./routes/images'));
+app.use('/api/images', imagesRoutes);
+app.use('/api/share', require('./routes/share'));
 
 // Debug logging middleware
 app.use((req, res, next) => {

@@ -40,7 +40,7 @@ public class ApiClient {
     private static final int READ_TIMEOUT = 30;
     private static final int WRITE_TIMEOUT = 30;
     private static final int MAX_RETRIES = 3;
-    private static final String BASE_URL = "https://eventwishes.onrender.com/api/";
+    private static final String BASE_URL = "https://eventwish2.onrender.com/api/";
     
     // Cache constants
     private static final int CACHE_SIZE = 10 * 1024 * 1024; // 10MB

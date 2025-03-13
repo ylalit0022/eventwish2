@@ -19,7 +19,7 @@ public class DeepLinkUtil {
     private static final String TAG = "DeepLinkUtil";
     
     // Web URLs
-    private static final String WEB_URL_BASE = "https://eventwishes.onrender.com";
+    private static final String WEB_URL_BASE = "https://eventwish2.onrender.com";
     private static final String WEB_WISH_PATH = "/wish/";
     private static final String WEB_FESTIVAL_PATH = "/festival/";
     private static final String WEB_TEMPLATE_PATH = "/template/";

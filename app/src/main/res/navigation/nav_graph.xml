@@ -198,7 +198,7 @@
 
         <deepLink
             android:id="@+id/deepLink_https"
-            app:uri="https://eventwishes.onrender.com/wish/{shortCode}" />
+            app:uri="https://eventwish2.onrender.com/wish/{shortCode}" />
             
         <deepLink
             android:id="@+id/deepLink_custom"

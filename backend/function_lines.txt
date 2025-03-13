@@ -1,0 +1,3 @@
+7:const { generateWishLandingPage, generateFallbackLandingPage } = require('./views/wishLanding');
+104:        const html = generateFallbackLandingPage(req.params.shortCode, error);
+142:function generateFallbackLandingPage(shortCode, error) {

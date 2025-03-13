@@ -39,7 +39,7 @@ EventWish is a modern Android application that allows users to create and share 
 
 ### 4. Deep Linking
 - **URL Formats**:
-  - Web: `https://eventwishes.onrender.com/wish/{shortCode}`
+  - Web: `https://eventwish2.onrender.com/wish/{shortCode}`
   - App: `eventwish://wish/{shortCode}`
 - **Features**:
   - Direct app opening

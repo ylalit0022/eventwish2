@@ -26,14 +26,14 @@ const generateWishLandingPage = (wish, shortCode) => {
             
             <!-- Open Graph / Facebook -->
             <meta property="og:type" content="website">
-            <meta property="og:url" content="https://eventwishes.onrender.com/wish/${shortCode}">
+            <meta property="og:url" content="https://eventwish2.onrender.com/wish/${shortCode}">
             <meta property="og:title" content="${title}">
             <meta property="og:description" content="${description}">
             <meta property="og:image" content="${previewUrl}">
             
             <!-- Twitter -->
             <meta property="twitter:card" content="summary_large_image">
-            <meta property="twitter:url" content="https://eventwishes.onrender.com/wish/${shortCode}">
+            <meta property="twitter:url" content="https://eventwish2.onrender.com/wish/${shortCode}">
             <meta property="twitter:title" content="${title}">
             <meta property="twitter:description" content="${description}">
             <meta property="twitter:image" content="${previewUrl}">
@@ -144,14 +144,14 @@ const generateFallbackLandingPage = (shortCode) => {
             
             <!-- Open Graph / Facebook -->
             <meta property="og:type" content="website">
-            <meta property="og:url" content="https://eventwishes.onrender.com/wish/${shortCode}">
+            <meta property="og:url" content="https://eventwish2.onrender.com/wish/${shortCode}">
             <meta property="og:title" content="${title}">
             <meta property="og:description" content="${description}">
             <meta property="og:image" content="${previewUrl}">
             
             <!-- Twitter -->
             <meta property="twitter:card" content="summary_large_image">
-            <meta property="twitter:url" content="https://eventwishes.onrender.com/wish/${shortCode}">
+            <meta property="twitter:url" content="https://eventwish2.onrender.com/wish/${shortCode}">
             <meta property="twitter:title" content="${title}">
             <meta property="twitter:description" content="${description}">
             <meta property="twitter:image" content="${previewUrl}">

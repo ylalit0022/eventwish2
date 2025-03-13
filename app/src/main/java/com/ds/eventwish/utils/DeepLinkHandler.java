@@ -96,19 +96,19 @@ public class DeepLinkHandler {
         }
         
         if (path.startsWith("/wish/")) {
-            // Handle wish links (e.g., https://eventwishes.onrender.com/wish/abc123)
+            // Handle wish links (e.g., https://eventwish2.onrender.com/wish/abc123)
             String shortCode = path.substring("/wish/".length());
             if (!shortCode.isEmpty()) {
                 return openWishDetail(context, shortCode);
             }
         } else if (path.startsWith("/festival/")) {
-            // Handle festival links (e.g., https://eventwishes.onrender.com/festival/abc123)
+            // Handle festival links (e.g., https://eventwish2.onrender.com/festival/abc123)
             String festivalId = path.substring("/festival/".length());
             if (!festivalId.isEmpty()) {
                 return openFestivalDetail(context, festivalId);
             }
         } else if (path.startsWith("/template/")) {
-            // Handle template links (e.g., https://eventwishes.onrender.com/template/abc123)
+            // Handle template links (e.g., https://eventwish2.onrender.com/template/abc123)
             String templateId = path.substring("/template/".length());
             if (!templateId.isEmpty()) {
                 return openTemplateDetail(context, templateId);
