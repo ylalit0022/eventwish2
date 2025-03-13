@@ -121,10 +121,11 @@ public class TemplateDetailViewModel extends ViewModel {
         wish.setSenderName(senderName.trim());
         wish.setSharedVia("LINK");
 
-         // Debug log for API call
-         Log.d(TAG, "Making API call to: /api/wishes/create");
-         Log.d(TAG, "Request body: " + wish.toString());
- 
+        // Debug log for API call
+        Log.d(TAG, "Making API call to create shared wish");
+        Log.d(TAG, "Request body: templateId=" + templateId + 
+              ", recipientName=" + recipientName + 
+              ", senderName=" + senderName);
 
         // Create customized HTML with replaced names
         String customHtml = currentTemplate.getHtmlContent();
@@ -150,14 +151,33 @@ public class TemplateDetailViewModel extends ViewModel {
                 Log.d(TAG, "API Response Code: " + response.code());
                 Log.d(TAG, "API URL Called: " + call.request().url());
                 isLoading.setValue(false);
-                if (response.isSuccessful() && response.body() != null) {
-                    Log.d(TAG, "Wish created successfully with shortCode: " + 
-                          response.body().getShortCode());
-                    wishSaved.setValue(response.body().getShortCode());
+                
+                if (response.isSuccessful()) {
+                    SharedWish responseWish = response.body();
+                    if (responseWish != null) {
+                        String shortCode = responseWish.getShortCode();
+                        Log.d(TAG, "Wish created successfully with shortCode: " + shortCode);
+                        
+                        if (shortCode != null && !shortCode.isEmpty()) {
+                            wishSaved.setValue(shortCode);
+                        } else {
+                            Log.e(TAG, "API returned null or empty shortCode");
+                            error.setValue("Failed to get wish code from server");
+                        }
+                    } else {
+                        Log.e(TAG, "API returned null response body");
+                        error.setValue("Failed to save wish - empty response");
+                    }
                 } else {
-                    Log.e(TAG, "API Error: " + response.code() + 
-                    " - " + response.message());
-                    error.setValue("Failed to save wish");
+                    try {
+                        String errorBody = response.errorBody() != null ? 
+                            response.errorBody().string() : "Unknown error";
+                        Log.e(TAG, "API Error: " + response.code() + " - " + errorBody);
+                        error.setValue("Failed to save wish: " + response.code());
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error reading error body", e);
+                        error.setValue("Failed to save wish: " + response.code());
+                    }
                 }
             }
 

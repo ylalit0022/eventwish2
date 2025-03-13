@@ -95,11 +95,16 @@ public class DeepLinkHandler {
             return false;
         }
         
+        Log.d(TAG, "Handling web link with path: " + path);
+        
         if (path.startsWith("/wish/")) {
             // Handle wish links (e.g., https://eventwish2.onrender.com/wish/abc123)
             String shortCode = path.substring("/wish/".length());
             if (!shortCode.isEmpty()) {
+                Log.d(TAG, "Extracted shortCode from web link: " + shortCode);
                 return openWishDetail(context, shortCode);
+            } else {
+                Log.e(TAG, "Empty shortCode extracted from path: " + path);
             }
         } else if (path.startsWith("/festival/")) {
             // Handle festival links (e.g., https://eventwish2.onrender.com/festival/abc123)
@@ -126,6 +131,18 @@ public class DeepLinkHandler {
      */
     private static boolean openWishDetail(Context context, String shortCode) {
         Log.d(TAG, "Opening wish detail for short code: " + shortCode);
+        
+        // Validate shortCode
+        if (shortCode == null || shortCode.isEmpty()) {
+            Log.e(TAG, "Invalid shortCode: " + shortCode);
+            return false;
+        }
+        
+        // Remove any "wish/" prefix if present
+        if (shortCode.startsWith("wish/")) {
+            shortCode = shortCode.substring(5);
+            Log.d(TAG, "Removed 'wish/' prefix, shortCode=" + shortCode);
+        }
         
         // Create an intent to open the MainActivity with the wish short code
         Intent intent = new Intent(context, com.ds.eventwish.MainActivity.class);

@@ -43,7 +43,7 @@ public interface ApiService {
     @POST("share")
     Call<SharedWish> createSharedWish(@Body SharedWish sharedWish);
 
-    @GET("wish/{shortCode}")
+    @GET("wishes/{shortCode}")
     Call<WishResponse> getSharedWish(@Path("shortCode") String shortCode);
 
     @POST("wishes/{shortCode}/share")

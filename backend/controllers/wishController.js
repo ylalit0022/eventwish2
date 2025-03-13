@@ -26,22 +26,46 @@ const generateShortCode = () => {
 // Create shared wish
 exports.createSharedWish = async (req, res) => {
     try {
-        const { templateId, recipientName, senderName, customizedHtml } = req.body;
+        const { templateId, recipientName, senderName, customizedHtml, cssContent, jsContent } = req.body;
+        
+        if (!templateId) {
+            return res.status(400).json({ 
+                success: false,
+                message: 'Template ID is required' 
+            });
+        }
         
         const shortCode = generateShortCode();
         
+        // Create the shared wish with template field correctly set
         const sharedWish = new SharedWish({
             shortCode,
-            templateId,
-            recipientName,
-            senderName,
-            customizedHtml
+            template: templateId, // Map templateId to template field
+            recipientName: recipientName || 'You',
+            senderName: senderName || 'Someone',
+            customizedHtml,
+            cssContent,
+            jsContent
         });
 
+        console.log(`Creating shared wish with shortCode: ${shortCode}, template: ${templateId}`);
+        
         await sharedWish.save();
-        res.status(201).json(sharedWish);
+        
+        console.log(`Shared wish created successfully with shortCode: ${shortCode}`);
+        
+        // Return the created wish with success flag
+        res.status(201).json({
+            success: true,
+            shortCode: shortCode,
+            ...sharedWish.toObject()
+        });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error('Error creating shared wish:', error);
+        res.status(500).json({ 
+            success: false,
+            message: error.message 
+        });
     }
 };
 
@@ -49,17 +73,11 @@ exports.createSharedWish = async (req, res) => {
 exports.getSharedWish = async (req, res) => {
     try {
         const { shortCode } = req.params;
-        console.log(`Getting wish with shortCode: ${shortCode}`);
-        
         const sharedWish = await SharedWish.findOne({ shortCode })
-            .populate('template');
+            .populate('templateId');
 
         if (!sharedWish) {
-            console.log(`Wish not found with shortCode: ${shortCode}`);
-            return res.status(404).json({ 
-                success: false,
-                message: 'Shared wish not found' 
-            });
+            return res.status(404).json({ message: 'Shared wish not found' });
         }
 
         // Increment views
@@ -83,22 +101,10 @@ exports.getSharedWish = async (req, res) => {
         }
         
         await sharedWish.save();
-        console.log(`Successfully retrieved wish with shortCode: ${shortCode}`);
-        
-        // Format the response to match what the app expects
-        const response = {
-            success: true,
-            data: sharedWish
-        };
-        
-        res.json(response);
+
+        res.json(sharedWish);
     } catch (error) {
-        console.error('Error getting shared wish:', error);
-        res.status(500).json({ 
-            success: false,
-            message: 'Error getting shared wish', 
-            error: error.message 
-        });
+        res.status(500).json({ message: error.message });
     }
 };
 

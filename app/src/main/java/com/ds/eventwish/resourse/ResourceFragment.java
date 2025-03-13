@@ -80,11 +80,16 @@ public class ResourceFragment extends Fragment {
         if (getArguments() != null) {
             shortCode = getArguments().getString("shortCode");
             Log.d(TAG, "onViewCreated: Received shortCode=" + shortCode);
-            if (shortCode != null) {
+            if (shortCode != null && !shortCode.isEmpty()) {
+                // Ensure shortCode doesn't start with "wish/" which could happen with deep links
+                if (shortCode.startsWith("wish/")) {
+                    shortCode = shortCode.substring(5); // Remove "wish/" prefix
+                    Log.d(TAG, "onViewCreated: Removed 'wish/' prefix, shortCode=" + shortCode);
+                }
                 Log.d(TAG, "onViewCreated: Loading wish with shortCode=" + shortCode);
                 viewModel.loadWish(shortCode);
             } else {
-                Log.e(TAG, "onViewCreated: shortCode is null in arguments");
+                Log.e(TAG, "onViewCreated: shortCode is null or empty in arguments");
                 showError("Invalid wish code");
             }
         } else {
