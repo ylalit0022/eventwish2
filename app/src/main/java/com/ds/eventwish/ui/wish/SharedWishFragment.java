@@ -30,6 +30,7 @@ import com.ds.eventwish.utils.DeepLinkUtil;
 import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.utils.SocialShareUtil;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.gson.Gson;
 
 import android.content.Intent;
@@ -52,6 +53,8 @@ import com.google.gson.JsonArray;
 import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.data.remote.ApiService;
 
+import android.os.Handler;
+
 public class SharedWishFragment extends Fragment {
     private SharedPrefsManager prefsManager;
     private FragmentSharedWishBinding binding;
@@ -72,34 +75,28 @@ public class SharedWishFragment extends Fragment {
     private static final String SHARE_VIA_OTHER = "other";
     private static final String SHARE_VIA_CLIPBOARD = "clipboard";
 
+    // Base URL for the backend server
+    private static final String SERVER_BASE_URL = "https://eventwish2.onrender.com";
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefsManager = new SharedPrefsManager(requireContext());
         viewModel = new ViewModelProvider(this).get(SharedWishViewModel.class);
-        
+
+        // Get the short code from arguments
         if (getArguments() != null) {
             shortCode = SharedWishFragmentArgs.fromBundle(getArguments()).getShortCode();
+            Log.d(TAG, "Received shortCode: " + shortCode);
         }
 
-        // Handle back press with proper navigation
+        // Handle back press
         backPressCallback = new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                try {
-                    NavController navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment);
-                    // Check if we can pop back
-                    if (navController.getPreviousBackStackEntry() != null) {
-                        navController.popBackStack();
-                    } else {
-                        // If no back stack, go to home
-                        navController.navigate(R.id.navigation_home);
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error handling back press", e);
-                    // Emergency fallback
-                    requireActivity().finish();
-                }
+                // Navigate to home instead of just popping back
+                navigateToHome();
+                Log.d(TAG, "Navigated to home on back press");
             }
         };
         requireActivity().getOnBackPressedDispatcher().addCallback(this, backPressCallback);
@@ -107,8 +104,7 @@ public class SharedWishFragment extends Fragment {
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, 
-                           @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         binding = FragmentSharedWishBinding.inflate(inflater, container, false);
         return binding.getRoot();
     }
@@ -116,28 +112,69 @@ public class SharedWishFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        
-        // Show loading state immediately
-        binding.loadingView.setVisibility(View.VISIBLE);
-        binding.contentLayout.setVisibility(View.GONE);
-        
+
+        // Initialize WebView
         setupWebView();
-        setupObservers();
+
+
+        // Set up click listeners
         setupClickListeners();
-        
-        if (shortCode != null) {
+
+        // Set up observers
+        setupObservers();
+
+        // Load the wish
+        if (shortCode != null && !shortCode.isEmpty()) {
             viewModel.loadSharedWish(shortCode);
+        } else {
+            showError("No short code provided");
         }
     }
 
     private void setupWebView() {
-        WebSettings settings = binding.webView.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setLoadWithOverviewMode(true);
-        settings.setUseWideViewPort(true);
-        settings.setAllowFileAccess(true);
-        settings.setAllowContentAccess(true);
+        WebView webView = binding.webView;
+        WebSettings webSettings = webView.getSettings();
+
+        // Enable JavaScript
+        webSettings.setJavaScriptEnabled(true);
+
+        // Enable DOM storage for JavaScript localStorage
+        webSettings.setDomStorageEnabled(true);
+
+        // Enable zooming and display controls
+        webSettings.setLoadWithOverviewMode(true);
+        webSettings.setUseWideViewPort(true);
+        webSettings.setBuiltInZoomControls(true);
+        webSettings.setDisplayZoomControls(false);
+
+        // Additional settings for better rendering
+        webSettings.setAllowFileAccess(true);
+        webSettings.setAllowContentAccess(true);
+        webSettings.setLoadsImagesAutomatically(true);
+
+        // Set default text encoding
+        webSettings.setDefaultTextEncodingName("UTF-8");
+
+        // Enable debugging if in debug build
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.KITKAT) {
+            if (0 != (getContext().getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)) {
+                android.webkit.WebView.setWebContentsDebuggingEnabled(true);
+                Log.d(TAG, "WebView debugging enabled");
+            }
+        }
+
+        // Set a WebChromeClient to handle JavaScript alerts and console messages
+        webView.setWebChromeClient(new android.webkit.WebChromeClient() {
+            @Override
+            public boolean onConsoleMessage(android.webkit.ConsoleMessage consoleMessage) {
+                Log.d(TAG, "WebView Console: " + consoleMessage.message() +
+                        " -- From line " + consoleMessage.lineNumber() +
+                        " of " + consoleMessage.sourceId());
+                return true;
+            }
+        });
+
+        Log.d(TAG, "WebView setup complete");
     }
 
     private void setupObservers() {
@@ -146,7 +183,7 @@ public class SharedWishFragment extends Fragment {
                 Log.d(TAG, "Received Wish JSON: " + new Gson().toJson(wish));
                 currentWish = wish;
                 loadWishContent(wish);
-                
+
                 // Save to history with preview URL
                 try {
                     SharedWish historyWish = new SharedWish();
@@ -154,18 +191,49 @@ public class SharedWishFragment extends Fragment {
                     historyWish.setRecipientName(wish.getRecipientName());
                     historyWish.setSenderName(wish.getSenderName());
                     historyWish.setTemplate(wish.getTemplate());
-                    
-                    // Set the preview URL from template
-                    if (wish.getTemplate() != null && wish.getTemplate().getThumbnailUrl() != null) {
-                        historyWish.setPreviewUrl(wish.getTemplate().getThumbnailUrl());
-                        Log.d(TAG, "Setting preview URL: " + wish.getTemplate().getThumbnailUrl());
+
+                    // Set the preview URL from template or from the wish
+                    if (wish.getPreviewUrl() != null && !wish.getPreviewUrl().isEmpty()) {
+                        historyWish.setPreviewUrl(wish.getPreviewUrl());
+                        Log.d(TAG, "Setting preview URL from wish: " + wish.getPreviewUrl());
+                    } else if (wish.getTemplate() != null && wish.getTemplate().getThumbnailUrl() != null) {
+                        String previewUrl = wish.getTemplate().getThumbnailUrl();
+                        if (!previewUrl.startsWith("http")) {
+                            previewUrl = SERVER_BASE_URL + (previewUrl.startsWith("/") ? "" : "/") + previewUrl;
+                        }
+                        historyWish.setPreviewUrl(previewUrl);
+                        Log.d(TAG, "Setting preview URL from template: " + previewUrl);
+                    } else {
+                        // Use default preview image
+                        historyWish.setPreviewUrl(SERVER_BASE_URL + "/images/default-preview.png");
+                        Log.d(TAG, "Setting default preview URL");
                     }
-                    
+
+                    // Set title and description for social media sharing
+                    historyWish.setTitle("EventWish Greeting");
+                    historyWish.setDescription("A special wish from " + wish.getSenderName() + " to " + wish.getRecipientName());
+
+                    // Set deep link
+                    historyWish.setDeepLink("eventwish://wish/" + wish.getShortCode());
+
+                    // Set content fields
+                    historyWish.setCustomizedHtml(wish.getCustomizedHtml());
+                    historyWish.setCssContent(wish.getCssContent());
+                    historyWish.setJsContent(wish.getJsContent());
+
+                    // Log content lengths for debugging
+                    Log.d(TAG, "Saving to history - customizedHtml length: " +
+                            (historyWish.getCustomizedHtml() != null ? historyWish.getCustomizedHtml().length() : 0) +
+                            ", cssContent length: " +
+                            (historyWish.getCssContent() != null ? historyWish.getCssContent().length() : 0) +
+                            ", jsContent length: " +
+                            (historyWish.getJsContent() != null ? historyWish.getJsContent().length() : 0));
+
                     // Use HistoryViewModel instead of SharedPrefsManager
                     ViewModelProvider provider = new ViewModelProvider(requireActivity());
                     HistoryViewModel historyViewModel = provider.get(HistoryViewModel.class);
                     historyViewModel.addToHistory(historyWish);
-                    
+
                     Log.d(TAG, "Saved wish to history: " + wish.getShortCode());
                 } catch (Exception e) {
                     Log.e(TAG, "Failed to save to history", e);
@@ -179,7 +247,7 @@ public class SharedWishFragment extends Fragment {
                 Toast.makeText(requireContext(), error, Toast.LENGTH_LONG).show();
             }
         });
-        
+
         // Observe analytics data
         viewModel.getAnalytics().observe(getViewLifecycleOwner(), analytics -> {
             if (analytics != null) {
@@ -191,7 +259,7 @@ public class SharedWishFragment extends Fragment {
 
     private void setupClickListeners() {
         binding.shareButton.setOnClickListener(v -> shareWish());
-        
+
         // Add analytics button click listener
         binding.analyticsButton.setOnClickListener(v -> showAnalyticsBottomSheet());
     }
@@ -199,183 +267,300 @@ public class SharedWishFragment extends Fragment {
     private void loadWishContent(WishResponse wish) {
         Log.d(TAG, "Loading wish content, wish: " + (wish != null ? "not null" : "null"));
 
-        if (wish == null || wish.getCustomizedHtml() == null){
-            Log.e(TAG, "Wish or HTML content is null");
-   
+        if (wish == null) {
+            Log.e(TAG, "Wish is null");
+            showError("Unable to load wish: No data available");
             return;
         }
 
+        if (wish.getCustomizedHtml() == null || wish.getCustomizedHtml().trim().isEmpty()) {
+            Log.e(TAG, "HTML content is null or empty for wish: " + wish.getShortCode());
+            showError("Unable to load wish: No content available");
+            return;
+        }
+
+        // Get template for fallback CSS/JS if needed
         Template template = wish.getTemplate();
         Log.d(TAG, "Template: " + (template != null ? "found" : "null"));
 
-        if (template == null) {
-            Log.e(TAG, "Template is null for wish: " + wish.getShortCode());
+        // Construct the full HTML content
+        String htmlContent = wish.getCustomizedHtml();
+        String cssContent = wish.getCssContent();
+        String jsContent = wish.getJsContent();
 
-            return;
+        // Use template CSS/JS as fallback if needed
+        if ((cssContent == null || cssContent.isEmpty()) && template != null) {
+            cssContent = template.getCssContent();
+            Log.d(TAG, "Using template CSS as fallback");
         }
 
-        try{
-       // Log.d(TAG,template.getThumbnailUrl());
-        String css = template.getCssContent() != null ? template.getCssContent() : "";
-        String js = template.getJsContent() != null ? template.getJsContent() : "";
-        Log.d(TAG, "CSS length: " + css.length() + ", JS length: " + js.length());
+        if ((jsContent == null || jsContent.isEmpty()) && template != null) {
+            jsContent = template.getJsContent();
+            Log.d(TAG, "Using template JS as fallback");
+        }
 
-        String fullHtml = "<!DOCTYPE html><html><head>" +
-                         "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
-                         "<style>" + css + "</style>" +
-                         "</head><body>" +
-                         wish.getCustomizedHtml() +
-                         "<script>" + js + "</script>" +
-                         "</body></html>";
+        // Ensure we have non-null values for string formatting
+        if (cssContent == null) cssContent = "";
+        if (jsContent == null) jsContent = "";
 
-        binding.webView.loadDataWithBaseURL(null, fullHtml, "text/html", "UTF-8", null);
-        binding.loadingView.setVisibility(View.GONE);
-        binding.contentLayout.setVisibility(View.VISIBLE);
-        
-        // Set recipient and sender names
-        binding.recipientNameText.setText("To: " + wish.getRecipientName());
-        binding.senderNameText.setText("From: " + wish.getSenderName());
-    }
-    catch (Exception e) {
-        Log.e(TAG, "Error loading wish content", e);
-        Log.e(TAG, "Raw wish data: " + new Gson().toJson(wish));    }
+        // Log content lengths for debugging
+        Log.d(TAG, "HTML Content length: " + htmlContent.length());
+        Log.d(TAG, "CSS Content length: " + cssContent.length());
+        Log.d(TAG, "JS Content length: " + jsContent.length());
+
+        // Construct the full HTML document
+        String fullHtml = String.format(
+                "<!DOCTYPE html>" +
+                        "<html>" +
+                        "<head>" +
+                        "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+                        "<meta charset='UTF-8'>" +
+                        "<style>%s</style>" +
+                        "</head>" +
+                        "<body>" +
+                        "%s" +
+                        "<script>%s</script>" +
+                        "</body>" +
+                        "</html>",
+                cssContent, htmlContent, jsContent
+        );
+
+        // Log a sample of the full HTML for debugging
+        Log.d(TAG, "Full HTML sample: " + (fullHtml.length() > 100 ? fullHtml.substring(0, 100) + "..." : fullHtml));
+
+        // Set up WebView client to capture errors
+        binding.webView.setWebViewClient(new android.webkit.WebViewClient() {
+            @Override
+            public void onReceivedError(android.webkit.WebView view, int errorCode, String description, String failingUrl) {
+                Log.e(TAG, "WebView error: " + errorCode + " - " + description);
+                showError("Error loading content: " + description);
+            }
+
+            @Override
+            public void onPageFinished(android.webkit.WebView view, String url) {
+                Log.d(TAG, "WebView page finished loading");
+                // Hide loading indicator if needed
+                showLoading(false);
+            }
+        });
+
+        // Show loading indicator
+        showLoading(true);
+
+        // Load the HTML content into the WebView with a base URL
+        try {
+            binding.webView.loadDataWithBaseURL(
+                    "https://eventwish2.onrender.com/",
+                    fullHtml,
+                    "text/html",
+                    "UTF-8",
+                    null
+            );
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading HTML into WebView", e);
+            showError("Error displaying content: " + e.getMessage());
+        }
     }
 
     private void shareWish() {
-        if (currentWish == null) return;
-        
-        // Create the share URL
-        final String shareUrl = getString(R.string.share_url_format, shortCode);
-        
-        // Show the share bottom sheet
-        View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_share, null);
+        if (currentWish == null) {
+            Toast.makeText(requireContext(), "Cannot share wish: missing data", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Create bottom sheet dialog
         BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
+        View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_share, null);
         bottomSheetDialog.setContentView(bottomSheetView);
-        
+
+        // Get share URL
+        String shareUrl = getString(R.string.share_url_format, currentWish.getShortCode());
+
         // Set up click listeners for share options
         bottomSheetView.findViewById(R.id.whatsappShare).setOnClickListener(v -> {
             final String shareText = getString(R.string.share_wish_text_whatsapp, shareUrl);
             handleShareVia(SHARE_VIA_WHATSAPP);
             bottomSheetDialog.dismiss();
         });
-        
+
         bottomSheetView.findViewById(R.id.facebookShare).setOnClickListener(v -> {
             final String shareText = getString(R.string.share_wish_text_facebook, shareUrl);
             handleShareVia(SHARE_VIA_FACEBOOK);
             bottomSheetDialog.dismiss();
         });
-        
+
         bottomSheetView.findViewById(R.id.twitterShare).setOnClickListener(v -> {
             final String shareText = getString(R.string.share_wish_text_twitter, shareUrl);
             handleShareVia(SHARE_VIA_TWITTER);
             bottomSheetDialog.dismiss();
         });
-        
-        bottomSheetView.findViewById(R.id.instagramShare).setOnClickListener(v -> {
-            final String shareText = getString(R.string.share_wish_text_instagram, shareUrl);
-            handleShareVia(SHARE_VIA_INSTAGRAM);
-            bottomSheetDialog.dismiss();
-        });
-        
+
         bottomSheetView.findViewById(R.id.emailShare).setOnClickListener(v -> {
             final String shareText = getString(R.string.share_wish_text_email, shareUrl);
             handleShareVia(SHARE_VIA_EMAIL);
             bottomSheetDialog.dismiss();
         });
-        
+
         bottomSheetView.findViewById(R.id.smsShare).setOnClickListener(v -> {
             final String shareText = getString(R.string.share_wish_text_sms, shareUrl);
             handleShareVia(SHARE_VIA_SMS);
             bottomSheetDialog.dismiss();
         });
-        
+
         bottomSheetView.findViewById(R.id.moreOptions).setOnClickListener(v -> {
             final String shareText = getString(R.string.share_wish_text, shareUrl);
             handleShareVia(SHARE_VIA_OTHER);
             bottomSheetDialog.dismiss();
         });
-        
+
         bottomSheetView.findViewById(R.id.copyLink).setOnClickListener(v -> {
             copyLinkToClipboard(shareUrl);
             bottomSheetDialog.dismiss();
         });
-        
-        bottomSheetDialog.show();
+
     }
 
     /**
      * Handle sharing via a specific platform
+     *
      * @param platform The platform to share on
      */
     private void handleShareVia(String platform) {
-        if (currentWish == null || currentWish.getTemplate() == null) {
+        if (currentWish == null) {
             Toast.makeText(requireContext(), "Cannot share wish: missing data", Toast.LENGTH_SHORT).show();
             return;
         }
-        
+
         // Update the wish's sharedVia field
         currentWish.setSharedVia(platform);
-        
+
         // Track the share
         trackShare(platform);
-        
-        // Use the server-side approach for sharing
-        String title = currentWish.getTitle();
-        String description = currentWish.getDescription();
-        String senderName = currentWish.getSenderName();
-        String recipientName = currentWish.getRecipientName();
-        String templateId = currentWish.getTemplate().getId();
-        
+
         // Create a SharedWish object from the WishResponse
         SharedWish sharedWish = new SharedWish();
+
+        // Set basic information
+        sharedWish.setShortCode(currentWish.getShortCode());
+        sharedWish.setSenderName(currentWish.getSenderName());
+        sharedWish.setRecipientName(currentWish.getRecipientName());
+        sharedWish.setSharedVia(platform);
+
+        // Set content fields
+        sharedWish.setCustomizedHtml(currentWish.getCustomizedHtml());
+        sharedWish.setCssContent(currentWish.getCssContent());
+        sharedWish.setJsContent(currentWish.getJsContent());
+
+        // Set preview URL from template or from the wish
+        if (currentWish.getPreviewUrl() != null && !currentWish.getPreviewUrl().isEmpty()) {
+            sharedWish.setPreviewUrl(currentWish.getPreviewUrl());
+            Log.d(TAG, "Setting preview URL from wish: " + currentWish.getPreviewUrl());
+        } else if (currentWish.getTemplate() != null && currentWish.getTemplate().getThumbnailUrl() != null) {
+            String previewUrl = currentWish.getTemplate().getThumbnailUrl();
+            if (!previewUrl.startsWith("http")) {
+                previewUrl = SERVER_BASE_URL + (previewUrl.startsWith("/") ? "" : "/") + previewUrl;
+            }
+            sharedWish.setPreviewUrl(previewUrl);
+            Log.d(TAG, "Setting preview URL from template: " + previewUrl);
+        } else {
+            // Use default preview image
+            sharedWish.setPreviewUrl(SERVER_BASE_URL + "/images/default-preview.png");
+            Log.d(TAG, "Setting default preview URL");
+        }
+
+        // Set title and description for social media sharing
+        String title = "EventWish Greeting";
+        String description = "A special wish from " + currentWish.getSenderName() + " to " + currentWish.getRecipientName();
         sharedWish.setTitle(title);
         sharedWish.setDescription(description);
-        sharedWish.setSenderName(senderName);
-        sharedWish.setRecipientName(recipientName);
-        sharedWish.setShortCode(currentWish.getShortCode());
-        sharedWish.setSharedVia(platform);
-        
-        // Show loading indicator
-        showLoading(true);
-        
-        // Use the server-side approach
-        SocialShareUtil.shareWishViaServer(
-            requireContext(),
-            sharedWish,
-            templateId,
-            title,
-            description,
-            senderName,
-            recipientName,
-            platform,
-            new SocialShareUtil.ShareCallback() {
-                @Override
-                public void onShareReady(Intent shareIntent, String shareableUrl, String platform) {
-                    showLoading(false);
-                    
-                    // Copy the URL to clipboard
-                    copyToClipboard(shareableUrl);
-                    
-                    // Launch the share intent
-                    try {
-                        startActivity(Intent.createChooser(shareIntent, getString(R.string.share_via)));
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error launching share intent", e);
-                        Toast.makeText(requireContext(), "Error launching share: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+
+        // Set deep link
+        String deepLink = "eventwish://wish/" + currentWish.getShortCode();
+        sharedWish.setDeepLink(deepLink);
+
+        Log.d(TAG, "Sharing wish with title: " + title +
+                ", description: " + description +
+                ", deepLink: " + deepLink +
+                ", customizedHtml length: " + (sharedWish.getCustomizedHtml() != null ? sharedWish.getCustomizedHtml().length() : 0) +
+                ", cssContent length: " + (sharedWish.getCssContent() != null ? sharedWish.getCssContent().length() : 0) +
+                ", jsContent length: " + (sharedWish.getJsContent() != null ? sharedWish.getJsContent().length() : 0));
+
+        // Save the wish to history
+        try {
+            ViewModelProvider provider = new ViewModelProvider(requireActivity());
+            HistoryViewModel historyViewModel = provider.get(HistoryViewModel.class);
+            historyViewModel.addToHistory(sharedWish);
+            Log.d(TAG, "Saved wish to history from handleShareVia: " + sharedWish.getShortCode());
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to save to history from handleShareVia", e);
+        }
+
+        // Create the share text
+        String shareText = getString(R.string.share_wish_text, getString(R.string.share_url_format, currentWish.getShortCode()));
+
+        // Create a simple share intent
+        Intent shareIntent = new Intent(Intent.ACTION_SEND);
+        shareIntent.setType("text/plain");
+        shareIntent.putExtra(Intent.EXTRA_TEXT, shareText);
+
+        // Start the share activity
+        try {
+            startActivity(Intent.createChooser(shareIntent, getString(R.string.share_via)));
+
+            // Navigate to home after sharing
+            new Handler().postDelayed(() -> {
+                try {
+                    if (isAdded() && getView() != null) {
+                        // Navigate to home instead of just popping back
+                        navigateToHome();
+                        Log.d(TAG, "Navigated to home after sharing");
                     }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error navigating to home after sharing", e);
                 }
-                
-                @Override
-                public void onShareError(String errorMessage) {
-                    showLoading(false);
-                    Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_SHORT).show();
+            }, 500); // Small delay to ensure the share dialog appears first
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error launching share intent", e);
+            Toast.makeText(requireContext(), "Error launching share: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * Navigate to the home fragment and select the home tab in bottom navigation
+     */
+    private void navigateToHome() {
+        try {
+            // Get NavController
+            NavController navController = Navigation.findNavController(requireView());
+
+            // Navigate to home using the action defined in nav_graph.xml
+            navController.navigate(R.id.action_shared_wish_to_home);
+
+            // Set the bottom navigation to home
+            if (getActivity() != null) {
+                BottomNavigationView bottomNav = getActivity().findViewById(R.id.bottomNavigation);
+                if (bottomNav != null) {
+                    bottomNav.setSelectedItemId(R.id.navigation_home);
+                    Log.d(TAG, "Set bottom navigation to home");
                 }
             }
-        );
+        } catch (Exception e) {
+            Log.e(TAG, "Error navigating to home", e);
+            // Fallback to popping back stack if navigation fails
+            try {
+                NavController navController = Navigation.findNavController(requireView());
+                navController.popBackStack();
+                Log.d(TAG, "Fallback: Popped back stack");
+            } catch (Exception ex) {
+                Log.e(TAG, "Error popping back stack", ex);
+            }
+        }
     }
 
     /**
      * Show or hide loading indicator
+     *
      * @param show True to show, false to hide
      */
     private void showLoading(boolean show) {
@@ -388,295 +573,190 @@ public class SharedWishFragment extends Fragment {
 
     /**
      * Copy text to clipboard
+     *
      * @param text The text to copy
      */
     private void copyToClipboard(String text) {
         ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
-        ClipData clip = ClipData.newPlainText("Shareable URL", text);
+        ClipData clip = ClipData.newPlainText("Wish Link", text);
         clipboard.setPrimaryClip(clip);
-        Toast.makeText(requireContext(), "URL copied to clipboard", Toast.LENGTH_SHORT).show();
+        Toast.makeText(requireContext(), getString(R.string.link_copied), Toast.LENGTH_SHORT).show();
     }
 
     /**
-     * Track share analytics
-     * @param platform The platform shared on
+     * Copy link to clipboard
+     *
+     * @param shareUrl The URL to copy
      */
-    private void trackShare(String platform) {
-        if (currentWish != null) {
-            // Save to history
-            ViewModelProvider provider = new ViewModelProvider(requireActivity());
-            HistoryViewModel historyViewModel = provider.get(HistoryViewModel.class);
-            historyViewModel.updateSharedWish(currentWish.getShortCode(), platform);
-            
-            // Send analytics to backend
-            sendShareAnalyticsToBackend(platform);
-        }
-    }
-
     private void copyLinkToClipboard(String shareUrl) {
-        ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
-        ClipData clip = ClipData.newPlainText("Share URL", shareUrl);
-        clipboard.setPrimaryClip(clip);
-        Toast.makeText(requireContext(), R.string.link_copied, Toast.LENGTH_SHORT).show();
-    }
-    
-    private void saveSharePlatform(String platform) {
-        if (currentWish != null && shortCode != null) {
-            try {
-                // Use HistoryViewModel to update the shared wish with the platform
-                ViewModelProvider provider = new ViewModelProvider(requireActivity());
-                HistoryViewModel historyViewModel = provider.get(HistoryViewModel.class);
-                
-                // Update the shared wish with the platform
-                boolean updated = historyViewModel.updateSharedWish(shortCode, platform);
-                
-                if (updated) {
-                    Log.d(TAG, "Saved share platform for " + shortCode + ": " + platform);
-                    
-                    // Update the current wish's sharedVia field
-                    if (currentWish != null) {
-                        currentWish.setSharedVia(platform);
-                        Log.d(TAG, "Updated current wish sharedVia to: " + platform);
-                    }
-                    
-                    // Send analytics to backend
-                    sendShareAnalyticsToBackend(platform);
-                } else {
-                    Log.w(TAG, "Failed to update share platform for " + shortCode);
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Error saving share platform", e);
-            }
-        }
+        copyToClipboard(shareUrl);
+
+        // Track the share
+        trackShare(SHARE_VIA_CLIPBOARD);
     }
 
     /**
-     * Send share analytics to the backend
+     * Track a share event
+     *
      * @param platform The platform used for sharing
      */
-    private void sendShareAnalyticsToBackend(String platform) {
-        // TODO: Implement analytics tracking
-        Log.d(TAG, "Share via " + platform);
+    private void trackShare(String platform) {
+        if (shortCode == null || shortCode.isEmpty()) return;
+
+        try {
+            // Create a JSON object with the platform
+            JsonObject platformJson = new JsonObject();
+            platformJson.addProperty("platform", platform);
+
+            // Get the API service
+            ApiService apiService = ApiClient.getClient();
+
+            // Make the API call
+            apiService.updateSharedWishPlatform(shortCode, platformJson).enqueue(new Callback<JsonObject>() {
+                @Override
+                public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                    if (response.isSuccessful()) {
+                        Log.d(TAG, "Successfully tracked share via " + platform);
+                    } else {
+                        Log.e(TAG, "Failed to track share: " + response.code());
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<JsonObject> call, Throwable t) {
+                    Log.e(TAG, "Error tracking share: " + t.getMessage());
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error tracking share: " + e.getMessage());
+        }
     }
 
     /**
-     * Update the analytics display with data from the backend
-     * @param analytics The analytics data from the backend
-     */
-    private void updateAnalyticsDisplay(JsonObject analytics) {
-        try {
-            // Extract analytics data
-            int views = 0;
-            int uniqueViews = 0;
-            int shareCount = 0;
-            
-            if (analytics.has("views")) {
-                views = analytics.get("views").getAsInt();
-            }
-            
-            if (analytics.has("uniqueViews")) {
-                uniqueViews = analytics.get("uniqueViews").getAsInt();
-            }
-            
-            if (analytics.has("shareCount")) {
-                shareCount = analytics.get("shareCount").getAsInt();
-            }
-            
-            // Update the analytics badge with the total views
-            if (binding.analyticsButton != null) {
-                binding.analyticsButton.setText(String.valueOf(views));
-                binding.analyticsButton.setVisibility(View.VISIBLE);
-            }
-            
-            // Save the analytics data for later use
-            this.analyticsData = analytics;
-        } catch (Exception e) {
-            Log.e(TAG, "Error updating analytics display", e);
-        }
-    }
-    
-    /**
-     * Show a bottom sheet with detailed analytics
+     * Show analytics bottom sheet
      */
     private void showAnalyticsBottomSheet() {
-        if (analyticsData == null) return;
-        
-        try {
-            // Create and show the bottom sheet
-            View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_analytics, null);
-            BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
-            bottomSheetDialog.setContentView(bottomSheetView);
-            
-            // Extract analytics data
-            int views = 0;
-            int uniqueViews = 0;
-            int shareCount = 0;
-            
-            if (analyticsData.has("views")) {
-                views = analyticsData.get("views").getAsInt();
-            }
-            
-            if (analyticsData.has("uniqueViews")) {
-                uniqueViews = analyticsData.get("uniqueViews").getAsInt();
-            }
-            
-            if (analyticsData.has("shareCount")) {
-                shareCount = analyticsData.get("shareCount").getAsInt();
-            }
-            
-            // Set the analytics values
-            TextView viewsText = bottomSheetView.findViewById(R.id.viewsCount);
-            TextView uniqueViewsText = bottomSheetView.findViewById(R.id.uniqueViewsCount);
-            TextView sharesText = bottomSheetView.findViewById(R.id.sharesCount);
-            
-            viewsText.setText(String.valueOf(views));
-            uniqueViewsText.setText(String.valueOf(uniqueViews));
-            sharesText.setText(String.valueOf(shareCount));
-            
-            // Set up the share breakdown if available
-            if (analyticsData.has("shareHistory") && analyticsData.get("shareHistory").isJsonArray()) {
-                setupShareBreakdown(bottomSheetView, analyticsData.getAsJsonArray("shareHistory"));
-            }
-            
-            // Show the bottom sheet
-            bottomSheetDialog.show();
-        } catch (Exception e) {
-            Log.e(TAG, "Error showing analytics bottom sheet", e);
-            Toast.makeText(requireContext(), "Error showing analytics", Toast.LENGTH_SHORT).show();
+        if (analyticsData == null) {
+            Toast.makeText(requireContext(), "No analytics data available", Toast.LENGTH_SHORT).show();
+            return;
         }
-    }
-    
-    /**
-     * Set up the share breakdown chart
-     * @param view The bottom sheet view
-     * @param shareHistory The share history data
-     */
-    private void setupShareBreakdown(View view, JsonArray shareHistory) {
-        try {
-            // Count shares by platform
-            Map<String, Integer> platformCounts = new HashMap<>();
-            
-            for (int i = 0; i < shareHistory.size(); i++) {
-                JsonObject shareEntry = shareHistory.get(i).getAsJsonObject();
-                if (shareEntry.has("platform")) {
-                    String platform = shareEntry.get("platform").getAsString();
-                    platformCounts.put(platform, platformCounts.getOrDefault(platform, 0) + 1);
-                }
-            }
-            
-            // Create the breakdown view
-            LinearLayout breakdownContainer = view.findViewById(R.id.shareBreakdownContainer);
-            breakdownContainer.removeAllViews();
-            
-            // Add a row for each platform
-            for (Map.Entry<String, Integer> entry : platformCounts.entrySet()) {
+
+        // Create and show the bottom sheet
+        View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_analytics, null);
+        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
+        bottomSheetDialog.setContentView(bottomSheetView);
+
+        // Set up the analytics data
+        TextView viewsText = bottomSheetView.findViewById(R.id.viewsText);
+        TextView uniqueViewsText = bottomSheetView.findViewById(R.id.uniqueViewsText);
+        TextView shareCountText = bottomSheetView.findViewById(R.id.shareCountText);
+        LinearLayout platformBreakdownLayout = bottomSheetView.findViewById(R.id.platformBreakdownLayout);
+
+        // Set the values
+        int views = analyticsData.has("views") ? analyticsData.get("views").getAsInt() : 0;
+        int uniqueViews = analyticsData.has("uniqueViews") ? analyticsData.get("uniqueViews").getAsInt() : 0;
+        int shareCount = analyticsData.has("shareCount") ? analyticsData.get("shareCount").getAsInt() : 0;
+
+        viewsText.setText(String.valueOf(views));
+        uniqueViewsText.setText(String.valueOf(uniqueViews));
+        shareCountText.setText(String.valueOf(shareCount));
+
+        // Add platform breakdown
+        if (analyticsData.has("platformBreakdown") && analyticsData.get("platformBreakdown").isJsonObject()) {
+            JsonObject platformBreakdown = analyticsData.getAsJsonObject("platformBreakdown");
+
+            // Clear existing views
+            platformBreakdownLayout.removeAllViews();
+
+            // Add a view for each platform
+            for (Map.Entry<String, com.google.gson.JsonElement> entry : platformBreakdown.entrySet()) {
                 String platform = entry.getKey();
-                int count = entry.getValue();
-                
-                // Create a row for this platform
-                View rowView = getLayoutInflater().inflate(R.layout.item_share_platform, null);
-                
-                // Set the platform icon and name
-                ImageView platformIcon = rowView.findViewById(R.id.platformIcon);
-                TextView platformName = rowView.findViewById(R.id.platformName);
-                TextView platformCount = rowView.findViewById(R.id.platformCount);
-                
-                // Set the platform name
-                platformName.setText(getPlatformDisplayName(platform));
-                platformCount.setText(String.valueOf(count));
-                
-                // Set the platform icon
-                setPlatformIcon(platformIcon, platform);
-                
-                // Add the row to the container
-                breakdownContainer.addView(rowView);
+                int count = entry.getValue().getAsInt();
+
+                // Create a new row
+                View rowView = getLayoutInflater().inflate(R.layout.item_platform_breakdown, null);
+                TextView platformText = rowView.findViewById(R.id.platformText);
+                TextView countText = rowView.findViewById(R.id.countText);
+
+                // Set the values
+                platformText.setText(getPlatformDisplayName(platform));
+                countText.setText(String.valueOf(count));
+
+                // Add the row to the layout
+                platformBreakdownLayout.addView(rowView);
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Error setting up share breakdown", e);
         }
+
+        bottomSheetDialog.show();
     }
-    
+
     /**
-     * Get the display name for a platform
+     * Get a display name for a platform
+     *
      * @param platform The platform code
      * @return The display name
      */
     private String getPlatformDisplayName(String platform) {
-        switch (platform.toUpperCase()) {
-            case "WHATSAPP":
+        switch (platform) {
+            case SHARE_VIA_WHATSAPP:
                 return "WhatsApp";
-            case "FACEBOOK":
+            case SHARE_VIA_FACEBOOK:
                 return "Facebook";
-            case "TWITTER":
+            case SHARE_VIA_TWITTER:
                 return "Twitter";
-            case "INSTAGRAM":
+            case SHARE_VIA_INSTAGRAM:
                 return "Instagram";
-            case "EMAIL":
+            case SHARE_VIA_EMAIL:
                 return "Email";
-            case "SMS":
+            case SHARE_VIA_SMS:
                 return "SMS";
-            case "CLIPBOARD":
+            case SHARE_VIA_CLIPBOARD:
                 return "Copied Link";
+            case SHARE_VIA_OTHER:
+                return "Other";
             case "LINK":
                 return "Direct Link";
             default:
-                return "Other";
+                return platform;
         }
     }
-    
+
     /**
-     * Set the icon for a platform
-     * @param imageView The ImageView to set the icon on
-     * @param platform The platform code
+     * Update analytics display
+     *
+     * @param analytics The analytics data
      */
-    private void setPlatformIcon(ImageView imageView, String platform) {
-        switch (platform.toUpperCase()) {
-            case "WHATSAPP":
-                imageView.setImageResource(R.drawable.ic_whatsapp);
-                break;
-            case "FACEBOOK":
-                imageView.setImageResource(R.drawable.ic_facebook);
-                break;
-            case "TWITTER":
-                imageView.setImageResource(R.drawable.ic_twitter);
-                break;
-            case "INSTAGRAM":
-                imageView.setImageResource(R.drawable.ic_instagram);
-                break;
-            case "EMAIL":
-                imageView.setImageResource(R.drawable.ic_email);
-                break;
-            case "SMS":
-                imageView.setImageResource(R.drawable.ic_sms);
-                break;
-            case "CLIPBOARD":
-                imageView.setImageResource(R.drawable.ic_link);
-                break;
-            case "LINK":
-                imageView.setImageResource(R.drawable.ic_link);
-                break;
-            default:
-                imageView.setImageResource(R.drawable.ic_share);
-                break;
+    private void updateAnalyticsDisplay(JsonObject analytics) {
+        this.analyticsData = analytics;
+
+        // Update the analytics button visibility
+        if (binding != null && binding.analyticsButton != null) {
+            binding.analyticsButton.setVisibility(View.VISIBLE);
         }
     }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        if (binding != null) {
-            binding.webView.stopLoading();
-            binding.webView.destroy();
-            binding = null;
-        }
+        binding = null;
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        // Remove back press callback
-        if (backPressCallback != null) {
-            backPressCallback.remove();
+        backPressCallback.remove();
+    }
+
+    /**
+     * Show an error message to the user
+     *
+     * @param message The error message
+     */
+    private void showError(String message) {
+        if (binding != null) {
+            Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+            // You could also show an error view in the UI
         }
     }
+
 }

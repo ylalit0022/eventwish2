@@ -4,6 +4,7 @@ import com.ds.eventwish.data.model.CategoryIcon;
 import com.ds.eventwish.data.model.Festival;
 import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.data.model.Template;
+import com.ds.eventwish.data.model.response.BaseResponse;
 import com.ds.eventwish.data.model.response.CategoryIconResponse;
 import com.ds.eventwish.data.model.response.TemplateResponse;
 import com.ds.eventwish.data.model.response.WishResponse;
@@ -44,7 +45,7 @@ public interface ApiService {
     Call<SharedWish> createSharedWish(@Body SharedWish sharedWish);
 
     @GET("wishes/{shortCode}")
-    Call<WishResponse> getSharedWish(@Path("shortCode") String shortCode);
+    Call<BaseResponse<WishResponse>> getSharedWish(@Path("shortCode") String shortCode);
 
     @POST("wishes/{shortCode}/share")
     Call<JsonObject> updateSharedWishPlatform(@Path("shortCode") String shortCode, @Body JsonObject platform);

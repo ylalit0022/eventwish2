@@ -26,6 +26,10 @@ public class TemplateDetailViewModel extends ViewModel {
     private String recipientName = "";
     private String senderName = "";
     private String templateId;
+    private String customizedHtml = null;
+    
+    // Base URL for the backend server
+    private static final String SERVER_BASE_URL = "https://eventwish2.onrender.com";
 
     public TemplateDetailViewModel() {
         apiService = ApiClient.getClient();
@@ -61,6 +65,11 @@ public class TemplateDetailViewModel extends ViewModel {
 
     public String getSenderName() {
         return senderName;
+    }
+    
+    public void setCustomizedHtml(String html) {
+        this.customizedHtml = html;
+        Log.d(TAG, "CustomizedHtml updated: " + (html != null ? html.substring(0, Math.min(50, html.length())) + "..." : "null"));
     }
 
     public void loadTemplate(String templateId) {
@@ -120,6 +129,10 @@ public class TemplateDetailViewModel extends ViewModel {
         wish.setRecipientName(recipientName.trim());
         wish.setSenderName(senderName.trim());
         wish.setSharedVia("LINK");
+        
+        // Set title and description for social media sharing
+        wish.setTitle("EventWish Greeting");
+        wish.setDescription("A special wish from " + senderName.trim() + " to " + recipientName.trim());
 
         // Debug log for API call
         Log.d(TAG, "Making API call to create shared wish");
@@ -127,22 +140,41 @@ public class TemplateDetailViewModel extends ViewModel {
               ", recipientName=" + recipientName + 
               ", senderName=" + senderName);
 
-        // Create customized HTML with replaced names
-        String customHtml = currentTemplate.getHtmlContent();
-        if (customHtml != null) {
-            customHtml = customHtml.replace("[Recipient]", 
-                "<span class=\"recipient-name\">" + recipientName + "</span>");
-            customHtml = customHtml.replace("{recipient}", 
-                "<span class=\"recipient-name\">" + recipientName + "</span>");
-            customHtml = customHtml.replace("[Your Name]", 
-                "<span class=\"sender-name\">" + senderName + "</span>");
-            customHtml = customHtml.replace("{sender}", 
-                "<span class=\"sender-name\">" + senderName + "</span>");
-            wish.setCustomizedHtml(customHtml);
+        // Use the customizedHtml if it was set by the WebView
+        if (customizedHtml != null && !customizedHtml.isEmpty()) {
+            Log.d(TAG, "Using customizedHtml from WebView");
+            wish.setCustomizedHtml(customizedHtml);
+        } else {
+            // Fallback to creating customized HTML with replaced names
+            Log.d(TAG, "Creating customizedHtml from template");
+            String customHtml = currentTemplate.getHtmlContent();
+            if (customHtml != null) {
+                customHtml = customHtml.replace("[Recipient]", 
+                    "<span class=\"recipient-name\">" + recipientName + "</span>");
+                customHtml = customHtml.replace("{recipient}", 
+                    "<span class=\"recipient-name\">" + recipientName + "</span>");
+                customHtml = customHtml.replace("[Your Name]", 
+                    "<span class=\"sender-name\">" + senderName + "</span>");
+                customHtml = customHtml.replace("{sender}", 
+                    "<span class=\"sender-name\">" + senderName + "</span>");
+                wish.setCustomizedHtml(customHtml);
+            }
+        }
 
-            wish.setCustomizedHtml(customHtml);
-            wish.setCssContent(currentTemplate.getCssContent());
-            wish.setJsContent(currentTemplate.getJsContent());
+        // Always set CSS and JS content
+        wish.setCssContent(currentTemplate.getCssContent());
+        wish.setJsContent(currentTemplate.getJsContent());
+        
+        // Set preview URL from template thumbnail if available
+        if (currentTemplate.getThumbnailUrl() != null && !currentTemplate.getThumbnailUrl().isEmpty()) {
+            // If the thumbnail URL is already a full URL, use it directly
+            if (currentTemplate.getThumbnailUrl().startsWith("http")) {
+                wish.setPreviewUrl(currentTemplate.getThumbnailUrl());
+            } else {
+                // Otherwise, construct a full URL using the server base URL
+                wish.setPreviewUrl(SERVER_BASE_URL + currentTemplate.getThumbnailUrl());
+            }
+            Log.d(TAG, "Set preview URL: " + wish.getPreviewUrl());
         }
 
         apiService.createSharedWish(wish).enqueue(new Callback<SharedWish>() {
@@ -177,7 +209,27 @@ public class TemplateDetailViewModel extends ViewModel {
                         
                         Log.d(TAG, "Final shortCode: " + shortCode);
                         
+                        // Set deep link for the wish
                         if (shortCode != null && !shortCode.isEmpty()) {
+                            // Set the deep link for the wish
+                            responseWish.setDeepLink("eventwish://wish/" + shortCode);
+                            
+                            // Set the preview URL for the landing page if not already set
+                            if (responseWish.getPreviewUrl() == null || responseWish.getPreviewUrl().isEmpty()) {
+                                // Use the template thumbnail URL or a default image
+                                String previewUrl = currentTemplate.getThumbnailUrl();
+                                if (previewUrl != null && !previewUrl.isEmpty()) {
+                                    if (!previewUrl.startsWith("http")) {
+                                        previewUrl = SERVER_BASE_URL + previewUrl;
+                                    }
+                                } else {
+                                    // Use a default image URL
+                                    previewUrl = SERVER_BASE_URL + "/images/default-preview.png";
+                                }
+                                responseWish.setPreviewUrl(previewUrl);
+                                Log.d(TAG, "Set preview URL from response: " + previewUrl);
+                            }
+                            
                             wishSaved.setValue(shortCode);
                         } else {
                             Log.e(TAG, "API returned null or empty shortCode");

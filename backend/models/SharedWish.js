@@ -37,6 +37,10 @@ const sharedWishSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    previewUrl: {
+        type: String,
+        required: false
+    },
     customizedHtml: {
         type: String,
         default: ''

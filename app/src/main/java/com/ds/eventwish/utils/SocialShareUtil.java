@@ -10,6 +10,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.FileProvider;
 
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.SharedWish;
@@ -30,7 +31,7 @@ public class SocialShareUtil {
     private static final String TAG = "SocialShareUtil";
     private static final int TIMEOUT_MS = 10000; // 10 seconds timeout
     private static final int MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB max size
-    private static final String BACKEND_URL = "https://eventwish.herokuapp.com"; // Update with your backend URL
+    private static final String BACKEND_URL = "https://eventwish2.onrender.com"; // Update with your backend URL
 
     /**
      * Create a sharing intent with preview image
@@ -46,34 +47,52 @@ public class SocialShareUtil {
         shareIntent.setType("text/plain");
         
         // Set the sharing text
-        String shareText = String.format("%s\n\n%s\n\n%s\n\n%s",
-            title,
-            description,
-            deepLink,
-            context.getString(R.string.share_app_prompt)
-        );
+        String shareText;
+        if (title != null && description != null) {
+            shareText = String.format("%s\n\n%s\n\n%s\n\n%s",
+                title,
+                description,
+                deepLink != null ? deepLink : context.getString(R.string.share_url_format, getShortCodeFromDeepLink(deepLink)),
+                context.getString(R.string.share_app_prompt)
+            );
+        } else {
+            // Fallback to simple format
+            shareText = context.getString(R.string.share_wish_text, 
+                deepLink != null ? deepLink : context.getString(R.string.share_url_format, getShortCodeFromDeepLink(deepLink)));
+        }
+        
         shareIntent.putExtra(Intent.EXTRA_TEXT, shareText);
         
         // Add preview image if available
         if (previewUrl != null && !previewUrl.isEmpty()) {
             try {
-                // Use backend to fetch the image
-                String backendImageUrl = String.format("%s/api/images/fetch?url=%s", 
-                    BACKEND_URL, 
-                    Uri.encode(previewUrl, "UTF-8"));
+                Log.d(TAG, "Attempting to add preview image from URL: " + previewUrl);
+                
+                // Ensure the URL is properly formatted
+                if (!previewUrl.startsWith("http")) {
+                    previewUrl = BACKEND_URL + (previewUrl.startsWith("/") ? "" : "/") + previewUrl;
+                    Log.d(TAG, "Reformatted preview URL: " + previewUrl);
+                }
                 
                 // Download the preview image with timeout and size limits
-                Bitmap bitmap = downloadImage(backendImageUrl);
+                Bitmap bitmap = downloadImage(previewUrl);
                 
                 if (bitmap != null) {
                     // Save the bitmap to a temporary file
                     File tempFile = saveBitmapToFile(context, bitmap);
                     
                     if (tempFile != null) {
-                        // Add the image to the sharing intent
+                        // Add the image to the sharing intent using FileProvider
+                        Uri imageUri = FileProvider.getUriForFile(
+                            context,
+                            context.getPackageName() + ".fileprovider",
+                            tempFile
+                        );
+                        
                         shareIntent.setType("image/*");
-                        shareIntent.putExtra(Intent.EXTRA_STREAM, Uri.fromFile(tempFile));
-                        Log.d(TAG, "Successfully added preview image to share intent");
+                        shareIntent.putExtra(Intent.EXTRA_STREAM, imageUri);
+                        shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        Log.d(TAG, "Successfully added preview image to share intent: " + imageUri);
                     } else {
                         Log.w(TAG, "Failed to save preview image to file");
                     }
@@ -85,13 +104,35 @@ public class SocialShareUtil {
                 }
                 
             } catch (Exception e) {
-                Log.e(TAG, "Error adding preview image: " + e.getMessage());
+                Log.e(TAG, "Error adding preview image: " + e.getMessage(), e);
                 // Fallback to text only sharing
                 shareIntent.setType("text/plain");
             }
+        } else {
+            Log.d(TAG, "No preview URL provided for sharing");
         }
         
         return shareIntent;
+    }
+    
+    /**
+     * Extract short code from deep link
+     * @param deepLink The deep link URL
+     * @return The short code
+     */
+    private static String getShortCodeFromDeepLink(String deepLink) {
+        if (deepLink == null || deepLink.isEmpty()) {
+            return "";
+        }
+        
+        // Extract the short code from the deep link
+        // Format: eventwish://wish/SHORTCODE
+        String[] parts = deepLink.split("/");
+        if (parts.length > 0) {
+            return parts[parts.length - 1];
+        }
+        
+        return "";
     }
     
     /**

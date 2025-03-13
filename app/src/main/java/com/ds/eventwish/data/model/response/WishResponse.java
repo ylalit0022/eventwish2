@@ -14,7 +14,7 @@ public class WishResponse {
     
     private String message;
 
-    @SerializedName("templateId")
+    @SerializedName("template")
     private Template template;
     
     @SerializedName("recipientName")
@@ -55,6 +55,17 @@ public class WishResponse {
 
     @SerializedName("sharedVia")
     private String sharedVia;
+
+    @SerializedName("templateId")
+    private String templateId;
+
+    public String getTemplateId() {
+        return templateId;
+    }
+
+    public void setTemplateId(String templateId) {
+        this.templateId = templateId;
+    }
 
     public String getSharedVia() {
         return sharedVia != null ? sharedVia : "LINK";

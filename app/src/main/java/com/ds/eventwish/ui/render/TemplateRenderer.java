@@ -1,21 +1,25 @@
 package com.ds.eventwish.ui.render;
 
 import android.annotation.SuppressLint;
+import android.util.Log;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.JavascriptInterface;
 import com.ds.eventwish.data.model.Template;
 
 public class TemplateRenderer {
+    private static final String TAG = "TemplateRenderer";
     private final WebView webView;
     private TemplateRenderListener listener;
     private String recipientName = "";
     private String senderName = "";
+    private String currentHtml = "";
+    private String currentCss = "";
+    private String currentJs = "";
 
     public interface TemplateRenderListener {
         void onRenderComplete();
         void onRenderError(String error);
-
         void onLoadingStateChanged(boolean isLoading);
     }
 
@@ -42,6 +46,10 @@ public class TemplateRenderer {
         String html = template.getHtmlContent();
         String css = template.getCssContent();
         String js = template.getJsContent();
+
+        this.currentHtml = html;
+        this.currentCss = css != null ? css : getDefaultCSS();
+        this.currentJs = js != null ? js : getDefaultJS();
 
         if (css == null || css.isEmpty()) {
             css = getDefaultCSS();
@@ -103,6 +111,45 @@ public class TemplateRenderer {
                 listener.onRenderComplete();
             }
         });
+    }
+    
+    /**
+     * Get the current HTML content with names replaced
+     * @return The customized HTML content
+     */
+    public String getCustomizedHtml() {
+        // Create a copy of the current HTML with names replaced
+        String customHtml = currentHtml;
+        if (customHtml != null) {
+            customHtml = customHtml.replace("[Recipient]", 
+                "<span class=\"recipient-name\">" + recipientName + "</span>");
+            customHtml = customHtml.replace("{recipient}", 
+                "<span class=\"recipient-name\">" + recipientName + "</span>");
+            customHtml = customHtml.replace("[Your Name]", 
+                "<span class=\"sender-name\">" + senderName + "</span>");
+            customHtml = customHtml.replace("{sender}", 
+                "<span class=\"sender-name\">" + senderName + "</span>");
+            
+            Log.d(TAG, "Generated customized HTML with recipient: " + recipientName + 
+                  ", sender: " + senderName);
+        }
+        return customHtml;
+    }
+    
+    /**
+     * Get the current CSS content
+     * @return The CSS content
+     */
+    public String getCssContent() {
+        return currentCss;
+    }
+    
+    /**
+     * Get the current JS content
+     * @return The JS content
+     */
+    public String getJsContent() {
+        return currentJs;
     }
 
     private String getDefaultCSS() {

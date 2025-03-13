@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="@drawable/bottom_sheet_background">
 
     <TextView
         android:layout_width="match_parent"
@@ -12,15 +14,15 @@
         android:text="Analytics"
         android:textSize="20sp"
         android:textStyle="bold"
-        android:layout_marginBottom="16dp" />
+        android:textColor="@color/colorPrimary"
+        android:layout_marginBottom="16dp"/>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="24dp">
+        android:layout_marginBottom="16dp">
 
-        <!-- Views -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -29,22 +31,21 @@
             android:gravity="center">
 
             <TextView
-                android:id="@+id/viewsCount"
+                android:id="@+id/viewsText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="0"
                 android:textSize="24sp"
                 android:textStyle="bold"
-                android:textColor="@color/colorPrimary" />
+                android:textColor="@color/colorPrimary"/>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Views"
-                android:textSize="14sp" />
+                android:textSize="14sp"/>
         </LinearLayout>
 
-        <!-- Unique Views -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -53,22 +54,21 @@
             android:gravity="center">
 
             <TextView
-                android:id="@+id/uniqueViewsCount"
+                android:id="@+id/uniqueViewsText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="0"
                 android:textSize="24sp"
                 android:textStyle="bold"
-                android:textColor="@color/colorPrimary" />
+                android:textColor="@color/colorPrimary"/>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Unique Views"
-                android:textSize="14sp" />
+                android:textSize="14sp"/>
         </LinearLayout>
 
-        <!-- Shares -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -77,41 +77,43 @@
             android:gravity="center">
 
             <TextView
-                android:id="@+id/sharesCount"
+                android:id="@+id/shareCountText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="0"
                 android:textSize="24sp"
                 android:textStyle="bold"
-                android:textColor="@color/colorPrimary" />
+                android:textColor="@color/colorPrimary"/>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Shares"
-                android:textSize="14sp" />
+                android:textSize="14sp"/>
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Share Breakdown -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#E0E0E0"
+        android:layout_marginBottom="16dp"/>
+
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Share Breakdown"
+        android:text="Platform Breakdown"
         android:textSize="16sp"
         android:textStyle="bold"
-        android:layout_marginBottom="8dp" />
+        android:layout_marginBottom="8dp"/>
 
-    <ScrollView
+    <LinearLayout
+        android:id="@+id/platformBreakdownLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:maxHeight="200dp">
+        android:orientation="vertical">
 
-        <LinearLayout
-            android:id="@+id/shareBreakdownContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical" />
-    </ScrollView>
-
+        <!-- Platform breakdown items will be added here dynamically -->
+        
+    </LinearLayout>
 </LinearLayout> 

@@ -171,6 +171,10 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
                     if (templateRenderer != null) {
                         templateRenderer.setRecipientName(recipientName);
                         templateRenderer.setSenderName(senderName);
+                        
+                        // Update the customized HTML in the ViewModel
+                        String customizedHtml = templateRenderer.getCustomizedHtml();
+                        viewModel.setCustomizedHtml(customizedHtml);
                     }
                     
                     updateShareButton(recipientName, senderName);
@@ -210,6 +214,14 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
             if (binding != null && binding.shareButton.isEnabled()) {
                 String recipientName = binding.recipientNameInput.getText().toString();
                 String senderName = binding.senderNameInput.getText().toString();
+                
+                // Update the customized HTML before saving
+                if (templateRenderer != null) {
+                    String customizedHtml = templateRenderer.getCustomizedHtml();
+                    viewModel.setCustomizedHtml(customizedHtml);
+                    Log.d(TAG, "Updated customizedHtml before saving: " + 
+                          (customizedHtml != null ? customizedHtml.substring(0, Math.min(50, customizedHtml.length())) + "..." : "null"));
+                }
                 
                 Log.d(TAG, "Sharing template with recipient: " + recipientName + ", sender: " + senderName);
                 viewModel.saveWish();
@@ -304,6 +316,12 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         mainHandler.post(() -> {
             if (isViewCreated && isAdded() && binding != null) {
                 scheduleNameUpdate();
+                
+                // Update the customized HTML in the ViewModel
+                if (templateRenderer != null) {
+                    String customizedHtml = templateRenderer.getCustomizedHtml();
+                    viewModel.setCustomizedHtml(customizedHtml);
+                }
             }
         });
     }
@@ -329,6 +347,12 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         if (binding != null) {
             viewModel.setRecipientName(binding.recipientNameInput.getText().toString());
             viewModel.setSenderName(binding.senderNameInput.getText().toString());
+            
+            // Update the customized HTML in the ViewModel
+            if (templateRenderer != null) {
+                String customizedHtml = templateRenderer.getCustomizedHtml();
+                viewModel.setCustomizedHtml(customizedHtml);
+            }
         }
     }
 

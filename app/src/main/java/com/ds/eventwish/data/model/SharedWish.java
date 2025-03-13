@@ -25,7 +25,7 @@ public class SharedWish {
     @SerializedName("senderName")
     private String senderName;
     
-    @SerializedName("htmlContent")
+    @SerializedName("customizedHtml")
     private String customizedHtml;
     
     @SerializedName("views")

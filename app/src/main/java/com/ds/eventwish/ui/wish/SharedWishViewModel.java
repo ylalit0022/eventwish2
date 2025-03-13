@@ -6,12 +6,14 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 import com.ds.eventwish.data.model.SharedWish;
+import com.ds.eventwish.data.model.response.BaseResponse;
 import com.ds.eventwish.data.model.response.WishResponse;
 import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.data.remote.ApiService;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
+import java.io.IOException;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -24,7 +26,7 @@ public class SharedWishViewModel extends ViewModel {
     private final MutableLiveData<String> error = new MutableLiveData<>();
     private final MutableLiveData<JsonObject> analytics = new MutableLiveData<>();
 
-    private Call<WishResponse> currentCall;
+    private Call<BaseResponse<WishResponse>> currentCall;
     private Call<JsonObject> analyticsCall;
 
     public SharedWishViewModel() {
@@ -52,29 +54,36 @@ public class SharedWishViewModel extends ViewModel {
         }
 
         currentCall = apiService.getSharedWish(shortCode);
-        currentCall.enqueue(new Callback<WishResponse>() {
+        currentCall.enqueue(new Callback<BaseResponse<WishResponse>>() {
             @Override
-            public void onResponse(Call<WishResponse> call, Response<WishResponse> response) {
+            public void onResponse(Call<BaseResponse<WishResponse>> call, Response<BaseResponse<WishResponse>> response) {
                 if (call.isCanceled()) return;
 
                 if (response.isSuccessful() && response.body() != null) {
-                    wishResponse = response.body();
-                    Log.d(TAG, "Wish loaded: " + new Gson().toJson(wishResponse));
-                    Log.d(TAG, "Template: " + (wishResponse.getTemplate() != null ? 
-                        wishResponse.getTemplate().getId() : "null"));
-                    sharedWish.setValue(wishResponse);
+                    BaseResponse<WishResponse> baseResponse = response.body();
                     
-                    // After loading the wish, fetch analytics
-                    loadWishAnalytics(shortCode);
+                    if (baseResponse.isSuccess() && baseResponse.getData() != null) {
+                        wishResponse = baseResponse.getData();
+                        Log.d(TAG, "Wish loaded: " + new Gson().toJson(wishResponse));
+                        Log.d(TAG, "Template: " + (wishResponse.getTemplate() != null ? 
+                            wishResponse.getTemplate().getId() : "null"));
+                        sharedWish.setValue(wishResponse);
+                        
+                        // After loading the wish, fetch analytics
+                        loadWishAnalytics(shortCode);
+                    } else {
+                        String errorMessage = baseResponse.getMessage() != null ? 
+                            baseResponse.getMessage() : "Failed to load wish";
+                        Log.e(TAG, "Error in response: " + errorMessage);
+                        error.setValue(errorMessage);
+                    }
                 } else {
-                    String errorMessage = "Failed to load wish: " + response.code();
-                    Log.e(TAG, errorMessage);
-                    error.setValue("Failed to load wish");
+                    handleErrorResponse(response);
                 }
             }
 
             @Override
-            public void onFailure(Call<WishResponse> call, Throwable t) {
+            public void onFailure(Call<BaseResponse<WishResponse>> call, Throwable t) {
                 if (call.isCanceled()) return;
                 
                 String errorMessage = "Network error: " + t.getMessage();
@@ -82,6 +91,21 @@ public class SharedWishViewModel extends ViewModel {
                 error.setValue(t.getMessage());
             }
         });
+    }
+    
+    private void handleErrorResponse(Response<BaseResponse<WishResponse>> response) {
+        String errorMsg;
+        try {
+            if (response.errorBody() != null) {
+                errorMsg = response.errorBody().string();
+            } else {
+                errorMsg = "Error " + response.code() + ": " + response.message();
+            }
+        } catch (IOException e) {
+            errorMsg = "Error reading error response";
+        }
+        Log.e(TAG, "Error response: " + errorMsg);
+        error.setValue("Failed to load wish: " + response.code());
     }
     
     /**
