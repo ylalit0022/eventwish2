@@ -20,7 +20,12 @@ const generateWishLandingPage = (wish, shortCode) => {
         previewUrl = `https://eventwish2.onrender.com${previewUrl.startsWith('/') ? '' : '/'}${previewUrl}`;
     }
     
+    // Create an optimized version of the image for social media sharing
+    const encodedUrl = Buffer.from(previewUrl).toString('base64');
+    const optimizedImageUrl = `https://eventwish2.onrender.com/api/images/social/${encodedUrl}`;
+    
     console.log(`Using preview URL for wish ${shortCode}: ${previewUrl}`);
+    console.log(`Using optimized image URL for social sharing: ${optimizedImageUrl}`);
     
     const appUrl = 'https://play.google.com/store/apps/details?id=com.ds.eventwish';
     const deepLink = `eventwish://wish/${shortCode}`;
@@ -39,16 +44,23 @@ const generateWishLandingPage = (wish, shortCode) => {
             <meta property="og:url" content="https://eventwish2.onrender.com/wish/${shortCode}">
             <meta property="og:title" content="${title}">
             <meta property="og:description" content="${description}">
-            <meta property="og:image" content="${previewUrl}">
+            <meta property="og:image" content="${optimizedImageUrl}">
             <meta property="og:image:width" content="1200">
             <meta property="og:image:height" content="630">
+            <meta property="og:image:alt" content="${title}">
+            <meta property="og:site_name" content="EventWish">
+            
+            <!-- WhatsApp specific -->
+            <meta property="og:image:secure_url" content="${optimizedImageUrl}">
+            <meta property="og:locale" content="en_US">
             
             <!-- Twitter -->
             <meta property="twitter:card" content="summary_large_image">
             <meta property="twitter:url" content="https://eventwish2.onrender.com/wish/${shortCode}">
             <meta property="twitter:title" content="${title}">
             <meta property="twitter:description" content="${description}">
-            <meta property="twitter:image" content="${previewUrl}">
+            <meta property="twitter:image" content="${optimizedImageUrl}">
+            <meta property="twitter:image:alt" content="${title}">
             
             <style>
                 body {
@@ -68,11 +80,12 @@ const generateWishLandingPage = (wish, shortCode) => {
                 }
                 .preview-image {
                     width: 100%;
-                    max-width: 300px;
+                    max-width: 600px; /* Increased from 300px */
                     height: auto;
                     border-radius: 12px;
                     margin: 20px 0;
                     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                    object-fit: contain; /* Ensures the image maintains its aspect ratio */
                 }
                 .title {
                     font-size: 24px;
@@ -110,7 +123,7 @@ const generateWishLandingPage = (wish, shortCode) => {
         </head>
         <body>
             <div class="container">
-                <img src="${previewUrl}" alt="Wish Preview" class="preview-image">
+                <img src="${previewUrl}" alt="${title}" class="preview-image">
                 <h1 class="title">${title}</h1>
                 <p class="description">${description}</p>
                 <a href="${deepLink}" class="button">Open in App</a>
@@ -142,6 +155,11 @@ const generateFallbackLandingPage = (shortCode) => {
     const title = 'EventWish Greeting';
     const description = 'Someone sent you a special wish!';
     const previewUrl = 'https://eventwish2.onrender.com/images/default-preview.png';
+    
+    // Create an optimized version of the image for social media sharing
+    const encodedUrl = Buffer.from(previewUrl).toString('base64');
+    const optimizedImageUrl = `https://eventwish2.onrender.com/api/images/social/${encodedUrl}`;
+    
     const appUrl = 'https://play.google.com/store/apps/details?id=com.ds.eventwish';
     const deepLink = `eventwish://wish/${shortCode}`;
 
@@ -159,16 +177,23 @@ const generateFallbackLandingPage = (shortCode) => {
             <meta property="og:url" content="https://eventwish2.onrender.com/wish/${shortCode}">
             <meta property="og:title" content="${title}">
             <meta property="og:description" content="${description}">
-            <meta property="og:image" content="${previewUrl}">
+            <meta property="og:image" content="${optimizedImageUrl}">
             <meta property="og:image:width" content="1200">
             <meta property="og:image:height" content="630">
+            <meta property="og:image:alt" content="${title}">
+            <meta property="og:site_name" content="EventWish">
+            
+            <!-- WhatsApp specific -->
+            <meta property="og:image:secure_url" content="${optimizedImageUrl}">
+            <meta property="og:locale" content="en_US">
             
             <!-- Twitter -->
             <meta property="twitter:card" content="summary_large_image">
             <meta property="twitter:url" content="https://eventwish2.onrender.com/wish/${shortCode}">
             <meta property="twitter:title" content="${title}">
             <meta property="twitter:description" content="${description}">
-            <meta property="twitter:image" content="${previewUrl}">
+            <meta property="twitter:image" content="${optimizedImageUrl}">
+            <meta property="twitter:image:alt" content="${title}">
             
             <style>
                 body {
@@ -188,11 +213,12 @@ const generateFallbackLandingPage = (shortCode) => {
                 }
                 .preview-image {
                     width: 100%;
-                    max-width: 300px;
+                    max-width: 600px; /* Increased from 300px */
                     height: auto;
                     border-radius: 12px;
                     margin: 20px 0;
                     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                    object-fit: contain; /* Ensures the image maintains its aspect ratio */
                 }
                 .title {
                     font-size: 24px;
@@ -230,7 +256,7 @@ const generateFallbackLandingPage = (shortCode) => {
         </head>
         <body>
             <div class="container">
-                <img src="${previewUrl}" alt="Wish Preview" class="preview-image">
+                <img src="${previewUrl}" alt="${title}" class="preview-image">
                 <h1 class="title">${title}</h1>
                 <p class="description">${description}</p>
                 <a href="${deepLink}" class="button">Open in App</a>
