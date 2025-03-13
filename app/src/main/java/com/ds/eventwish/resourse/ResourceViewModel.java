@@ -79,7 +79,35 @@ public class ResourceViewModel extends ViewModel {
         if (retryCount < MAX_RETRIES) {
             retryCount++;
             Log.d(TAG, "Retrying... Attempt " + retryCount + " of " + MAX_RETRIES);
-            loadWish(currentCall.request().url().pathSegments().get(1)); // Get shortCode from URL
+            
+            // Get the URL that was called
+            String url = currentCall.request().url().toString();
+            Log.d(TAG, "Failed URL: " + url);
+            
+            // Extract the shortCode from the URL more safely
+            String[] pathSegments = currentCall.request().url().pathSegments().toArray(new String[0]);
+            if (pathSegments.length > 0) {
+                // Get the last path segment which should be the shortCode
+                String shortCode = pathSegments[pathSegments.length - 1];
+                
+                // Don't retry if the shortCode is "wish" - this indicates a problem
+                if ("wish".equals(shortCode)) {
+                    Log.e(TAG, "Invalid shortCode 'wish' detected. Aborting retry.");
+                    isLoading.setValue(false);
+                    error.setValue("Invalid wish code. Please try again.");
+                    retryCount = MAX_RETRIES; // Stop retrying
+                    return;
+                }
+                
+                Log.d(TAG, "Retrying with shortCode: " + shortCode);
+                loadWish(shortCode);
+            } else {
+                // If we can't extract the shortCode, stop retrying
+                Log.e(TAG, "Could not extract shortCode from URL. Aborting retry.");
+                isLoading.setValue(false);
+                error.setValue("Could not load wish. Please try again.");
+                retryCount = MAX_RETRIES; // Stop retrying
+            }
             return;
         }
 

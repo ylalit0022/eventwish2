@@ -155,8 +155,27 @@ public class TemplateDetailViewModel extends ViewModel {
                 if (response.isSuccessful()) {
                     SharedWish responseWish = response.body();
                     if (responseWish != null) {
+                        // Try to get shortCode directly from the response body
                         String shortCode = responseWish.getShortCode();
-                        Log.d(TAG, "Wish created successfully with shortCode: " + shortCode);
+                        
+                        // If shortCode is null, try to extract it from the response as a JSON field
+                        if (shortCode == null || shortCode.isEmpty()) {
+                            try {
+                                // The server might return a JSON object with a shortCode field
+                                String responseString = new com.google.gson.Gson().toJson(responseWish);
+                                Log.d(TAG, "Response body: " + responseString);
+                                
+                                com.google.gson.JsonObject jsonObject = new com.google.gson.JsonParser().parse(responseString).getAsJsonObject();
+                                if (jsonObject.has("shortCode")) {
+                                    shortCode = jsonObject.get("shortCode").getAsString();
+                                    Log.d(TAG, "Extracted shortCode from JSON: " + shortCode);
+                                }
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error parsing response JSON", e);
+                            }
+                        }
+                        
+                        Log.d(TAG, "Final shortCode: " + shortCode);
                         
                         if (shortCode != null && !shortCode.isEmpty()) {
                             wishSaved.setValue(shortCode);

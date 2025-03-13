@@ -73,11 +73,17 @@ exports.createSharedWish = async (req, res) => {
 exports.getSharedWish = async (req, res) => {
     try {
         const { shortCode } = req.params;
+        console.log(`Getting wish with shortCode: ${shortCode}`);
+        
         const sharedWish = await SharedWish.findOne({ shortCode })
-            .populate('templateId');
+            .populate('template');
 
         if (!sharedWish) {
-            return res.status(404).json({ message: 'Shared wish not found' });
+            console.log(`Wish not found with shortCode: ${shortCode}`);
+            return res.status(404).json({ 
+                success: false,
+                message: 'Shared wish not found' 
+            });
         }
 
         // Increment views
@@ -101,10 +107,22 @@ exports.getSharedWish = async (req, res) => {
         }
         
         await sharedWish.save();
-
-        res.json(sharedWish);
+        console.log(`Successfully retrieved wish with shortCode: ${shortCode}`);
+        
+        // Format the response to match what the app expects
+        const response = {
+            success: true,
+            data: sharedWish
+        };
+        
+        res.json(response);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error('Error getting shared wish:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Error getting shared wish', 
+            error: error.message 
+        });
     }
 };
 
