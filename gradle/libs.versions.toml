@@ -16,6 +16,10 @@ glide = "4.16.0"
 transport-api = "4.0.0"
 app-update = "2.1.0"
 firebase-inappmessaging = "21.0.1"
+play-services-ads-lite = "24.0.0"
+lifecycle-process = "2.8.7"
+lifecycle-viewmodel-android = "2.8.7"
+core = "1.48.0"
 
 [libraries]
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
@@ -36,6 +40,10 @@ glide-compiler = { group = "com.github.bumptech.glide", name = "compiler", versi
 transport-api = { group = "com.google.android.datatransport", name = "transport-api", version.ref = "transport-api" }
 app-update = { group = "com.google.android.play", name = "app-update", version.ref = "app-update" }
 firebase-inappmessaging = { group = "com.google.firebase", name = "firebase-inappmessaging", version.ref = "firebase-inappmessaging" }
+play-services-ads-lite = { group = "com.google.android.gms", name = "play-services-ads-lite", version.ref = "play-services-ads-lite" }
+androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycle-process" }
+androidx-lifecycle-viewmodel-android = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-android", version.ref = "lifecycle-viewmodel-android" }
+core = { group = "com.google.ar", name = "core", version.ref = "core" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

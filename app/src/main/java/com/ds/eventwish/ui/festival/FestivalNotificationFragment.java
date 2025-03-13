@@ -1,6 +1,7 @@
 package com.ds.eventwish.ui.festival;
 
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -23,6 +24,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.request.RequestOptions;
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.CategoryIcon;
@@ -31,12 +33,23 @@ import com.ds.eventwish.data.model.FestivalTemplate;
 import com.ds.eventwish.data.model.Result;
 import com.ds.eventwish.databinding.FragmentFestivalNotificationBinding;
 import com.ds.eventwish.ui.festival.adapter.TemplateAdapter;
+import com.ds.eventwish.ui.views.OfflineIndicatorView;
+import com.ds.eventwish.ui.views.StaleDataIndicatorView;
+import com.ds.eventwish.utils.EventWishNotificationManager;
+import com.ds.eventwish.utils.NetworkUtils;
+import com.ds.eventwish.utils.NotificationPermissionManager;
+import com.ds.eventwish.utils.NotificationScheduler;
 import com.facebook.shimmer.ShimmerFrameLayout;
 import com.google.android.material.snackbar.Snackbar;
 
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public class FestivalNotificationFragment extends Fragment {
     private static final String TAG = "FestivalNotification";
@@ -53,6 +66,13 @@ public class FestivalNotificationFragment extends Fragment {
     private TextView errorText;
     private Observer<Result<List<Festival>>> festivalsObserver;
     private boolean isDataLoaded = false;
+    private NetworkUtils networkUtils;
+    private OfflineIndicatorView offlineIndicator;
+    private StaleDataIndicatorView staleDataIndicator;
+    private Button testNotificationButton;
+    
+    // Map to store countdown timers to prevent memory leaks
+    private Map<String, CountDownTimer> countdownTimers = new HashMap<>();
 
     public static FestivalNotificationFragment newInstance() {
         return new FestivalNotificationFragment();
@@ -83,9 +103,25 @@ public class FestivalNotificationFragment extends Fragment {
         swipeRefreshLayout = view.findViewById(R.id.swipeRefreshLayout);
         errorText = errorLayout.findViewById(R.id.errorTextView);
         shimmerFrameLayout = view.findViewById(R.id.shimmerFrameLayout);
+        
+        // Initialize network utils
+        networkUtils = NetworkUtils.getInstance(requireContext());
+        
+        // Initialize offline and stale data indicators
+        offlineIndicator = view.findViewById(R.id.offlineIndicator);
+        staleDataIndicator = view.findViewById(R.id.staleDataIndicator);
+        
+        // Set up offline indicator
+        if (offlineIndicator != null) {
+            offlineIndicator.setRetryListener(() -> refreshFestivals());
+        }
+        
+        // Set up stale data indicator
+        if (staleDataIndicator != null) {
+            staleDataIndicator.setRefreshListener(() -> refreshFestivals());
+        }
 
         shimmerFrameLayout.startShimmer();
-
 
         // Set up retry button
         retryButton.setOnClickListener(v -> refreshFestivals());
@@ -114,15 +150,39 @@ public class FestivalNotificationFragment extends Fragment {
                 viewModel.clearCacheSnackbarFlag();
             }
         });
+        
+        // Observe network state
+        networkUtils.getNetworkAvailability().observe(getViewLifecycleOwner(), isConnected -> {
+            if (offlineIndicator != null) {
+                offlineIndicator.setVisibility(isConnected ? View.GONE : View.VISIBLE);
+            }
+            
+            if (!isConnected && !isDataLoaded) {
+                // If offline and no data loaded yet, try to load from cache
+                loadFestivals();
+            } else if (isConnected && !isDataLoaded) {
+                // If online and no data loaded yet, load fresh data
+                refreshFestivals();
+            }
+        });
+        
+        // Observe stale data state
+        viewModel.getStaleData().observe(getViewLifecycleOwner(), isStale -> {
+            if (staleDataIndicator != null) {
+                staleDataIndicator.setVisibility(isStale ? View.VISIBLE : View.GONE);
+            }
+        });
 
         // Only load festivals if we haven't loaded them yet
         if (!isDataLoaded) {
             loadFestivals();
         }
+
+        // Add test notification button
+        addTestNotificationButton();
     }
 
     private void createFestivalsObserver() {
-
         shimmerFrameLayout.startShimmer();
         shimmerFrameLayout.setVisibility(View.VISIBLE);
         loadingLayout.setVisibility(View.VISIBLE);
@@ -141,6 +201,13 @@ public class FestivalNotificationFragment extends Fragment {
                     emptyLayout.setVisibility(View.GONE);
                     errorLayout.setVisibility(View.GONE);
                     isDataLoaded = true;
+                    
+                    // Check if data is stale
+                    if (result.isStale()) {
+                        viewModel.setStaleData(true);
+                    } else {
+                        viewModel.setStaleData(false);
+                    }
                 } else {
                     festivalsContainer.setVisibility(View.GONE);
                     emptyLayout.setVisibility(View.VISIBLE);
@@ -151,6 +218,17 @@ public class FestivalNotificationFragment extends Fragment {
                 festivalsContainer.setVisibility(View.GONE);
                 emptyLayout.setVisibility(View.GONE);
                 errorText.setText(result.getError());
+                
+                // Check if error is due to being offline
+                if (result.getError() != null && 
+                    (result.getError().contains("offline") || 
+                     result.getError().contains("network") || 
+                     result.getError().contains("connection"))) {
+                    // Show offline indicator
+                    if (offlineIndicator != null) {
+                        offlineIndicator.setVisibility(View.VISIBLE);
+                    }
+                }
             }
         };
     }
@@ -170,7 +248,13 @@ public class FestivalNotificationFragment extends Fragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        // No need to remove observer - it will be handled by the lifecycle owner
+        // Cancel all countdown timers to prevent memory leaks
+        for (CountDownTimer timer : countdownTimers.values()) {
+            if (timer != null) {
+                timer.cancel();
+            }
+        }
+        countdownTimers.clear();
     }
 
     private void setCategoryIcon(ImageView imageView, Festival festival) {
@@ -179,12 +263,13 @@ public class FestivalNotificationFragment extends Fragment {
             String iconUrl = icon.getCategoryIcon();
             Log.d(TAG, "Setting category icon - Category: " + festival.getCategory() + ", URL: " + iconUrl);
 
-            // Load the icon from URL using Glide
+            // Load the icon from URL using Glide with improved caching
             Glide.with(imageView.getContext())
                     .load(iconUrl)
                     .apply(new RequestOptions()
                             .placeholder(R.drawable.ic_launcher_foreground)
-                            .error(R.drawable.ic_launcher_foreground))
+                            .error(R.drawable.ic_launcher_foreground)
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)) // Cache both original and resized images
                     .centerCrop()
                     .into(imageView);
         } else {
@@ -225,6 +310,14 @@ public class FestivalNotificationFragment extends Fragment {
     private void displayFestivals(List<Festival> festivals) {
         festivalsContainer.removeAllViews();
         Log.d(TAG, "Displaying " + festivals.size() + " festivals");
+        
+        // Cancel any existing countdown timers
+        for (CountDownTimer timer : countdownTimers.values()) {
+            if (timer != null) {
+                timer.cancel();
+            }
+        }
+        countdownTimers.clear();
 
         for (Festival festival : festivals) {
             View festivalView = getLayoutInflater().inflate(R.layout.item_festival_category, festivalsContainer, false);
@@ -235,8 +328,56 @@ public class FestivalNotificationFragment extends Fragment {
             TextView categoryTitle = festivalView.findViewById(R.id.categoryTitle);
             ImageView categoryIcon = festivalView.findViewById(R.id.categoryIcon);
             RecyclerView templatesRecyclerView = festivalView.findViewById(R.id.templatesRecyclerView);
-
-            // Set festival data
+            
+            // Create countdown view programmatically
+            TextView countdownView = new TextView(requireContext());
+            countdownView.setId(View.generateViewId());
+            countdownView.setTextColor(getResources().getColor(android.R.color.holo_red_light));
+            countdownView.setTextSize(14);
+            
+            // Add it to the layout - find a suitable container
+            ViewGroup container = null;
+            
+            // Try to find a container by type
+            if (festivalView instanceof ViewGroup) {
+                // Look for a LinearLayout that might be the info container
+                ViewGroup rootView = (ViewGroup) festivalView;
+                for (int i = 0; i < rootView.getChildCount(); i++) {
+                    View child = rootView.getChildAt(i);
+                    if (child instanceof LinearLayout) {
+                        container = (ViewGroup) child;
+                        break;
+                    }
+                }
+                
+                // If no LinearLayout found, use the root view
+                if (container == null) {
+                    container = rootView;
+                }
+            }
+            
+            if (container != null) {
+                // Add the countdown view after the festival name if possible
+                int insertIndex = 1; // Default to position 1
+                
+                // Try to find the festival name view to insert after it
+                for (int i = 0; i < container.getChildCount(); i++) {
+                    View child = container.getChildAt(i);
+                    if (child instanceof TextView && child.getId() == R.id.festivalName) {
+                        insertIndex = i + 1;
+                        break;
+                    }
+                }
+                
+                // Add the countdown view
+                if (container instanceof LinearLayout) {
+                    ((LinearLayout) container).addView(countdownView, insertIndex);
+                } else {
+                    container.addView(countdownView);
+                }
+            } else {
+                Log.e(TAG, "Could not find a suitable container for countdown view");
+            }
 
             // Set festival data
             festivalName.setText(festival.getName());
@@ -253,6 +394,9 @@ public class FestivalNotificationFragment extends Fragment {
 
             // Set category icon
             setCategoryIcon(categoryIcon, festival);
+            
+            // Set up countdown timer if festival is in the future
+            setupCountdownTimer(festival, countdownView);
 
             // Set up templates recycler view
             if (festival.getTemplates() != null && !festival.getTemplates().isEmpty()) {
@@ -276,6 +420,89 @@ public class FestivalNotificationFragment extends Fragment {
             festivalsContainer.addView(festivalView);
         }
     }
+    
+    /**
+     * Set up countdown timer for a festival
+     * @param festival The festival to set up countdown for
+     * @param countdownView The TextView to display countdown
+     */
+    private void setupCountdownTimer(Festival festival, TextView countdownView) {
+        if (countdownView == null) return;
+        
+        Date festivalDate = festival.getDate();
+        Date now = new Date();
+        
+        // If festival date is in the past, show "Event has passed" message
+        if (festivalDate.before(now)) {
+            countdownView.setText("Event has passed");
+            countdownView.setVisibility(View.VISIBLE);
+            return;
+        }
+        
+        // Calculate time difference in milliseconds
+        long timeDiff = festivalDate.getTime() - now.getTime();
+        
+        // If festival is today, show "Today!" message
+        Calendar festivalCal = Calendar.getInstance();
+        festivalCal.setTime(festivalDate);
+        
+        Calendar nowCal = Calendar.getInstance();
+        nowCal.setTime(now);
+        
+        if (festivalCal.get(Calendar.YEAR) == nowCal.get(Calendar.YEAR) &&
+            festivalCal.get(Calendar.DAY_OF_YEAR) == nowCal.get(Calendar.DAY_OF_YEAR)) {
+            countdownView.setText("Today!");
+            countdownView.setVisibility(View.VISIBLE);
+            return;
+        }
+        
+        // Create and start countdown timer
+        CountDownTimer timer = new CountDownTimer(timeDiff, 1000) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                // Calculate days, hours, minutes, seconds
+                long days = TimeUnit.MILLISECONDS.toDays(millisUntilFinished);
+                millisUntilFinished -= TimeUnit.DAYS.toMillis(days);
+                
+                long hours = TimeUnit.MILLISECONDS.toHours(millisUntilFinished);
+                millisUntilFinished -= TimeUnit.HOURS.toMillis(hours);
+                
+                long minutes = TimeUnit.MILLISECONDS.toMinutes(millisUntilFinished);
+                millisUntilFinished -= TimeUnit.MINUTES.toMillis(minutes);
+                
+                long seconds = TimeUnit.MILLISECONDS.toSeconds(millisUntilFinished);
+                
+                // Format countdown text
+                String countdownText;
+                if (days > 0) {
+                    countdownText = String.format(Locale.getDefault(), 
+                            "Coming in: %d days, %d hours", days, hours);
+                } else if (hours > 0) {
+                    countdownText = String.format(Locale.getDefault(), 
+                            "Coming in: %d hours, %d minutes", hours, minutes);
+                } else {
+                    countdownText = String.format(Locale.getDefault(), 
+                            "Coming in: %d minutes, %d seconds", minutes, seconds);
+                }
+                
+                // Update countdown view
+                countdownView.setText(countdownText);
+                countdownView.setVisibility(View.VISIBLE);
+            }
+            
+            @Override
+            public void onFinish() {
+                countdownView.setText("Event is happening now!");
+                countdownView.setVisibility(View.VISIBLE);
+            }
+        };
+        
+        // Start the timer
+        timer.start();
+        
+        // Store the timer to cancel it later
+        countdownTimers.put(festival.getId(), timer);
+    }
 
     private void navigateToTemplateDetail(FestivalTemplate template) {
         // Navigate to template detail fragment
@@ -289,5 +516,67 @@ public class FestivalNotificationFragment extends Fragment {
         super.onPause();
         // Clear memory cache when fragment is paused
         viewModel.clearMemoryCache();
+    }
+
+    /**
+     * Add a test button for notifications
+     */
+    private void addTestNotificationButton() {
+        // Create a button
+        testNotificationButton = new Button(requireContext());
+        testNotificationButton.setText("Test Notifications");
+        testNotificationButton.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        
+        // Add button to the container
+        festivalsContainer.addView(testNotificationButton, 0);
+        
+        // Set click listener
+        testNotificationButton.setOnClickListener(v -> {
+            // Check notification permission
+            if (NotificationPermissionManager.hasNotificationPermission(requireContext())) {
+                // Show test notification
+                showTestNotification();
+            } else {
+                // Request notification permission
+                NotificationPermissionManager.requestNotificationPermission(requireActivity());
+            }
+        });
+    }
+    
+    /**
+     * Show a test notification
+     */
+    private void showTestNotification() {
+        // Get the first festival from the list
+        List<Festival> festivals = viewModel.getFestivals().getValue().getData();
+        
+        if (festivals != null && !festivals.isEmpty()) {
+            Festival festival = festivals.get(0);
+            
+            // Show a notification for this festival
+            int notificationId = EventWishNotificationManager.showFestivalNotification(
+                    requireContext(),
+                    festival,
+                    0); // 0 days until (today)
+            
+            if (notificationId != -1) {
+                Toast.makeText(requireContext(), 
+                        "Test notification sent for " + festival.getName(), 
+                        Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(requireContext(), 
+                        "Failed to send test notification", 
+                        Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            // No festivals available, run the worker instead
+            NotificationScheduler.runFestivalNotificationsNow(requireContext());
+            
+            Toast.makeText(requireContext(), 
+                    "Running notification worker...", 
+                    Toast.LENGTH_SHORT).show();
+        }
     }
 }

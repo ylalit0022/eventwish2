@@ -14,6 +14,7 @@ import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.NetworkType;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
+import com.ds.eventwish.data.ads.AdManager;
 import com.ds.eventwish.data.local.AppDatabase;
 import com.ds.eventwish.data.local.ReminderDao;
 import com.ds.eventwish.data.model.Reminder;
@@ -26,18 +27,38 @@ import com.ds.eventwish.utils.ReminderScheduler;
 import com.ds.eventwish.workers.ReminderCheckWorker;
 import com.ds.eventwish.workers.TemplateUpdateWorker;
 import com.ds.eventwish.utils.FirebaseInAppMessagingHandler;
+import com.google.android.gms.ads.MobileAds;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import com.ds.eventwish.ui.ads.AppOpenAdHelper;
+import com.ds.eventwish.utils.EventWishNotificationManager;
+import com.ds.eventwish.utils.NotificationScheduler;
 
 public class EventWishApplication extends Application implements Configuration.Provider {
     private static final String TAG = "EventWishApplication";
 
+    private AppOpenAdHelper appOpenAdHelper;
+    
+    // Static instance of the application
+    private static EventWishApplication instance;
+
+    /**
+     * Get the application instance
+     * @return The application instance
+     */
+    public static EventWishApplication getInstance() {
+        return instance;
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
+        
+        // Set the instance
+        instance = this;
         
         // Initialize Firebase with logging
         try {
@@ -56,6 +77,9 @@ public class EventWishApplication extends Application implements Configuration.P
         // Initialize Firebase In-App Messaging Handler
         FirebaseInAppMessagingHandler.initialize(this);
         
+        // Initialize ApiClient before using it
+        ApiClient.init(this);
+        
         // Initialize TokenRepository and check for unsent tokens
         TokenRepository.getInstance(this, ApiClient.getClient())
                 .checkAndSendToken();
@@ -69,6 +93,9 @@ public class EventWishApplication extends Application implements Configuration.P
         // Schedule template update check
         scheduleTemplateUpdateCheck();
         
+        // Schedule festival notifications
+        scheduleNotifications();
+        
         // Initialize cache manager
         CacheManager.getInstance(this);
         
@@ -80,7 +107,15 @@ public class EventWishApplication extends Application implements Configuration.P
         
         // Initialize CategoryIconRepository and preload icons
         Log.d(TAG, "Initializing CategoryIconRepository");
-        CategoryIconRepository.getInstance().loadCategoryIcons();
+        try {
+            CategoryIconRepository.getInstance().loadCategoryIcons();
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing CategoryIconRepository: " + e.getMessage());
+            // Continue with app initialization even if category icons fail to load
+        }
+        
+        // Initialize AdMob and AdManager
+        initializeAdMob();
         
         // Log initialization complete
         Log.i(TAG, "Application initialized successfully");
@@ -93,43 +128,12 @@ public class EventWishApplication extends Application implements Configuration.P
             .build();
     }
 
+    /**
+     * Create notification channels for Android O and above
+     */
     private void createNotificationChannels() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel reminderChannel = new NotificationChannel(
-                "reminder_channel",
-                "Reminders",
-                NotificationManager.IMPORTANCE_HIGH
-            );
-            reminderChannel.setDescription("Notifications for event reminders");
-            reminderChannel.enableVibration(true);
-            reminderChannel.setVibrationPattern(new long[]{0, 500, 250, 500});
-            reminderChannel.setLockscreenVisibility(NotificationCompat.VISIBILITY_PUBLIC);
-            reminderChannel.enableLights(true);
-            reminderChannel.setLightColor(Color.RED);
-            reminderChannel.setShowBadge(true);
-            reminderChannel.setBypassDnd(true);
-            
-            // Create festival notification channel
-            NotificationChannel festivalChannel = new NotificationChannel(
-                "festival_channel",
-                "Festival Alerts",
-                NotificationManager.IMPORTANCE_HIGH
-            );
-            festivalChannel.setDescription("Notifications for upcoming festivals");
-            festivalChannel.enableVibration(true);
-            festivalChannel.setVibrationPattern(new long[]{0, 500, 250, 500});
-            festivalChannel.setLockscreenVisibility(NotificationCompat.VISIBILITY_PUBLIC);
-            festivalChannel.enableLights(true);
-            festivalChannel.setLightColor(Color.BLUE);
-            festivalChannel.setShowBadge(true);
-            festivalChannel.setBypassDnd(true);
-
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                manager.createNotificationChannel(reminderChannel);
-                manager.createNotificationChannel(festivalChannel);
-            }
-        }
+        // Create notification channels using NotificationManager
+        EventWishNotificationManager.createNotificationChannels(this);
     }
 
     private void restorePendingReminders() {
@@ -197,5 +201,35 @@ public class EventWishApplication extends Application implements Configuration.P
         );
         
         Log.d(TAG, "Scheduled template update check worker");
+    }
+    
+    /**
+     * Schedule all notification workers
+     */
+    private void scheduleNotifications() {
+        Log.d(TAG, "Scheduling notification workers");
+        
+        // Schedule all notifications
+        NotificationScheduler.scheduleAllNotifications(this);
+    }
+    
+    /**
+     * Initialize AdMob and AdManager
+     */
+    private void initializeAdMob() {
+        try {
+            MobileAds.initialize(this, initializationStatus -> {
+                Log.d(TAG, "AdMob SDK initialized successfully");
+                
+                // Initialize AdManager
+                AdManager.getInstance(this);
+                
+                // Initialize AppOpenAdHelper
+                appOpenAdHelper = new AppOpenAdHelper(this);
+            });
+            Log.d(TAG, "AdMob initialization started");
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing AdMob: " + e.getMessage());
+        }
     }
 }

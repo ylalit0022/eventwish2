@@ -46,6 +46,9 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.ds.eventwish.ui.festival.FestivalViewModel;
 import com.ds.eventwish.data.repository.CategoryIconRepository;
+import com.ds.eventwish.ui.views.OfflineIndicatorView;
+import com.ds.eventwish.ui.views.StaleDataIndicatorView;
+import com.ds.eventwish.utils.NetworkUtils;
 
 public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemplateClickListener {
     private static final String TAG = "HomeFragment";
@@ -61,6 +64,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     private static final long BACK_PRESS_DELAY = 2000; // 2 seconds
     private CategoryIconRepository categoryIconRepository;
     private boolean wasInBackground = false;
+    private NetworkUtils networkUtils;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -85,6 +89,9 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
 
         // Initialize CategoryIconRepository
         categoryIconRepository = CategoryIconRepository.getInstance();
+        
+        // Initialize NetworkUtils
+        networkUtils = NetworkUtils.getInstance(requireContext());
 
         // Set up UI components
         setupUI();
@@ -94,6 +101,9 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
 
         // Set up SwipeRefreshLayout
         setupSwipeRefresh();
+        
+        // Set up offline and stale data indicators
+        setupIndicators();
 
         // Set up observers
         setupObservers();
@@ -253,6 +263,13 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                 }, 1000); // Increased delay to 1 second
             }
         }
+
+        // Check if we need to refresh data after coming back from background
+        if (wasInBackground && networkUtils.isNetworkAvailable()) {
+            Log.d(TAG, "Refreshing data after coming back from background");
+            viewModel.loadTemplates(false); // Use cached data first, then refresh in background
+            wasInBackground = false;
+        }
     }
 
     @Override
@@ -378,7 +395,11 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
 
         categoriesAdapter.setOnCategoryClickListener((category, position) -> {
             if (category.equals("All")) {
+                // Explicitly set category to null and force a refresh
                 viewModel.setCategory(null);
+                // Force a refresh to ensure all templates are loaded
+                viewModel.loadTemplates(true);
+                Log.d(TAG, "All category selected, loading all templates");
             } else {
                 viewModel.setCategory(category);
             }
@@ -747,6 +768,20 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         });
     }
 
+    private void setupIndicators() {
+        // Set up offline indicator
+        binding.offlineIndicator.setRetryListener(() -> {
+            Log.d(TAG, "Retry clicked from offline indicator");
+            viewModel.loadTemplates(true);
+        });
+        
+        // Set up stale data indicator
+        binding.staleDataIndicator.setRefreshListener(() -> {
+            Log.d(TAG, "Refresh clicked from stale data indicator");
+            viewModel.loadTemplates(true);
+        });
+    }
+
     private void setupObservers() {
         // Observe templates from the ViewModel
         viewModel.getTemplates().observe(getViewLifecycleOwner(), templates -> {
@@ -867,6 +902,29 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                 } else {
                     binding.notificationBadge.setVisibility(View.GONE);
                 }
+            }
+        });
+        
+        // Observe network state
+        networkUtils.getNetworkAvailability().observe(getViewLifecycleOwner(), isConnected -> {
+            Log.d(TAG, "Network state changed: " + (isConnected ? "Connected" : "Disconnected"));
+            if (binding != null) {
+                binding.offlineIndicator.setVisibility(isConnected ? View.GONE : View.VISIBLE);
+                
+                // If we're back online, refresh the data
+                if (isConnected && wasInBackground) {
+                    Log.d(TAG, "Back online after being in background, refreshing data");
+                    viewModel.loadTemplates(true);
+                    wasInBackground = false;
+                }
+            }
+        });
+        
+        // Observe stale data state
+        viewModel.getStaleData().observe(getViewLifecycleOwner(), isStale -> {
+            Log.d(TAG, "Stale data state changed: " + isStale);
+            if (binding != null) {
+                binding.staleDataIndicator.setVisibility(isStale ? View.VISIBLE : View.GONE);
             }
         });
     }

@@ -1,0 +1,23 @@
+{
+  "name": "eventwish",
+  "version": "1.0.0",
+  "description": "EventWish application with Android frontend and Node.js backend",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "cd backend && npm start",
+    "install": "cd backend && npm install",
+    "dev": "cd backend && npm run dev"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "keywords": [
+    "eventwish",
+    "android",
+    "nodejs",
+    "express",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "ISC"
+} 

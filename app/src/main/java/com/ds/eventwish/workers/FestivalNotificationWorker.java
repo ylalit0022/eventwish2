@@ -1,119 +1,117 @@
 package com.ds.eventwish.workers;
 
-import android.app.PendingIntent;
 import android.content.Context;
-import android.content.Intent;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.core.app.NotificationCompat;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
-import com.ds.eventwish.R;
-import com.ds.eventwish.MainActivity;
 import com.ds.eventwish.data.model.Festival;
 import com.ds.eventwish.data.repository.FestivalRepository;
-import com.ds.eventwish.utils.NotificationHelper;
+import com.ds.eventwish.utils.EventWishNotificationManager;
+import com.ds.eventwish.utils.NotificationPermissionManager;
 
-import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
-import java.util.Locale;
-import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 
-import me.leolin.shortcutbadger.ShortcutBadger;
-
+/**
+ * Worker class to handle festival notifications
+ */
 public class FestivalNotificationWorker extends Worker {
     private static final String TAG = "FestivalNotifWorker";
-    private static final String NOTIFICATION_CHANNEL_ID = "festival_channel";
-    private static final int NOTIFICATION_ID = 200;
     
-    public FestivalNotificationWorker(@NonNull Context context, @NonNull WorkerParameters params) {
-        super(context, params);
+    // Notification thresholds (in days)
+    private static final int[] NOTIFICATION_DAYS = {0, 1, 3, 7, 14, 30};
+    
+    public FestivalNotificationWorker(
+            @NonNull Context context,
+            @NonNull WorkerParameters workerParams) {
+        super(context, workerParams);
     }
     
     @NonNull
     @Override
     public Result doWork() {
-        Log.d(TAG, "Checking for upcoming festivals...");
+        Log.d(TAG, "Starting festival notification worker");
         
-        // Get the repository instance
-        FestivalRepository repository = FestivalRepository.getInstance(getApplicationContext());
-        
-        // Get unnotified upcoming festivals
-        List<Festival> upcomingFestivals = repository.getUnnotifiedUpcomingFestivals();
-        
-        if (upcomingFestivals != null && !upcomingFestivals.isEmpty()) {
-            Log.d(TAG, "Found " + upcomingFestivals.size() + " upcoming festivals to notify");
-            
-            // Create notifications for each festival
-            for (Festival festival : upcomingFestivals) {
-                createFestivalNotification(festival);
-                
-                // Mark the festival as notified
-                repository.markAsNotified(festival.getId());
-            }
-            
-            // Update badge count
-            updateBadgeCount(getApplicationContext());
-            
-            return Result.success();
-        } else {
-            Log.d(TAG, "No upcoming festivals to notify");
-            return Result.success();
+        // Check notification permission
+        if (!NotificationPermissionManager.hasNotificationPermission(getApplicationContext())) {
+            Log.d(TAG, "Notification permission not granted, skipping notifications");
+            return Result.failure();
         }
-    }
-    
-    private void createFestivalNotification(Festival festival) {
-        Context context = getApplicationContext();
-        
-        // Format the date using server timezone
-        SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
-        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC")); // Use UTC for server time
-        String formattedDate = dateFormat.format(festival.getDate());
-        
-        // Create an intent for when the notification is tapped
-        Intent intent = new Intent(context, MainActivity.class);
-        intent.putExtra("FESTIVAL_ID", festival.getId());
-        intent.putExtra("navigate_to", "festival");
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        intent.setData(android.net.Uri.parse("festival://" + festival.getId()));
-        PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, 
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        
-        // Build the notification
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle("Upcoming Festival: " + festival.getName())
-                .setContentText(festival.getName() + " is coming up on " + formattedDate)
-                .setStyle(new NotificationCompat.BigTextStyle()
-                        .bigText(festival.getDescription() != null ? 
-                                festival.getDescription() : 
-                                "Get ready for " + festival.getName() + " on " + formattedDate))
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setContentIntent(pendingIntent)
-                .setAutoCancel(true);
-        
-        // Show the notification using NotificationHelper
-        NotificationHelper.showNotification(context, NOTIFICATION_ID + festival.hashCode(), builder.build());
-    }
-    
-    private void updateBadgeCount(Context context) {
-        // Get the current unread count from the repository
-        FestivalRepository repository = FestivalRepository.getInstance(context);
-        int unreadCount = 0;
         
         try {
-            // This is a synchronous call to get the current value from LiveData
-            Integer count = repository.getUnreadCount().getValue();
-            unreadCount = count != null ? count : 0;
-            Log.d(TAG, "Current unread count: " + unreadCount);
+            // Get the repository
+            FestivalRepository repository = FestivalRepository.getInstance(getApplicationContext());
+            
+            // Get upcoming festivals
+            List<Festival> festivals = repository.getUpcomingFestivalsSync();
+            
+            if (festivals == null || festivals.isEmpty()) {
+                Log.d(TAG, "No upcoming festivals found");
+                return Result.success();
+            }
+            
+            Log.d(TAG, "Found " + festivals.size() + " upcoming festivals");
+            
+            // Get current date
+            Calendar now = Calendar.getInstance();
+            now.set(Calendar.HOUR_OF_DAY, 0);
+            now.set(Calendar.MINUTE, 0);
+            now.set(Calendar.SECOND, 0);
+            now.set(Calendar.MILLISECOND, 0);
+            Date today = now.getTime();
+            
+            // Process each festival
+            int notificationCount = 0;
+            
+            for (Festival festival : festivals) {
+                // Calculate days until festival
+                long diffInMillis = festival.getDate().getTime() - today.getTime();
+                int daysUntil = (int) TimeUnit.DAYS.convert(diffInMillis, TimeUnit.MILLISECONDS);
+                
+                // Check if we should send a notification for this festival
+                if (shouldNotify(daysUntil)) {
+                    // Send notification
+                    int notificationId = EventWishNotificationManager.showFestivalNotification(
+                            getApplicationContext(),
+                            festival,
+                            daysUntil);
+                    
+                    if (notificationId != -1) {
+                        notificationCount++;
+                        
+                        // Mark festival as notified for this day
+                        repository.markAsNotified(festival.getId(), daysUntil);
+                    }
+                }
+            }
+            
+            Log.d(TAG, "Sent " + notificationCount + " festival notifications");
+            
+            return Result.success();
         } catch (Exception e) {
-            Log.e(TAG, "Error getting unread count", e);
+            Log.e(TAG, "Error processing festival notifications", e);
+            return Result.retry();
+        }
+    }
+    
+    /**
+     * Check if we should send a notification for a festival that is X days away
+     * @param daysUntil Days until the festival
+     * @return true if we should send a notification, false otherwise
+     */
+    private boolean shouldNotify(int daysUntil) {
+        // Check if daysUntil matches any of our notification thresholds
+        for (int day : NOTIFICATION_DAYS) {
+            if (daysUntil == day) {
+                return true;
+            }
         }
         
-        // Update the badge count
-        ShortcutBadger.applyCount(context, unreadCount);
-        Log.d(TAG, "Updated badge count to: " + unreadCount);
+        return false;
     }
 }

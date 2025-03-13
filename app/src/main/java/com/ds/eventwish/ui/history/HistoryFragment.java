@@ -19,6 +19,7 @@ import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.databinding.FragmentHistoryBinding;
 import com.ds.eventwish.ui.base.BaseFragment;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.ds.eventwish.utils.SocialShareUtil;
 
 import java.util.ArrayList;
 
@@ -167,17 +168,37 @@ public class HistoryFragment extends BaseFragment implements HistoryAdapter.OnHi
             String shareUrl = getString(R.string.share_url_format, wish.getShortCode());
             String shareText = getString(R.string.share_wish_text, shareUrl);
             
-            Intent shareIntent = new Intent();
-            shareIntent.setAction(Intent.ACTION_SEND);
-            shareIntent.putExtra(Intent.EXTRA_TEXT, shareText);
-            shareIntent.setType("text/plain");
-            
             try {
-                startActivity(Intent.createChooser(shareIntent, getString(R.string.share_via)));
+                // Use the new SocialShareUtil to create a sharing intent with preview image
+                String previewUrl = wish.getPreviewUrl();
+                String title = getString(R.string.share_wish_title);
+                Log.d(TAG, "Sharing with preview URL: " + previewUrl);
+                
+                Intent chooserIntent = SocialShareUtil.createChooserIntent(
+                        requireContext(),
+                        shareText,
+                        previewUrl,
+                        title,
+                        getString(R.string.share_via));
+                
+                startActivity(chooserIntent);
                 Log.d(TAG, "Share intent started successfully");
             } catch (Exception e) {
-                Log.e(TAG, "Error starting share intent", e);
-                Toast.makeText(requireContext(), R.string.error_generic, Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "Error creating sharing intent", e);
+                
+                // Fallback to simple text sharing
+                Intent shareIntent = new Intent();
+                shareIntent.setAction(Intent.ACTION_SEND);
+                shareIntent.putExtra(Intent.EXTRA_TEXT, shareText);
+                shareIntent.setType("text/plain");
+                
+                try {
+                    startActivity(Intent.createChooser(shareIntent, getString(R.string.share_via)));
+                    Log.d(TAG, "Fallback share intent started successfully");
+                } catch (Exception ex) {
+                    Log.e(TAG, "Error starting fallback share intent", ex);
+                    Toast.makeText(requireContext(), R.string.error_generic, Toast.LENGTH_SHORT).show();
+                }
             }
         } else {
             Log.e(TAG, "onShareClick: Invalid wish or shortCode");

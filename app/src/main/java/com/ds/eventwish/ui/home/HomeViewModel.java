@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
 import com.ds.eventwish.data.model.Template;
+import com.ds.eventwish.data.model.Resource;
 import com.ds.eventwish.data.repository.TemplateRepository;
 import com.ds.eventwish.utils.TemplateUpdateManager;
 import java.util.ArrayList;
@@ -48,6 +49,9 @@ public class HomeViewModel extends ViewModel {
 
     // Add this constant
     private static final int VISIBLE_THRESHOLD = 5;
+    
+    // Add stale data state
+    private final MutableLiveData<Boolean> staleData = new MutableLiveData<>(false);
 
     // Enum for sort options
     public enum SortOption {
@@ -203,6 +207,13 @@ public class HomeViewModel extends ViewModel {
             editor.apply();
         }
         
+        // Explicitly set category in repository
+        if (category == null) {
+            repository.setCategory(null); // Ensure repository filter is cleared
+        } else {
+            repository.setCategory(category);
+        }
+        
         // Reload templates with the new filter
         loadTemplates(true);
     }
@@ -258,26 +269,39 @@ public class HomeViewModel extends ViewModel {
      * @param refresh Whether to force a refresh from the server
      */
     public void loadTemplates(boolean refresh) {
-        // Record refresh time
+        Log.d(TAG, "Loading templates - refresh: " + refresh);
+        
+        // Reset stale data state when forcing a refresh
         if (refresh) {
-            lastRefreshTime = System.currentTimeMillis();
+            setStaleData(false);
         }
         
         // Apply filters
-        // Since the repository doesn't support Map<String, String> filters yet,
-        // we'll apply the filters one by one
+        if (selectedCategory != null) {
+            repository.setCategory(selectedCategory);
+        }
         
-        // Apply category filter
-        repository.setCategory(selectedCategory);
-        
-        // Apply sort option (you may need to implement this in TemplateRepository)
+        // Apply sort option
         applySortOption(selectedSortOption);
         
-        // Apply time filter (you may need to implement this in TemplateRepository)
+        // Apply time filter
         applyTimeFilter(selectedTimeFilter);
         
         // Load templates
         repository.loadTemplates(refresh);
+        
+        // Update last refresh time
+        lastRefreshTime = System.currentTimeMillis();
+        
+        // Check for stale data in error message
+        repository.getError().observeForever(error -> {
+            if (error != null && (error.contains("offline") || error.contains("cached") || error.contains("stale"))) {
+                Log.d(TAG, "Detected stale data from error message: " + error);
+                setStaleData(true);
+            } else if (error == null || error.isEmpty()) {
+                setStaleData(false);
+            }
+        });
     }
 
     /**
@@ -446,8 +470,11 @@ public class HomeViewModel extends ViewModel {
      * Clear the template cache and load fresh data
      */
     public void clearCacheAndRefresh() {
-        // Clear the cache
+        Log.d(TAG, "Clearing cache and refreshing templates");
         repository.clearCache();
+        
+        // Reset stale data state
+        setStaleData(false);
         
         // Reset filters to default
         selectedSortOption = SortOption.TRENDING;
@@ -460,6 +487,23 @@ public class HomeViewModel extends ViewModel {
         
         // Clear new templates flag
         clearNewTemplatesFlag();
+    }
+
+    /**
+     * Get the stale data state as LiveData
+     * @return LiveData with stale data state
+     */
+    public LiveData<Boolean> getStaleData() {
+        return staleData;
+    }
+
+    /**
+     * Set the stale data state
+     * @param isStale Whether the data is stale
+     */
+    public void setStaleData(boolean isStale) {
+        Log.d(TAG, "Setting stale data state: " + isStale);
+        staleData.setValue(isStale);
     }
 
     @Override

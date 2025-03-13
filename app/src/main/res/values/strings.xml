@@ -40,7 +40,13 @@
     <!--    <string name="sent_on">Sent on %1$s</string>-->
 
     <!-- Shared Wish -->
-    <string name="share_wish_text">Check out this greeting I made for you: %1$s</string>
+    <string name="share_wish_text">I sent you a special wish! Check it out here: %s</string>
+    <string name="share_wish_text_whatsapp">Hey! I created a special wish for you using EventWish. Check it out here: %s</string>
+    <string name="share_wish_text_facebook">I just created a special wish with EventWish! Check it out here: %s</string>
+    <string name="share_wish_text_twitter">I created a special wish with @EventWish! Check it out here: %s</string>
+    <string name="share_wish_text_instagram">I created a special wish with #EventWish! Check it out here: %s</string>
+    <string name="share_wish_text_email">Hello,\n\nI created a special wish for you using EventWish.\n\nCheck it out here: %s\n\nEnjoy!\n</string>
+    <string name="share_wish_text_sms">I created a special wish for you! Check it out here: %s</string>
     <string name="share_via">Share via</string>
     <string name="share_via_whatsapp">Share via WhatsApp</string>
     <string name="share_via_other">Share via Other</string>
@@ -49,6 +55,9 @@
     <string name="reply_to_wish">Reply with a Wish</string>
     <string name="loading_wish">Loading wish…</string>
     <string name="error_loading_wish">Error loading wish</string>
+    <string name="share_wish_title">EventWish Greeting</string>
+    <string name="share_wish_description">A special wish from %1$s to %2$s</string>
+    <string name="share_app_prompt">Download EventWish to create your own special wishes!</string>
 
     <!-- History -->
     <!--    <string name="title_history">History</string>-->
@@ -63,8 +72,6 @@
     <string name="share_button">Share Button</string>
     <string name="view_button">View Button</string>
 
-    <string name="error_message">Network error. Please check your connection.</string>
-    <string name="retry">Retry</string>
     <string name="error_image">Error Image</string>
 
     <!-- History Screen -->
@@ -85,7 +92,7 @@
 
     <!-- Common -->
     <string name="error_generic">Something went wrong. Please try again.</string>
-    <string name="error_network">Network error. Please check your connection.</string>
+<!--    <string name="error_network">Network error. Please check your connection.</string>-->
     <string name="filter_icon">Filter Icon</string>
     <string name="empty_list">No reminders found</string>
     <string name="add_reminder">Add Reminder</string>
@@ -140,4 +147,97 @@
     <string name="update_message">A new version of EventWish is available. Please update to the latest version to enjoy new features and improvements.</string>
     <string name="update_now">Update Now</string>
     <string name="later">Later</string>
+
+    <string name="action_settings">Settings</string>
+    <string name="action_test_ads">Test Ads</string>
+
+    <!-- Error handling -->
+    <string name="error_title_default">Error</string>
+    <string name="error_title_offline">No Internet Connection</string>
+    <string name="error_title_network">Network Error</string>
+    <string name="error_title_server">Server Error</string>
+    <string name="error_title_resource">Resource Error</string>
+    <string name="error_title_permission">Permission Required</string>
+    <string name="error_title_auth">Authentication Required</string>
+    
+    <string name="error_message_default">An unexpected error occurred. Please try again later.</string>
+    <string name="error_offline">You are currently offline. Please check your internet connection and try again.</string>
+    <string name="error_network">Unable to connect to the server. Please check your internet connection and try again.</string>
+    <string name="error_client">There was a problem with your request. Please try again.</string>
+    <string name="error_resource_not_found">The requested resource could not be found.</string>
+    <string name="error_resource_expired">The resource has expired and needs to be refreshed.</string>
+    <string name="error_resource_invalid">The resource data is invalid or corrupted.</string>
+    <string name="error_permission_denied">You don\'t have permission to access this resource.</string>
+    <string name="error_authentication_required">Please log in to access this feature.</string>
+    
+    <string name="error_resource_details">%1$s: %2$s</string>
+    <string name="error_resource_type">%1$s</string>
+    
+    <string name="error_button_settings">Settings</string>
+    <string name="error_button_login">Log In</string>
+    
+    <string name="error_icon_description">Error icon</string>
+
+    <!-- Error Handling -->
+    <string name="error_title">Error</string>
+    <string name="error_message">An error occurred. Please try again later.</string>
+    <string name="error_button_ok">OK</string>
+    <string name="error_button_retry">Retry</string>
+    <string name="error_button_dismiss">Dismiss</string>
+    
+    <!-- Network Errors -->
+    <string name="error_no_connection">No internet connection</string>
+    <string name="error_timeout">Connection timed out</string>
+    <string name="error_server">Server error</string>
+    <string name="error_unauthorized">Unauthorized access</string>
+    <string name="error_not_found">Resource not found</string>
+    <string name="error_forbidden">Access forbidden</string>
+    <string name="error_http">HTTP error: %1$d</string>
+    <string name="error_io">Network error</string>
+    <string name="error_ssl">SSL error</string>
+    <string name="error_unknown">Unknown error</string>
+    
+    <!-- Offline Indicator -->
+    <string name="offline_message">You\'re offline. Some features may be unavailable.</string>
+    <string name="offline_icon_description">Offline indicator icon</string>
+    <string name="retry">Retry</string>
+    
+    <!-- Stale Data Indicator -->
+    <string name="stale_data_message">Showing cached data that may be outdated.</string>
+    <string name="stale_data_icon_description">Stale data indicator icon</string>
+    <string name="refresh">Refresh</string>
+
+    <string name="error_offline_mode">Offline Mode</string>
+    <string name="error_stale_data">You\'re viewing cached data that may be outdated.</string>
+    <string name="error_refresh">Refresh</string>
+    <string name="error_details">Details</string>
+    <string name="error_report">Report</string>
+
+    <!-- Notification Permission -->
+    <string name="notification_permission_title">Notification Permission</string>
+    <string name="notification_permission_message">EventWish needs notification permission to send you updates about upcoming festivals and events.</string>
+    <string name="notification_permission_settings_message">EventWish needs notification permission to send you updates. Please enable notifications in app settings.</string>
+
+    <!-- Notification Channels -->
+    <string name="notification_group_events">Events</string>
+    <string name="notification_group_system">System</string>
+    <string name="notification_channel_festivals">Festivals</string>
+    <string name="notification_channel_festivals_desc">Notifications about upcoming festivals and events</string>
+    <string name="notification_channel_reminders">Reminders</string>
+    <string name="notification_channel_reminders_desc">Reminders about festivals and events</string>
+    <string name="notification_channel_updates">Updates</string>
+    <string name="notification_channel_updates_desc">App updates and general information</string>
+    
+    <!-- Notification Content -->
+    <string name="notification_festival_today_title">%1$s is today!</string>
+    <string name="notification_festival_today_content">Don\'t miss %1$s today!</string>
+    <string name="notification_festival_tomorrow_title">%1$s is tomorrow!</string>
+    <string name="notification_festival_tomorrow_content">Get ready for %1$s tomorrow!</string>
+    <string name="notification_festival_upcoming_title">%1$s is coming up!</string>
+    <string name="notification_festival_upcoming_content">%1$d days until %2$s</string>
+    <string name="notification_reminder_title">Reminder: %1$s</string>
+    <string name="notification_reminder_content">%1$d days until %2$s</string>
+
+    <!-- API URLs -->
+    <string name="base_url">https://eventwishes.onrender.com/api/</string>
 </resources>

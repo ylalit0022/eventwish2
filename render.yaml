@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: eventwish-backend
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: MONGODB_URI
+        sync: false # You'll need to add this in the Render dashboard
+    healthCheckPath: /api/test/time # Adjust this to a simple endpoint in your API that returns a 200 status 

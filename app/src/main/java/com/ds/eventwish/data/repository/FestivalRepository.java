@@ -11,7 +11,7 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
 import com.ds.eventwish.data.local.AppDatabase;
-import com.ds.eventwish.data.local.FestivalDao;
+import com.ds.eventwish.data.local.dao.FestivalDao;
 import com.ds.eventwish.data.model.Festival;
 import com.ds.eventwish.data.model.ServerTimeResponse;
 import com.ds.eventwish.data.remote.ApiClient;
@@ -43,6 +43,7 @@ public class FestivalRepository {
     private static final String CACHE_KEY_FESTIVALS = "festivals";
     private static final String CACHE_KEY_FESTIVALS_BY_CATEGORY = "festivals_category_";
     private static final long BACKGROUND_CHECK_INTERVAL = 15; // minutes
+    private static final String PREF_NOTIFICATION_HISTORY = "notification_history";
 
     private final FestivalDao festivalDao;
     private final ApiService apiService;
@@ -723,6 +724,114 @@ public class FestivalRepository {
             // Save current time as cache timestamp
             cacheManager.saveToCache(CACHE_KEY_FESTIVALS + "_timestamp", new Date().getTime());
             Log.d(TAG, "Updated cache timestamp for festivals");
+        }
+    }
+
+    /**
+     * Get upcoming festivals synchronously (for use in workers)
+     * @return List of upcoming festivals
+     */
+    public List<Festival> getUpcomingFestivalsSync() {
+        Log.d(TAG, "Getting upcoming festivals synchronously");
+        
+        try {
+            // Get current date at midnight
+            Calendar calendar = Calendar.getInstance();
+            calendar.set(Calendar.HOUR_OF_DAY, 0);
+            calendar.set(Calendar.MINUTE, 0);
+            calendar.set(Calendar.SECOND, 0);
+            calendar.set(Calendar.MILLISECOND, 0);
+            Date today = calendar.getTime();
+            
+            // Get festivals from database
+            List<Festival> festivals = festivalDao.getUpcomingFestivalsSync(today);
+            
+            if (festivals != null && !festivals.isEmpty()) {
+                Log.d(TAG, "Found " + festivals.size() + " upcoming festivals in database");
+                return festivals;
+            } else {
+                Log.d(TAG, "No upcoming festivals found in database");
+                return new ArrayList<>();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting upcoming festivals synchronously", e);
+            return new ArrayList<>();
+        }
+    }
+    
+    /**
+     * Mark a festival as notified for a specific day threshold
+     * @param festivalId Festival ID
+     * @param daysUntil Days until the festival
+     */
+    public void markAsNotified(String festivalId, int daysUntil) {
+        Log.d(TAG, "Marking festival " + festivalId + " as notified for " + daysUntil + " days threshold");
+        
+        try {
+            // Get shared preferences
+            SharedPreferences prefs = context.getSharedPreferences(PREF_NOTIFICATION_HISTORY, Context.MODE_PRIVATE);
+            
+            // Create a key for this festival and day threshold
+            String key = festivalId + "_" + daysUntil;
+            
+            // Mark as notified
+            prefs.edit().putLong(key, System.currentTimeMillis()).apply();
+            
+            Log.d(TAG, "Festival " + festivalId + " marked as notified for " + daysUntil + " days threshold");
+        } catch (Exception e) {
+            Log.e(TAG, "Error marking festival as notified", e);
+        }
+    }
+    
+    /**
+     * Check if a festival has been notified for a specific day threshold
+     * @param festivalId Festival ID
+     * @param daysUntil Days until the festival
+     * @return true if notified, false otherwise
+     */
+    public boolean isNotified(String festivalId, int daysUntil) {
+        try {
+            // Get shared preferences
+            SharedPreferences prefs = context.getSharedPreferences(PREF_NOTIFICATION_HISTORY, Context.MODE_PRIVATE);
+            
+            // Create a key for this festival and day threshold
+            String key = festivalId + "_" + daysUntil;
+            
+            // Check if notified
+            return prefs.contains(key);
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking if festival is notified", e);
+            return false;
+        }
+    }
+    
+    /**
+     * Reset notification history for a festival
+     * @param festivalId Festival ID
+     */
+    public void resetNotificationHistory(String festivalId) {
+        Log.d(TAG, "Resetting notification history for festival " + festivalId);
+        
+        try {
+            // Get shared preferences
+            SharedPreferences prefs = context.getSharedPreferences(PREF_NOTIFICATION_HISTORY, Context.MODE_PRIVATE);
+            
+            // Get all keys
+            SharedPreferences.Editor editor = prefs.edit();
+            
+            // Remove all keys for this festival
+            for (String key : prefs.getAll().keySet()) {
+                if (key.startsWith(festivalId + "_")) {
+                    editor.remove(key);
+                }
+            }
+            
+            // Apply changes
+            editor.apply();
+            
+            Log.d(TAG, "Notification history reset for festival " + festivalId);
+        } catch (Exception e) {
+            Log.e(TAG, "Error resetting notification history", e);
         }
     }
 }

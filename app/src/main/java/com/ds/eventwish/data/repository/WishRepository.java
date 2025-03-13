@@ -5,12 +5,14 @@ import android.content.SharedPreferences;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import com.ds.eventwish.data.model.SharedWish;
+import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.data.remote.ApiService;
 import com.ds.eventwish.utils.NetworkResult;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -23,6 +25,20 @@ public class WishRepository {
     private final ApiService apiService;
     private final SharedPreferences preferences;
     private final Gson gson;
+    
+    private static WishRepository instance;
+    private static final Object lock = new Object();
+
+    public static WishRepository getInstance(Context context) {
+        if (instance == null) {
+            synchronized (lock) {
+                if (instance == null) {
+                    instance = new WishRepository(context, ApiClient.getClient());
+                }
+            }
+        }
+        return instance;
+    }
     
     public WishRepository(Context context, ApiService apiService) {
         this.apiService = apiService;
@@ -91,6 +107,58 @@ public class WishRepository {
         List<SharedWish> cachedWishes = loadCachedHistory();
         // Add new wish at the beginning of the list
         cachedWishes.add(0, wish);
+        saveHistoryToCache(cachedWishes);
+    }
+    
+    /**
+     * Get a wish by short code from the cached history
+     * @param shortCode The short code of the wish
+     * @return The wish with the given short code, or null if not found
+     */
+    public SharedWish getWishByShortCode(String shortCode) {
+        if (shortCode == null) return null;
+        
+        List<SharedWish> cachedWishes = loadCachedHistory();
+        for (SharedWish wish : cachedWishes) {
+            if (shortCode.equals(wish.getShortCode())) {
+                return wish;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Save a wish to the history
+     * @param wish The wish to save
+     */
+    public void saveWish(SharedWish wish) {
+        if (wish == null) return;
+        
+        List<SharedWish> cachedWishes = loadCachedHistory();
+        
+        // Check if wish already exists
+        for (int i = 0; i < cachedWishes.size(); i++) {
+            if (cachedWishes.get(i).getShortCode().equals(wish.getShortCode())) {
+                // Update existing wish
+                SharedWish existingWish = cachedWishes.get(i);
+                existingWish.setSharedVia(wish.getSharedVia());
+                existingWish.setLastSharedAt(new Date());
+                cachedWishes.set(i, existingWish);
+                break;
+            }
+        }
+        
+        // Add new wish if not found
+        if (!cachedWishes.contains(wish)) {
+            cachedWishes.add(0, wish);
+        }
+        
+        // Keep only the last 50 wishes
+        if (cachedWishes.size() > 50) {
+            cachedWishes = cachedWishes.subList(0, 50);
+        }
+        
         saveHistoryToCache(cachedWishes);
     }
 }

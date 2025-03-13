@@ -48,7 +48,7 @@ import com.ds.eventwish.ui.festival.FestivalViewModel;
 import com.ds.eventwish.utils.NotificationHelper;
 import com.ds.eventwish.ui.common.FlashyMessageDialog;
 import com.ds.eventwish.utils.FlashyMessageManager;
-import com.ds.eventwish.utils.FlashyMessageManager.FlashyMessage;
+import com.ds.eventwish.utils.FlashyMessageManager.Message;
 import com.google.firebase.messaging.FirebaseMessaging;
 
 public class MainActivity extends AppCompatActivity {
@@ -482,19 +482,28 @@ public class MainActivity extends AppCompatActivity {
         FlashyMessageManager.resetDisplayState(this);
         
         // Get the next message to display
-        FlashyMessageManager.FlashyMessage message = FlashyMessageManager.getNextMessage(this);
-        if (message != null) {
-            Log.d(TAG, "Showing flashy message: " + message.getTitle());
-            
-            // Show the flashy message dialog
-            FlashyMessageDialog dialog = FlashyMessageDialog.newInstance(
-                    message.getId(),
-                    message.getTitle(),
-                    message.getMessage()
-            );
-            dialog.show(getSupportFragmentManager(), "flashy_message");
-        } else {
-            Log.d(TAG, "No flashy messages to show");
-        }
+        FlashyMessageManager.getNextMessage(this, new FlashyMessageManager.MessageCallback() {
+            @Override
+            public void onMessageLoaded(FlashyMessageManager.Message message) {
+                if (message != null) {
+                    Log.d(TAG, "Showing flashy message: " + message.getTitle());
+                    
+                    // Show the flashy message dialog
+                    FlashyMessageDialog dialog = FlashyMessageDialog.newInstance(
+                            message.getId(),
+                            message.getTitle(),
+                            message.getMessage()
+                    );
+                    dialog.show(getSupportFragmentManager(), "flashy_message");
+                } else {
+                    Log.d(TAG, "No flashy messages to show");
+                }
+            }
+
+            @Override
+            public void onError(Exception e) {
+                Log.e(TAG, "Error loading flashy message", e);
+            }
+        });
     }
 }

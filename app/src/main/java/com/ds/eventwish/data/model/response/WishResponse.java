@@ -44,6 +44,49 @@ public class WishResponse {
     @SerializedName("previewUrl")
     private String previewUrl;
 
+    @SerializedName("title")
+    private String title;
+
+    @SerializedName("description")
+    private String description;
+
+    @SerializedName("deepLink")
+    private String deepLink;
+
+    @SerializedName("sharedVia")
+    private String sharedVia;
+
+    public String getSharedVia() {
+        return sharedVia != null ? sharedVia : "LINK";
+    }
+
+    public void setSharedVia(String sharedVia) {
+        this.sharedVia = sharedVia;
+    }
+
+    public String getTitle() {
+        return title != null ? title : "";
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getDescription() {
+        return description != null ? description : "";
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getDeepLink() {
+        return deepLink != null ? deepLink : "";
+    }
+
+    public void setDeepLink(String deepLink) {
+        this.deepLink = deepLink;
+    }
 
     public String getPreviewUrl() {
         return previewUrl;

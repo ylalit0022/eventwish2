@@ -37,6 +37,7 @@ public class FestivalViewModel extends AndroidViewModel {
     private final MutableLiveData<String> currentCategory = new MutableLiveData<>("All");
     private final MediatorLiveData<Result<List<Festival>>> festivalsResult = new MediatorLiveData<>();
     private final MutableLiveData<Boolean> showCacheSnackbar = new MutableLiveData<>(false);
+    private final MutableLiveData<Boolean> staleData = new MutableLiveData<>(false);
     
     // Keep references to our observers to prevent memory leaks and duplicate observers
     private Observer<List<Festival>> festivalsObserver = null;
@@ -195,6 +196,23 @@ public class FestivalViewModel extends AndroidViewModel {
      */
     public LiveData<Boolean> getShowCacheSnackbar() {
         return showCacheSnackbar;
+    }
+    
+    /**
+     * Get the stale data state as LiveData
+     * @return LiveData with stale data state
+     */
+    public LiveData<Boolean> getStaleData() {
+        return staleData;
+    }
+    
+    /**
+     * Set the stale data state
+     * @param isStale Whether the data is stale
+     */
+    public void setStaleData(boolean isStale) {
+        Log.d(TAG, "Setting stale data state: " + isStale);
+        staleData.setValue(isStale);
     }
     
     /**

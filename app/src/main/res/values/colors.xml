@@ -113,4 +113,12 @@
     <color name="clipboard_gray">#607D8B</color>
     <color name="link_blue">#2196F3</color>
 
+    <!-- Error colors -->
+    <color name="colorError">#F44336</color>
+    <color name="colorErrorLight">#FFCDD2</color>
+    <color name="colorErrorDark">#D32F2F</color>
+    <color name="colorWarning">#FFC107</color>
+    <color name="colorInfo">#2196F3</color>
+    <color name="colorSuccess">#4CAF50</color>
+
 </resources>

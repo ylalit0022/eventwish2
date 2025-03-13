@@ -5,17 +5,26 @@ import androidx.room.TypeConverter;
 import java.util.Date;
 
 /**
- * Type converter for Room database to convert between Date and Long
+ * Type converter for Date objects in Room database
  */
 public class DateConverter {
-    
+    /**
+     * Convert Date to Long timestamp
+     * @param date Date object
+     * @return Long timestamp or null if date is null
+     */
     @TypeConverter
-    public static Date fromTimestamp(Long value) {
-        return value == null ? null : new Date(value);
+    public static Long fromDate(Date date) {
+        return date == null ? null : date.getTime();
     }
     
+    /**
+     * Convert Long timestamp to Date
+     * @param timestamp Long timestamp
+     * @return Date object or null if timestamp is null
+     */
     @TypeConverter
-    public static Long dateToTimestamp(Date date) {
-        return date == null ? null : date.getTime();
+    public static Date toDate(Long timestamp) {
+        return timestamp == null ? null : new Date(timestamp);
     }
 }

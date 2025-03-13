@@ -1,5 +1,6 @@
 package com.ds.eventwish.utils;
 
+import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -10,6 +11,9 @@ import android.net.Uri;
 import android.util.Log;
 import android.widget.Toast;
 import com.ds.eventwish.R;
+import com.ds.eventwish.data.model.SharedWish;
+import com.ds.eventwish.data.repository.WishRepository;
+import com.ds.eventwish.utils.SocialShareUtil;
 
 public class DeepLinkUtil {
     private static final String TAG = "DeepLinkUtil";
@@ -141,14 +145,65 @@ public class DeepLinkUtil {
      * Share a wish via the system share dialog
      * @param context The context
      * @param shortCode The wish short code
-     * @param message The message to share
      */
-    public static void shareWish(Context context, String shortCode, String message) {
-        String webUrl = generateWebWishUrl(shortCode);
-        String shareText = message + "\n\n" + webUrl + "\n\nDownload EventWish to create your own special wishes!";
-
-        // Use LinkChooserUtil to ensure a chooser dialog is shown
-        LinkChooserUtil.shareWithChooser(context, shareText, "Share Wish", context.getString(R.string.share_via));
+    public static void shareWish(Context context, String shortCode) {
+        if (context == null || shortCode == null) return;
+        
+        try {
+            SharedWish wish = WishRepository.getInstance(context).getWishByShortCode(shortCode);
+            if (wish == null) {
+                Log.e(TAG, "Wish not found for short code: " + shortCode);
+                return;
+            }
+            
+            // Set the sharedVia field based on the sharing method
+            String sharedVia = "LINK"; // Default to LINK
+            if (context instanceof Activity) {
+                Activity activity = (Activity) context;
+                if (activity.getIntent() != null && activity.getIntent().getAction() != null) {
+                    String action = activity.getIntent().getAction();
+                    if (action.equals(Intent.ACTION_SEND)) {
+                        String type = activity.getIntent().getType();
+                        if (type != null) {
+                            if (type.startsWith("image/")) {
+                                sharedVia = "IMAGE";
+                            } else if (type.startsWith("video/")) {
+                                sharedVia = "VIDEO";
+                            } else if (type.startsWith("audio/")) {
+                                sharedVia = "AUDIO";
+                            }
+                        }
+                    }
+                }
+            }
+            wish.setSharedVia(sharedVia);
+            
+            // Create sharing intent with preview image
+            Intent shareIntent = SocialShareUtil.createSharingIntent(
+                context,
+                wish.getTitle(),
+                wish.getDescription(),
+                wish.getPreviewUrl(),
+                wish.getDeepLink()
+            );
+            
+            // Start sharing activity
+            context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.share_wish_title)));
+            
+            // Save the wish to history
+            WishRepository.getInstance(context).saveWish(wish);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error sharing wish: " + e.getMessage());
+            // Fallback to link sharing
+            String webUrl = generateWebWishUrl(shortCode);
+            String shareText = String.format("%s\n\n%s\n\n%s",
+                context.getString(R.string.share_wish_title),
+                webUrl,
+                context.getString(R.string.share_app_prompt)
+            );
+            LinkChooserUtil.shareWithChooser(context, shareText, context.getString(R.string.share_wish_title), context.getString(R.string.share_via));
+        }
     }
     
     /**
@@ -161,8 +216,22 @@ public class DeepLinkUtil {
         String webUrl = generateWebFestivalUrl(festivalId);
         String shareText = message + "\n\n" + webUrl + "\n\nDownload EventWish to explore more festivals!";
 
-        // Use LinkChooserUtil to ensure a chooser dialog is shown
-        LinkChooserUtil.shareWithChooser(context, shareText, "Share Festival", context.getString(R.string.share_via));
+        // Use SocialShareUtil to create a sharing intent
+        Intent chooserIntent = SocialShareUtil.createChooserIntent(
+                context,
+                shareText,
+                null, // No preview URL for festivals yet
+                "Festival",
+                context.getString(R.string.share_via));
+        
+        try {
+            context.startActivity(chooserIntent);
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting share intent", e);
+            
+            // Fallback to LinkChooserUtil
+            LinkChooserUtil.shareWithChooser(context, shareText, "Share Festival", context.getString(R.string.share_via));
+        }
     }
     
     /**
@@ -175,8 +244,22 @@ public class DeepLinkUtil {
         String webUrl = generateWebTemplateUrl(templateId);
         String shareText = message + "\n\n" + webUrl + "\n\nDownload EventWish to use this template!";
 
-        // Use LinkChooserUtil to ensure a chooser dialog is shown
-        LinkChooserUtil.shareWithChooser(context, shareText, "Share Template", context.getString(R.string.share_via));
+        // Use SocialShareUtil to create a sharing intent
+        Intent chooserIntent = SocialShareUtil.createChooserIntent(
+                context,
+                shareText,
+                null, // No preview URL for templates yet
+                "Template",
+                context.getString(R.string.share_via));
+        
+        try {
+            context.startActivity(chooserIntent);
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting share intent", e);
+            
+            // Fallback to LinkChooserUtil
+            LinkChooserUtil.shareWithChooser(context, shareText, "Share Template", context.getString(R.string.share_via));
+        }
     }
 
     /**

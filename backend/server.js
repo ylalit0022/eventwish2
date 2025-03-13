@@ -2,7 +2,22 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const connectDB = require('./config/db');
+const { generateWishLandingPage, generateFallbackLandingPage } = require('./views/wishLanding');
+
+// Debug: Check if the model file exists
+const modelPath = path.join(__dirname, 'models', 'SharedWish.js');
+console.log(`Checking if model file exists at: ${modelPath}`);
+console.log(`File exists: ${fs.existsSync(modelPath)}`);
+
+// Try to import the model
+try {
+    const SharedWish = require('./models/SharedWish');
+    console.log('SharedWish model loaded successfully');
+} catch (error) {
+    console.error('Error loading SharedWish model:', error);
+}
 
 // Connect to MongoDB
 connectDB();
@@ -31,46 +46,64 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
     }]);
 });
 
-// Deep linking route
-app.get('/wish/:shortCode', (req, res) => {
-    const { shortCode } = req.params;
-    // Serve an HTML page that can either redirect to the app or show a fallback
-    res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>EventWish</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <style>
-                body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-                .button { 
-                    display: inline-block;
-                    padding: 10px 20px;
-                    margin: 10px;
-                    background-color: #4CAF50;
-                    color: white;
-                    text-decoration: none;
-                    border-radius: 5px;
-                }
-            </style>
-        </head>
-        <body>
-            <h1>EventWish</h1>
-            <p>View this wish in our app!</p>
-            <a href="eventwish://wish/${shortCode}" class="button">Open in App</a>
-            <a href="https://play.google.com/store/apps/details?id=com.ds.eventwish" class="button">Get the App</a>
-            <script>
-                // Attempt to open the app
-                window.location.href = 'eventwish://wish/${shortCode}';
-                
-                // After a delay, if the app hasn't opened, show the buttons
-                setTimeout(function() {
-                    document.body.style.opacity = '1';
-                }, 1000);
-            </script>
-        </body>
-        </html>
-    `);
+// Deep linking route for wishes
+app.get('/wish/:shortCode', async (req, res) => {
+    try {
+        const { shortCode } = req.params;
+        
+        // Try to load the SharedWish model
+        let SharedWish;
+        try {
+            SharedWish = require('./models/SharedWish');
+            console.log('Using SharedWish model from ./models/SharedWish');
+        } catch (error) {
+            console.error('Error loading SharedWish from ./models/SharedWish:', error);
+            try {
+                SharedWish = require('./SharedWish');
+                console.log('Using SharedWish model from ./SharedWish');
+            } catch (error) {
+                console.error('Error loading SharedWish from ./SharedWish:', error);
+                throw new Error('Could not load SharedWish model');
+            }
+        }
+        
+        const wish = await SharedWish.findOne({ shortCode }).populate('template');
+        
+        // Track analytics
+        if (wish) {
+            // Increment views
+            wish.views += 1;
+            
+            // Track unique views by IP
+            const clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+            if (clientIp && !wish.viewerIps.includes(clientIp)) {
+                wish.viewerIps.push(clientIp);
+                wish.uniqueViews += 1;
+            }
+            
+            // Track referrer if available
+            if (req.headers.referer && !wish.referrer) {
+                wish.referrer = req.headers.referer;
+            }
+            
+            // Track device info if available
+            if (req.headers['user-agent'] && !wish.deviceInfo) {
+                wish.deviceInfo = req.headers['user-agent'];
+            }
+            
+            await wish.save();
+        }
+        
+        // Generate landing page HTML
+        const html = generateWishLandingPage(wish, shortCode);
+        
+        // Send the response
+        res.send(html);
+    } catch (error) {
+        console.error('Error generating landing page:', error);
+        const html = generateFallbackLandingPage(req.params.shortCode);
+        res.send(html);
+    }
 });
 
 // Routes
@@ -79,6 +112,7 @@ app.use('/api/wishes', require('./routes/wishes'));
 app.use('/api/festivals', require('./routes/festivals'));
 app.use('/api/categoryIcons', require('./routes/categoryIcons'));
 app.use('/api/test/time', require('./routes/timeRoutes'));
+app.use('/api/images', require('./routes/images'));
 
 // Debug logging middleware
 app.use((req, res, next) => {

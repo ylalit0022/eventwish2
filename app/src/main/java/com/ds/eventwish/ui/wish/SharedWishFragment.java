@@ -10,6 +10,9 @@ import android.view.ViewGroup;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.Toast;
+import android.widget.TextView;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -26,6 +29,7 @@ import com.ds.eventwish.ui.history.SharedPrefsManager;
 import com.ds.eventwish.utils.DeepLinkUtil;
 import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.data.model.Template;
+import com.ds.eventwish.utils.SocialShareUtil;
 import com.google.gson.Gson;
 
 import android.content.Intent;
@@ -37,6 +41,16 @@ import android.content.pm.ResolveInfo;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
+import com.ds.eventwish.data.remote.ApiClient;
+import com.ds.eventwish.data.remote.ApiService;
 
 public class SharedWishFragment extends Fragment {
     private SharedPrefsManager prefsManager;
@@ -46,6 +60,7 @@ public class SharedWishFragment extends Fragment {
     private String TAG = "SharedWishFragment";
     private WishResponse currentWish;
     private OnBackPressedCallback backPressCallback;
+    private JsonObject analyticsData;
 
     // Constants for share platforms
     private static final String SHARE_VIA_WHATSAPP = "whatsapp";
@@ -164,10 +179,21 @@ public class SharedWishFragment extends Fragment {
                 Toast.makeText(requireContext(), error, Toast.LENGTH_LONG).show();
             }
         });
+        
+        // Observe analytics data
+        viewModel.getAnalytics().observe(getViewLifecycleOwner(), analytics -> {
+            if (analytics != null) {
+                Log.d(TAG, "Received analytics: " + analytics);
+                updateAnalyticsDisplay(analytics);
+            }
+        });
     }
 
     private void setupClickListeners() {
         binding.shareButton.setOnClickListener(v -> shareWish());
+        
+        // Add analytics button click listener
+        binding.analyticsButton.setOnClickListener(v -> showAnalyticsBottomSheet());
     }
 
     private void loadWishContent(WishResponse wish) {
@@ -219,10 +245,7 @@ public class SharedWishFragment extends Fragment {
         if (currentWish == null) return;
         
         // Create the share URL
-        String shareUrl = getString(R.string.share_url_format, shortCode);
-        
-        // Create the share text
-        String shareText = getString(R.string.share_wish_text, shareUrl);
+        final String shareUrl = getString(R.string.share_url_format, shortCode);
         
         // Show the share bottom sheet
         View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_share, null);
@@ -231,12 +254,44 @@ public class SharedWishFragment extends Fragment {
         
         // Set up click listeners for share options
         bottomSheetView.findViewById(R.id.whatsappShare).setOnClickListener(v -> {
-            shareViaWhatsApp(shareText);
+            final String shareText = getString(R.string.share_wish_text_whatsapp, shareUrl);
+            handleShareVia(SHARE_VIA_WHATSAPP);
+            bottomSheetDialog.dismiss();
+        });
+        
+        bottomSheetView.findViewById(R.id.facebookShare).setOnClickListener(v -> {
+            final String shareText = getString(R.string.share_wish_text_facebook, shareUrl);
+            handleShareVia(SHARE_VIA_FACEBOOK);
+            bottomSheetDialog.dismiss();
+        });
+        
+        bottomSheetView.findViewById(R.id.twitterShare).setOnClickListener(v -> {
+            final String shareText = getString(R.string.share_wish_text_twitter, shareUrl);
+            handleShareVia(SHARE_VIA_TWITTER);
+            bottomSheetDialog.dismiss();
+        });
+        
+        bottomSheetView.findViewById(R.id.instagramShare).setOnClickListener(v -> {
+            final String shareText = getString(R.string.share_wish_text_instagram, shareUrl);
+            handleShareVia(SHARE_VIA_INSTAGRAM);
+            bottomSheetDialog.dismiss();
+        });
+        
+        bottomSheetView.findViewById(R.id.emailShare).setOnClickListener(v -> {
+            final String shareText = getString(R.string.share_wish_text_email, shareUrl);
+            handleShareVia(SHARE_VIA_EMAIL);
+            bottomSheetDialog.dismiss();
+        });
+        
+        bottomSheetView.findViewById(R.id.smsShare).setOnClickListener(v -> {
+            final String shareText = getString(R.string.share_wish_text_sms, shareUrl);
+            handleShareVia(SHARE_VIA_SMS);
             bottomSheetDialog.dismiss();
         });
         
         bottomSheetView.findViewById(R.id.moreOptions).setOnClickListener(v -> {
-            shareViaOther(shareText);
+            final String shareText = getString(R.string.share_wish_text, shareUrl);
+            handleShareVia(SHARE_VIA_OTHER);
             bottomSheetDialog.dismiss();
         });
         
@@ -248,82 +303,121 @@ public class SharedWishFragment extends Fragment {
         bottomSheetDialog.show();
     }
 
-    private void shareViaWhatsApp(String shareText) {
-        try {
-            Intent whatsappIntent = new Intent(Intent.ACTION_SEND);
-            whatsappIntent.setType("text/plain");
-            whatsappIntent.setPackage("com.whatsapp");
-            whatsappIntent.putExtra(Intent.EXTRA_TEXT, shareText);
-            
-            // Save the share platform before starting the activity
-            saveSharePlatform(SHARE_VIA_WHATSAPP);
-            
-            startActivity(whatsappIntent);
-        } catch (Exception e) {
-            Log.e(TAG, "Error sharing via WhatsApp", e);
-            Toast.makeText(requireContext(), "WhatsApp not installed", Toast.LENGTH_SHORT).show();
-            // Fallback to other share
-            shareViaOther(shareText);
+    /**
+     * Handle sharing via a specific platform
+     * @param platform The platform to share on
+     */
+    private void handleShareVia(String platform) {
+        if (currentWish == null || currentWish.getTemplate() == null) {
+            Toast.makeText(requireContext(), "Cannot share wish: missing data", Toast.LENGTH_SHORT).show();
+            return;
         }
-    }
-
-    private void shareViaOther(String shareText) {
-        Intent shareIntent = new Intent(Intent.ACTION_SEND);
-        shareIntent.setType("text/plain");
-        shareIntent.putExtra(Intent.EXTRA_TEXT, shareText);
         
-        // Create a chooser with a custom title
-        Intent chooser = Intent.createChooser(shareIntent, getString(R.string.share_via));
+        // Update the wish's sharedVia field
+        currentWish.setSharedVia(platform);
         
-        // Create a listener to detect which app was chosen
-        startActivityForResult(chooser, 100);
-    }
-    
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
+        // Track the share
+        trackShare(platform);
         
-        if (requestCode == 100) {
-            // This is called when returning from the share chooser
-            // We need to detect which app was used
-            if (data != null && data.getComponent() != null) {
-                String packageName = data.getComponent().getPackageName().toLowerCase();
-                String sharePlatform = SHARE_VIA_OTHER;
-                
-                // Determine which platform was used
-                if (packageName.contains("whatsapp")) {
-                    sharePlatform = SHARE_VIA_WHATSAPP;
-                } else if (packageName.contains("facebook") || packageName.contains("fb")) {
-                    sharePlatform = SHARE_VIA_FACEBOOK;
-                } else if (packageName.contains("twitter") || packageName.contains("tweet")) {
-                    sharePlatform = SHARE_VIA_TWITTER;
-                } else if (packageName.contains("instagram")) {
-                    sharePlatform = SHARE_VIA_INSTAGRAM;
-                } else if (packageName.contains("mail") || packageName.contains("gmail")) {
-                    sharePlatform = SHARE_VIA_EMAIL;
-                } else if (packageName.contains("sms") || packageName.contains("mms") || packageName.contains("message")) {
-                    sharePlatform = SHARE_VIA_SMS;
+        // Use the server-side approach for sharing
+        String title = currentWish.getTitle();
+        String description = currentWish.getDescription();
+        String senderName = currentWish.getSenderName();
+        String recipientName = currentWish.getRecipientName();
+        String templateId = currentWish.getTemplate().getId();
+        
+        // Create a SharedWish object from the WishResponse
+        SharedWish sharedWish = new SharedWish();
+        sharedWish.setTitle(title);
+        sharedWish.setDescription(description);
+        sharedWish.setSenderName(senderName);
+        sharedWish.setRecipientName(recipientName);
+        sharedWish.setShortCode(currentWish.getShortCode());
+        sharedWish.setSharedVia(platform);
+        
+        // Show loading indicator
+        showLoading(true);
+        
+        // Use the server-side approach
+        SocialShareUtil.shareWishViaServer(
+            requireContext(),
+            sharedWish,
+            templateId,
+            title,
+            description,
+            senderName,
+            recipientName,
+            platform,
+            new SocialShareUtil.ShareCallback() {
+                @Override
+                public void onShareReady(Intent shareIntent, String shareableUrl, String platform) {
+                    showLoading(false);
+                    
+                    // Copy the URL to clipboard
+                    copyToClipboard(shareableUrl);
+                    
+                    // Launch the share intent
+                    try {
+                        startActivity(Intent.createChooser(shareIntent, getString(R.string.share_via)));
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error launching share intent", e);
+                        Toast.makeText(requireContext(), "Error launching share: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
                 }
                 
-                // Save the share platform
-                saveSharePlatform(sharePlatform);
-                Log.d(TAG, "Shared via: " + sharePlatform + " (package: " + packageName + ")");
-            } else {
-                // If we can't determine the app, save as "other"
-                saveSharePlatform(SHARE_VIA_OTHER);
-                Log.d(TAG, "Shared via: unknown app");
+                @Override
+                public void onShareError(String errorMessage) {
+                    showLoading(false);
+                    Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_SHORT).show();
+                }
             }
+        );
+    }
+
+    /**
+     * Show or hide loading indicator
+     * @param show True to show, false to hide
+     */
+    private void showLoading(boolean show) {
+        if (binding != null) {
+            binding.progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
+            binding.loadingView.setVisibility(show ? View.VISIBLE : View.GONE);
+            binding.contentLayout.setVisibility(show ? View.GONE : View.VISIBLE);
         }
     }
 
-    private void copyLinkToClipboard(String link) {
+    /**
+     * Copy text to clipboard
+     * @param text The text to copy
+     */
+    private void copyToClipboard(String text) {
         ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
-        ClipData clip = ClipData.newPlainText("EventWish Link", link);
+        ClipData clip = ClipData.newPlainText("Shareable URL", text);
+        clipboard.setPrimaryClip(clip);
+        Toast.makeText(requireContext(), "URL copied to clipboard", Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * Track share analytics
+     * @param platform The platform shared on
+     */
+    private void trackShare(String platform) {
+        if (currentWish != null) {
+            // Save to history
+            ViewModelProvider provider = new ViewModelProvider(requireActivity());
+            HistoryViewModel historyViewModel = provider.get(HistoryViewModel.class);
+            historyViewModel.updateSharedWish(currentWish.getShortCode(), platform);
+            
+            // Send analytics to backend
+            sendShareAnalyticsToBackend(platform);
+        }
+    }
+
+    private void copyLinkToClipboard(String shareUrl) {
+        ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
+        ClipData clip = ClipData.newPlainText("Share URL", shareUrl);
         clipboard.setPrimaryClip(clip);
         Toast.makeText(requireContext(), R.string.link_copied, Toast.LENGTH_SHORT).show();
-        
-        // Save the share platform
-        saveSharePlatform(SHARE_VIA_CLIPBOARD);
     }
     
     private void saveSharePlatform(String platform) {
@@ -338,12 +432,232 @@ public class SharedWishFragment extends Fragment {
                 
                 if (updated) {
                     Log.d(TAG, "Saved share platform for " + shortCode + ": " + platform);
+                    
+                    // Update the current wish's sharedVia field
+                    if (currentWish != null) {
+                        currentWish.setSharedVia(platform);
+                        Log.d(TAG, "Updated current wish sharedVia to: " + platform);
+                    }
+                    
+                    // Send analytics to backend
+                    sendShareAnalyticsToBackend(platform);
                 } else {
                     Log.w(TAG, "Failed to update share platform for " + shortCode);
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error saving share platform", e);
             }
+        }
+    }
+
+    /**
+     * Send share analytics to the backend
+     * @param platform The platform used for sharing
+     */
+    private void sendShareAnalyticsToBackend(String platform) {
+        // TODO: Implement analytics tracking
+        Log.d(TAG, "Share via " + platform);
+    }
+
+    /**
+     * Update the analytics display with data from the backend
+     * @param analytics The analytics data from the backend
+     */
+    private void updateAnalyticsDisplay(JsonObject analytics) {
+        try {
+            // Extract analytics data
+            int views = 0;
+            int uniqueViews = 0;
+            int shareCount = 0;
+            
+            if (analytics.has("views")) {
+                views = analytics.get("views").getAsInt();
+            }
+            
+            if (analytics.has("uniqueViews")) {
+                uniqueViews = analytics.get("uniqueViews").getAsInt();
+            }
+            
+            if (analytics.has("shareCount")) {
+                shareCount = analytics.get("shareCount").getAsInt();
+            }
+            
+            // Update the analytics badge with the total views
+            if (binding.analyticsButton != null) {
+                binding.analyticsButton.setText(String.valueOf(views));
+                binding.analyticsButton.setVisibility(View.VISIBLE);
+            }
+            
+            // Save the analytics data for later use
+            this.analyticsData = analytics;
+        } catch (Exception e) {
+            Log.e(TAG, "Error updating analytics display", e);
+        }
+    }
+    
+    /**
+     * Show a bottom sheet with detailed analytics
+     */
+    private void showAnalyticsBottomSheet() {
+        if (analyticsData == null) return;
+        
+        try {
+            // Create and show the bottom sheet
+            View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_analytics, null);
+            BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
+            bottomSheetDialog.setContentView(bottomSheetView);
+            
+            // Extract analytics data
+            int views = 0;
+            int uniqueViews = 0;
+            int shareCount = 0;
+            
+            if (analyticsData.has("views")) {
+                views = analyticsData.get("views").getAsInt();
+            }
+            
+            if (analyticsData.has("uniqueViews")) {
+                uniqueViews = analyticsData.get("uniqueViews").getAsInt();
+            }
+            
+            if (analyticsData.has("shareCount")) {
+                shareCount = analyticsData.get("shareCount").getAsInt();
+            }
+            
+            // Set the analytics values
+            TextView viewsText = bottomSheetView.findViewById(R.id.viewsCount);
+            TextView uniqueViewsText = bottomSheetView.findViewById(R.id.uniqueViewsCount);
+            TextView sharesText = bottomSheetView.findViewById(R.id.sharesCount);
+            
+            viewsText.setText(String.valueOf(views));
+            uniqueViewsText.setText(String.valueOf(uniqueViews));
+            sharesText.setText(String.valueOf(shareCount));
+            
+            // Set up the share breakdown if available
+            if (analyticsData.has("shareHistory") && analyticsData.get("shareHistory").isJsonArray()) {
+                setupShareBreakdown(bottomSheetView, analyticsData.getAsJsonArray("shareHistory"));
+            }
+            
+            // Show the bottom sheet
+            bottomSheetDialog.show();
+        } catch (Exception e) {
+            Log.e(TAG, "Error showing analytics bottom sheet", e);
+            Toast.makeText(requireContext(), "Error showing analytics", Toast.LENGTH_SHORT).show();
+        }
+    }
+    
+    /**
+     * Set up the share breakdown chart
+     * @param view The bottom sheet view
+     * @param shareHistory The share history data
+     */
+    private void setupShareBreakdown(View view, JsonArray shareHistory) {
+        try {
+            // Count shares by platform
+            Map<String, Integer> platformCounts = new HashMap<>();
+            
+            for (int i = 0; i < shareHistory.size(); i++) {
+                JsonObject shareEntry = shareHistory.get(i).getAsJsonObject();
+                if (shareEntry.has("platform")) {
+                    String platform = shareEntry.get("platform").getAsString();
+                    platformCounts.put(platform, platformCounts.getOrDefault(platform, 0) + 1);
+                }
+            }
+            
+            // Create the breakdown view
+            LinearLayout breakdownContainer = view.findViewById(R.id.shareBreakdownContainer);
+            breakdownContainer.removeAllViews();
+            
+            // Add a row for each platform
+            for (Map.Entry<String, Integer> entry : platformCounts.entrySet()) {
+                String platform = entry.getKey();
+                int count = entry.getValue();
+                
+                // Create a row for this platform
+                View rowView = getLayoutInflater().inflate(R.layout.item_share_platform, null);
+                
+                // Set the platform icon and name
+                ImageView platformIcon = rowView.findViewById(R.id.platformIcon);
+                TextView platformName = rowView.findViewById(R.id.platformName);
+                TextView platformCount = rowView.findViewById(R.id.platformCount);
+                
+                // Set the platform name
+                platformName.setText(getPlatformDisplayName(platform));
+                platformCount.setText(String.valueOf(count));
+                
+                // Set the platform icon
+                setPlatformIcon(platformIcon, platform);
+                
+                // Add the row to the container
+                breakdownContainer.addView(rowView);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error setting up share breakdown", e);
+        }
+    }
+    
+    /**
+     * Get the display name for a platform
+     * @param platform The platform code
+     * @return The display name
+     */
+    private String getPlatformDisplayName(String platform) {
+        switch (platform.toUpperCase()) {
+            case "WHATSAPP":
+                return "WhatsApp";
+            case "FACEBOOK":
+                return "Facebook";
+            case "TWITTER":
+                return "Twitter";
+            case "INSTAGRAM":
+                return "Instagram";
+            case "EMAIL":
+                return "Email";
+            case "SMS":
+                return "SMS";
+            case "CLIPBOARD":
+                return "Copied Link";
+            case "LINK":
+                return "Direct Link";
+            default:
+                return "Other";
+        }
+    }
+    
+    /**
+     * Set the icon for a platform
+     * @param imageView The ImageView to set the icon on
+     * @param platform The platform code
+     */
+    private void setPlatformIcon(ImageView imageView, String platform) {
+        switch (platform.toUpperCase()) {
+            case "WHATSAPP":
+                imageView.setImageResource(R.drawable.ic_whatsapp);
+                break;
+            case "FACEBOOK":
+                imageView.setImageResource(R.drawable.ic_facebook);
+                break;
+            case "TWITTER":
+                imageView.setImageResource(R.drawable.ic_twitter);
+                break;
+            case "INSTAGRAM":
+                imageView.setImageResource(R.drawable.ic_instagram);
+                break;
+            case "EMAIL":
+                imageView.setImageResource(R.drawable.ic_email);
+                break;
+            case "SMS":
+                imageView.setImageResource(R.drawable.ic_sms);
+                break;
+            case "CLIPBOARD":
+                imageView.setImageResource(R.drawable.ic_link);
+                break;
+            case "LINK":
+                imageView.setImageResource(R.drawable.ic_link);
+                break;
+            default:
+                imageView.setImageResource(R.drawable.ic_share);
+                break;
         }
     }
 
