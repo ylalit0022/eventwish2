@@ -32,6 +32,95 @@ const AdMobSchema = new mongoose.Schema({
     status: {
         type: Boolean,
         default: true
+    },
+    // Targeting criteria
+    targetingCriteria: {
+        type: Map,
+        of: mongoose.Schema.Types.Mixed,
+        default: {}
+    },
+    // Target segments
+    targetSegments: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'UserSegment'
+    }],
+    // Targeting priority (higher number = higher priority)
+    targetingPriority: {
+        type: Number,
+        default: 1,
+        min: 1,
+        max: 10
+    },
+    // Parameters for customizing the ad
+    parameters: {
+        type: Map,
+        of: String,
+        default: {}
+    },
+    // Analytics fields
+    impressions: {
+        type: Number,
+        default: 0
+    },
+    clicks: {
+        type: Number,
+        default: 0
+    },
+    ctr: {
+        type: Number,
+        default: 0
+    },
+    revenue: {
+        type: Number,
+        default: 0
+    },
+    // Store recent impression data
+    impressionData: [{
+        timestamp: {
+            type: Date,
+            default: Date.now
+        },
+        context: {
+            type: Object,
+            default: {}
+        }
+    }],
+    // Store recent click data
+    clickData: [{
+        timestamp: {
+            type: Date,
+            default: Date.now
+        },
+        context: {
+            type: Object,
+            default: {}
+        }
+    }],
+    // Store revenue data
+    revenueData: [{
+        timestamp: {
+            type: Date,
+            default: Date.now
+        },
+        amount: {
+            type: Number,
+            required: true
+        },
+        currency: {
+            type: String,
+            default: 'USD'
+        }
+    }],
+    // Performance metrics by segment
+    segmentPerformance: {
+        type: Map,
+        of: {
+            impressions: Number,
+            clicks: Number,
+            ctr: Number,
+            revenue: Number
+        },
+        default: {}
     }
 }, {
     timestamps: true,

@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { AdMob, adTypes } = require('../models/AdMob');
+const { verifyToken, verifyApiKey } = require('../middleware/authMiddleware');
+const logger = require('../config/logger');
+const adMobService = require('../services/adMobService');
+
+// Apply authentication middleware to all routes
+router.use(verifyToken);
 
 // Validate ad data middleware
 const validateAdData = (req, res, next) => {
@@ -55,7 +61,7 @@ const validateAdData = (req, res, next) => {
 
         next();
     } catch (error) {
-        console.error('Validation error:', error);
+        logger.error('Validation error:', { error: error.message });
         res.status(500).json({
             success: false,
             message: 'Validation error occurred',
@@ -106,7 +112,7 @@ router.get('/', async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Error fetching ads:', error);
+        logger.error('Error fetching ads:', { error: error.message });
         res.status(500).json({
             success: false,
             message: 'Failed to fetch ads',
@@ -131,13 +137,18 @@ router.post('/', validateAdData, async (req, res) => {
         // Save to database
         const savedAd = await newAd.save();
 
+        // Invalidate cache
+        adMobService.invalidateAllAdCaches();
+
+        logger.info('New ad created', { adId: savedAd.id, adName: savedAd.adName });
+
         res.status(201).json({
             success: true,
             message: 'Ad created successfully',
             data: savedAd
         });
     } catch (error) {
-        console.error('Error creating ad:', error);
+        logger.error('Error creating ad:', { error: error.message });
 
         // Handle duplicate key error
         if (error.message === 'Ad unit code already exists') {
@@ -194,13 +205,18 @@ router.put('/:id', validateAdData, async (req, res) => {
             });
         }
 
+        // Invalidate cache
+        adMobService.invalidateAdCache(req.params.id);
+
+        logger.info('Ad updated', { adId: updatedAd.id, adName: updatedAd.adName });
+
         res.json({
             success: true,
             message: 'Ad updated successfully',
             data: updatedAd
         });
     } catch (error) {
-        console.error('Error updating ad:', error);
+        logger.error('Error updating ad:', { error: error.message });
 
         // Handle duplicate key error
         if (error.message === 'Ad unit code already exists') {
@@ -246,12 +262,17 @@ router.delete('/:id', async (req, res) => {
             });
         }
 
+        // Invalidate cache
+        adMobService.invalidateAdCache(req.params.id);
+
+        logger.info('Ad deleted', { adId: req.params.id });
+
         res.json({
             success: true,
             message: 'Ad deleted successfully'
         });
     } catch (error) {
-        console.error('Error deleting ad:', error);
+        logger.error('Error deleting ad:', { error: error.message });
         res.status(500).json({
             success: false,
             message: 'Failed to delete ad',
@@ -297,13 +318,18 @@ router.patch('/:id/status', async (req, res) => {
             });
         }
 
+        // Invalidate cache
+        adMobService.invalidateAdCache(req.params.id);
+
+        logger.info('Ad status updated', { adId: updatedAd.id, status: updatedAd.status });
+
         res.json({
             success: true,
             message: 'Ad status updated successfully',
             data: updatedAd
         });
     } catch (error) {
-        console.error('Error updating ad status:', error);
+        logger.error('Error updating ad status:', { error: error.message });
         res.status(500).json({
             success: false,
             message: 'Failed to update ad status',

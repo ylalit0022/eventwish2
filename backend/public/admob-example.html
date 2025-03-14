@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AdMob Integration Example</title>
+  <link rel="stylesheet" href="css/admob-example.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>AdMob Integration Example</h1>
+      <p>This page demonstrates how to integrate with the server-side AdMob service.</p>
+    </header>
+    
+    <main>
+      <section class="example-section">
+        <h2>Banner Ad Example</h2>
+        <p>The banner ad below is loaded from the server-side AdMob service.</p>
+        <div id="banner-ad-container"></div>
+        <button id="load-banner-btn" class="btn">Load Banner Ad</button>
+      </section>
+      
+      <section class="example-section">
+        <h2>Interstitial Ad Example</h2>
+        <p>Click the button below to load an interstitial ad from the server-side AdMob service.</p>
+        <button id="load-interstitial-btn" class="btn">Load Interstitial Ad</button>
+      </section>
+      
+      <section class="example-section">
+        <h2>Ad Types</h2>
+        <p>The following ad types are available:</p>
+        <ul id="ad-types-list">
+          <li>Loading ad types...</li>
+        </ul>
+        <button id="load-types-btn" class="btn">Load Ad Types</button>
+      </section>
+      
+      <section class="example-section">
+        <h2>Cache Management</h2>
+        <p>The AdMob client library includes caching to improve performance and support offline usage.</p>
+        <button id="clear-cache-btn" class="btn">Clear Cache</button>
+      </section>
+    </main>
+    
+    <footer>
+      <p>&copy; 2023 EventWish. All rights reserved.</p>
+    </footer>
+  </div>
+  
+  <!-- Add styles for the example page -->
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      background-color: #f8f9fa;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    
+    h1 {
+      color: #007bff;
+      margin-bottom: 10px;
+    }
+    
+    h2 {
+      color: #343a40;
+      margin-top: 0;
+    }
+    
+    .example-section {
+      background-color: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .btn {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 16px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      margin-top: 10px;
+    }
+    
+    .btn:hover {
+      background-color: #0069d9;
+    }
+    
+    #banner-ad-container {
+      margin: 20px 0;
+      min-height: 50px;
+    }
+    
+    footer {
+      text-align: center;
+      margin-top: 40px;
+      color: #6c757d;
+      font-size: 14px;
+    }
+    
+    @media (min-width: 768px) {
+      #banner-ad-container {
+        min-height: 90px;
+      }
+    }
+  </style>
+  
+  <!-- Load the AdMob client library -->
+  <script src="js/admob-client.js"></script>
+  
+  <!-- Load the example code -->
+  <script src="js/admob-example.js"></script>
+  
+  <!-- Initialize the example -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Initialize AdMobClient with your app signature
+      // In a real implementation, you would get this from your server
+      // or environment configuration
+      
+      // Load banner ad button
+      document.getElementById('load-banner-btn').addEventListener('click', function() {
+        AdMobExample.loadBannerAd('banner-ad-container');
+      });
+      
+      // Load interstitial ad button
+      document.getElementById('load-interstitial-btn').addEventListener('click', function() {
+        AdMobExample.loadInterstitialAd();
+      });
+      
+      // Load ad types button
+      document.getElementById('load-types-btn').addEventListener('click', async function() {
+        try {
+          const adMobClient = new AdMobClient({
+            appSignature: 'YOUR_APP_SIGNATURE' // Replace with your app signature
+          });
+          
+          const adTypes = await adMobClient.getAdTypes();
+          
+          const adTypesList = document.getElementById('ad-types-list');
+          adTypesList.innerHTML = '';
+          
+          adTypes.forEach(type => {
+            const li = document.createElement('li');
+            li.textContent = type;
+            adTypesList.appendChild(li);
+          });
+        } catch (error) {
+          console.error('Error loading ad types:', error);
+          
+          const adTypesList = document.getElementById('ad-types-list');
+          adTypesList.innerHTML = '<li class="error">Error loading ad types</li>';
+        }
+      });
+      
+      // Clear cache button
+      document.getElementById('clear-cache-btn').addEventListener('click', function() {
+        const adMobClient = new AdMobClient({
+          appSignature: 'YOUR_APP_SIGNATURE' // Replace with your app signature
+        });
+        
+        adMobClient.clearCache();
+        alert('Cache cleared successfully');
+      });
+    });
+  </script>
+</body>
+</html> 

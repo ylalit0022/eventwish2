@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EventWish AdMob A/B Testing Example</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    h1 {
+      color: #333;
+    }
+    
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .card h2 {
+      margin-top: 0;
+      color: #333;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    
+    button:hover {
+      background-color: #45a049;
+    }
+    
+    .ad-container {
+      min-height: 100px;
+      border: 1px dashed #ccc;
+      border-radius: 4px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 10px;
+    }
+    
+    .ad {
+      width: 100%;
+    }
+    
+    .ad-cta {
+      background-color: #2196F3;
+    }
+    
+    .ad-cta:hover {
+      background-color: #0b7dda;
+    }
+    
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    .debug-info {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 20px;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>EventWish AdMob A/B Testing Example</h1>
+    <p>This example demonstrates how to integrate with the A/B testing functionality to get optimal ad configurations and track events.</p>
+  </header>
+  
+  <div class="container">
+    <div class="card">
+      <h2>Banner Ad Example</h2>
+      <p>This is an example of a banner ad that uses A/B testing to determine the optimal configuration.</p>
+      <div id="banner-ad-container" class="ad-container">
+        <p>Loading banner ad...</p>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>Interstitial Ad Example</h2>
+      <p>This is an example of an interstitial ad that uses A/B testing to determine the optimal configuration.</p>
+      <button id="show-interstitial-button">Show Interstitial Ad</button>
+    </div>
+    
+    <div class="card">
+      <h2>Debug Information</h2>
+      <p>This section shows debug information about the A/B testing integration.</p>
+      <div class="controls">
+        <button id="refresh-ads-button">Refresh Ads</button>
+        <button id="clear-debug-button">Clear Debug Info</button>
+      </div>
+      <div id="debug-info" class="debug-info">Debug information will appear here...</div>
+    </div>
+  </div>
+  
+  <script src="abtest-integration.js"></script>
+  <script>
+    // Debug functionality
+    const debugInfo = document.getElementById('debug-info');
+    const refreshAdsButton = document.getElementById('refresh-ads-button');
+    const clearDebugButton = document.getElementById('clear-debug-button');
+    
+    // Override console.log to display in debug info
+    const originalConsoleLog = console.log;
+    console.log = function() {
+      // Call original console.log
+      originalConsoleLog.apply(console, arguments);
+      
+      // Add to debug info
+      const message = Array.from(arguments).map(arg => {
+        if (typeof arg === 'object') {
+          return JSON.stringify(arg, null, 2);
+        }
+        return arg;
+      }).join(' ');
+      
+      debugInfo.textContent += `\n${new Date().toISOString()}: ${message}`;
+      debugInfo.scrollTop = debugInfo.scrollHeight;
+    };
+    
+    // Override console.error to display in debug info
+    const originalConsoleError = console.error;
+    console.error = function() {
+      // Call original console.error
+      originalConsoleError.apply(console, arguments);
+      
+      // Add to debug info
+      const message = Array.from(arguments).map(arg => {
+        if (typeof arg === 'object') {
+          return JSON.stringify(arg, null, 2);
+        }
+        return arg;
+      }).join(' ');
+      
+      debugInfo.textContent += `\n${new Date().toISOString()} ERROR: ${message}`;
+      debugInfo.scrollTop = debugInfo.scrollHeight;
+    };
+    
+    // Add event listeners
+    refreshAdsButton.addEventListener('click', () => {
+      console.log('Refreshing ads...');
+      initializeAds();
+    });
+    
+    clearDebugButton.addEventListener('click', () => {
+      debugInfo.textContent = 'Debug information will appear here...';
+    });
+    
+    // Log initial message
+    console.log('A/B Testing Example initialized');
+  </script>
+</body>
+</html> 

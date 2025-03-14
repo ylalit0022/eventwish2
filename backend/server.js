@@ -1,10 +1,24 @@
 require('dotenv').config();
 const express = require('express');
+const mongoose = require('mongoose');
 const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
+const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs');
 const connectDB = require('./config/db');
 const { generateWishLandingPage, generateFallbackLandingPage } = require('./views/wishLanding');
+const logger = require('./config/logger');
+const monitoringController = require('./controllers/monitoringController');
+const loadBalancer = require('./config/loadBalancer');
+const swagger = require('./config/swagger');
+
+// Initialize load balancer if enabled
+if (process.env.LOAD_BALANCER_ENABLED === 'true') {
+  loadBalancer.initLoadBalancer();
+}
 
 // Debug: Check if the model file exists
 const modelPath = path.join(__dirname, 'models', 'SharedWish.js');
@@ -20,13 +34,44 @@ try {
 }
 
 // Connect to MongoDB
-connectDB();
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => {
+    logger.info('Connected to MongoDB');
+  })
+  .catch((err) => {
+    logger.error(`MongoDB connection error: ${err.message}`, { error: err });
+    process.exit(1);
+  });
 
 const app = express();
 
 // Middleware
 app.use(cors());
+app.use(helmet());
+app.use(compression());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Setup request logging
+app.use(morgan('combined', { stream: { write: message => logger.http(message.trim()) } }));
+
+// Setup request monitoring
+app.use(monitoringController.trackRequestMiddleware);
+
+// Setup Swagger UI
+if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true') {
+  swagger.setupSwagger(app);
+}
+
+// Rate limiting
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again after 15 minutes',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', apiLimiter);
 
 // Serve static files from the backendUi directory
 app.use(express.static('backendUi'));
@@ -115,20 +160,76 @@ app.use('/api/test/time', require('./routes/timeRoutes'));
 app.use('/api/images', require('./routes/images'));
 app.use('/api/share', require('./routes/share'));
 
+// Health check routes
+app.use('/api/health', require('./routes/healthRoutes'));
+
+// AdMob routes
+app.use('/api/admob-ads', require('./routes/adMobRoutes')); // Admin routes
+app.use('/api/admob', require('./routes/adMobClientRoutes')); // Client routes
+
+// Analytics routes
+app.use('/api/analytics', require('./routes/analyticsRoutes')); // Analytics routes
+
+// Monitoring routes
+app.use('/api/monitoring', require('./routes/monitoringRoutes')); // Monitoring routes
+
+// Import routes
+const admobRoutes = require('./routes/admobRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const clientRoutes = require('./routes/clientRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
+const monitoringRoutes = require('./routes/monitoringRoutes');
+const abtestRoutes = require('./routes/abtestRoutes');
+const segmentRoutes = require('./routes/segmentRoutes');
+const fraudRoutes = require('./routes/fraudRoutes');
+const suspiciousActivityRoutes = require('./routes/suspiciousActivityRoutes');
+const healthRoutes = require('./routes/healthRoutes');
+
+// Use routes
+app.use('/api/admob', admobRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/client', clientRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/monitoring', monitoringRoutes);
+app.use('/api/abtest', abtestRoutes);
+app.use('/api/segments', segmentRoutes);
+app.use('/api/fraud', fraudRoutes);
+app.use('/api/suspicious-activity', suspiciousActivityRoutes);
+app.use('/api/health', healthRoutes);
+
 // Debug logging middleware
-app.use((req, res, next) => {
-    console.log(`${req.method} ${req.url}`);
+if (process.env.NODE_ENV === 'development') {
+  app.use((req, res, next) => {
+    logger.debug(`${req.method} ${req.originalUrl}`);
     next();
-});
+  });
+}
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ message: 'Something went wrong!' });
+  logger.error(`Unhandled error: ${err.message}`, { error: err, path: req.path });
+  res.status(500).json({
+    success: false,
+    message: 'Server error',
+    error: process.env.NODE_ENV === 'development' ? err.message : 'An unexpected error occurred'
+  });
 });
 
+// Start server
 const PORT = process.env.PORT || 3000;
+const server = app.listen(PORT, () => {
+    logger.info(`Server is running on port ${PORT}`);
+    logger.info(`API documentation available at http://localhost:${PORT}/api-docs`);
+});
 
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM signal received: closing HTTP server');
+  server.close(() => {
+    logger.info('HTTP server closed');
+    mongoose.connection.close(false, () => {
+      logger.info('MongoDB connection closed');
+      process.exit(0);
+    });
+  });
 });
