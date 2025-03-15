@@ -2,7 +2,7 @@
  * Secret Generator Script
  * 
  * This script generates secure random values for JWT_SECRET and API_KEY
- * Run with: node generate-secrets.js
+ * Run with: node scripts/generate-secrets.js
  */
 
 const crypto = require('crypto');
