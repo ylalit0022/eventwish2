@@ -137,12 +137,10 @@
      */
     async _makeRequest(endpoint, method = 'GET', data = null, attempt = 1) {
       try {
-        // Check if offline
-        if (!navigator.onLine) {
-          throw new Error('Device is offline');
-        }
+        // Build URL
+        const url = `${this.config.baseUrl}${endpoint}`;
         
-        // Build request options
+        // Set up request options
         const options = {
           method,
           headers: {
@@ -151,41 +149,43 @@
           }
         };
         
-        // Add body for non-GET requests
-        if (method !== 'GET' && data) {
+        // Add body for POST requests
+        if (method === 'POST' && data) {
           options.body = JSON.stringify(data);
         }
         
         // Make request
-        const response = await fetch(`${this.config.baseUrl}${endpoint}`, options);
+        console.log(`AdMobClient: Making ${method} request to ${url}`, options);
+        const response = await fetch(url, options);
         
-        // Check for success
+        // Check if response is ok
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'API request failed');
+          throw new Error(`HTTP error! Status: ${response.status}`);
         }
         
-        // Parse and return response
-        return await response.json();
-      } catch (error) {
-        console.error(`AdMobClient: API request failed (attempt ${attempt})`, error);
+        // Parse response
+        const responseData = await response.json();
         
-        // Retry if not exceeded max attempts
+        // Return response data
+        return responseData;
+      } catch (error) {
+        console.error(`AdMobClient: Request failed (attempt ${attempt}/${this.config.retryAttempts})`, error);
+        
+        // Retry if attempts remaining
         if (attempt < this.config.retryAttempts) {
-          console.log(`AdMobClient: Retrying in ${this.config.retryDelay}ms`);
+          // Calculate delay with exponential backoff
+          const delay = this.config.retryDelay * Math.pow(2, attempt - 1);
           
-          // Wait for retry delay
-          await new Promise(resolve => setTimeout(resolve, this.config.retryDelay));
+          console.log(`AdMobClient: Retrying in ${delay}ms...`);
           
-          // Exponential backoff
-          const nextDelay = this.config.retryDelay * 2;
-          this.config.retryDelay = nextDelay;
+          // Wait for delay
+          await new Promise(resolve => setTimeout(resolve, delay));
           
           // Retry request
           return this._makeRequest(endpoint, method, data, attempt + 1);
         }
         
-        // Throw error if exceeded max attempts
+        // No attempts remaining, throw error
         throw error;
       }
     }

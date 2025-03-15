@@ -138,19 +138,22 @@
       
       // Load banner ad button
       document.getElementById('load-banner-btn').addEventListener('click', function() {
+        console.log('Loading banner ad...');
         AdMobExample.loadBannerAd('banner-ad-container');
       });
       
       // Load interstitial ad button
       document.getElementById('load-interstitial-btn').addEventListener('click', function() {
+        console.log('Loading interstitial ad...');
         AdMobExample.loadInterstitialAd();
       });
       
       // Load ad types button
       document.getElementById('load-types-btn').addEventListener('click', async function() {
+        console.log('Loading ad types...');
         try {
           const adMobClient = new AdMobClient({
-            appSignature: 'YOUR_APP_SIGNATURE' // Replace with your app signature
+            appSignature: 'app_sig_1' // Using a valid app signature from .env.temp
           });
           
           const adTypes = await adMobClient.getAdTypes();
@@ -173,8 +176,9 @@
       
       // Clear cache button
       document.getElementById('clear-cache-btn').addEventListener('click', function() {
+        console.log('Clearing cache...');
         const adMobClient = new AdMobClient({
-          appSignature: 'YOUR_APP_SIGNATURE' // Replace with your app signature
+          appSignature: 'app_sig_1' // Using a valid app signature from .env.temp
         });
         
         adMobClient.clearCache();

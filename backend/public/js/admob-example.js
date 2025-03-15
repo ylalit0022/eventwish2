@@ -8,7 +8,7 @@
   
   // Initialize AdMobClient
   const adMobClient = new AdMobClient({
-    appSignature: 'YOUR_APP_SIGNATURE', // Replace with your app signature
+    appSignature: 'app_sig_1', // Using a valid app signature from .env.temp
     baseUrl: '/api/admob', // Base URL for API requests
     retryAttempts: 3, // Number of retry attempts for failed requests
     retryDelay: 1000, // Initial delay between retries in milliseconds

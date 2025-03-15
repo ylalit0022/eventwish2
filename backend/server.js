@@ -81,8 +81,9 @@ process.on('unhandledRejection', (reason, promise) => {
 
 const app = express();
 
-// Trust proxy for correct client IP detection behind load balancers
-app.set('trust proxy', true);
+// Configure trust proxy more securely for use with Render
+// Only trust the first proxy in the chain
+app.set('trust proxy', 1);
 
 // Middleware
 app.use(cors());
@@ -109,6 +110,14 @@ const apiLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again after 15 minutes',
   standardHeaders: true,
   legacyHeaders: false,
+  // Add a custom key generator to handle proxies securely
+  keyGenerator: (req) => {
+    // Get the leftmost IP in the X-Forwarded-For header
+    // This is the client's real IP when behind a trusted proxy
+    const xForwardedFor = req.headers['x-forwarded-for'];
+    const ip = xForwardedFor ? xForwardedFor.split(',')[0].trim() : req.ip;
+    return ip;
+  }
 });
 app.use('/api/', apiLimiter);
 
