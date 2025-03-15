@@ -19,7 +19,8 @@
     "check-env": "node scripts/check-env.js",
     "prestart": "node scripts/check-env.js",
     "predev": "node scripts/check-env.js",
-    "test:auth": "node scripts/test-auth.js"
+    "test:auth": "node scripts/test-auth.js",
+    "test:cache": "node scripts/test-cache.js"
   },
   "keywords": [],
   "author": "EventWish Team",
