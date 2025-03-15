@@ -215,6 +215,9 @@ app.use('/api/ab-test', require('./routes/abTestRoutes'));
 // User segmentation routes
 app.use('/api/segments', require('./routes/segmentRoutes'));
 
+// Test routes
+app.use('/api/test', require('./routes/testRoutes'));
+
 // Debug logging middleware
 if (process.env.NODE_ENV === 'development') {
   app.use((req, res, next) => {
