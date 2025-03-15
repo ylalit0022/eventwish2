@@ -7,7 +7,7 @@
 const express = require('express');
 const router = express.Router();
 const healthCheckService = require('../services/healthCheckService');
-const { authenticateApiKey } = require('../middleware/authMiddleware');
+const { verifyApiKey } = require('../middleware/authMiddleware');
 
 /**
  * @route GET /api/health
@@ -66,7 +66,7 @@ router.get('/', async (req, res) => {
  * @description Get database health status
  * @access Authenticated
  */
-router.get('/database', authenticateApiKey, async (req, res) => {
+router.get('/database', verifyApiKey, async (req, res) => {
   try {
     const dbStatus = await healthCheckService.checkDatabase();
     return res.json({
@@ -90,7 +90,7 @@ router.get('/database', authenticateApiKey, async (req, res) => {
  * @description Get Redis health status
  * @access Authenticated
  */
-router.get('/redis', authenticateApiKey, async (req, res) => {
+router.get('/redis', verifyApiKey, async (req, res) => {
   try {
     const redisStatus = await healthCheckService.checkRedis();
     return res.json({
@@ -114,7 +114,7 @@ router.get('/redis', authenticateApiKey, async (req, res) => {
  * @description Get API endpoints health status
  * @access Authenticated
  */
-router.get('/api', authenticateApiKey, async (req, res) => {
+router.get('/api', verifyApiKey, async (req, res) => {
   try {
     const apiStatus = await healthCheckService.checkApiEndpoints();
     return res.json({
@@ -138,7 +138,7 @@ router.get('/api', authenticateApiKey, async (req, res) => {
  * @description Get system health status (disk, memory, CPU)
  * @access Authenticated
  */
-router.get('/system', authenticateApiKey, async (req, res) => {
+router.get('/system', verifyApiKey, async (req, res) => {
   try {
     const [diskStatus, memoryStatus, cpuStatus] = await Promise.all([
       healthCheckService.checkDiskSpace(),
@@ -175,7 +175,7 @@ router.get('/system', authenticateApiKey, async (req, res) => {
  * @description Get AdMob services health status
  * @access Authenticated
  */
-router.get('/admob', authenticateApiKey, async (req, res) => {
+router.get('/admob', verifyApiKey, async (req, res) => {
   try {
     const adMobStatus = await healthCheckService.checkAdMobServices();
     return res.json({
