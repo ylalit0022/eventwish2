@@ -9,7 +9,7 @@
     "dev": "cd backend && npm run dev"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": "18.x"
   },
   "keywords": [
     "eventwish",

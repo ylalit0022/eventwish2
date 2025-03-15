@@ -2,8 +2,8 @@ services:
   - type: web
     name: eventwish-backend
     env: node
-    buildCommand: ./render-build.sh
-    startCommand: node server.js
+    buildCommand: npm install
+    startCommand: npm start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
