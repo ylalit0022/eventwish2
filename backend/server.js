@@ -81,6 +81,9 @@ process.on('unhandledRejection', (reason, promise) => {
 
 const app = express();
 
+// Trust proxy for correct client IP detection behind load balancers
+app.set('trust proxy', true);
+
 // Middleware
 app.use(cors());
 app.use(helmet());
@@ -111,6 +114,12 @@ app.use('/api/', apiLimiter);
 
 // Serve static files from the backendUi directory
 app.use(express.static('backendUi'));
+
+// Serve static files from the public directory
+app.use('/examples', express.static('public'));
+
+// Serve static files from the client-examples directory
+app.use('/client-examples', express.static('client-examples'));
 
 // Serve assetlinks.json file
 app.get('/.well-known/assetlinks.json', (req, res) => {
