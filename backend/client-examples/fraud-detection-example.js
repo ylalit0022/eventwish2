@@ -6,9 +6,9 @@
  */
 
 // Configuration
-const API_BASE_URL = 'https://api.eventwish.com';
-const API_KEY = 'your-api-key';
-const APP_SIGNATURE = 'your-app-signature';
+const API_BASE_URL = 'https://eventwish2.onrender.com';
+const API_KEY = '8da9c210aa3635693bf68f85c5a3bc070e97cf43fdf9893ecf8b8fb08d285c16'; // From .env.temp
+const APP_SIGNATURE = 'app_sig_1'; // From .env.temp
 
 /**
  * Generate a device fingerprint

@@ -6,8 +6,8 @@
  */
 
 // Configuration
-const API_BASE_URL = 'https://api.eventwish.com';
-const API_KEY = 'YOUR_API_KEY'; // Replace with your actual API key
+const API_BASE_URL = 'https://eventwish2.onrender.com';
+const API_KEY = '8da9c210aa3635693bf68f85c5a3bc070e97cf43fdf9893ecf8b8fb08d285c16'; // From .env.temp
 const REFRESH_INTERVAL = 60000; // Refresh dashboard every 60 seconds
 
 // DOM Elements
@@ -20,6 +20,28 @@ let topIpsTable;
 let loadingSpinner;
 let errorMessage;
 let lastUpdatedTime;
+
+// Activity type labels
+const ACTIVITY_TYPE_LABELS = {
+  'click_fraud': 'Click Fraud',
+  'impression_fraud': 'Impression Fraud',
+  'abnormal_traffic': 'Abnormal Traffic',
+  'proxy_usage': 'Proxy Usage',
+  'vpn_usage': 'VPN Usage',
+  'datacenter_usage': 'Datacenter Usage',
+  'suspicious_device': 'Suspicious Device',
+  'suspicious_ip': 'Suspicious IP',
+  'suspicious_user': 'Suspicious User',
+  'suspicious_pattern': 'Suspicious Pattern'
+};
+
+// Severity level labels and colors
+const SEVERITY_LEVELS = {
+  'low': { label: 'Low', color: '#28a745', textClass: 'severity-low' },
+  'medium': { label: 'Medium', color: '#ffc107', textClass: 'severity-medium' },
+  'high': { label: 'High', color: '#fd7e14', textClass: 'severity-high' },
+  'critical': { label: 'Critical', color: '#dc3545', textClass: 'severity-critical' }
+};
 
 // Dashboard Data
 let dashboardData = {
@@ -85,8 +107,9 @@ function initializeCharts(typeChartEl, severityChartEl) {
       datasets: [{
         data: [],
         backgroundColor: [
-          '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
-          '#FF9F40', '#C9CBCF', '#7CFC00', '#00FFFF', '#FF00FF'
+          '#4a6fa5', '#6c757d', '#28a745', '#ffc107', 
+          '#fd7e14', '#dc3545', '#6610f2', '#6f42c1',
+          '#e83e8c', '#20c997'
         ]
       }]
     },
@@ -105,26 +128,21 @@ function initializeCharts(typeChartEl, severityChartEl) {
   
   // Activity Severity Chart
   activitySeverityChart = new Chart(severityChartEl, {
-    type: 'bar',
+    type: 'pie',
     data: {
-      labels: ['Low', 'Medium', 'High', 'Critical'],
+      labels: [],
       datasets: [{
-        label: 'Activities by Severity',
-        data: [0, 0, 0, 0],
-        backgroundColor: [
-          '#4BC0C0', '#FFCE56', '#FF9F40', '#FF6384'
-        ]
+        data: [],
+        backgroundColor: []
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      scales: {
-        yAxes: [{
-          ticks: {
-            beginAtZero: true
-          }
-        }]
+      plugins: {
+        legend: {
+          position: 'right'
+        }
       },
       title: {
         display: true,
@@ -146,31 +164,31 @@ async function fetchDashboardData() {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': API_KEY
+        'X-API-Key': API_KEY
       }
     });
     
     if (!response.ok) {
-      throw new Error(`API error: ${response.status} ${response.statusText}`);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    const data = await response.json();
+    const result = await response.json();
     
-    if (!data.success) {
-      throw new Error(data.message || 'Unknown API error');
+    if (result.success) {
+      // Update dashboard data
+      dashboardData = result.data;
+      
+      // Update UI
+      updateDashboard();
+      
+      // Update last updated time
+      updateLastUpdatedTime();
+    } else {
+      throw new Error(result.message || 'Failed to fetch dashboard data');
     }
-    
-    // Update dashboard data
-    dashboardData = data.data;
-    
-    // Update UI
-    updateDashboard();
-    
-    // Update last updated time
-    updateLastUpdatedTime();
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
-    showError(error.message);
+    showError('Failed to fetch dashboard data. Please try again later.');
   } finally {
     showLoading(false);
   }
@@ -203,7 +221,7 @@ function updateActivityTypeChart() {
   const types = Object.keys(dashboardData.activityByType);
   const counts = types.map(type => dashboardData.activityByType[type]);
   
-  activityTypeChart.data.labels = types.map(formatActivityType);
+  activityTypeChart.data.labels = types.map(type => ACTIVITY_TYPE_LABELS[type] || type);
   activityTypeChart.data.datasets[0].data = counts;
   activityTypeChart.update();
 }
@@ -212,12 +230,14 @@ function updateActivityTypeChart() {
  * Update the activity severity chart
  */
 function updateActivitySeverityChart() {
-  const severities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+  const severities = ['low', 'medium', 'high', 'critical'];
   const counts = severities.map(severity => 
     dashboardData.activityBySeverity[severity] || 0
   );
   
+  activitySeverityChart.data.labels = severities.map(severity => SEVERITY_LEVELS[severity]?.label || severity);
   activitySeverityChart.data.datasets[0].data = counts;
+  activitySeverityChart.data.datasets[0].backgroundColor = severities.map(severity => SEVERITY_LEVELS[severity]?.color || '#6c757d');
   activitySeverityChart.update();
 }
 
@@ -365,11 +385,7 @@ function hideError() {
  * Format an activity type for display
  */
 function formatActivityType(type) {
-  return type
-    .replace(/_/g, ' ')
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
+  return ACTIVITY_TYPE_LABELS[type] || type;
 }
 
 /**
@@ -377,16 +393,16 @@ function formatActivityType(type) {
  */
 function getSeverityClass(severity) {
   switch (severity) {
-    case 'CRITICAL':
-      return 'danger';
-    case 'HIGH':
-      return 'warning';
-    case 'MEDIUM':
-      return 'info';
-    case 'LOW':
-      return 'success';
+    case 'low':
+      return 'text-success';
+    case 'medium':
+      return 'text-warning';
+    case 'high':
+      return 'text-orange';
+    case 'critical':
+      return 'text-danger';
     default:
-      return 'secondary';
+      return '';
   }
 }
 
@@ -394,14 +410,14 @@ function getSeverityClass(severity) {
  * Get the CSS class for a reputation score
  */
 function getReputationClass(score) {
-  if (score < 30) {
-    return 'danger';
-  } else if (score < 60) {
-    return 'warning';
-  } else if (score < 80) {
-    return 'info';
+  if (score >= 80) {
+    return 'text-success';
+  } else if (score >= 60) {
+    return 'text-warning';
+  } else if (score >= 40) {
+    return 'text-orange';
   } else {
-    return 'success';
+    return 'text-danger';
   }
 }
 
