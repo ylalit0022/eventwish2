@@ -45,7 +45,13 @@ try {
 
 // Connect to MongoDB with more detailed error logging
 console.log('Attempting to connect to MongoDB...');
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 30000, // Timeout after 30s instead of 30s
+  socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+  family: 4 // Use IPv4, skip trying IPv6
+})
   .then(() => {
     console.log('Connected to MongoDB successfully');
     logger.info('Connected to MongoDB');

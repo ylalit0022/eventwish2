@@ -2,8 +2,8 @@ services:
   - type: web
     name: eventwish-admob-backend
     env: node
-    buildCommand: cd backend && npm install
-    startCommand: cd backend && npm start
+    buildCommand: chmod +x build.sh && ./build.sh
+    startCommand: cd backend && npm run test:mongodb && npm start
     nodeVersion: 18.x
     envVars:
       - key: NODE_ENV

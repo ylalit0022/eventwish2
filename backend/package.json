@@ -20,7 +20,8 @@
     "prestart": "node scripts/check-env.js",
     "predev": "node scripts/check-env.js",
     "test:auth": "node scripts/test-auth.js",
-    "test:cache": "node scripts/test-cache.js"
+    "test:cache": "node scripts/test-cache.js",
+    "test:mongodb": "node scripts/test-mongodb.js"
   },
   "keywords": [],
   "author": "EventWish Team",
@@ -45,7 +46,7 @@
     "jsonwebtoken": "^9.0.2",
     "lodash.includes": "^4.3.0",
     "lodash.isinteger": "^4.0.4",
-    "mongoose": "^8.2.2",
+    "mongoose": "7.6.3",
     "morgan": "^1.10.0",
     "node-cache": "^5.1.2",
     "node-int64": "^0.4.0",

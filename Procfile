@@ -1,1 +1,1 @@
-web: cd backend && npm start
+web: cd backend && npm run test:mongodb && npm start
