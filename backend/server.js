@@ -215,31 +215,6 @@ app.use('/api/ab-test', require('./routes/abTestRoutes'));
 // User segmentation routes
 app.use('/api/segments', require('./routes/segmentRoutes'));
 
-// Health check endpoint for Render.com
-app.get('/api/health', (req, res) => {
-  const healthcheck = {
-    uptime: process.uptime(),
-    message: 'OK',
-    timestamp: Date.now()
-  };
-  
-  try {
-    // Check MongoDB connection
-    if (mongoose.connection.readyState === 1) {
-      healthcheck.database = 'Connected';
-    } else {
-      healthcheck.database = 'Disconnected';
-      healthcheck.message = 'Database connection issue';
-      return res.status(503).json(healthcheck);
-    }
-    
-    return res.status(200).json(healthcheck);
-  } catch (error) {
-    healthcheck.message = error.message;
-    return res.status(503).json(healthcheck);
-  }
-});
-
 // Debug logging middleware
 if (process.env.NODE_ENV === 'development') {
   app.use((req, res, next) => {
