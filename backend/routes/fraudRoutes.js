@@ -7,7 +7,7 @@
 const express = require('express');
 const router = express.Router();
 const fraudController = require('../controllers/fraudController');
-const { authenticateApiKey } = require('../middleware/authMiddleware');
+const { verifyApiKey } = require('../middleware/authMiddleware');
 
 /**
  * @route POST /api/fraud/check
@@ -21,20 +21,20 @@ router.post('/check', fraudController.checkFraud);
  * @description Get fraud detection statistics
  * @access Admin only
  */
-router.get('/statistics', authenticateApiKey, fraudController.getStatistics);
+router.get('/statistics', verifyApiKey, fraudController.getStatistics);
 
 /**
  * @route GET /api/fraud/thresholds
  * @description Get fraud detection thresholds
  * @access Admin only
  */
-router.get('/thresholds', authenticateApiKey, fraudController.getThresholds);
+router.get('/thresholds', verifyApiKey, fraudController.getThresholds);
 
 /**
  * @route PUT /api/fraud/thresholds
  * @description Update fraud detection thresholds
  * @access Admin only
  */
-router.put('/thresholds', authenticateApiKey, fraudController.updateThresholds);
+router.put('/thresholds', verifyApiKey, fraudController.updateThresholds);
 
 module.exports = router; 

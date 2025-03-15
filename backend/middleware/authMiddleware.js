@@ -131,8 +131,54 @@ const verifyClientApp = (req, res, next) => {
   }
 };
 
+/**
+ * Middleware to verify admin role
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next function
+ */
+const verifyAdmin = (req, res, next) => {
+  try {
+    // Check if user exists in request (set by verifyToken)
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+        error: 'AUTH_USER_MISSING'
+      });
+    }
+    
+    // Check if user has admin role
+    if (!req.user.isAdmin) {
+      logger.warn('User is not an admin', { userId: req.user.id });
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Admin role required',
+        error: 'AUTH_ADMIN_REQUIRED'
+      });
+    }
+    
+    next();
+  } catch (error) {
+    logger.error(`Admin verification error: ${error.message}`, { error });
+    return res.status(500).json({
+      success: false,
+      message: 'Server error during admin verification',
+      error: 'AUTH_SERVER_ERROR'
+    });
+  }
+};
+
+/**
+ * Middleware to verify app signature
+ * Alias for verifyClientApp for better naming consistency
+ */
+const verifyAppSignature = verifyClientApp;
+
 module.exports = {
   verifyToken,
   verifyApiKey,
-  verifyClientApp
+  verifyClientApp,
+  verifyAdmin,
+  verifyAppSignature
 }; 
