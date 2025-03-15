@@ -14,8 +14,7 @@
     "benchmark:small": "CONCURRENT_USERS=10 TEST_DURATION=30 node tests/performance/benchmark.js",
     "benchmark:medium": "CONCURRENT_USERS=50 TEST_DURATION=60 node tests/performance/benchmark.js",
     "benchmark:large": "CONCURRENT_USERS=100 TEST_DURATION=120 node tests/performance/benchmark.js",
-    "cluster": "NODE_ENV=production LOAD_BALANCER_ENABLED=true node server.js",
-    "postinstall": "npm ci --only=production"
+    "cluster": "NODE_ENV=production LOAD_BALANCER_ENABLED=true node server.js"
   },
   "keywords": [],
   "author": "EventWish Team",
