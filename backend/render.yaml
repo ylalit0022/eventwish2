@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: eventwish-backend
+    env: node
+    buildCommand: ./render-build.sh
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: API_KEY
+        sync: false
+      - key: API_BASE_URL
+        value: https://eventwish2.onrender.com
+      - key: LOG_LEVEL
+        value: info
+      - key: VALID_APP_SIGNATURES
+        sync: false
+    autoDeploy: true
+    plan: free 
