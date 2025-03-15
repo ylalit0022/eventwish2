@@ -46,16 +46,19 @@ router.post('/:shortCode/share', async (req, res) => {
             return res.status(404).json({ message: 'Shared wish not found' });
         }
         
+        // Convert platform to uppercase to match enum values
+        const platformUpperCase = platform.toUpperCase();
+        
         // Update the share history
         wish.shareHistory.push({
-            platform,
+            platform: platformUpperCase,
             timestamp: new Date()
         });
         
         // Update share count and last shared time
         wish.shareCount = (wish.shareCount || 0) + 1;
         wish.lastSharedAt = new Date();
-        wish.sharedVia = platform;
+        wish.sharedVia = platformUpperCase;
         
         await wish.save();
         

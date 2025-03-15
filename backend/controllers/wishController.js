@@ -188,14 +188,17 @@ exports.updateSharedWishPlatform = async (req, res) => {
             return res.status(404).json({ message: 'Shared wish not found' });
         }
         
+        // Convert platform to uppercase to match enum values
+        const platformUpperCase = platform.toUpperCase();
+        
         // Update sharing platform
-        sharedWish.sharedVia = platform;
+        sharedWish.sharedVia = platformUpperCase;
         sharedWish.lastSharedAt = new Date();
         sharedWish.shareCount += 1;
         
         // Add to share history
         sharedWish.shareHistory.push({
-            platform,
+            platform: platformUpperCase,
             timestamp: new Date()
         });
         

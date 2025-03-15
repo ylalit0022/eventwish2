@@ -39,6 +39,9 @@ router.post('/', async (req, res) => {
         
         const shortCode = generateShortCode();
         
+        // Ensure sharedVia is uppercase to match enum values
+        const sharedViaUpperCase = sharedVia ? sharedVia.toUpperCase() : 'LINK';
+        
         // Create a shareable URL
         const shareableUrl = `https://eventwish2.onrender.com/wish/${shortCode}`;
         
@@ -49,13 +52,17 @@ router.post('/', async (req, res) => {
             description: `A special wish from ${senderName || 'Someone'} to ${recipientName || 'you'}`,
             recipientName: recipientName || 'you',
             senderName: senderName || 'Someone',
-            customizedHtml,
-            cssContent,
-            jsContent,
-            sharedVia: sharedVia || 'LINK',
+            customizedHtml: customizedHtml || '',
+            cssContent: cssContent || '',
+            jsContent: jsContent || '',
+            sharedVia: sharedViaUpperCase,
             views: 0,
             uniqueViews: 0,
             shareCount: 0,
+            shareHistory: [{
+                platform: sharedViaUpperCase,
+                timestamp: new Date()
+            }],
             createdAt: new Date()
         });
         
