@@ -15,6 +15,16 @@ const monitoringController = require('./controllers/monitoringController');
 const loadBalancer = require('./config/loadBalancer');
 const swagger = require('./config/swagger');
 
+// Log environment variables for debugging (excluding sensitive ones)
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('PORT:', process.env.PORT);
+console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
+console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
+console.log('API_KEY exists:', !!process.env.API_KEY);
+console.log('API_BASE_URL:', process.env.API_BASE_URL);
+console.log('LOG_LEVEL:', process.env.LOG_LEVEL);
+console.log('VALID_APP_SIGNATURES exists:', !!process.env.VALID_APP_SIGNATURES);
+
 // Initialize load balancer if enabled
 if (process.env.LOAD_BALANCER_ENABLED === 'true') {
   loadBalancer.initLoadBalancer();
@@ -33,15 +43,35 @@ try {
     console.error('Error loading SharedWish model:', error);
 }
 
-// Connect to MongoDB
+// Connect to MongoDB with more detailed error logging
+console.log('Attempting to connect to MongoDB...');
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
+    console.log('Connected to MongoDB successfully');
     logger.info('Connected to MongoDB');
   })
   .catch((err) => {
+    console.error('MongoDB connection error details:');
+    console.error('Error message:', err.message);
+    console.error('Error code:', err.code);
+    console.error('Error name:', err.name);
     logger.error(`MongoDB connection error: ${err.message}`, { error: err });
     process.exit(1);
   });
+
+// Add global error handlers
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:');
+  console.error(err);
+  logger.error('Uncaught Exception:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  logger.error('Unhandled Rejection:', { reason, promise });
+  // Don't exit here to allow the application to continue running
+});
 
 const app = express();
 
