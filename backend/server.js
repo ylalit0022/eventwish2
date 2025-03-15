@@ -203,29 +203,17 @@ app.use('/api/analytics', require('./routes/analyticsRoutes')); // Analytics rou
 // Monitoring routes
 app.use('/api/monitoring', require('./routes/monitoringRoutes')); // Monitoring routes
 
-// Import routes
-const admobRoutes = require('./routes/admobRoutes');
-const adminRoutes = require('./routes/adminRoutes');
-const clientRoutes = require('./routes/clientRoutes');
-const analyticsRoutes = require('./routes/analyticsRoutes');
-const monitoringRoutes = require('./routes/monitoringRoutes');
-const abtestRoutes = require('./routes/abtestRoutes');
-const segmentRoutes = require('./routes/segmentRoutes');
-const fraudRoutes = require('./routes/fraudRoutes');
-const suspiciousActivityRoutes = require('./routes/suspiciousActivityRoutes');
-const healthRoutes = require('./routes/healthRoutes');
+// Fraud detection routes
+app.use('/api/fraud', require('./routes/fraudRoutes'));
 
-// Use routes
-app.use('/api/admob', admobRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/client', clientRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/monitoring', monitoringRoutes);
-app.use('/api/abtest', abtestRoutes);
-app.use('/api/segments', segmentRoutes);
-app.use('/api/fraud', fraudRoutes);
-app.use('/api/suspicious-activity', suspiciousActivityRoutes);
-app.use('/api/health', healthRoutes);
+// Suspicious activity routes
+app.use('/api/suspicious-activity', require('./routes/suspiciousActivityRoutes'));
+
+// A/B testing routes
+app.use('/api/ab-test', require('./routes/abTestRoutes'));
+
+// User segmentation routes
+app.use('/api/segments', require('./routes/segmentRoutes'));
 
 // Health check endpoint for Render.com
 app.get('/api/health', (req, res) => {
