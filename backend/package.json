@@ -14,7 +14,12 @@
     "benchmark:small": "CONCURRENT_USERS=10 TEST_DURATION=30 node tests/performance/benchmark.js",
     "benchmark:medium": "CONCURRENT_USERS=50 TEST_DURATION=60 node tests/performance/benchmark.js",
     "benchmark:large": "CONCURRENT_USERS=100 TEST_DURATION=120 node tests/performance/benchmark.js",
-    "cluster": "NODE_ENV=production LOAD_BALANCER_ENABLED=true node server.js"
+    "cluster": "NODE_ENV=production LOAD_BALANCER_ENABLED=true node server.js",
+    "generate-secrets": "node scripts/generate-secrets.js",
+    "check-env": "node scripts/check-env.js",
+    "prestart": "node scripts/check-env.js",
+    "predev": "node scripts/check-env.js",
+    "test:auth": "node scripts/test-auth.js"
   },
   "keywords": [],
   "author": "EventWish Team",

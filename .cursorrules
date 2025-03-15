@@ -153,6 +153,15 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Test edge cases like rate limiting and cache expiration
   - Implement integration tests for authentication middleware
   - Test analytics tracking and monitoring functionality
+- When working with Express middleware:
+  - Ensure consistent naming of middleware functions across all route files
+  - Verify that imported middleware function names match the exported names from the middleware file
+  - Use descriptive names that clearly indicate the middleware's purpose (e.g., verifyApiKey, validateRequest)
+  - When refactoring middleware, update all route files that use the middleware
+  - Consider using middleware factories for configurable middleware
+  - Add proper error handling in middleware functions
+  - Use next() to pass control to the next middleware in the chain
+  - Document middleware functions with JSDoc comments
 
 # Scratchpad
 
@@ -182,6 +191,7 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 [X] Implement Interactive API Explorer with Swagger UI
 [X] Add End-to-End Browser Testing with Puppeteer
 [X] Implement Performance Benchmarking
+[X] Fix Authentication Middleware Function Name in Suspicious Activity Routes
 
 ### Implementation Progress
 - [X] Created component-based plan for AdMob integration
@@ -254,6 +264,11 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - [X] Implemented tests for detecting clicks from multiple devices
   - [X] Added tests for verifying fraud score updates based on suspicious activities
   - [X] Implemented screenshot capture for visual verification of test results
+- [X] Fixed authentication middleware function name in suspicious activity routes
+  - [X] Identified the issue: routes were using authenticateApiKey but middleware exports verifyApiKey
+  - [X] Updated all route handlers in suspiciousActivityRoutes.js to use verifyApiKey
+  - [X] Committed changes with proper documentation
+  - [X] Added lesson about middleware function naming consistency to .cursorrules
 
 ### Next Steps
 1. Implement Advanced Features:
