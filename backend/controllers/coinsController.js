@@ -1,6 +1,7 @@
 const Coins = require('../models/Coins');
 const { AdMob } = require('../models/AdMob');
 const logger = require('../config/logger');
+const { coinsLogger } = require('../logs/logger-setup');
 const crypto = require('crypto');
 
 /**
@@ -12,13 +13,37 @@ exports.getServerTime = async (req, res) => {
     try {
         const timestamp = Date.now();
         const date = new Date(timestamp).toISOString();
+        const clientTime = req.headers['x-request-time'] ? parseInt(req.headers['x-request-time']) : null;
+        
+        // Log time sync if client time is provided
+        if (clientTime) {
+            const offset = timestamp - clientTime;
+            const deviceId = req.headers['x-device-id'] || 'unknown';
+            
+            coinsLogger.timeSync(deviceId, clientTime, timestamp, offset, {
+                clientTimeISO: new Date(clientTime).toISOString(),
+                serverTimeISO: date,
+                userAgent: req.headers['user-agent']
+            });
+            
+            // Check for suspicious time difference
+            if (Math.abs(offset) > 300000) { // 5 minutes
+                coinsLogger.timeSuspicious(deviceId, `Large time offset detected: ${offset}ms`, {
+                    offset,
+                    clientTime,
+                    serverTime: timestamp
+                });
+            }
+        }
         
         res.json({
             success: true,
             timestamp,
             date,
             serverTime: date,
-            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            clientTime: clientTime,
+            offset: clientTime ? timestamp - clientTime : null
         });
     } catch (error) {
         logger.error('Error in getServerTime:', error);
@@ -47,6 +72,7 @@ exports.getCoins = async (req, res) => {
         
         // Find or create coins record
         let coins = await Coins.findOne({ deviceId });
+        let isNewRecord = false;
         
         if (!coins) {
             coins = new Coins({
@@ -55,6 +81,9 @@ exports.getCoins = async (req, res) => {
                 isUnlocked: false
             });
             await coins.save();
+            isNewRecord = true;
+            
+            logger.info(`Created new coins record for device: ${deviceId}`);
         }
         
         // Check if unlock has expired
@@ -63,10 +92,30 @@ exports.getCoins = async (req, res) => {
             coins.unlockTimestamp = null;
             coins.unlockSignature = null;
             await coins.save();
+            
+            coinsLogger.validate(deviceId, false, "Unlock expired", {
+                expiredAt: coins.unlockExpiry
+            });
         }
         
         // Get plan configuration
         const planConfig = getPlanConfiguration();
+        
+        // Log access with client timestamp if provided
+        const clientTime = req.headers['x-request-time'] ? parseInt(req.headers['x-request-time']) : null;
+        if (clientTime) {
+            const serverTime = Date.now();
+            const offset = serverTime - clientTime;
+            
+            // Update time offset in database
+            if (Math.abs(offset) > 1000) { // Only update if difference is significant (>1s)
+                coins.timeOffset = offset;
+                coins.lastSyncTimestamp = new Date(serverTime);
+                await coins.save();
+                
+                coinsLogger.timeSync(deviceId, clientTime, serverTime, offset);
+            }
+        }
         
         res.json({
             success: true,
@@ -75,7 +124,8 @@ exports.getCoins = async (req, res) => {
             remainingTime: coins.remainingTime,
             unlockExpiry: coins.unlockExpiry,
             lastReward: coins.lastRewardTimestamp,
-            plan: planConfig
+            plan: planConfig,
+            isNewRecord
         });
     } catch (error) {
         logger.error('Error in getCoins:', error);
@@ -107,6 +157,7 @@ exports.addCoins = async (req, res) => {
         const adUnit = await AdMob.findOne({ adUnitCode: adUnitId });
         
         if (!adUnit) {
+            logger.warn(`Ad unit not found: ${adUnitId} for device: ${deviceId}`);
             return res.status(404).json({
                 success: false,
                 message: 'Ad unit not found'
@@ -114,6 +165,11 @@ exports.addCoins = async (req, res) => {
         }
         
         if (adUnit.adType !== 'Rewarded') {
+            coinsLogger.fraud(deviceId, 'add_coins', `Attempted to get coins with non-rewarded ad type: ${adUnit.adType}`, {
+                adUnitId,
+                adType: adUnit.adType
+            });
+            
             return res.status(400).json({
                 success: false,
                 message: 'Only rewarded ads can give coins'
@@ -138,7 +194,11 @@ exports.addCoins = async (req, res) => {
             
             // Minimum 30 seconds between rewards to prevent fraud
             if (timeSinceLastReward < 30000) {
-                logger.warn(`Suspicious reward activity: ${deviceId} claimed reward too quickly (${timeSinceLastReward}ms)`);
+                coinsLogger.fraud(deviceId, 'quick_reward', `Claimed reward too quickly: ${timeSinceLastReward}ms since last reward`, {
+                    timeSinceLastReward,
+                    lastRewardTime: coins.lastRewardTimestamp
+                });
+                
                 return res.status(429).json({
                     success: false,
                     message: 'Please wait before claiming another reward',
@@ -149,6 +209,12 @@ exports.addCoins = async (req, res) => {
         
         // Add coins
         await coins.addCoins(amount, adUnitId, adName || adUnit.adName, deviceInfo || {});
+        
+        // Log reward
+        coinsLogger.reward(deviceId, amount, adUnitId, `Current total: ${coins.coins} coins`, {
+            adName: adName || adUnit.adName,
+            deviceInfo: deviceInfo || {}
+        });
         
         // Update ad unit analytics
         adUnit.impressions += 1;
@@ -218,6 +284,11 @@ exports.unlockFeature = async (req, res) => {
         
         // Check if user has enough coins
         if (coins.coins < planConfig.requiredCoins) {
+            coinsLogger.fraud(deviceId, 'unlock_insufficient', `Attempted to unlock with insufficient coins: ${coins.coins}/${planConfig.requiredCoins}`, {
+                currentCoins: coins.coins,
+                requiredCoins: planConfig.requiredCoins
+            });
+            
             return res.status(400).json({
                 success: false,
                 message: 'Not enough coins to unlock feature',
@@ -240,6 +311,15 @@ exports.unlockFeature = async (req, res) => {
         
         // Generate a secure signature for the unlock
         const signature = generateUnlockSignature(deviceId, serverTimestamp, unlockDuration);
+        
+        // Log unlock
+        coinsLogger.unlock(deviceId, unlockDuration, `Used ${planConfig.requiredCoins} coins`, {
+            usedCoins: planConfig.requiredCoins,
+            remainingCoins: coins.coins,
+            unlockTimestamp: new Date(serverTimestamp).toISOString(),
+            unlockExpiry: coins.unlockExpiry,
+            signature: signature.substring(0, 8) + '...' // Log truncated signature for security
+        });
         
         res.json({
             success: true,
@@ -268,6 +348,7 @@ exports.unlockFeature = async (req, res) => {
 exports.validateUnlock = async (req, res) => {
     try {
         const { deviceId, timestamp, duration, signature } = req.body;
+        const clientTime = req.headers['x-request-time'] ? parseInt(req.headers['x-request-time']) : Date.now();
         
         if (!deviceId || !timestamp || !duration || !signature) {
             return res.status(400).json({
@@ -280,6 +361,12 @@ exports.validateUnlock = async (req, res) => {
         const isValid = Coins.validateSignature(deviceId, timestamp, duration, signature);
         
         if (!isValid) {
+            coinsLogger.validate(deviceId, false, "Invalid signature provided", {
+                providedSignature: signature.substring(0, 8) + '...',
+                timestamp,
+                duration
+            });
+            
             return res.status(401).json({
                 success: false,
                 valid: false,
@@ -296,11 +383,34 @@ exports.validateUnlock = async (req, res) => {
         const now = new Date();
         const isExpired = now > expiryDate;
         
+        // Calculate time difference to detect manipulation
+        const serverTime = Date.now();
+        const clientServerDiff = Math.abs(serverTime - clientTime); 
+        
+        // Check for potential time manipulation
+        if (clientServerDiff > 300000) { // 5 minutes
+            coinsLogger.timeSuspicious(deviceId, `Large client-server time difference detected: ${clientServerDiff}ms during unlock validation`, {
+                clientTime,
+                serverTime,
+                timeDiff: clientServerDiff,
+                unlockTimestamp: timestamp,
+                expiryDate
+            });
+        }
+        
+        // Log validation outcome
+        coinsLogger.validate(deviceId, !isExpired, isExpired ? "Unlock expired" : "Unlock valid", {
+            unlockTimestamp: unlockTimestamp.toISOString(),
+            expiryDate: expiryDate.toISOString(),
+            remainingTime: isExpired ? 0 : expiryDate.getTime() - now.getTime(),
+            clientServerDiff
+        });
+        
         res.json({
             success: true,
             valid: !isExpired,
             expired: isExpired,
-            timestamp: Date.now(),
+            timestamp: serverTime,
             unlockExpiry: expiryDate,
             remainingTime: Math.max(0, expiryDate.getTime() - now.getTime())
         });
@@ -354,6 +464,13 @@ exports.reportUnlock = async (req, res) => {
         
         // Create a signature to return to the client
         const signature = generateUnlockSignature(deviceId, timestamp, duration);
+        
+        // Log report
+        coinsLogger.unlock(deviceId, duration, "Unlock reported from client", {
+            unlockTimestamp: new Date(parseInt(timestamp)).toISOString(),
+            unlockExpiry: coins.unlockExpiry,
+            signature: signature.substring(0, 8) + '...'
+        });
         
         res.json({
             success: true,
