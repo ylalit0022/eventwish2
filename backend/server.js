@@ -232,6 +232,9 @@ app.use('/api/health', require('./routes/healthRoutes'));
 app.use('/api/admob-ads', require('./routes/adMobRoutes')); // Admin routes
 app.use('/api/admob', require('./routes/adMobClientRoutes')); // Client routes
 
+// Coins and rewards routes
+app.use('/api/coins', require('./routes/coinsRoutes')); // User coins routes
+
 // Analytics routes
 app.use('/api/analytics', require('./routes/analyticsRoutes')); // Analytics routes
 

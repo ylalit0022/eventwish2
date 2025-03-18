@@ -12,10 +12,19 @@ router.get('/', (req, res) => {
         const timestamp = Date.now();
         const date = new Date(timestamp).toISOString();
         
+        // Include more information for time synchronization
         res.json({
             success: true,
             timestamp: timestamp,
-            date: date
+            date: date,
+            serverTime: date,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            requestTime: req.headers['x-request-time'] || null,
+            serverInfo: {
+                name: 'EventWish API Server',
+                version: process.env.npm_package_version || '1.0.0',
+                nodeVersion: process.version
+            }
         });
     } catch (error) {
         console.error('Error in time endpoint:', error);
