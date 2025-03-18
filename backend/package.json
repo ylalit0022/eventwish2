@@ -21,7 +21,10 @@
     "predev": "node scripts/check-env.js",
     "test:auth": "node scripts/test-auth.js",
     "test:cache": "node scripts/test-cache.js",
-    "test:mongodb": "node scripts/test-mongodb.js"
+    "test:mongodb": "node scripts/test-mongodb.js",
+    "test:coins": "jest --testMatch=\"**/coins.test.js\" --detectOpenHandles",
+    "test:api": "node tools/api-tester.js",
+    "test:logs": "find logs -type f -name \"*.log\" | xargs tail -n 50"
   },
   "keywords": [],
   "author": "EventWish Team",
