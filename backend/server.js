@@ -91,7 +91,8 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-hashes'", "https://cdn.jsdelivr.net"],
+      scriptSrcAttr: ["'unsafe-inline'"],
       connectSrc: ["'self'", "https://api.eventwish.com", "https://eventwish2.onrender.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
       imgSrc: ["'self'", "data:", "https://via.placeholder.com"],
@@ -115,10 +116,11 @@ if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'tru
 }
 
 // Rate limiting
+// Rate limiting
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again after 15 minutes',
+  windowMs: 60 * 60 * 1000, // 60 minutes
+  max: 1000, // limit each IP to 1000 requests per windowMs
+  message: 'Too many requests from this IP, please try again after 60 minutes',
   standardHeaders: true,
   legacyHeaders: false,
   // Add a custom key generator to handle proxies securely
@@ -136,7 +138,7 @@ app.use('/api/', apiLimiter);
 app.use(express.static('backendUi'));
 
 // Serve static files from the public directory
-app.use('/examples', express.static('public'));
+app.use(express.static('public'));
 
 // Serve static files from the client-examples directory
 app.use('/client-examples', express.static('client-examples'));
@@ -217,6 +219,7 @@ app.get('/wish/:shortCode', async (req, res) => {
 });
 
 // Routes
+app.use('/api/auth', require('./routes/auth'));
 app.use('/api/templates', require('./routes/templates'));
 app.use('/api/wishes', require('./routes/wishes'));
 app.use('/api/festivals', require('./routes/festivals'));
