@@ -192,8 +192,19 @@ CoinsSchema.virtual('remainingTime').get(function() {
     return Math.max(0, remainingMs);
 });
 
-// Method to add coins
-CoinsSchema.methods.addCoins = async function(amount, adUnitId, adName, deviceInfo = {}) {
+// Add API key validation
+CoinsSchema.statics.validateApiKey = function(apiKey) {
+    const validApiKey = process.env.API_KEY || 'your-default-api-key';
+    return apiKey === validApiKey;
+};
+
+// Enhance addCoins method with validation
+CoinsSchema.methods.addCoins = async function(amount, adUnitId, adName, deviceInfo = {}, apiKey) {
+    // Validate API key
+    if (!this.constructor.validateApiKey(apiKey)) {
+        throw new Error('Invalid API key');
+    }
+    
     this.coins += amount;
     
     // Add to reward history
@@ -265,4 +276,4 @@ CoinsSchema.statics.validateSignature = function(deviceId, timestamp, duration, 
 // Create the model
 const Coins = mongoose.model('Coins', CoinsSchema);
 
-module.exports = Coins; 
+module.exports = Coins;

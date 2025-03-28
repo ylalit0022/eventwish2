@@ -404,27 +404,61 @@ public class CoinsRepository {
             return;
         }
         
-        Log.d(TAG, "Adding " + amount + " coins");
+        Log.d(TAG, "Starting coin update process. Amount to add: " + amount);
         
-        executors.diskIO().execute(() -> {
-            // Get the current coins entity
-            CoinsEntity coinsEntity = coinsDao.getCoinsById(DEFAULT_USER_ID);
-            if (coinsEntity == null) {
-                coinsEntity = new CoinsEntity();
-                coinsEntity.setCoins(amount);
-                coinsDao.insert(coinsEntity);
-            } else {
-                // Update coins in database
-                coinsDao.addCoins(DEFAULT_USER_ID, amount);
-                coinsEntity.setCoins(coinsEntity.getCoins() + amount);
+        // Create request body
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("amount", amount);
+        requestBody.put("deviceId", getDeviceId());
+        requestBody.put("timestamp", getAdjustedTime());
+        
+        Log.d(TAG, "Sending coin update request to server. DeviceId: " + getDeviceId());
+        
+        // Make API call to update coins
+        apiService.addCoins(requestBody).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                Log.d(TAG, "Received response from server: " + response.code());
+                
+                if (response.isSuccessful() && response.body() != null) {
+                    try {
+                        JsonObject data = response.body();
+                        Log.d(TAG, "Server response body: " + data.toString());
+                        
+                        if (data.has("success") && data.get("success").getAsBoolean()) {
+                            // Update local database with new coin amount
+                            int newAmount = data.get("coins").getAsInt();
+                            Log.d(TAG, "Server returned new coin amount: " + newAmount);
+                            
+                            executors.diskIO().execute(() -> {
+                                try {
+                                    Log.d(TAG, "Updating local database with new coin amount: " + newAmount);
+                                    coinsDao.updateCoinsWithLog(DEFAULT_USER_ID, newAmount);
+                                    coinsLiveData.postValue(newAmount);
+                                    Log.d(TAG, "Local database and LiveData updated successfully");
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error updating local database", e);
+                                }
+                            });
+                        } else {
+                            String errorMessage = data.has("message") ? 
+                                data.get("message").getAsString() : "Unknown error";
+                            Log.e(TAG, "Failed to update coins: " + errorMessage);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error processing coin update response", e);
+                    }
+                } else {
+                    Log.e(TAG, "Error updating coins. Response code: " + response.code() + 
+                          ", Error body: " + (response.errorBody() != null ? 
+                          response.errorBody().toString() : "null"));
+                }
             }
             
-            // Update LiveData on main thread
-            final int newCoinsAmount = coinsEntity.getCoins();
-            executors.mainThread().execute(() -> {
-                coinsLiveData.setValue(newCoinsAmount);
-                Log.d(TAG, "Updated coins LiveData: " + newCoinsAmount);
-            });
+            @Override
+            public void onFailure(Call<JsonObject> call, Throwable t) {
+                Log.e(TAG, "Network error updating coins", t);
+            }
         });
     }
 

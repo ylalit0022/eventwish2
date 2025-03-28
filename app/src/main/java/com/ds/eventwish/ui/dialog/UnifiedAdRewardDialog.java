@@ -528,88 +528,108 @@ public class UnifiedAdRewardDialog extends DialogFragment implements AdRewardInt
     private void verifyCoinsWithRetry(int initialCoins, int retryCount) {
         if (retryCount > 3) {
             Log.w(TAG, "Giving up on coin verification after 3 retries");
-            // Show final message to user
-            showTemporaryMessage("Coins may take a moment to update");
-            
-            // Force one final local refresh
-            coinsViewModel.refreshCoinsCount();
+            if (isAdded()) {
+                showTemporaryMessage("Coins may take a moment to update");
+                coinsViewModel.refreshCoinsCount();
+            }
             return;
         }
-        
+
         // Use exponential backoff for retries
-        int delay = retryCount * 800; // Longer delays for server sync
-        
+        int delay = retryCount * 800;
+
         new Handler().postDelayed(() -> {
+            // Check if fragment is still attached
+            if (!isAdded()) {
+                Log.d(TAG, "Fragment no longer attached, abandoning coin verification");
+                return;
+            }
+
             // Force refresh again
             coinsViewModel.refreshCoinsCount(success -> {
-                // Check current count
+                // Verify fragment is still attached before proceeding
+                if (!isAdded()) {
+                    Log.d(TAG, "Fragment no longer attached during refresh callback");
+                    return;
+                }
+
+                // Rest of the verification logic
                 int currentCoins = coinsViewModel.getCurrentCoins();
                 Log.d(TAG, "Verification attempt " + retryCount + ": Current coins: " + currentCoins);
-                
+
                 if (currentCoins > initialCoins) {
-                    // Success - coins updated
                     Log.d(TAG, "Coin update verified on retry: " + initialCoins + " -> " + currentCoins);
-                    
-                    // Update UI with animation
-                    if (coinsText != null) {
-                        updateCoinsDisplay(currentCoins, true);
-                    }
-                    
-                    // Update button state
+                    updateCoinsDisplay(currentCoins, true);
                     updateUnlockButtonState(currentCoins);
-                    
-                    // Show success message
                     showTemporaryMessage("+" + (currentCoins - initialCoins) + " coins earned!");
                 } else {
-                    // Retry again with increased delay
-                    Log.d(TAG, "Coin update not verified yet, retrying (" + retryCount + "/3)");
                     verifyCoinsWithRetry(initialCoins, retryCount + 1);
                 }
             });
         }, delay);
     }
-    
-    /**
-     * Helper method to update the coins display with optional animation
-     */
-    private void updateCoinsDisplay(int coins, boolean animate) {
-        if (coinsText == null) return;
-        
-        if (animate) {
-            coinsText.setAlpha(0.3f);
-            coinsText.setText(getString(R.string.coins_format, coins));
-            coinsText.animate().alpha(1.0f).setDuration(500).start();
-        } else {
-            coinsText.setText(getString(R.string.coins_format, coins));
-        }
-        
-        coinsText.setTag(coins);
-    }
-    
+
     /**
      * Show a temporary message and then hide it
      */
     private void showTemporaryMessage(String message) {
-        if (errorText != null) {
+        // First check if fragment is attached and errorText exists
+        if (!isAdded() || errorText == null) {
+            Log.d(TAG, "Cannot show message - fragment detached or view null");
+            return;
+        }
+
+        try {
             errorText.setText(message);
-            errorText.setTextColor(getResources().getColor(R.color.colorSuccess));
+            errorText.setTextColor(requireContext().getResources().getColor(R.color.colorSuccess));
             errorText.setVisibility(View.VISIBLE);
-            
+
             // Hide the message after a delay
             new Handler().postDelayed(() -> {
-                if (errorText != null) {
+                // Check again if still attached when hiding
+                if (isAdded() && errorText != null) {
                     errorText.setVisibility(View.GONE);
-                    errorText.setTextColor(getResources().getColor(R.color.colorError));
+                    errorText.setTextColor(requireContext().getResources().getColor(R.color.colorError));
                 }
             }, 3000);
+        } catch (Exception e) {
+            Log.e(TAG, "Error showing temporary message", e);
         }
     }
-    
+
+    /**
+     * Helper method to update the coins display with optional animation
+     */
+    private void updateCoinsDisplay(int coins, boolean animate) {
+        if (!isAdded() || coinsText == null) {
+            Log.d(TAG, "Cannot update coins display - fragment detached or view null");
+            return;
+        }
+
+        try {
+            if (animate) {
+                coinsText.setAlpha(0.3f);
+                coinsText.setText(getString(R.string.coins_format, coins));
+                coinsText.animate().alpha(1.0f).setDuration(500).start();
+            } else {
+                coinsText.setText(getString(R.string.coins_format, coins));
+            }
+            coinsText.setTag(coins);
+        } catch (Exception e) {
+            Log.e(TAG, "Error updating coins display", e);
+        }
+    }
+
     private void setLoading(boolean isLoading) {
+        if (!isAdded()) {
+            Log.d(TAG, "Cannot set loading state - fragment detached");
+            return;
+        }
+
         if (progressBar != null && watchAdButton != null) {
             progressBar.setVisibility(isLoading ? View.VISIBLE : View.GONE);
             watchAdButton.setEnabled(!isLoading);
             watchAdButton.setText(isLoading ? R.string.loading : R.string.watch_ad);
         }
     }
-} 
+}

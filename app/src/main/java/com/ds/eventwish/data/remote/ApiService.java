@@ -81,7 +81,7 @@ public interface ApiService {
     @GET("categoryIcons")
     Call<CategoryIconResponse> getCategoryIcons();
 
-    @GET("test/time")
+    @GET("server/time")
     Call<ServerTimeResponse> getServerTime();
 
     @GET("festivals/upcoming")
@@ -128,8 +128,8 @@ public interface ApiService {
     @GET("coins/{deviceId}")
     Call<JsonObject> getCoins(@Path("deviceId") String deviceId);
 
-    @POST("coins/{deviceId}")
-    Call<JsonObject> addCoins(@Path("deviceId") String deviceId, @Body Map<String, Object> requestBody);
+    @POST("coins/add")
+    Call<JsonObject> addCoins(@Body Map<String, Object> requestBody);
 
     @POST("coins/{deviceId}/unlock")
     Call<JsonObject> unlockFeature(@Path("deviceId") String deviceId);
@@ -138,8 +138,12 @@ public interface ApiService {
     @POST("coins/validate")
     Call<JsonObject> validateUnlock(@Body Map<String, Object> requestBody);
 
-    @POST("coins/report")
-    Call<JsonObject> reportUnlock(@Body Map<String, Object> requestBody);
+    @POST("coins/unlock/report")
+    Call<JsonObject> reportUnlock(@Body Map<String, Object> payload);
+
+    // Rename for clarity and avoid duplication
+    @POST("coins/unlock/report")
+    Call<JsonObject> reportUnlockStatus(@Body Map<String, Object> payload);
 
     // Track ad rewards
     @POST("coins/reward")
@@ -150,6 +154,6 @@ public interface ApiService {
      * @param payload Security violation details
      * @return Response
      */
-    @POST("coins/security")
+    @POST("security/violation")
     Call<JsonObject> reportSecurityViolation(@Body Map<String, Object> payload);
 }

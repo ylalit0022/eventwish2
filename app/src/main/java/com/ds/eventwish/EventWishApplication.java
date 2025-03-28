@@ -38,6 +38,9 @@ import com.ds.eventwish.ui.ads.AppOpenAdHelper;
 import com.ds.eventwish.utils.EventWishNotificationManager;
 import com.ds.eventwish.utils.NotificationScheduler;
 import android.app.Activity;
+import com.google.android.gms.ads.RequestConfiguration;
+import com.ds.eventwish.config.AdConfig;
+import java.util.Arrays;
 
 public class EventWishApplication extends Application implements Configuration.Provider {
     private static final String TAG = "EventWishApplication";
@@ -235,15 +238,21 @@ public class EventWishApplication extends Application implements Configuration.P
         try {
             MobileAds.initialize(this, initializationStatus -> {
                 Log.d(TAG, "AdMob SDK initialized successfully");
-                
-                // Don't initialize AdManager here since we need an Activity context
-                // It will be initialized later in initializeAdManager()
-                
-                // Don't initialize AppOpenAdHelper here since we need an Activity context
-                // It will be initialized later in initializeAdManager()
                 Log.d(TAG, "Waiting for Activity context to initialize ad components");
             });
             Log.d(TAG, "AdMob initialization started");
+
+            // Configure test devices if in test mode
+            if (AdConfig.USE_TEST_ADS) {
+                RequestConfiguration configuration = new RequestConfiguration.Builder()
+                    .setTestDeviceIds(Arrays.asList(
+                        "2077EF0E09001FB2DCA76B5415D53BFA", // Replace with your test device ID
+                        "B3EEABB8EE11C2BE770B684D95219ECB"  // Generic test device ID
+                    ))
+                    .build();
+                MobileAds.setRequestConfiguration(configuration);
+                Log.d(TAG, "AdMob test configuration set");
+            }
         } catch (Exception e) {
             Log.e(TAG, "Error initializing AdMob: " + e.getMessage());
         }

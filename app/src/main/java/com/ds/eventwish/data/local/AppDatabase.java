@@ -1,11 +1,14 @@
 package com.ds.eventwish.data.local;
 
 import android.content.Context;
+import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.room.Database;
 import androidx.room.Room;
 import androidx.room.RoomDatabase;
 import androidx.room.TypeConverters;
+import androidx.sqlite.db.SupportSQLiteDatabase;
 
 import com.ds.eventwish.data.converter.CategoryIconConverter;
 import com.ds.eventwish.data.local.converters.DateConverter;
@@ -42,27 +45,34 @@ import com.ds.eventwish.data.local.dao.AdMobDao;
 })
 public abstract class AppDatabase extends RoomDatabase {
     
+    private static final String TAG = "AppDatabase";
     private static final String DATABASE_NAME = "eventwish_db";
-    private static volatile AppDatabase INSTANCE;
+    private static volatile AppDatabase instance;
     
     public abstract FestivalDao festivalDao();
     public abstract ResourceDao resourceDao();
     public abstract CoinsDao coinsDao();
     public abstract AdMobDao adMobDao();
     
-    public static AppDatabase getInstance(Context context) {
-        if (INSTANCE == null) {
-            synchronized (AppDatabase.class) {
-                if (INSTANCE == null) {
-                    INSTANCE = Room.databaseBuilder(
-                            context.getApplicationContext(),
-                            AppDatabase.class,
-                            DATABASE_NAME)
-                            .fallbackToDestructiveMigration()
-                            .build();
+    public static synchronized AppDatabase getInstance(Context context) {
+        if (instance == null) {
+            instance = Room.databaseBuilder(
+                context.getApplicationContext(),
+                AppDatabase.class,
+                DATABASE_NAME
+            )
+            .addCallback(new Callback() {
+                @Override
+                public void onCreate(@NonNull SupportSQLiteDatabase db) {
+                    super.onCreate(db);
+                    Log.d(TAG, "Database created");
+                    // Initialize with default data if needed
                 }
-            }
+            })
+            .fallbackToDestructiveMigration()
+            .build();
+            Log.d(TAG, "Database instance created");
         }
-        return INSTANCE;
+        return instance;
     }
 }

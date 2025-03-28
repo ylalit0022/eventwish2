@@ -4,6 +4,7 @@ import android.content.Context;
 import android.util.Log;
 
 import com.ds.eventwish.BuildConfig;
+import com.ds.eventwish.config.ApiConfig;
 import com.ds.eventwish.utils.NetworkUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -70,28 +71,17 @@ public class ApiClient {
      * @return API service
      */
     public static ApiService getClient() {
-        if (applicationContext == null) {
-            throw new IllegalStateException("ApiClient must be initialized with context before use");
-        }
-        
         if (retrofit == null) {
-            if (okHttpClient == null) {
-                okHttpClient = createOkHttpClient(applicationContext);
-            }
-            
-            // Create GSON converter
-            Gson gson = new GsonBuilder()
-                .setLenient() // Add lenient parsing
-                .create();
+            OkHttpClient client = new OkHttpClient.Builder()
+                .addInterceptor(new ApiInterceptor())
+                .build();
                 
-            // Create Retrofit instance
             retrofit = new Retrofit.Builder()
-                .baseUrl(API_BASE_URL)
-                .client(okHttpClient)
-                .addConverterFactory(GsonConverterFactory.create(gson))
+                .baseUrl(ApiConfig.getBaseUrl())
+                .client(client)
+                .addConverterFactory(GsonConverterFactory.create())
                 .build();
         }
-        
         return retrofit.create(ApiService.class);
     }
     

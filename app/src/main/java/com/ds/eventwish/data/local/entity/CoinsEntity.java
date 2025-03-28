@@ -80,4 +80,4 @@ public class CoinsEntity {
                 ", isUnlocked=" + isUnlocked +
                 '}';
     }
-} 
+}
