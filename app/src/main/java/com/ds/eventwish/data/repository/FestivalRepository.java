@@ -227,11 +227,11 @@ public class FestivalRepository {
                 retrofit2.Response<ServerTimeResponse> timeResponse = timeCall.execute();
                 if (timeResponse.isSuccessful() && timeResponse.body() != null) {
                     ServerTimeResponse timeData = timeResponse.body();
-                    if (timeData.isSuccess()) {
-                        TimeUtils.syncWithServerTime(timeData.getTimestamp(), timeData.getDate());
-                    } else {
-                        Log.e(TAG, "Server time sync failed: success is false");
+                    if (timeData != null) {
+                        TimeUtils.syncWithServerTime(timeData.getTimestamp(), timeData.getFormatted());
                     }
+                } else {
+                    Log.e(TAG, "Server time sync failed: success is false");
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error syncing server time", e);

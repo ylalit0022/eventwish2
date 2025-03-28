@@ -18,6 +18,8 @@
     <string name="category_icon">Category Icon</string>
     <string name="update">Update</string>
 
+    <string name="coins_earned">Update</string>
+
 <!--    Chooser diologe-->
     <string name="open_with">Open With</string>
     <string name="no_app_to_handle_url">No App To Handle URL</string>
@@ -240,4 +242,41 @@
 
     <!-- API URLs -->
     <string name="base_url">https://eventwish2.onrender.com/api/</string>
+
+    <!-- Ad Reward Dialog -->
+    <string name="ad_reward_title">Earn Coins</string>
+    <string name="reward_dialog_title">Rewards</string>
+    <string name="coins_count">Coins: %d</string>
+    <string name="coins_format">%d Coins</string>
+    <string name="remaining_time">Feature unlocked for %d more days</string>
+    <string name="remaining_time_format" formatted="false">%d days, %d hours remaining</string>
+    <string name="watch_ad">Watch Ad (+10 coins)</string>
+    <string name="loading">Loading...</string>
+    <string name="unlock_feature">Unlock Feature (%d coins)</string>
+    <string name="unlock_feature_format">Unlock Feature (%d coins)</string>
+    <string name="insufficient_coins">Need %d more coins</string>
+    <string name="not_enough_coins">You need %d more coins to unlock this feature.</string>
+    <string name="coins_icon_description">Coins icon</string>
+    <string name="reward_success">Congratulations! You earned coins!</string>
+    <string name="reward_error">Failed to show ad. Please try again.</string>
+    <string name="ad_failed">Ad failed to load. Please try again.</string>
+    <string name="ad_error">Error showing ad. Please try again later.</string>
+    <string name="ok">OK</string>
+    
+    <!-- HTML Editor -->
+    <string name="edit_html">Edit HTML</string>
+    <string name="unlock_html_editing">Unlock HTML Editing</string>
+    <string name="html_editor_title">HTML Editor</string>
+    <string name="html_editing_locked">HTML editing is locked. Watch ads to earn coins.</string>
+    <string name="html_editing_unlocked">HTML editing is now available for %d days!</string>
+    <string name="html_editing_days_remaining">HTML editing: %d days remaining</string>
+    
+    <!-- Premium Features -->
+    <string name="feature_unlocked">Feature unlocked for %d days!</string>
+    <string name="ad_not_ready">Ad not ready</string>
+    <string name="premium_feature_locked">This is a premium feature. Watch ads to earn coins.</string>
+    <string name="template_download_locked">Template download is locked. Watch ads to earn coins.</string>
+    <string name="custom_fonts_locked">Custom fonts are locked. Watch ads to earn coins.</string>
+    <string name="priority_support_locked">Priority support is locked. Watch ads to earn coins.</string>
+    <string name="premium_features">Premium Features</string>
 </resources>

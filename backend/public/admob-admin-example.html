@@ -46,6 +46,7 @@
         <p>First, you need to obtain a JWT token by providing your credentials:</p>
         <div>
             <input type="text" id="apiKey" placeholder="API Key" value="">
+            <input type="text" id="userId" placeholder="User ID" value="">
             <button onclick="getJWTToken()">Get JWT Token</button>
         </div>
         <div id="tokenResult"></div>
@@ -64,8 +65,15 @@
 
         async function getJWTToken() {
             const apiKey = document.getElementById('apiKey').value;
+            const userId = document.getElementById('userId').value;
+
             if (!apiKey) {
                 showError('Please enter an API key');
+                return;
+            }
+
+            if (!userId) {
+                showError('Please enter a User ID');
                 return;
             }
 
@@ -75,7 +83,8 @@
                     headers: {
                         'Content-Type': 'application/json',
                         'x-api-key': apiKey
-                    }
+                    },
+                    body: JSON.stringify({ userId })
                 });
 
                 const data = await response.json();

@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="com.ds.eventwish">
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
@@ -12,6 +11,24 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="com.google.android.providers.gsf.permission.READ_GSERVICES" />
+    <uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" />
+    
+    <!-- This permission is needed for GMS -->
+    <permission
+        android:name="${applicationId}.permission.C2D_MESSAGE"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="${applicationId}.permission.C2D_MESSAGE" />
+    
+    <!-- Define custom permissions for Google Play -->
+    <permission-group
+        android:name="${applicationId}.permission-group.GMS"
+        android:description="@string/app_name"
+        android:label="@string/app_name" />
 
     <application
         android:name=".EventWishApplication"
@@ -132,19 +149,20 @@
         </activity>
 
         <activity
-            android:name=".TestFlashyMessageActivity"
+            android:name=".ui.ads.TestAdActivity"
             android:exported="true"
-            android:label="Test Flashy Messages">
+            android:label="Test Ads"
+            android:theme="@style/Theme.EventWish">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
         
         <activity
-            android:name=".ui.ads.TestAdActivity"
+            android:name=".ui.analytics.AnalyticsViewerActivity"
             android:exported="true"
-            android:label="Test Ads"
+            android:label="Real-time Analytics"
             android:theme="@style/Theme.EventWish">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -217,16 +235,47 @@
             </intent-filter>
         </service>
         
-        <!-- Default notification icon and color -->
+        <!-- Required for FCM -->
+        <meta-data
+            android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version" />
+        
+        <!-- FCM default notification icon -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_notification" />
+        
+        <!-- FCM default notification color -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
-            android:resource="@color/colorPrimary" />
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="fcm_channel" />
+            android:resource="@color/colorAccent" />
+
+        <!-- API Tester Activity -->
+        <activity
+            android:name=".ui.tools.ApiTesterActivity"
+            android:exported="true"
+            android:label="API Tester"
+            android:theme="@style/Theme.MaterialComponents.Light.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ui.edit.HtmlEditorActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".ui.api.ApiTesterActivity"
+            android:exported="false"
+            android:label="API Tester"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".ui.api.CoinsDatabaseLogActivity"
+            android:exported="false"
+            android:label="Database Log"
+            android:screenOrientation="portrait" />
     </application>
 
     <queries>
@@ -236,6 +285,7 @@
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="https" />
         </intent>
+        <package android:name="com.google.android.gms" />
     </queries>
 
 </manifest>

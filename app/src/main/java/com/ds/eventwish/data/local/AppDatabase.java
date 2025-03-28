@@ -16,9 +16,22 @@ import com.ds.eventwish.data.local.converter.ObjectTypeConverter;
 import com.ds.eventwish.data.local.dao.FestivalDao;
 import com.ds.eventwish.data.local.dao.ResourceDao;
 import com.ds.eventwish.data.local.entity.ResourceEntity;
+import com.ds.eventwish.data.local.entity.CoinsEntity;
+import com.ds.eventwish.data.local.entity.AdMobEntity;
 import com.ds.eventwish.data.model.Festival;
+import com.ds.eventwish.data.local.dao.CoinsDao;
+import com.ds.eventwish.data.local.dao.AdMobDao;
 
-@Database(entities = {Festival.class, ResourceEntity.class}, version = 3, exportSchema = false)
+@Database(
+    entities = {
+        Festival.class,
+        ResourceEntity.class,
+        CoinsEntity.class,
+        AdMobEntity.class
+    },
+    version = 1,
+    exportSchema = false
+)
 @TypeConverters({
     DateConverter.class,
     TemplateListConverter.class,
@@ -34,6 +47,8 @@ public abstract class AppDatabase extends RoomDatabase {
     
     public abstract FestivalDao festivalDao();
     public abstract ResourceDao resourceDao();
+    public abstract CoinsDao coinsDao();
+    public abstract AdMobDao adMobDao();
     
     public static AppDatabase getInstance(Context context) {
         if (INSTANCE == null) {

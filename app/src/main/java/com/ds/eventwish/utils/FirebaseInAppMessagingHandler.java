@@ -6,6 +6,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
+import com.ds.eventwish.R;
 import com.google.firebase.inappmessaging.FirebaseInAppMessaging;
 import com.google.firebase.inappmessaging.FirebaseInAppMessagingDisplayCallbacks;
 import com.google.firebase.inappmessaging.model.InAppMessage;
@@ -41,9 +42,13 @@ public class FirebaseInAppMessagingHandler {
                     // Generate a unique ID for the message
                     String messageId = UUID.randomUUID().toString();
                     
-                    // Save as flashy message
-                    FlashyMessageManager.saveFlashyMessage(context, messageId, title, message);
-                    Log.d(TAG, "Converted in-app message to flashy message");
+                    // Show notification instead
+                    NotificationHelper.createNotification(
+                        context,
+                        title,
+                        message
+                    );
+                    Log.d(TAG, "Displayed in-app message as notification");
                     
                     // Trigger impression event
                     callbacks.impressionDetected();

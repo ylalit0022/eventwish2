@@ -172,6 +172,27 @@ const coinsLogger = {
       fraudOperation: operation,
       ...metadata
     });
+  },
+  
+  security: (deviceId, violationType, message, metadata = {}) => {
+    logger.warn(`SECURITY: Device ${deviceId} security violation: ${violationType}. ${message}`, {
+      category: 'security',
+      operation: 'violation',
+      deviceId,
+      violationType,
+      severity: metadata.severity || 'high',
+      ...metadata
+    });
+  },
+  
+  blacklist: (deviceId, reason, message, metadata = {}) => {
+    logger.error(`BLACKLIST: Device ${deviceId} blacklisted due to ${reason}. ${message}`, {
+      category: 'security',
+      operation: 'blacklist',
+      deviceId,
+      reason,
+      ...metadata
+    });
   }
 };
 

@@ -57,6 +57,7 @@ public class AdManager {
     
     // Context and preferences
     private final Context context;
+    private Activity activity; // Store Activity reference
     private final AdPreferenceManager preferenceManager;
     
     // Ad cache manager
@@ -102,10 +103,18 @@ public class AdManager {
         this.preferenceManager = new AdPreferenceManager(context);
         this.cacheManager = AdCacheManager.getInstance();
         this.mainHandler = new Handler(Looper.getMainLooper());
-        this.executor = Executors.newScheduledThreadPool(2);
+        this.executor = Executors.newScheduledThreadPool(1);
         
         // Initialize AdMob
         initializeAdMob();
+    }
+    
+    /**
+     * Sets the current activity for showing full-screen ads
+     * @param activity the current activity
+     */
+    public void setActivity(Activity activity) {
+        this.activity = activity;
     }
     
     /**
@@ -246,54 +255,27 @@ public class AdManager {
      * Preloads an interstitial ad and adds it to the cache.
      */
     public void preloadInterstitialAd() {
-        if (preferenceManager.isAdFree()) {
-            Log.d(TAG, "User has ad-free experience, not preloading interstitial ad");
-            return;
-        }
-        
-        if (interstitialAdLoading.getValue() != null && interstitialAdLoading.getValue()) {
-            Log.d(TAG, "Interstitial ad is already loading");
-            return;
-        }
-        
-        if (cacheManager.getInterstitialCacheSize() >= AdConstants.MAX_INTERSTITIAL_CACHE_SIZE) {
-            Log.d(TAG, "Interstitial ad cache is full");
-            return;
-        }
-        
+        // Remove ad-free check
         Log.d(TAG, "Preloading interstitial ad");
-        interstitialAdLoading.setValue(true);
         
-        // Set up timeout
-        interstitialTimeoutRunnable = () -> {
-            Log.w(TAG, "Interstitial ad load timed out");
-            interstitialAdLoading.postValue(false);
-        };
-        mainHandler.postDelayed(interstitialTimeoutRunnable, AdConstants.AD_LOAD_TIMEOUT);
-        
-        // Load the interstitial ad
+        // Load the interstitial ad directly
         InterstitialAd.load(context, AdConstants.getInterstitialAdUnitId(), createAdRequest(),
                 new InterstitialAdLoadCallback() {
                     @Override
                     public void onAdLoaded(@NonNull InterstitialAd interstitialAd) {
-                        mainHandler.removeCallbacks(interstitialTimeoutRunnable);
                         Log.d(TAG, "Interstitial ad loaded successfully");
-                        
-                        // Add the ad to the cache
-                        cacheManager.cacheInterstitialAd(interstitialAd);
-                        
-                        interstitialAdLoading.setValue(false);
+                        // Store the ad for later use instead of showing it immediately
+                        AdManager.this.interstitialAd = interstitialAd;
+                        // Only show if activity is available
+                        if (activity != null) {
+                            interstitialAd.show(activity);
+                        }
                     }
                     
                     @Override
                     public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
-                        mainHandler.removeCallbacks(interstitialTimeoutRunnable);
                         Log.e(TAG, "Interstitial ad failed to load: " + loadAdError.getMessage());
-                        
-                        interstitialAdLoading.setValue(false);
-                        
-                        // Retry after a delay
-                        mainHandler.postDelayed(() -> preloadInterstitialAd(), 60000); // Retry after 1 minute
+                        // Handle failure as needed
                     }
                 });
     }
@@ -305,213 +287,59 @@ public class AdManager {
      * @return true if an ad was shown, false otherwise
      */
     public boolean showInterstitialAd(Activity activity, InterstitialAdCallback callback) {
-        if (preferenceManager.isAdFree()) {
-            Log.d(TAG, "User has ad-free experience, not showing interstitial ad");
-            if (callback != null) {
-                callback.onAdDismissed();
-            }
-            return false;
-        }
-        
-        // Check if enough time has passed since the last interstitial ad was shown
-        long lastShownTime = preferenceManager.getLastInterstitialShownTime();
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - lastShownTime < AdConstants.INTERSTITIAL_REFRESH_INTERVAL) {
-            Log.d(TAG, "Not enough time has passed since the last interstitial ad was shown");
-            if (callback != null) {
-                callback.onAdDismissed();
-            }
-            return false;
-        }
-        
-        // Check if the interstitial count threshold has been reached
-        int count = preferenceManager.getInterstitialCount();
-        if (count < AdConstants.INTERSTITIAL_DISPLAY_THRESHOLD) {
-            Log.d(TAG, "Interstitial count threshold not reached: " + count + "/" + 
-                    AdConstants.INTERSTITIAL_DISPLAY_THRESHOLD);
-            preferenceManager.incrementInterstitialCount();
-            if (callback != null) {
-                callback.onAdDismissed();
-            }
-            return false;
-        }
-        
-        // Get an interstitial ad from the cache
-        InterstitialAd interstitialAd = cacheManager.getInterstitialAd();
-        if (interstitialAd == null) {
-            Log.d(TAG, "No interstitial ad available in cache, loading a new one");
-            
-            // Preload a new ad for next time
-            preloadInterstitialAd();
-            
-            // Try to load an ad immediately and show it
-            InterstitialAd.load(context, AdConstants.getInterstitialAdUnitId(), createAdRequest(),
-                new InterstitialAdLoadCallback() {
-                    @Override
-                    public void onAdLoaded(@NonNull InterstitialAd ad) {
-                        Log.d(TAG, "Interstitial ad loaded successfully, showing immediately");
-                        
-                        // Set up full screen content callback
-                        ad.setFullScreenContentCallback(new FullScreenContentCallback() {
-                            @Override
-                            public void onAdDismissedFullScreenContent() {
-                                Log.d(TAG, "Interstitial ad dismissed");
-                                
-                                // Reset the interstitial count
-                                preferenceManager.resetInterstitialCount();
-                                
-                                // Update the last shown time
-                                preferenceManager.setLastInterstitialShownTime(System.currentTimeMillis());
-                                
-                                // Preload a new ad
-                                preloadInterstitialAd();
-                                
-                                if (callback != null) {
-                                    callback.onAdDismissed();
-                                }
-                            }
-                            
-                            @Override
-                            public void onAdFailedToShowFullScreenContent(@NonNull AdError adError) {
-                                Log.e(TAG, "Interstitial ad failed to show: " + adError.getMessage());
-                                
-                                // Preload a new ad
-                                preloadInterstitialAd();
-                                
-                                if (callback != null) {
-                                    callback.onAdDismissed();
-                                }
-                            }
-                            
-                            @Override
-                            public void onAdShowedFullScreenContent() {
-                                Log.d(TAG, "Interstitial ad showed successfully");
-                                
-                                if (callback != null) {
-                                    callback.onAdShown();
-                                }
-                            }
-                        });
-                        
-                        // Show the ad
-                        ad.show(activity);
+        // Load a new ad immediately and show it
+        InterstitialAd.load(context, AdConstants.getInterstitialAdUnitId(), createAdRequest(),
+            new InterstitialAdLoadCallback() {
+                @Override
+                public void onAdLoaded(@NonNull InterstitialAd ad) {
+                    Log.d(TAG, "Interstitial ad loaded successfully, showing immediately");
+                    ad.show(activity);
+                    if (callback != null) {
+                        callback.onAdShown(); // Notify that the ad was shown
                     }
-                    
-                    @Override
-                    public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
-                        Log.e(TAG, "Interstitial ad failed to load: " + loadAdError.getMessage());
-                        
-                        if (callback != null) {
-                            callback.onAdDismissed();
-                        }
+                }
+                
+                @Override
+                public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
+                    Log.e(TAG, "Interstitial ad failed to load: " + loadAdError.getMessage());
+                    if (callback != null) {
+                        callback.onAdDismissed(); // Notify that the ad was dismissed due to failure
                     }
-                });
-            
-            return true;
-        }
-        
-        Log.d(TAG, "Showing interstitial ad from cache");
-        
-        // Set up full screen content callback
-        interstitialAd.setFullScreenContentCallback(new FullScreenContentCallback() {
-            @Override
-            public void onAdDismissedFullScreenContent() {
-                Log.d(TAG, "Interstitial ad dismissed");
-                
-                // Reset the interstitial count
-                preferenceManager.resetInterstitialCount();
-                
-                // Update the last shown time
-                preferenceManager.setLastInterstitialShownTime(System.currentTimeMillis());
-                
-                // Preload a new ad
-                preloadInterstitialAd();
-                
-                if (callback != null) {
-                    callback.onAdDismissed();
                 }
-            }
-            
-            @Override
-            public void onAdFailedToShowFullScreenContent(@NonNull AdError adError) {
-                Log.e(TAG, "Interstitial ad failed to show: " + adError.getMessage());
-                
-                // Preload a new ad
-                preloadInterstitialAd();
-                
-                if (callback != null) {
-                    callback.onAdDismissed();
-                }
-            }
-            
-            @Override
-            public void onAdShowedFullScreenContent() {
-                Log.d(TAG, "Interstitial ad showed successfully");
-                
-                if (callback != null) {
-                    callback.onAdShown();
-                }
-            }
-        });
+            });
         
-        // Show the ad
-        interstitialAd.show(activity);
-        
-        return true;
+        return true; // Indicate that we are attempting to show an ad
     }
     
     /**
      * Preloads a rewarded ad and adds it to the cache.
      */
     public void preloadRewardedAd() {
-        if (preferenceManager.isAdFree()) {
-            Log.d(TAG, "User has ad-free experience, not preloading rewarded ad");
-            return;
-        }
-        
-        if (rewardedAdLoading.getValue() != null && rewardedAdLoading.getValue()) {
-            Log.d(TAG, "Rewarded ad is already loading");
-            return;
-        }
-        
-        if (cacheManager.getRewardedCacheSize() >= AdConstants.MAX_REWARDED_CACHE_SIZE) {
-            Log.d(TAG, "Rewarded ad cache is full");
-            return;
-        }
-        
+        // Remove ad-free check
         Log.d(TAG, "Preloading rewarded ad");
-        rewardedAdLoading.setValue(true);
         
-        // Set up timeout
-        rewardedTimeoutRunnable = () -> {
-            Log.w(TAG, "Rewarded ad load timed out");
-            rewardedAdLoading.postValue(false);
-        };
-        mainHandler.postDelayed(rewardedTimeoutRunnable, AdConstants.AD_LOAD_TIMEOUT);
-        
-        // Load the rewarded ad
+        // Load the rewarded ad directly
         RewardedAd.load(context, AdConstants.getRewardedAdUnitId(), createAdRequest(),
                 new RewardedAdLoadCallback() {
                     @Override
                     public void onAdLoaded(@NonNull RewardedAd rewardedAd) {
-                        mainHandler.removeCallbacks(rewardedTimeoutRunnable);
                         Log.d(TAG, "Rewarded ad loaded successfully");
-                        
-                        // Add the ad to the cache
-                        cacheManager.cacheRewardedAd(rewardedAd);
-                        
-                        rewardedAdLoading.setValue(false);
+                        // Store the ad for later use instead of showing it immediately
+                        AdManager.this.rewardedAd = rewardedAd;
+                        // Only show if activity is available
+                        if (activity != null) {
+                            rewardedAd.show(activity, new OnUserEarnedRewardListener() {
+                                @Override
+                                public void onUserEarnedReward(@NonNull RewardItem rewardItem) {
+                                    Log.d(TAG, "User earned reward: " + rewardItem.getAmount() + " " + rewardItem.getType());
+                                }
+                            });
+                        }
                     }
                     
                     @Override
                     public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
-                        mainHandler.removeCallbacks(rewardedTimeoutRunnable);
                         Log.e(TAG, "Rewarded ad failed to load: " + loadAdError.getMessage());
-                        
-                        rewardedAdLoading.setValue(false);
-                        
-                        // Retry after a delay
-                        mainHandler.postDelayed(() -> preloadRewardedAd(), 60000); // Retry after 1 minute
                     }
                 });
     }
@@ -523,74 +351,36 @@ public class AdManager {
      * @return true if an ad was shown, false otherwise
      */
     public boolean showRewardedAd(Activity activity, RewardedAdCallback callback) {
-        // Get a rewarded ad from the cache
-        RewardedAd rewardedAd = cacheManager.getRewardedAd();
-        if (rewardedAd == null) {
-            Log.d(TAG, "No rewarded ad available in cache");
-            
-            // Preload a new ad for next time
-            preloadRewardedAd();
-            
-            if (callback != null) {
-                callback.onAdFailedToShow();
-            }
-            return false;
-        }
-        
-        Log.d(TAG, "Showing rewarded ad");
-        
-        // Set up full screen content callback
-        rewardedAd.setFullScreenContentCallback(new FullScreenContentCallback() {
-            @Override
-            public void onAdDismissedFullScreenContent() {
-                Log.d(TAG, "Rewarded ad dismissed");
-                
-                // Preload a new ad
-                preloadRewardedAd();
-                
-                if (callback != null) {
-                    callback.onAdDismissed();
+        // Load a new ad immediately and show it
+        RewardedAd.load(context, AdConstants.getRewardedAdUnitId(), createAdRequest(),
+            new RewardedAdLoadCallback() {
+                @Override
+                public void onAdLoaded(@NonNull RewardedAd rewardedAd) {
+                    Log.d(TAG, "Showing rewarded ad");
+                    rewardedAd.show(activity, new OnUserEarnedRewardListener() {
+                        @Override
+                        public void onUserEarnedReward(@NonNull RewardItem rewardItem) {
+                            Log.d(TAG, "User earned reward: " + rewardItem.getAmount() + " " + rewardItem.getType());
+                            if (callback != null) {
+                                callback.onUserEarnedReward(rewardItem.getAmount(), rewardItem.getType());
+                            }
+                        }
+                    });
+                    if (callback != null) {
+                        callback.onAdShown(); // Notify that the ad was shown
+                    }
                 }
-            }
-            
-            @Override
-            public void onAdFailedToShowFullScreenContent(@NonNull AdError adError) {
-                Log.e(TAG, "Rewarded ad failed to show: " + adError.getMessage());
                 
-                // Preload a new ad
-                preloadRewardedAd();
-                
-                if (callback != null) {
-                    callback.onAdFailedToShow();
+                @Override
+                public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
+                    Log.e(TAG, "Rewarded ad failed to load: " + loadAdError.getMessage());
+                    if (callback != null) {
+                        callback.onAdFailedToShow(); // Notify that the ad failed to show
+                    }
                 }
-            }
-            
-            @Override
-            public void onAdShowedFullScreenContent() {
-                Log.d(TAG, "Rewarded ad showed successfully");
-                
-                if (callback != null) {
-                    callback.onAdShown();
-                }
-            }
-        });
+            });
         
-        // Show the ad
-        rewardedAd.show(activity, new OnUserEarnedRewardListener() {
-            @Override
-            public void onUserEarnedReward(@NonNull RewardItem rewardItem) {
-                Log.d(TAG, "User earned reward: " + rewardItem.getAmount() + " " + rewardItem.getType());
-                
-                // Set the rewarded ad earned status
-                preferenceManager.setRewardedAdEarned(true, 24 * 60 * 60 * 1000); // 24 hours
-                
-                if (callback != null) {
-                    callback.onUserEarnedReward(rewardItem.getAmount(), rewardItem.getType());
-                }
-            }
-        });
-        
-        return true;
+        return true; // Indicate that we are attempting to show an ad
     }
     
     /**
@@ -647,48 +437,6 @@ public class AdManager {
     public void cleanup() {
         executor.shutdown();
         cacheManager.clearCache();
-    }
-    
-    /**
-     * Callback interface for interstitial ad events.
-     */
-    public interface InterstitialAdCallback {
-        /**
-         * Called when the ad is shown.
-         */
-        void onAdShown();
-        
-        /**
-         * Called when the ad is dismissed.
-         */
-        void onAdDismissed();
-    }
-    
-    /**
-     * Callback interface for rewarded ad events.
-     */
-    public interface RewardedAdCallback {
-        /**
-         * Called when the ad is shown.
-         */
-        void onAdShown();
-        
-        /**
-         * Called when the ad is dismissed.
-         */
-        void onAdDismissed();
-        
-        /**
-         * Called when the ad fails to show.
-         */
-        void onAdFailedToShow();
-        
-        /**
-         * Called when the user earns a reward.
-         * @param amount the amount of the reward
-         * @param type the type of the reward
-         */
-        void onUserEarnedReward(int amount, String type);
     }
     
     /**
@@ -935,5 +683,47 @@ public class AdManager {
         
         // Load the ad
         adLoader.loadAd(createAdRequest());
+    }
+    
+    /**
+     * Callback interface for interstitial ad events.
+     */
+    public interface InterstitialAdCallback {
+        /**
+         * Called when the ad is shown.
+         */
+        void onAdShown();
+        
+        /**
+         * Called when the ad is dismissed.
+         */
+        void onAdDismissed();
+    }
+    
+    /**
+     * Callback interface for rewarded ad events.
+     */
+    public interface RewardedAdCallback {
+        /**
+         * Called when the ad is shown.
+         */
+        void onAdShown();
+        
+        /**
+         * Called when the ad is dismissed.
+         */
+        void onAdDismissed();
+        
+        /**
+         * Called when the ad fails to show.
+         */
+        void onAdFailedToShow();
+        
+        /**
+         * Called when the user earns a reward.
+         * @param amount the amount of the reward
+         * @param type the type of the reward
+         */
+        void onUserEarnedReward(int amount, String type);
     }
 } 

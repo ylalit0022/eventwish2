@@ -46,9 +46,6 @@ import com.ds.eventwish.utils.AppUpdateChecker;
 import com.ds.eventwish.data.repository.FestivalRepository;
 import com.ds.eventwish.ui.festival.FestivalViewModel;
 import com.ds.eventwish.utils.NotificationHelper;
-import com.ds.eventwish.ui.common.FlashyMessageDialog;
-import com.ds.eventwish.utils.FlashyMessageManager;
-import com.ds.eventwish.utils.FlashyMessageManager.Message;
 import com.google.firebase.messaging.FirebaseMessaging;
 
 public class MainActivity extends AppCompatActivity {
@@ -384,19 +381,16 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-
-        // Check for app updates
-        AppUpdateChecker.checkForUpdate(this);
-
+        
+        // Check for notifications permission
+        if (!PermissionUtils.hasNotificationPermission(this)) {
+            PermissionUtils.requestNotificationPermission(this, requestPermissionLauncher);
+        }
+        
         // Set app in foreground state
         if (viewModel != null) {
             viewModel.setAppInForeground(true);
         }
-
-        // Check for flashy messages when the app is resumed
-        checkForFlashyMessages();
-
-        // Check if we need to refresh data
     }
 
     @Override
@@ -441,69 +435,36 @@ public class MainActivity extends AppCompatActivity {
      */
     private void initializeFirebaseMessaging() {
         FirebaseMessaging.getInstance().getToken()
-                .addOnCompleteListener(task -> {
-                    if (!task.isSuccessful()) {
-                        Log.w(TAG, "Fetching FCM registration token failed", task.getException());
-                        return;
-                    }
+            .addOnCompleteListener(task -> {
+                if (!task.isSuccessful()) {
+                    Log.w(TAG, "Fetching FCM registration token failed", task.getException());
+                    return;
+                }
 
-                    // Get new FCM registration token
-                    String token = task.getResult();
+                // Get new FCM registration token
+                String token = task.getResult();
 
-                    // Log and send the token to your server
-                    Log.d(TAG, "FCM Token: " + token);
-                    sendRegistrationToServer(token);
-                    
-                    // Subscribe to topics
-                    FirebaseMessaging.getInstance().subscribeToTopic("all_users")
-                            .addOnCompleteListener(task1 -> {
-                                if (task1.isSuccessful()) {
-                                    Log.d(TAG, "Subscribed to all_users topic");
-                                } else {
-                                    Log.e(TAG, "Failed to subscribe to all_users topic", task1.getException());
-                                }
-                            });
-                });
+                // Log and send token to your server
+                Log.d(TAG, "FCM Token: " + token);
+                sendRegistrationToServer(token);
+            });
+
+        // Subscribe to topics if needed
+        FirebaseMessaging.getInstance().subscribeToTopic("all_users")
+            .addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    Log.d(TAG, "Subscribed to all_users topic");
+                } else {
+                    Log.e(TAG, "Failed to subscribe to all_users topic", task.getException());
+                }
+            });
     }
 
     /**
      * Send registration token to server
      */
     private void sendRegistrationToServer(String token) {
-        // TODO: Implement API call to send token to backend
-        // This will be implemented in the TokenRepository
-    }
-
-    /**
-     * Check for flashy messages and display them
-     */
-    private void checkForFlashyMessages() {
-        // Reset display state to ensure we can show messages
-        FlashyMessageManager.resetDisplayState(this);
-        
-        // Get the next message to display
-        FlashyMessageManager.getNextMessage(this, new FlashyMessageManager.MessageCallback() {
-            @Override
-            public void onMessageLoaded(FlashyMessageManager.Message message) {
-                if (message != null) {
-                    Log.d(TAG, "Showing flashy message: " + message.getTitle());
-                    
-                    // Show the flashy message dialog
-                    FlashyMessageDialog dialog = FlashyMessageDialog.newInstance(
-                            message.getId(),
-                            message.getTitle(),
-                            message.getMessage()
-                    );
-                    dialog.show(getSupportFragmentManager(), "flashy_message");
-                } else {
-                    Log.d(TAG, "No flashy messages to show");
-                }
-            }
-
-            @Override
-            public void onError(Exception e) {
-                Log.e(TAG, "Error loading flashy message", e);
-            }
-        });
+        // TODO: Implement this method to send token to your app server.
+        Log.d(TAG, "Sending FCM token to server: " + token);
     }
 }

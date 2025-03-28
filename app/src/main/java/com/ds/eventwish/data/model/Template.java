@@ -52,6 +52,26 @@ public class Template {
     @SerializedName("updatedAt")
     private String updatedAt;
 
+    // Add type field with a default getter
+    private String type = "html";
+    
+    public String getType() {
+        return type;
+    }
+    
+    public void setType(String type) {
+        this.type = type;
+    }
+    
+    // HTML content access with alternative method names for compatibility
+    public String getHtml() {
+        return htmlContent;
+    }
+    
+    public void setHtml(String html) {
+        this.htmlContent = html;
+    }
+
     // Getters
     public String getId() { return id; }
 

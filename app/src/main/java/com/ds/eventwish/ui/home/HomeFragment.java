@@ -1,10 +1,16 @@
 package com.ds.eventwish.ui.home;
 
+import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.SearchView;
@@ -12,11 +18,14 @@ import android.widget.Toast;
 import android.widget.ImageView;
 import android.widget.RadioButton;
 import android.widget.Button;
+import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.MenuProvider;
+import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
@@ -28,33 +37,40 @@ import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 import com.ds.eventwish.MainActivity;
 import com.ds.eventwish.R;
 import com.ds.eventwish.databinding.FragmentHomeBinding;
+import com.ds.eventwish.data.model.Category;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.ui.base.BaseFragment;
 import com.ds.eventwish.ui.home.adapter.TemplateAdapter;
-import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.google.android.material.snackbar.Snackbar;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import com.ds.eventwish.ui.home.adapter.CategoriesAdapter;
+import com.ds.eventwish.ui.viewmodel.CoinsViewModel;
+import com.ds.eventwish.ui.dialog.UnifiedAdRewardDialog;
+import com.ds.eventwish.ui.festival.FestivalViewModel;
+import com.ds.eventwish.data.repository.CategoryIconRepository;
+import com.ds.eventwish.ui.views.OfflineIndicatorView;
+import com.ds.eventwish.ui.views.StaleDataIndicatorView;
+import com.ds.eventwish.utils.NetworkUtils;
+import com.ds.eventwish.utils.FeatureManager;
 
 import com.google.android.flexbox.FlexboxLayoutManager;
 import com.google.android.flexbox.FlexDirection;
 import com.google.android.flexbox.JustifyContent;
 import com.google.android.flexbox.AlignItems;
 import com.google.android.flexbox.FlexWrap;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
-import com.ds.eventwish.ui.festival.FestivalViewModel;
-import com.ds.eventwish.data.repository.CategoryIconRepository;
-import com.ds.eventwish.ui.views.OfflineIndicatorView;
-import com.ds.eventwish.ui.views.StaleDataIndicatorView;
-import com.ds.eventwish.utils.NetworkUtils;
+import com.google.android.material.snackbar.Snackbar;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemplateClickListener {
     private static final String TAG = "HomeFragment";
     private FragmentHomeBinding binding;
     private HomeViewModel viewModel;
     private FestivalViewModel festivalViewModel;
+    private CoinsViewModel coinsViewModel;
     private TemplateAdapter adapter;
     private CategoriesAdapter categoriesAdapter;
     private GridLayoutManager layoutManager;
@@ -65,48 +81,129 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     private CategoryIconRepository categoryIconRepository;
     private boolean wasInBackground = false;
     private NetworkUtils networkUtils;
+    private FeatureManager featureManager;
 
+    private androidx.lifecycle.Observer<Integer> coinsObserver;
+    private MenuItem coinsMenuItem;
+    
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentHomeBinding.inflate(inflater, container, false);
-        // Initialize ViewModel
-        viewModel = new ViewModelProvider(this).get(HomeViewModel.class);
         return binding.getRoot();
     }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-
-        Log.d(TAG, "onViewCreated called");
-
-        // Initialize ViewModel
-        viewModel = new ViewModelProvider(this).get(HomeViewModel.class);
-        viewModel.init(requireContext());
-
-        // Initialize FestivalViewModel
-        festivalViewModel = new ViewModelProvider(this).get(FestivalViewModel.class);
-
-        // Initialize CategoryIconRepository
-        categoryIconRepository = CategoryIconRepository.getInstance();
         
-        // Initialize NetworkUtils
+        // Initialize view models
+        viewModel = new ViewModelProvider(this).get(HomeViewModel.class);
+        festivalViewModel = new ViewModelProvider(requireActivity()).get(FestivalViewModel.class);
+        
+        // Initialize CoinsViewModel
+        try {
+            coinsViewModel = new ViewModelProvider(requireActivity()).get(CoinsViewModel.class);
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing CoinsViewModel", e);
+            coinsViewModel = new ViewModelProvider(this).get(CoinsViewModel.class);
+        }
+        
+        // Initialize other components
+        categoryIconRepository = CategoryIconRepository.getInstance();
         networkUtils = NetworkUtils.getInstance(requireContext());
-
-        // Set up UI components
-        setupUI();
-
-        // Set up RecyclerView
+        featureManager = FeatureManager.getInstance(requireContext());
+        
+        // Setup UI components
         setupRecyclerView();
+        setupUi();
+        setupObservers();
+        setupMenuProvider();
+        setupCoinsObserver();
+    }
 
+    private void setupRecyclerView() {
+        adapter = new TemplateAdapter(this);
+        layoutManager = new GridLayoutManager(requireContext(), 1);
+        binding.templatesRecyclerView.setLayoutManager(layoutManager);
+        binding.templatesRecyclerView.setAdapter(adapter);
+    }
+
+    private void setupObservers() {
+        // Observe templates
+        viewModel.getTemplates().observe(getViewLifecycleOwner(), templates -> {
+            Log.d(TAG, "Templates updated: " + (templates != null ? templates.size() : 0));
+            if (templates != null) {
+                adapter.updateTemplates(templates);
+                viewModel.checkForNewTemplates(templates);
+                
+                // Hide loader if needed
+                if (binding.swipeRefreshLayout.isRefreshing()) {
+                    binding.swipeRefreshLayout.setRefreshing(false);
+                }
+                
+                // Show or hide empty view
+                if (templates.isEmpty()) {
+                    binding.emptyView.setVisibility(View.VISIBLE);
+                } else {
+                    binding.emptyView.setVisibility(View.GONE);
+                }
+            }
+        });
+        
+        // Observe new template IDs
+        viewModel.getNewTemplateIds().observe(getViewLifecycleOwner(), newTemplateIds -> {
+            Log.d(TAG, "New template IDs updated: " + (newTemplateIds != null ? newTemplateIds.size() : 0));
+            if (adapter != null) {
+                adapter.setNewTemplates(newTemplateIds);
+            }
+        });
+        
+        // Observe loading state
+        viewModel.getLoading().observe(getViewLifecycleOwner(), isLoading -> {
+            Log.d(TAG, "Loading state changed: " + isLoading);
+            if (isLoading) {
+                // Show loading indicators only if we don't have data yet
+                if (adapter.getItemCount() == 0) {
+                    /*
+                    binding.shimmerFrameLayout.setVisibility(View.VISIBLE);
+                    binding.shimmerFrameLayout.startShimmer();
+                    */
+                    // Use progress indicator instead
+                    binding.loadingProgressBar.setVisibility(View.VISIBLE);
+                }
+            } else {
+                /*
+                binding.shimmerFrameLayout.stopShimmer();
+                binding.shimmerFrameLayout.setVisibility(View.GONE);
+                */
+                binding.loadingProgressBar.setVisibility(View.GONE);
+                
+                // Make sure swipe refresh is not stuck
+                if (binding.swipeRefreshLayout.isRefreshing()) {
+                    binding.swipeRefreshLayout.setRefreshing(false);
+                }
+            }
+        });
+        
+        // Observe categories
+        viewModel.getCategoryObjects().observe(getViewLifecycleOwner(), categories -> {
+            Log.d(TAG, "Categories updated: " + (categories != null ? categories.size() : 0));
+            if (categories != null && !categories.isEmpty() && categoriesAdapter != null) {
+                categoriesAdapter.updateCategories(categories);
+                
+                // Restore selected category if any
+                String selectedCategory = viewModel.getSelectedCategory();
+                if (selectedCategory != null) {
+                    categoriesAdapter.updateSelectedCategory(selectedCategory);
+                }
+            }
+        });
+        
         // Set up SwipeRefreshLayout
         setupSwipeRefresh();
         
         // Set up offline and stale data indicators
         setupIndicators();
-
-        // Set up observers
-        setupObservers();
 
         // Set up bottom navigation
         setupBottomNavigation();
@@ -123,48 +220,250 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         ensureCategoriesVisible();
     }
 
-    @Override
-    public void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        // Initialize the CategoryIconRepository
-        categoryIconRepository = CategoryIconRepository.getInstance();
-        Log.d(TAG, "CategoryIconRepository initialized in onCreate");
-
-        // Handle back press for exit confirmation
-        requireActivity().getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+    private void setupMenuProvider() {
+        MenuProvider menuProvider = new MenuProvider() {
             @Override
-            public void handleOnBackPressed() {
-                if (binding.timeFilterScrollView.getVisibility() == View.VISIBLE ||
-                        binding.filterChipsScrollView.getVisibility() == View.VISIBLE) {
+            public void onCreateMenu(@NonNull Menu menu, @NonNull MenuInflater menuInflater) {
+                menuInflater.inflate(R.menu.menu_home, menu);
+                
+                // Get the coins menu item
+                coinsMenuItem = menu.findItem(R.id.action_ads);
+                
+                // Add API tester menu item
+                MenuItem apiTesterItem = menu.add(Menu.NONE, R.id.action_api_tester, Menu.NONE, "API Tester");
+                apiTesterItem.setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
+                
+                // Add database log menu item
+                MenuItem dbLogItem = menu.add(Menu.NONE, R.id.action_db_log, Menu.NONE, "Database Log");
+                dbLogItem.setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
+                
+                // Add premium features menu item
+                MenuItem premiumFeaturesItem = menu.add(Menu.NONE, R.id.action_premium_features, Menu.NONE, "Premium Features");
+                premiumFeaturesItem.setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
+                
+                // Update the coins menu item with current value
+                updateCoinsMenuItem();
+            }
+            
+            @Override
+            public boolean onMenuItemSelected(@NonNull MenuItem menuItem) {
+                // Handle menu item selection
+                if (menuItem.getItemId() == R.id.action_ads) {
+                    showAdRewardDialog();
+                    return true;
+                } else if (menuItem.getItemId() == R.id.action_api_tester) {
+                    // ... existing code
+                } else if (menuItem.getItemId() == R.id.action_premium_features) {
+                    showPremiumFeaturesDialog();
+                    return true;
+                }
+                
+                return false;
+            }
+        };
+        
+        requireActivity().addMenuProvider(menuProvider, getViewLifecycleOwner(), androidx.lifecycle.Lifecycle.State.RESUMED);
+    }
 
-                    binding.timeFilterScrollView.setVisibility(View.GONE);
-                    binding.filterChipsScrollView.setVisibility(View.GONE);
-
-                } else {
-                    if (Navigation.findNavController(requireActivity(), R.id.nav_host_fragment)
-                            .getCurrentDestination().getId() == R.id.navigation_home) {
-                        if (backPressedTime + BACK_PRESS_DELAY > System.currentTimeMillis()) {
-                            requireActivity().finish();
-                        } else {
-                            Toast.makeText(requireContext(), "Press back again to exit", Toast.LENGTH_SHORT).show();
-                            backPressedTime = System.currentTimeMillis();
-                        }
-                    } else {
-                        setEnabled(false);
-                        requireActivity().onBackPressed();
-                        setEnabled(true);
+    /**
+     * Update the coins menu item title with animation
+     */
+    private void updateCoinsMenuItem() {
+        try {
+            if (coinsMenuItem != null && isAdded() && !isDetached()) {
+                // Get current coins
+                int coins = 0;
+                if (coinsViewModel != null) {
+                    try {
+                        coins = coinsViewModel.getCurrentCoins();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error getting current coins count", e);
                     }
                 }
+                
+                final int coinValue = coins;
+                Log.d(TAG, "Updating coins menu item to: " + coinValue);
+                
+                // Run on UI thread to avoid exceptions
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() -> {
+                        try {
+                            // Set the updated title
+                            String coinsText = getString(R.string.coins_format, coinValue);
+                            
+                            // Check if the value changed from previous
+                            String currentText = coinsMenuItem.getTitle().toString();
+                            boolean valueChanged = !currentText.equals(coinsText);
+                            
+                            // Set the new text
+                            coinsMenuItem.setTitle(coinsText);
+                            
+                            // Animate icon if value changed to draw attention
+                            if (valueChanged && coinsMenuItem.getActionView() != null) {
+                                Log.d(TAG, "Animating coins icon due to value change");
+                                
+                                View actionView = coinsMenuItem.getActionView();
+                                
+                                // Scale animation
+                                actionView.animate()
+                                    .scaleX(1.5f)
+                                    .scaleY(1.5f)
+                                    .setDuration(200)
+                                    .withEndAction(() -> {
+                                        // Scale back to normal
+                                        actionView.animate()
+                                            .scaleX(1.0f)
+                                            .scaleY(1.0f)
+                                            .setDuration(200)
+                                            .start();
+                                    })
+                                    .start();
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error updating coins menu item", e);
+                        }
+                    });
+                } else {
+                    Log.d(TAG, "Skip updating coins menu item - not attached or menu not created yet");
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error in updateCoinsMenuItem", e);
+        }
+    }
+    
+    /**
+     * Setup the coins observer
+     */
+    private void setupCoinsObserver() {
+        Log.d(TAG, "Setting up coins observer");
+        
+        if (coinsViewModel == null) {
+            try {
+                coinsViewModel = new ViewModelProvider(requireActivity()).get(CoinsViewModel.class);
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing CoinsViewModel", e);
+                coinsViewModel = new ViewModelProvider(this).get(CoinsViewModel.class);
+            }
+        }
+        
+        // Remove any existing observer to avoid duplicates
+        if (coinsObserver != null) {
+            Log.d(TAG, "Removing existing coins observer");
+            coinsViewModel.getCoinsLiveData().removeObserver(coinsObserver);
+        }
+        
+        // Create a new coins observer that updates the menu
+        coinsObserver = coins -> {
+            Log.d(TAG, "Coins observer triggered with value: " + coins);
+            updateCoinsMenuItem();
+        };
+        
+        // Register observer with the view lifecycle owner
+        coinsViewModel.getCoinsLiveData().observe(getViewLifecycleOwner(), coinsObserver);
+        
+        // Also observe coin update events for guaranteed updates
+        coinsViewModel.getCoinUpdateEvent().observe(getViewLifecycleOwner(), coins -> {
+            Log.d(TAG, "Coin update event received in HomeFragment: " + coins);
+            updateCoinsMenuItem();
+        });
+        
+        // Force a refresh to ensure we have the latest value
+        Log.d(TAG, "Initial background refresh in setupCoinsObserver");
+        coinsViewModel.forceBackgroundRefresh(success -> {
+            Log.d(TAG, "Initial coins background refresh completed: " + (success ? "success" : "failed"));
+            
+            // Update UI immediately even if refresh failed
+            if (isAdded() && !isDetached()) {
+                updateCoinsMenuItem();
             }
         });
-
+        
+        // Schedule periodic refreshes
+        startPeriodicCoinsRefresh();
     }
+    
+    // Handler for periodic refreshes
+    private final Handler periodicRefreshHandler = new Handler(Looper.getMainLooper());
+    private final Runnable periodicRefreshRunnable = new Runnable() {
         @Override
+        public void run() {
+            if (isAdded() && !isDetached() && coinsViewModel != null) {
+                Log.d(TAG, "Running periodic coins refresh");
+                
+                // Use standard refresh for periodic updates to reduce server load
+                coinsViewModel.refreshCoinsCount(success -> {
+                    Log.d(TAG, "Periodic refresh completed: " + (success ? "success" : "failed"));
+                });
+                
+                // Schedule next refresh
+                periodicRefreshHandler.postDelayed(this, 60000); // 1 minute
+            }
+        }
+    };
+    
+    /**
+     * Start periodic refreshes of coins data
+     */
+    private void startPeriodicCoinsRefresh() {
+        // Remove any existing callbacks to avoid duplicates
+        periodicRefreshHandler.removeCallbacks(periodicRefreshRunnable);
+        
+        // Schedule first refresh after a delay
+        periodicRefreshHandler.postDelayed(periodicRefreshRunnable, 60000); // 1 minute delay
+        
+        Log.d(TAG, "Scheduled periodic coins refresh");
+    }
+    
+    /**
+     * Stop periodic refreshes to prevent memory leaks
+     */
+    private void stopPeriodicCoinsRefresh() {
+        periodicRefreshHandler.removeCallbacks(periodicRefreshRunnable);
+        Log.d(TAG, "Stopped periodic coins refresh");
+    }
+    
+    @Override
     public void onResume() {
         super.onResume();
         
         Log.d(TAG, "onResume called");
+        
+        // Original onResume functionality
+        if (viewModel != null) {
+            // Clear any stale data flag to fetch fresh data
+            viewModel.setStaleData(false);
+            
+            // Only load templates if we have no templates or it's been a while since the last refresh
+            if (!viewModel.hasTemplates() || viewModel.isRefreshNeeded()) {
+                viewModel.loadTemplates(false);
+            }
+        }
+        
+        // New functionality: Full background refresh for coins when returning to fragment
+        if (coinsViewModel != null) {
+            Log.d(TAG, "Full background refresh for coins in onResume");
+            try {
+                // Use background refresh for more reliable results
+                coinsViewModel.forceBackgroundRefresh(success -> {
+                    Log.d(TAG, "Coins background refresh in onResume completed: " + (success ? "success" : "failed"));
+                    
+                    // Always update UI regardless of refresh result
+                    if (isAdded() && !isDetached()) {
+                        updateCoinsMenuItem();
+                    }
+                });
+                
+                // Restart periodic refresh
+                stopPeriodicCoinsRefresh();
+                startPeriodicCoinsRefresh();
+            } catch (Exception e) {
+                Log.e(TAG, "Error refreshing coins in onResume", e);
+                
+                // Try a fallback refresh if background refresh failed
+                coinsViewModel.refreshCoinsCount();
+            }
+        }
         
         // Check if we're coming back from another fragment
         if (wasInBackground) {
@@ -230,46 +529,6 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                 }
             });
         }
-        
-        Log.d(TAG, "onResume - Last position: " + viewModel.getLastVisiblePosition());
-        
-        // Check for new templates when the fragment resumes
-        if (viewModel != null) {
-            List<Template> currentTemplates = viewModel.getTemplates().getValue();
-            if (currentTemplates != null && !currentTemplates.isEmpty()) {
-                Log.d(TAG, "Checking for new templates on resume");
-                // Restore scroll position safely
-                final int position = viewModel.getLastVisiblePosition();
-                if (position > 0 && position < currentTemplates.size()) {
-                    // Use post to ensure RecyclerView is ready
-                    binding.templatesRecyclerView.post(() -> {
-                        Log.d(TAG, "Restoring scroll position in onResume: " + position);
-                        layoutManager.scrollToPosition(position);
-                    });
-                }
-                
-                // Load templates with a delay to prevent timeout
-                binding.templatesRecyclerView.postDelayed(() -> {
-                    if (isAdded() && !isDetached() && !isRemoving()) {
-                        // Only check for new templates if we're still active
-                        if (!viewModel.getLoading().getValue()) {
-                            viewModel.checkForNewTemplates(currentTemplates);
-                            if (viewModel.getCurrentPage() > 1) {
-                                Log.d(TAG, "Ensuring all pages are loaded up to: " + viewModel.getCurrentPage());
-                                viewModel.loadTemplates(false);
-                            }
-                        }
-                    }
-                }, 1000); // Increased delay to 1 second
-            }
-        }
-
-        // Check if we need to refresh data after coming back from background
-        if (wasInBackground && networkUtils.isNetworkAvailable()) {
-            Log.d(TAG, "Refreshing data after coming back from background");
-            viewModel.loadTemplates(false); // Use cached data first, then refresh in background
-            wasInBackground = false;
-        }
     }
 
     @Override
@@ -294,7 +553,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         wasInBackground = true;
     }
 
-    private void setupUI() {
+    private void setupUi() {
         // Setup header icons
         binding.refreshIcon.setOnClickListener(v -> {
             // Show loading indicator
@@ -348,75 +607,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
             }
         });
 
-        categoriesAdapter = new CategoriesAdapter();
-        FlexboxLayoutManager flexboxLayoutManager = new FlexboxLayoutManager(requireContext());
-        flexboxLayoutManager.setFlexDirection(FlexDirection.ROW);
-        flexboxLayoutManager.setJustifyContent(JustifyContent.FLEX_START);
-        flexboxLayoutManager.setAlignItems(AlignItems.FLEX_START);
-        flexboxLayoutManager.setFlexWrap(FlexWrap.WRAP);
-
-        binding.categoriesRecyclerView.setLayoutManager(flexboxLayoutManager);
-        binding.categoriesRecyclerView.setAdapter(categoriesAdapter);
-        
-        // Ensure the categories RecyclerView is visible
-        binding.categoriesRecyclerView.setVisibility(View.VISIBLE);
-        
-        // Log the initial state
-        Log.d(TAG, "Categories RecyclerView initial visibility: " + 
-              (binding.categoriesRecyclerView.getVisibility() == View.VISIBLE ? "VISIBLE" : "NOT VISIBLE"));
-        
-        // Always add the "All" category first
-        List<String> initialCategories = new ArrayList<>();
-        initialCategories.add("All");
-        categoriesAdapter.updateCategories(initialCategories);
-        
-        // If we already have categories in the ViewModel, update the adapter immediately
-        if (viewModel != null) {
-            Map<String, Integer> categories = viewModel.getCategories().getValue();
-            if (categories != null && !categories.isEmpty()) {
-                Log.d(TAG, "Setting up categories adapter with " + categories.size() + " categories from ViewModel");
-                
-                // Convert categories map to list for the adapter
-                List<String> categoryList = new ArrayList<>(categories.keySet());
-                
-                // Add "All" category if it doesn't exist
-                if (!categoryList.contains("All")) {
-                    categoryList.add(0, "All");
-                }
-                
-                // Update the adapter
-                categoriesAdapter.updateCategories(categoryList);
-            } else {
-                // If no categories are available, load them
-                Log.d(TAG, "No categories available in ViewModel, loading categories");
-                viewModel.loadCategories();
-            }
-        }
-
-        categoriesAdapter.setOnCategoryClickListener((category, position) -> {
-            if (category.equals("All")) {
-                // Explicitly set category to null and force a refresh
-                viewModel.setCategory(null);
-                // Force a refresh to ensure all templates are loaded
-                viewModel.loadTemplates(true);
-                Log.d(TAG, "All category selected, loading all templates");
-            } else {
-                viewModel.setCategory(category);
-            }
-            // Update the adapter's selected position
-            categoriesAdapter.setSelectedPosition(position);
-        });
-
-        categoriesAdapter.setOnMoreClickListener(remainingCategories -> {
-            // Get all categories except "All" which is already visible
-            List<String> allCategoriesExceptAll = new ArrayList<>(viewModel.getCategories().getValue().keySet());
-            // Remove categories that are already visible (except "All" which should be in the bottom sheet)
-            for (int i = 1; i < categoriesAdapter.getVisibleCategories().size() - 1; i++) {
-                allCategoriesExceptAll.remove(categoriesAdapter.getVisibleCategories().get(i));
-            }
-            Log.d(TAG, "Showing more categories, count: " + allCategoriesExceptAll.size());
-            showCategoriesBottomSheet(allCategoriesExceptAll);
-        });
+        setupCategoriesRecyclerView();
 
         // Set up filter chips
         setupFilterChips();
@@ -602,457 +793,477 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     }
 
     private void showCategoriesBottomSheet(List<String> categories) {
+        Log.d(TAG, "Showing categories bottom sheet with " + categories.size() + " categories");
+        
+        // Create a bottom sheet dialog
         BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
         View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_categories, null);
         bottomSheetDialog.setContentView(bottomSheetView);
 
-        // Set rounded corners
-        bottomSheetView.setBackgroundResource(R.drawable.rounded_corners_bg);
-
         RecyclerView categoriesRecyclerView = bottomSheetView.findViewById(R.id.categoriesRecyclerView);
 
-        List<String> visibleCategories = categoriesAdapter.getVisibleCategories();
-        List<String> allCategories = new ArrayList<>(viewModel.getCategories().getValue().keySet());
-
-        // Remove all visible categories including "All" and "More"
-        List<String> bottomSheetCategories = new ArrayList<>(allCategories);
-        bottomSheetCategories.removeAll(visibleCategories);
-        bottomSheetCategories.remove("More"); // Just in case "More" is not in visibleCategories
+        // Convert string categories to Category objects for the bottom sheet
+        List<com.ds.eventwish.ui.home.Category> bottomSheetCategories = new ArrayList<>();
+        for (String categoryName : categories) {
+            bottomSheetCategories.add(new com.ds.eventwish.ui.home.Category(
+                categoryName.toLowerCase(), // ID
+                categoryName,              // Name
+                ""                         // No icon URL
+            ));
+        }
 
         Log.d(TAG, "Showing " + bottomSheetCategories.size() + " categories in bottom sheet");
 
-        CategoriesAdapter bottomSheetAdapter = new CategoriesAdapter();
+        // Create the adapter for the bottom sheet
+        CategoriesAdapter bottomSheetAdapter = new CategoriesAdapter(
+            requireContext(),
+            bottomSheetCategories,
+            (category, position) -> {
+                // Handle category click from bottom sheet
+                Log.d(TAG, "Selected category from bottom sheet: " + category.getName());
+                viewModel.setSelectedCategory(category.getId());
+                categoriesAdapter.updateSelectedCategory(category.getId());
+                bottomSheetDialog.dismiss();
+            }
+        );
+        
         GridLayoutManager gridLayoutManager = new GridLayoutManager(requireContext(), 3);
         categoriesRecyclerView.setLayoutManager(gridLayoutManager);
         // Add padding and rounded corners to the RecyclerView
         categoriesRecyclerView.setPadding(16, 16, 16, 16);
         categoriesRecyclerView.setClipToPadding(false);
-        categoriesRecyclerView.setBackgroundResource(R.drawable.rounded_corners_bg); // Make sure to create this drawable
+        categoriesRecyclerView.setBackgroundResource(R.drawable.rounded_corners_bg);
         categoriesRecyclerView.setAdapter(bottomSheetAdapter);
-        bottomSheetAdapter.updateCategories(bottomSheetCategories);
-
-        bottomSheetAdapter.setOnCategoryClickListener((category, position) -> {
-            Log.d(TAG, "Selected category from bottom sheet: " + category);
-            viewModel.setCategory(category);
-            categoriesAdapter.updateSelectedCategory(category);
-            bottomSheetDialog.dismiss();
-        });
 
         bottomSheetDialog.show();
     }
 
-
-    private void setupRecyclerView() {
-        adapter = new TemplateAdapter(this);
-        layoutManager = new GridLayoutManager(requireContext(), 1);
-        binding.templatesRecyclerView.setLayoutManager(layoutManager);
-
-        binding.templatesRecyclerView.setAdapter(adapter);
-        
-        // Set item animator to null to prevent animation glitches
-        binding.templatesRecyclerView.setItemAnimator(null);
-
-        binding.templatesRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            private int scrollThreshold = 20;  // Increased threshold for better detection
-            private int totalDy = 0; // Track total scroll distance
-            private boolean isAppBarHidden = false;
-
-            @Override
-            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                super.onScrolled(recyclerView, dx, dy);
-
-                totalDy += dy; // Track total scroll distance
-
-                try {
-                    if (totalDy > scrollThreshold && !isAppBarHidden) {
-                        // Scrolling Down → Collapse AppBar
-                        isAppBarHidden = true;
-                        binding.appBarLayout.setExpanded(false, true);
-                    } else if (totalDy < -scrollThreshold && isAppBarHidden) {
-                        // Scrolling Up → Expand AppBar
-                        isAppBarHidden = false;
-                        binding.appBarLayout.setExpanded(true, true);
-                    }
-
-                    // Preserve existing "Load More" logic
-                    int totalItemCount = layoutManager.getItemCount();
-                    int lastVisibleItem = layoutManager.findLastCompletelyVisibleItemPosition();
-
-                    if (lastVisibleItem >= 0 &&
-                            totalItemCount > 0 &&
-                            lastVisibleItem >= totalItemCount - VISIBLE_THRESHOLD) {
-                        loadMoreItems();
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error in scroll listener", e);
-                }
-            }
-        });
-
-    }
-
-    private void setupImpressionTracking() {
-        binding.templatesRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                super.onScrolled(recyclerView, dx, dy);
-                
-                try {
-                    // Track visible templates for impression
-                    int firstVisible = layoutManager.findFirstVisibleItemPosition();
-                    int lastVisible = layoutManager.findLastVisibleItemPosition();
-                    
-                    if (firstVisible >= 0 && lastVisible >= 0) {
-                        List<Template> templates = viewModel.getTemplates().getValue();
-                        if (templates != null) {
-                            for (int i = firstVisible; i <= lastVisible && i < templates.size(); i++) {
-                                Template template = templates.get(i);
-                                if (template != null && template.getId() != null) {
-                                    viewModel.markTemplateAsViewed(template.getId());
-                                }
-                            }
-                        }
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error tracking template impressions", e);
-                }
-            }
-        });
-    }
-
-    private void loadMoreItems() {
+    @Override
+    public void onTemplateClick(Template template) {
         try {
-            Log.d(TAG, "Loading more items");
-            binding.bottomLoadingView.setVisibility(View.VISIBLE);
+            Log.d(TAG, "Template clicked: " + (template != null ? template.getId() : "null"));
             
-            int lastPosition = layoutManager.findLastCompletelyVisibleItemPosition();
-            int totalItems = layoutManager.getItemCount();
-            
-            if (lastPosition >= 0 && totalItems > 0 && lastPosition < totalItems - 1) {
-                viewModel.loadMoreIfNeeded(lastPosition, totalItems);
-            } else {
-                binding.bottomLoadingView.setVisibility(View.GONE);
+            // Check if template is valid
+            if (template == null) {
+                Log.e(TAG, "Attempted to click on null template");
+                return;
             }
+            
+            // Check if it's an HTML template that needs premium features
+            if (template.getType() != null && template.getType().equals("html")) {
+                try {
+                    if (featureManager == null) {
+                        featureManager = FeatureManager.getInstance(requireContext());
+                        Log.d(TAG, "FeatureManager initialized in onTemplateClick");
+                    }
+                    
+                    if (!featureManager.isFeatureUnlocked(FeatureManager.HTML_EDITING)) {
+                        // Show unlock dialog manually instead of using checkFeatureAccess which might cause issues
+                        String message = featureManager.getLockedFeatureMessage(FeatureManager.HTML_EDITING);
+                        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+                        
+                        // Use the safer way to show the dialog
+                        try {
+                            UnifiedAdRewardDialog dialog = UnifiedAdRewardDialog.newInstance("Unlock HTML Editing")
+                                .setCallback(new UnifiedAdRewardDialog.AdRewardCallback() {
+                                    @Override
+                                    public void onCoinsEarned(int amount) {
+                                        Toast.makeText(requireContext(), "You earned " + amount + " coins!", Toast.LENGTH_SHORT).show();
+                                    }
+                                    
+                                    @Override
+                                    public void onFeatureUnlocked(int durationDays) {
+                                        Toast.makeText(requireContext(), "Feature unlocked for " + durationDays + " days!", Toast.LENGTH_SHORT).show();
+                                        
+                                        // Now that it's unlocked, navigate to the detail
+                                        navigateToTemplateDetail(template);
+                                    }
+                                    
+                                    @Override
+                                    public void onDismissed() {
+                                        // Nothing to do here
+                                    }
+                                });
+                            
+                            dialog.show(requireActivity().getSupportFragmentManager());
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error showing unlock dialog", e);
+                            // Fall back to a simple toast
+                            Toast.makeText(requireContext(), 
+                                "This feature requires premium access. Please check the coins menu to unlock.",
+                                Toast.LENGTH_LONG).show();
+                        }
+                        
+                        return;
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error checking feature access", e);
+                    // Continue with normal navigation if there's an error checking access
+                }
+            }
+            
+            // Continue with normal template click handling
+            navigateToTemplateDetail(template);
         } catch (Exception e) {
-            Log.e(TAG, "Error loading more items", e);
-            binding.bottomLoadingView.setVisibility(View.GONE);
+            Log.e(TAG, "Error in onTemplateClick", e);
+            // Show user-friendly error
+            Toast.makeText(requireContext(), 
+                "Something went wrong. Please try again.", 
+                Toast.LENGTH_SHORT).show();
         }
+    }
+    
+    // Helper method to navigate to template detail
+    private void navigateToTemplateDetail(Template template) {
+        try {
+            NavController navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment);
+            viewModel.setSelectedTemplate(template);
+            
+            Bundle args = new Bundle();
+            args.putString("templateId", template.getId());
+            navController.navigate(R.id.action_home_to_template_detail, args);
+        } catch (Exception e) {
+            Log.e(TAG, "Error navigating to template detail", e);
+        }
+    }
+
+    private void ensureCategoriesVisible() {
+        if (binding != null && binding.categoriesRecyclerView != null) {
+            Log.d(TAG, "Ensuring categories are visible - current visibility: " + 
+                  (binding.categoriesRecyclerView.getVisibility() == View.VISIBLE ? "VISIBLE" : "GONE"));
+            binding.categoriesRecyclerView.setVisibility(View.VISIBLE);
+            
+            // Setup adapter if not already set
+            if (binding.categoriesRecyclerView.getAdapter() == null) {
+                Log.d(TAG, "Categories adapter not set, setting up now");
+                setupCategoriesRecyclerView();
+            } else {
+                Log.d(TAG, "Categories adapter already set, items: " + 
+                      (categoriesAdapter != null ? categoriesAdapter.getItemCount() : "NULL ADAPTER"));
+            }
+            
+            // Load categories if adapter is empty
+            if (categoriesAdapter == null) {
+                Log.e(TAG, "Categories adapter is null, creating a new one");
+                setupCategoriesRecyclerView();
+            } else if (categoriesAdapter.getItemCount() == 0) {
+                Log.d(TAG, "Categories adapter is empty, loading categories");
+                viewModel.loadCategories();
+                
+                // Add a second attempt after a delay if still empty
+                new android.os.Handler().postDelayed(() -> {
+                    if (isAdded() && !isDetached() && categoriesAdapter.getItemCount() == 0) {
+                        Log.d(TAG, "Categories still empty after delay, trying again");
+                        viewModel.loadCategories();
+                    }
+                }, 3000);
+            }
+        } else {
+            Log.e(TAG, "Cannot ensure categories are visible - binding or recyclerView is null");
+        }
+    }
+
+    private void setupCategoriesRecyclerView() {
+        Log.d(TAG, "Setting up categories RecyclerView");
+        
+        // Create adapter with context, empty list, and click listener
+        categoriesAdapter = new CategoriesAdapter(
+            requireContext(),
+            new ArrayList<>(),
+            (category, position) -> {
+                // Handle category click
+                Log.d(TAG, "Category clicked: " + category.getName());
+                if (viewModel != null) {
+                    viewModel.setSelectedCategory(category.getId());
+                }
+            }
+        );
+        
+        // Set up with horizontal layout
+        LinearLayoutManager layoutManager = new LinearLayoutManager(
+            requireContext(), LinearLayoutManager.HORIZONTAL, false);
+        binding.categoriesRecyclerView.setLayoutManager(layoutManager);
+        binding.categoriesRecyclerView.setAdapter(categoriesAdapter);
+        
+        // Ensure recyclerview is visible
+        binding.categoriesRecyclerView.setVisibility(View.VISIBLE);
+        
+        // Add padding for better appearance
+        int padding = getResources().getDimensionPixelSize(R.dimen.category_padding);
+        binding.categoriesRecyclerView.setPadding(padding, 0, padding, 0);
+        binding.categoriesRecyclerView.setClipToPadding(false);
+        
+        // Log categories adapter state
+        if (viewModel != null && viewModel.getCategoryObjects().getValue() != null) {
+            List<com.ds.eventwish.ui.home.Category> categories = viewModel.getCategoryObjects().getValue();
+            Log.d(TAG, "Categories available from ViewModel: " + categories.size());
+            categoriesAdapter.updateCategories(categories);
+        } else {
+            Log.d(TAG, "No categories available from ViewModel, will be loaded later");
+        }
+    }
+
+    private void showAdRewardDialog() {
+        Log.d(TAG, "Showing ad reward dialog");
+        
+        // Create and show the UnifiedAdRewardDialog with proper initialization
+        UnifiedAdRewardDialog dialog = UnifiedAdRewardDialog.newInstance("Earn Coins")
+            .setCallback(new UnifiedAdRewardDialog.AdRewardCallback() {
+                @Override
+                public void onCoinsEarned(int amount) {
+                    // Show toast message
+                    Toast.makeText(requireContext(), 
+                        getString(R.string.coins_earned, amount), 
+                        Toast.LENGTH_SHORT).show();
+                    
+                    // Explicitly refresh coins after dialog closes
+                    if (coinsViewModel != null) {
+                        Log.d(TAG, "Forcing coins refresh after reward");
+                        coinsViewModel.refreshCoinsCount();
+                    }
+                }
+                
+                @Override
+                public void onFeatureUnlocked(int durationDays) {
+                    Toast.makeText(requireContext(), 
+                        getString(R.string.feature_unlocked, durationDays), 
+                        Toast.LENGTH_SHORT).show();
+                }
+                
+                @Override
+                public void onDismissed() {
+                    // Force a final refresh when dialog is dismissed
+                    if (coinsViewModel != null) {
+                        Log.d(TAG, "Final coins refresh after dialog dismissed");
+                        coinsViewModel.refreshCoinsCount();
+                    }
+                }
+            });
+        
+        dialog.show(requireActivity().getSupportFragmentManager());
+        
+        // Log for debugging
+        Log.d(TAG, "Ad reward dialog shown");
+    }
+
+    private void showPremiumFeaturesDialog() {
+        Log.d(TAG, "Showing premium features dialog");
+        
+        // Create and show the UnifiedAdRewardDialog with proper initialization
+        UnifiedAdRewardDialog dialog = UnifiedAdRewardDialog.newInstance("Premium Features")
+            .setCallback(new UnifiedAdRewardDialog.AdRewardCallback() {
+                @Override
+                public void onCoinsEarned(int amount) {
+                    Toast.makeText(requireContext(), 
+                        getString(R.string.coins_earned, amount), 
+                        Toast.LENGTH_SHORT).show();
+                }
+                
+                @Override
+                public void onFeatureUnlocked(int durationDays) {
+                    Toast.makeText(requireContext(), 
+                        getString(R.string.feature_unlocked, durationDays), 
+                        Toast.LENGTH_SHORT).show();
+                    
+                    // Refresh UI if needed after unlocking feature
+                    if (viewModel != null) {
+                        viewModel.refreshForFeatureChange();
+                    }
+                }
+                
+                @Override
+                public void onDismissed() {
+                    // Nothing to do here
+                }
+            });
+        
+        dialog.show(requireActivity().getSupportFragmentManager());
+        
+        // Log for debugging
+        Log.d(TAG, "Premium features dialog shown");
     }
 
     private void setupSwipeRefresh() {
-        //hide Retry Layout
-        binding.retryLayout.setVisibility(View.GONE);
-        binding.swipeRefreshLayout.setColorSchemeResources(
-            android.R.color.holo_blue_bright,
-            android.R.color.holo_green_light,
-            android.R.color.holo_orange_light,
-            android.R.color.holo_red_light
-        );
-
+        binding.swipeRefreshLayout.setColorSchemeResources(R.color.colorPrimary);
         binding.swipeRefreshLayout.setOnRefreshListener(() -> {
-            // Reset scroll position to avoid inconsistency
-            viewModel.saveScrollPosition(0);
+            Log.d(TAG, "Swipe refresh triggered");
+            viewModel.clearCacheAndRefresh();
             
-            // Clear the new templates indicator
-            viewModel.clearNewTemplatesFlag();
-            
-            // Refresh templates
-            viewModel.loadTemplates(true);
-            
-            // Hide the indicator immediately
-            binding.refreshIndicator.setVisibility(View.GONE);
-            
-            // Disable refresh icon temporarily
-            binding.refreshIcon.setEnabled(false);
-            binding.refreshIcon.postDelayed(() -> binding.refreshIcon.setEnabled(true), 1000);
+            // Add timeout to prevent infinite loading
+            new android.os.Handler().postDelayed(() -> {
+                if (binding != null && binding.swipeRefreshLayout.isRefreshing()) {
+                    binding.swipeRefreshLayout.setRefreshing(false);
+                }
+            }, 5000); // 5-second timeout
         });
     }
-
+    
     private void setupIndicators() {
-        // Set up offline indicator
-        binding.offlineIndicator.setRetryListener(() -> {
-            Log.d(TAG, "Retry clicked from offline indicator");
-            viewModel.loadTemplates(true);
-        });
+        // Implementation of setupIndicators
+        Log.d(TAG, "Setting up indicators");
         
-        // Set up stale data indicator
-        binding.staleDataIndicator.setRefreshListener(() -> {
-            Log.d(TAG, "Refresh clicked from stale data indicator");
-            viewModel.loadTemplates(true);
-        });
-    }
-
-    private void setupObservers() {
-        // Observe templates from the ViewModel
-        viewModel.getTemplates().observe(getViewLifecycleOwner(), templates -> {
-            Log.d(TAG, "Templates updated - size: " + (templates != null ? templates.size() : 0));
-            if (templates != null && binding != null) {
-                // Create a new list to avoid modification issues
-                List<Template> newList = new ArrayList<>(templates);
-                
-                // Check for new templates
-                viewModel.checkForNewTemplates(newList);
-                
-                // Update the adapter with the new list
-                binding.templatesRecyclerView.post(() -> {
-                    // Check if binding is still valid
-                    if (binding == null) {
-                        Log.d(TAG, "Binding is null in post runnable, skipping UI update");
-                        return;
-                    }
-                    
-                    adapter.submitList(newList);
-                    
-                    // Restore scroll position if needed
-                    int savedPosition = viewModel.getLastVisiblePosition();
-                    if (savedPosition > 0 && savedPosition < newList.size()) {
-                        Log.d(TAG, "Restoring scroll position to: " + savedPosition);
-                        layoutManager.scrollToPosition(savedPosition);
-                    }
-                    
-                    // Show empty state if needed
-                    if (binding != null && binding.emptyView != null) {
-                        binding.emptyView.setVisibility(newList.isEmpty() ? View.VISIBLE : View.GONE);
-                    }
-                });
-            }
-        });
-        
-        // Observe new template IDs
-        viewModel.getNewTemplateIds().observe(getViewLifecycleOwner(), newIds -> {
-            if (newIds != null && adapter != null) {
-                Log.d(TAG, "New template IDs updated: " + newIds.size());
-                adapter.setNewTemplates(newIds);
-            }
-        });
-        
-        // Observe loading state
+        // Observe loading state to show/hide indicators
         viewModel.getLoading().observe(getViewLifecycleOwner(), isLoading -> {
-            Log.d(TAG, "Loading state updated: " + isLoading);
-            if (binding != null) {
-                binding.swipeRefreshLayout.setRefreshing(isLoading);
+            if (isLoading) {
+                // Show loading indicators
+                binding.swipeRefreshLayout.setRefreshing(true);
                 
-                // Show/hide shimmer based on loading state
-                if (isLoading) {
-//                    binding.shimmerLayout.setVisibility(View.VISIBLE);
-//                    binding.shimmerLayout.startShimmer();
-                    binding.templatesRecyclerView.setVisibility(View.GONE);
-                    if (binding.emptyView != null) {
-                        binding.emptyView.setVisibility(View.GONE);
+                // Hide no results if showing
+                if (binding.emptyView != null) {
+                    binding.emptyView.setVisibility(View.GONE);
+                }
+            } else {
+                // Hide loading indicators after a small delay to avoid flickering
+                new android.os.Handler().postDelayed(() -> {
+                    if (binding != null) {
+                        binding.swipeRefreshLayout.setRefreshing(false);
+                        
+                        // Check if we have templates to display
+                        if (viewModel.getTemplates().getValue() == null || 
+                            viewModel.getTemplates().getValue().isEmpty()) {
+                            // Show no results message
+                            if (binding.emptyView != null) {
+                                binding.emptyView.setVisibility(View.VISIBLE);
+                            }
+                        } else {
+                            // Hide no results message
+                            if (binding.emptyView != null) {
+                                binding.emptyView.setVisibility(View.GONE);
+                            }
+                        }
                     }
-                } else {
-//                    binding.shimmerLayout.stopShimmer();
-//                    binding.shimmerLayout.setVisibility(View.GONE);
-                    binding.templatesRecyclerView.setVisibility(View.VISIBLE);
-                }
+                }, 300);
             }
         });
         
-        // Observe error state
-        viewModel.getError().observe(getViewLifecycleOwner(), error -> {
-            if (error != null && !error.isEmpty() && getContext() != null) {
-                Log.e(TAG, "Error: " + error);
-                Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show();
-            }
-        });
-        
-        // Observe category icons
-        categoryIconRepository.getCategoryIcons().observe(getViewLifecycleOwner(), categoryIcons -> {
-            Log.d(TAG, "Received " + (categoryIcons != null ? categoryIcons.size() : 0) + " category icons");
-            // Force refresh of categories adapter if we have categories
-            if (categoriesAdapter != null && categoriesAdapter.getItemCount() > 0) {
-                categoriesAdapter.notifyDataSetChanged();
-            }
-        });
-        
-        // Observe categories from the ViewModel
-        viewModel.getCategories().observe(getViewLifecycleOwner(), categories -> {
-            if (categories != null && !categories.isEmpty()) {
-                Log.d(TAG, "Received " + categories.size() + " categories");
-                
-                // Make sure category icons are loaded
-                categoryIconRepository.loadCategoryIcons();
-                
-                // Convert categories map to list for the adapter
-                List<String> categoryList = new ArrayList<>(categories.keySet());
-                
-                // Add "All" category if it doesn't exist
-                if (!categoryList.contains("All")) {
-                    categoryList.add(0, "All");
-                }
-                
-                // Update the adapter
-                categoriesAdapter.updateCategories(categoryList);
-            }
-        });
-        
-        // Observe new templates indicator
-        viewModel.getHasNewTemplates().observe(getViewLifecycleOwner(), hasNew -> {
-            if (binding != null) {
-                binding.refreshIndicator.setVisibility(hasNew ? View.VISIBLE : View.GONE);
-            }
-        });
-        
-        // Observe unread festival count
-        festivalViewModel.getUnreadCount().observe(getViewLifecycleOwner(), count -> {
-            if (binding != null) {
-                if (count != null && count > 0) {
-                    binding.notificationBadge.setVisibility(View.VISIBLE);
-                    binding.notificationBadge.setText(count <= 9 ? String.valueOf(count) : "9+");
-                } else {
-                    binding.notificationBadge.setVisibility(View.GONE);
-                }
-            }
-        });
-        
-        // Observe network state
-        networkUtils.getNetworkAvailability().observe(getViewLifecycleOwner(), isConnected -> {
-            Log.d(TAG, "Network state changed: " + (isConnected ? "Connected" : "Disconnected"));
-            if (binding != null) {
-                binding.offlineIndicator.setVisibility(isConnected ? View.GONE : View.VISIBLE);
-                
-                // If we're back online, refresh the data
-                if (isConnected && wasInBackground) {
-                    Log.d(TAG, "Back online after being in background, refreshing data");
-                    viewModel.loadTemplates(true);
-                    wasInBackground = false;
-                }
-            }
-        });
-        
-        // Observe stale data state
-        viewModel.getStaleData().observe(getViewLifecycleOwner(), isStale -> {
-            Log.d(TAG, "Stale data state changed: " + isStale);
-            if (binding != null) {
-                binding.staleDataIndicator.setVisibility(isStale ? View.VISIBLE : View.GONE);
+        // Update the refresh indicator when refresh is needed
+        viewModel.getRefreshNeeded().observe(getViewLifecycleOwner(), refreshNeeded -> {
+            if (binding != null && binding.refreshIndicator != null) {
+                binding.refreshIndicator.setVisibility(refreshNeeded ? View.VISIBLE : View.GONE);
             }
         });
     }
-
+    
     private void setupBottomNavigation() {
-        if (getActivity() instanceof MainActivity) {
-            bottomNav = getActivity().findViewById(R.id.bottomNavigation);
-            bottomNav.setVisibility(View.VISIBLE);
-            // Set the selected item to home
-            bottomNav.setSelectedItemId(R.id.navigation_home);
+        // Implementation of setupBottomNavigation
+        Log.d(TAG, "Setting up bottom navigation");
+        
+        // Use requireActivity() to find the bottom navigation, but check if it exists first
+        try {
+            MainActivity mainActivity = (MainActivity) requireActivity();
+            if (mainActivity != null) {
+                bottomNav = mainActivity.findViewById(R.id.bottomNavigation); // Using bottomNavigation as found in activity_main.xml
+                if (bottomNav != null) {
+                    // Ensure home is selected
+                    bottomNav.setSelectedItemId(R.id.navigation_home);
+                    
+                    // Update selected navigation item when this fragment is visible
+                    bottomNav.post(() -> {
+                        if (bottomNav.getSelectedItemId() != R.id.navigation_home) {
+                            bottomNav.setSelectedItemId(R.id.navigation_home);
+                        }
+                    });
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error setting up bottom navigation", e);
+            // Non-critical error, can be ignored
         }
     }
-
-    @Override
-    public void onTemplateClick(Template template) {
-        if (template == null) return;
+    
+    private void initViewModels() {
+        Log.d(TAG, "Initializing ViewModels");
         
-        // Mark the template as viewed
-        viewModel.markTemplateAsViewed(template.getId());
-        
-        // Save the current scroll position
-        int position = layoutManager.findFirstVisibleItemPosition();
-        if (position >= 0) {
-            viewModel.saveScrollPosition(position);
+        // Initialize main ViewModel if not already initialized
+        if (viewModel == null) {
+            viewModel = new ViewModelProvider(this).get(HomeViewModel.class);
         }
         
-        // Navigate to the template detail screen
-        Bundle args = new Bundle();
-        args.putString("templateId", template.getId());
-        Navigation.findNavController(requireView()).navigate(R.id.action_home_to_template_detail, args);
+        // Set up templates observer
+        viewModel.getTemplates().observe(getViewLifecycleOwner(), templates -> {
+            if (templates != null) {
+                Log.d(TAG, "Templates updated: " + templates.size());
+                if (adapter != null) {
+                    adapter.updateTemplates(templates);
+                    
+                    // Hide loading and no results views
+                    if (binding != null) {
+                        binding.swipeRefreshLayout.setRefreshing(false);
+                        
+                        if (templates.isEmpty()) {
+                            if (binding.emptyView != null) {
+                                binding.emptyView.setVisibility(View.VISIBLE);
+                            }
+                        } else {
+                            if (binding.emptyView != null) {
+                                binding.emptyView.setVisibility(View.GONE);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Set up category observer
+        viewModel.getCategoryObjects().observe(getViewLifecycleOwner(), categories -> {
+            if (categories != null && categoriesAdapter != null) {
+                Log.d(TAG, "Categories updated: " + categories.size());
+                categoriesAdapter.updateCategories(categories);
+                
+                // Update selected category if needed
+                String selectedCategory = viewModel.getSelectedCategory();
+                if (selectedCategory != null) {
+                    categoriesAdapter.updateSelectedCategory(selectedCategory);
+                }
+            }
+        });
+        
+        // Initialize coins ViewModel if not already done
+        if (coinsViewModel == null) {
+            coinsViewModel = new ViewModelProvider(requireActivity()).get(CoinsViewModel.class);
+            Log.d(TAG, "CoinsViewModel initialized");
+            
+            // Setup coins observer for UI updates
+            coinsObserver = coinsCount -> {
+                Log.d(TAG, "Coins updated: " + coinsCount);
+                // Handle coins update in the activity or in the menu creation callback
+                // Menu might not be created yet, so we'll handle it there
+            };
+            
+            // Get initial coins count
+            coinsViewModel.refreshCoinsCount();
+            
+            // Setup periodic refresh
+            startPeriodicCoinsRefresh();
+        }
+        
+        // Initialize festival ViewModel if not already done
+        if (festivalViewModel == null) {
+            festivalViewModel = new ViewModelProvider(requireActivity()).get(FestivalViewModel.class);
+            Log.d(TAG, "FestivalViewModel initialized");
+            festivalViewModel.refreshFestivals();
+        }
+        
+        // Initialize icons repository if needed
+        if (categoryIconRepository == null) {
+            categoryIconRepository = CategoryIconRepository.getInstance();
+            Log.d(TAG, "CategoryIconRepository initialized");
+        }
     }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
         
-        // Don't clear the position when destroying the view
-        // This allows us to restore the position when coming back
+        // Stop periodic refreshes to prevent memory leaks
+        stopPeriodicCoinsRefresh();
         
-        // Cancel any pending operations on the RecyclerView
-        if (binding != null && binding.templatesRecyclerView != null) {
-            binding.templatesRecyclerView.removeCallbacks(null);
+        // Clean up observers to prevent memory leaks
+        if (coinsViewModel != null && coinsObserver != null) {
+            coinsViewModel.getCoinsLiveData().removeObserver(coinsObserver);
         }
         
-        // Clear binding reference
+        // Clear reference to binding
         binding = null;
-        
-        Log.d(TAG, "onDestroyView: binding set to null");
-    }
-
-    // Test method to simulate new templates (for development/testing only)
-    private void testNewTemplatesIndicator() {
-        // Check if binding is still valid
-        if (binding == null) {
-            Log.d(TAG, "Binding is null in testNewTemplatesIndicator, skipping UI update");
-            return;
-        }
-        
-        // Toggle the indicator for testing
-        boolean currentState = binding.refreshIndicator.getVisibility() == View.VISIBLE;
-        binding.refreshIndicator.setVisibility(currentState ? View.GONE : View.VISIBLE);
-        
-        // Show a toast message
-        Toast.makeText(requireContext(), 
-                      currentState ? "Test: Indicator hidden" : "Test: New templates indicator shown", 
-                      Toast.LENGTH_SHORT).show();
-        
-        Log.d(TAG, "Test: Toggled new templates indicator to " + !currentState);
-    }
-
-    /**
-     * Ensure that the categories section is visible
-     */
-    private void ensureCategoriesVisible() {
-        // Make sure the categories RecyclerView is visible
-        if (binding.categoriesRecyclerView != null) {
-            binding.categoriesRecyclerView.setVisibility(View.VISIBLE);
-            
-            // Log the current state
-            Log.d(TAG, "Categories RecyclerView visibility: " + 
-                  (binding.categoriesRecyclerView.getVisibility() == View.VISIBLE ? "VISIBLE" : "NOT VISIBLE"));
-            
-            // Check if adapter is set
-            if (binding.categoriesRecyclerView.getAdapter() == null) {
-                Log.d(TAG, "Categories RecyclerView adapter is null, setting adapter");
-                binding.categoriesRecyclerView.setAdapter(categoriesAdapter);
-            }
-            
-            // Check if adapter has data
-            if (categoriesAdapter != null) {
-                Log.d(TAG, "Categories adapter item count: " + categoriesAdapter.getItemCount());
-                
-                // If adapter is empty or only has "All" category, check for categories in ViewModel
-                if ((categoriesAdapter.getItemCount() <= 1) && viewModel != null) {
-                    Map<String, Integer> categories = viewModel.getCategories().getValue();
-                    if (categories != null && !categories.isEmpty()) {
-                        Log.d(TAG, "Updating categories adapter with " + categories.size() + " categories");
-                        
-                        // Convert categories map to list for the adapter
-                        List<String> categoryList = new ArrayList<>(categories.keySet());
-                        
-                        // Add "All" category if it doesn't exist
-                        if (!categoryList.contains("All")) {
-                            categoryList.add(0, "All");
-                        }
-                        
-                        // Update the adapter
-                        categoriesAdapter.updateCategories(categoryList);
-                    } else {
-                        // If no categories are available, load them
-                        Log.d(TAG, "No categories available in ViewModel, loading categories");
-                        viewModel.loadCategories();
-                        
-                        // Add "All" category as a fallback
-                        if (categoriesAdapter.getItemCount() == 0) {
-                            List<String> fallbackList = new ArrayList<>();
-                            fallbackList.add("All");
-                            categoriesAdapter.updateCategories(fallbackList);
-                        }
-                    }
-                    
-                    // Make sure the selected category is highlighted
-                    if (viewModel != null) {
-                        String selectedCategory = viewModel.getSelectedCategory();
-                        categoriesAdapter.updateSelectedCategory(selectedCategory);
-                    }
-                }
-            }
-        }
     }
 }

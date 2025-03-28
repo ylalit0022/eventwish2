@@ -16,8 +16,9 @@ import androidx.core.app.NotificationCompat;
 
 import com.ds.eventwish.MainActivity;
 import com.ds.eventwish.R;
-import com.ds.eventwish.utils.FlashyMessageManager;
 import com.google.firebase.messaging.RemoteMessage;
+
+import java.util.Map;
 
 public class FirebaseMessagingService extends com.google.firebase.messaging.FirebaseMessagingService {
     private static final String TAG = "FirebaseMsgService";
@@ -27,122 +28,161 @@ public class FirebaseMessagingService extends com.google.firebase.messaging.Fire
 
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
-        Log.d(TAG, "From: " + remoteMessage.getFrom());
-
-        // Check if message contains a data payload
-        if (remoteMessage.getData().size() > 0) {
-            Log.d(TAG, "Message data payload: " + remoteMessage.getData());
-            
-            // Handle message type
-            String messageType = remoteMessage.getData().get("type");
-            
-            if (messageType != null) {
-                switch (messageType) {
-                    case "flashy_message":
-                        // Store flashy message to be shown when app is opened
-                        String title = remoteMessage.getData().get("title");
-                        String message = remoteMessage.getData().get("message");
-                        String messageId = remoteMessage.getData().get("message_id");
-                        
-                        // Save the flashy message to be displayed when app is opened
-                        FlashyMessageManager.saveFlashyMessage(this, messageId, title, message);
-                        break;
-                    
-                    case "notification":
-                        // Show regular notification
-                        sendNotification(
-                            remoteMessage.getData().get("title"),
-                            remoteMessage.getData().get("message")
-                        );
-                        break;
-                        
-                    default:
-                        // Default to notification
-                        if (remoteMessage.getNotification() != null) {
-                            sendNotification(
-                                remoteMessage.getNotification().getTitle(),
-                                remoteMessage.getNotification().getBody()
-                            );
-                        }
-                        break;
-                }
+        try {
+            Log.d(TAG, "From: " + remoteMessage.getFrom());
+    
+            // Check if message contains a data payload
+            if (remoteMessage.getData().size() > 0) {
+                Log.d(TAG, "Message data payload: " + remoteMessage.getData());
+                
+                // Handle message type
+                handleDataMessage(remoteMessage.getData());
             }
-        }
-
-        // Check if message contains a notification payload
-        if (remoteMessage.getNotification() != null) {
-            Log.d(TAG, "Message Notification Body: " + remoteMessage.getNotification().getBody());
-            
-            // Convert Firebase Console notification to flashy message
-            String title = remoteMessage.getNotification().getTitle();
-            String body = remoteMessage.getNotification().getBody();
-            String messageId = remoteMessage.getMessageId();
-            
-            if (title != null && body != null && messageId != null) {
-                // Save as flashy message
-                FlashyMessageManager.saveFlashyMessage(this, messageId, title, body);
-                Log.d(TAG, "Converted Firebase Console notification to flashy message");
-            } else {
-                // Fall back to regular notification
+    
+            // Check if message contains a notification payload
+            if (remoteMessage.getNotification() != null) {
+                Log.d(TAG, "Message Notification Body: " + remoteMessage.getNotification().getBody());
+                
+                // Send as regular notification
                 sendNotification(
                     remoteMessage.getNotification().getTitle(),
                     remoteMessage.getNotification().getBody()
                 );
             }
+        } catch (Exception e) {
+            Log.e(TAG, "Error handling FCM message", e);
+        }
+    }
+    
+    /**
+     * Handle data message from FCM
+     * @param data Message data
+     */
+    private void handleDataMessage(Map<String, String> data) {
+        try {
+            // Handle message type
+            String messageType = data.get("type");
+            
+            if (messageType != null) {
+                switch (messageType) {
+                    case "notification":
+                        // Show regular notification
+                        sendNotification(
+                            data.get("title"),
+                            data.get("message")
+                        );
+                        break;
+                        
+                    default:
+                        // Default to notification
+                        sendNotification(
+                            data.get("title"),
+                            data.get("message")
+                        );
+                        break;
+                }
+            } else {
+                // No message type, just show notification with whatever data is available
+                sendNotification(
+                    data.get("title"),
+                    data.get("message")
+                );
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error handling data message", e);
         }
     }
 
     @Override
     public void onNewToken(@NonNull String token) {
-        Log.d(TAG, "Refreshed token: " + token);
-        
-        // Save the token to shared preferences
-        saveTokenToPrefs(token);
-        
-        // Send token to backend server
-        sendRegistrationToServer(token);
+        try {
+            Log.d(TAG, "Refreshed token: " + token);
+            
+            // Save the token to shared preferences
+            saveTokenToPrefs(token);
+            
+            // Send token to backend server
+            sendRegistrationToServer(token);
+        } catch (Exception e) {
+            Log.e(TAG, "Error handling FCM token refresh", e);
+        }
     }
 
     private void saveTokenToPrefs(String token) {
-        SharedPreferences sharedPreferences = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-        SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.putString(KEY_TOKEN, token);
-        editor.apply();
+        try {
+            SharedPreferences sharedPreferences = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putString(KEY_TOKEN, token);
+            editor.apply();
+            Log.d(TAG, "FCM token saved to preferences");
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving FCM token to preferences", e);
+        }
     }
 
     private void sendRegistrationToServer(String token) {
         // TODO: Implement API call to send token to backend
-        // This will be implemented in the TokenRepository
+        Log.d(TAG, "FCM token registration to server not implemented yet");
     }
 
     private void sendNotification(String title, String messageBody) {
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent,
-                PendingIntent.FLAG_IMMUTABLE);
-
-        Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-        NotificationCompat.Builder notificationBuilder =
-                new NotificationCompat.Builder(this, CHANNEL_ID)
-                        .setSmallIcon(R.drawable.ic_notification)
-                        .setContentTitle(title)
-                        .setContentText(messageBody)
-                        .setAutoCancel(true)
-                        .setSound(defaultSoundUri)
-                        .setContentIntent(pendingIntent);
-
-        NotificationManager notificationManager =
-                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-
-        // Since android Oreo notification channel is needed.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "Firebase Notifications",
-                    NotificationManager.IMPORTANCE_HIGH);
-            notificationManager.createNotificationChannel(channel);
+        try {
+            // Check for null values
+            if (title == null) title = getString(R.string.app_name);
+            if (messageBody == null) messageBody = "";
+            
+            // Create intent for notification click
+            Intent intent = new Intent(this, MainActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            
+            // Create pending intent
+            PendingIntent pendingIntent = PendingIntent.getActivity(
+                this, 
+                0, 
+                intent,
+                PendingIntent.FLAG_IMMUTABLE
+            );
+    
+            // Set notification sound
+            Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            
+            // Build notification
+            NotificationCompat.Builder notificationBuilder =
+                    new NotificationCompat.Builder(this, CHANNEL_ID)
+                            .setSmallIcon(R.drawable.ic_notification)
+                            .setContentTitle(title)
+                            .setContentText(messageBody)
+                            .setAutoCancel(true)
+                            .setSound(defaultSoundUri)
+                            .setPriority(NotificationCompat.PRIORITY_HIGH)
+                            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                            .setContentIntent(pendingIntent);
+    
+            // Get notification manager
+            NotificationManager notificationManager =
+                    (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+    
+            // Since android Oreo notification channel is needed
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && notificationManager != null) {
+                NotificationChannel channel = new NotificationChannel(
+                        CHANNEL_ID,
+                        "Firebase Notifications",
+                        NotificationManager.IMPORTANCE_HIGH);
+                channel.setDescription("Notifications from EventWish");
+                channel.enableLights(true);
+                channel.enableVibration(true);
+                notificationManager.createNotificationChannel(channel);
+            }
+    
+            // Show notification
+            if (notificationManager != null) {
+                // Use message hash as notification ID to prevent duplicates
+                int notificationId = (title + messageBody).hashCode();
+                notificationManager.notify(notificationId, notificationBuilder.build());
+                Log.d(TAG, "Notification sent with ID: " + notificationId);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error sending notification", e);
         }
-
-        notificationManager.notify(0, notificationBuilder.build());
     }
 } 

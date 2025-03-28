@@ -24,12 +24,14 @@ import com.ds.eventwish.MainActivity;
 import com.ds.eventwish.R;
 import com.ds.eventwish.databinding.FragmentTemplateDetailBinding;
 import com.ds.eventwish.ui.render.TemplateRenderer;
+import com.ds.eventwish.utils.AnalyticsUtils;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
 
 public class TemplateDetailFragment extends Fragment implements TemplateRenderer.TemplateRenderListener {
     private static final String TAG = "TemplateDetailFragment";
     private static final long TEXT_CHANGE_DELAY = 100; // Debounce delay in milliseconds
+    private static final long ANALYTICS_HEARTBEAT_INTERVAL = 30000; // 30 seconds
     
     private FragmentTemplateDetailBinding binding;
     private TemplateDetailViewModel viewModel;
@@ -40,6 +42,9 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
     private final Handler backgroundHandler = new Handler(Looper.getMainLooper()); // Can be changed to background if needed
     private BottomNavigationView bottomNav;
     private Runnable pendingNameUpdate;
+    private Runnable analyticsHeartbeatRunnable;
+    private long viewStartTime;
+    private boolean isTracking = false;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -123,10 +128,19 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
     private void setupWebView() {
         
         if (binding != null) {
+            // Disable caching completely
             binding.webView.getSettings().setJavaScriptEnabled(true);
             binding.webView.getSettings().setLoadWithOverviewMode(true);
             binding.webView.getSettings().setUseWideViewPort(true);
             binding.webView.getSettings().setDomStorageEnabled(true);
+            binding.webView.getSettings().setCacheMode(android.webkit.WebSettings.LOAD_NO_CACHE);
+            binding.webView.clearCache(true);
+            
+            // AppCache is deprecated in API level 33 and removed in newer versions
+            // binding.webView.getSettings().setAppCacheEnabled(false);
+            
+            // Disable local storage
+            binding.webView.getSettings().setDatabaseEnabled(false);
             
             templateRenderer = new TemplateRenderer(binding.webView, this);
         }
@@ -273,6 +287,9 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
                 if (savedSender != null && !savedSender.isEmpty()) {
                     binding.senderNameInput.setText(savedSender);
                 }
+                
+                // Start analytics tracking for real-time viewers
+                startAnalyticsTracking();
             }
         });
 
@@ -340,9 +357,83 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         });
     }
 
+    /**
+     * Start tracking analytics for real-time viewers
+     */
+    private void startAnalyticsTracking() {
+        if (templateId == null || isTracking) return;
+        
+        // Track template view once
+        AnalyticsUtils.trackTemplateView(templateId);
+        
+        // Track active viewer
+        AnalyticsUtils.trackViewerActive(templateId);
+        
+        // Store start time for duration calculation
+        viewStartTime = System.currentTimeMillis();
+        isTracking = true;
+        
+        // Setup heartbeat to track active viewers
+        analyticsHeartbeatRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!isAdded() || !isViewCreated) return;
+                
+                // Track active viewer again to maintain real-time count
+                AnalyticsUtils.trackViewerActive(templateId);
+                
+                // Schedule next heartbeat
+                mainHandler.postDelayed(this, ANALYTICS_HEARTBEAT_INTERVAL);
+            }
+        };
+        
+        // Start heartbeat
+        mainHandler.postDelayed(analyticsHeartbeatRunnable, ANALYTICS_HEARTBEAT_INTERVAL);
+        
+        Log.d(TAG, "Started analytics tracking for template: " + templateId);
+    }
+    
+    /**
+     * Stop tracking analytics for real-time viewers
+     */
+    private void stopAnalyticsTracking() {
+        if (!isTracking) return;
+        
+        // Remove heartbeat runnable
+        if (analyticsHeartbeatRunnable != null) {
+            mainHandler.removeCallbacks(analyticsHeartbeatRunnable);
+        }
+        
+        // Calculate view duration
+        long endTime = System.currentTimeMillis();
+        long durationSeconds = (endTime - viewStartTime) / 1000;
+        
+        // Track viewer inactive with duration
+        if (templateId != null) {
+            AnalyticsUtils.trackViewerInactive(templateId, durationSeconds);
+        }
+        
+        isTracking = false;
+        Log.d(TAG, "Stopped analytics tracking for template: " + templateId + ", duration: " + durationSeconds + "s");
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        
+        // Resume analytics tracking if needed
+        if (templateId != null && !isTracking) {
+            startAnalyticsTracking();
+        }
+    }
+
     @Override
     public void onPause() {
         super.onPause();
+        
+        // Stop analytics tracking
+        stopAnalyticsTracking();
+        
         // Save current input state
         if (binding != null) {
             viewModel.setRecipientName(binding.recipientNameInput.getText().toString());
@@ -368,13 +459,19 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        
+        // Stop analytics tracking if still running
+        stopAnalyticsTracking();
+        
         isViewCreated = false;
         
-        // Cleanup WebView
+        // Cleanup WebView more thoroughly
         if (binding != null && binding.webView != null) {
             binding.webView.stopLoading();
             binding.webView.clearCache(true);
             binding.webView.clearHistory();
+            binding.webView.clearFormData();
+            binding.webView.clearSslPreferences();
             binding.webView.removeJavascriptInterface("Android");
             binding.webView.destroy();
         }
@@ -398,6 +495,10 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
     @Override
     public void onDestroy() {
         super.onDestroy();
+        
+        // Stop analytics tracking if still running
+        stopAnalyticsTracking();
+        
         // Remove observers
         if (isAdded()) {
             viewModel.getTemplate().removeObservers(this);

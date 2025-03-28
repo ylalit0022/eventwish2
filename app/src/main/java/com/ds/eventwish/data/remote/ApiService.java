@@ -1,5 +1,6 @@
 package com.ds.eventwish.data.remote;
 
+import com.ds.eventwish.data.local.entity.AdMobEntity;
 import com.ds.eventwish.data.model.CategoryIcon;
 import com.ds.eventwish.data.model.Festival;
 import com.ds.eventwish.data.model.SharedWish;
@@ -42,10 +43,13 @@ public interface ApiService {
     Call<Template> getTemplateById(@Path("id") String id);
 
     @POST("share")
-    Call<SharedWish> createSharedWish(@Body SharedWish sharedWish);
+    Call<JsonObject> createSharedWish(@Body Map<String, Object> sharedWish);
 
     @GET("wishes/{shortCode}")
     Call<BaseResponse<WishResponse>> getSharedWish(@Path("shortCode") String shortCode);
+
+    @GET("wishes/{shortCode}")
+    Call<JsonObject> getSharedWishJsonByShortCode(@Path("shortCode") String shortCode);
 
     @POST("wishes/{shortCode}/share")
     Call<JsonObject> updateSharedWishPlatform(@Path("shortCode") String shortCode, @Body JsonObject platform);
@@ -112,4 +116,40 @@ public interface ApiService {
     
     @GET("icons/{id}")
     Call<JsonObject> getIcon(@Path("id") String id, @HeaderMap Map<String, String> headers);
+
+    // AdMob endpoints for client
+    @GET("admob/units")
+    Call<List<AdMobEntity>> getAdMobData();
+
+    @GET("admob/byType/{adType}")
+    Call<List<Map<String, Object>>> getAdMobByType(@Path("adType") String adType);
+
+    // Coins endpoints
+    @GET("coins/{deviceId}")
+    Call<JsonObject> getCoins(@Path("deviceId") String deviceId);
+
+    @POST("coins/{deviceId}")
+    Call<JsonObject> addCoins(@Path("deviceId") String deviceId, @Body Map<String, Object> requestBody);
+
+    @POST("coins/{deviceId}/unlock")
+    Call<JsonObject> unlockFeature(@Path("deviceId") String deviceId);
+
+    // Unlock validation endpoints
+    @POST("coins/validate")
+    Call<JsonObject> validateUnlock(@Body Map<String, Object> requestBody);
+
+    @POST("coins/report")
+    Call<JsonObject> reportUnlock(@Body Map<String, Object> requestBody);
+
+    // Track ad rewards
+    @POST("coins/reward")
+    Call<JsonObject> trackAdReward(@Body JsonObject payload);
+
+    /**
+     * Report security violation
+     * @param payload Security violation details
+     * @return Response
+     */
+    @POST("coins/security")
+    Call<JsonObject> reportSecurityViolation(@Body Map<String, Object> payload);
 }

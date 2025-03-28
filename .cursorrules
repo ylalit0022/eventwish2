@@ -134,6 +134,21 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Use JsonParser.parseString(json).getAsJsonObject() instead of gson.fromJson() for more reliable conversion
   - Add try-catch blocks around JSON parsing operations to handle malformed data
   - Consider updating entity data with properly converted objects for future use
+- When working with Java/Android type comparisons:
+  - Always match types in comparisons (don't compare String with int)
+  - Use proper type checking before comparing: entity.getId() != null && !entity.getId().isEmpty() instead of entity.getId() > 0
+  - Check for null and empty string separately when working with String IDs
+  - Add explicit type conversions if comparison between different types is needed (Integer.parseInt())
+- When working with lambda expressions in Java:
+  - Variables captured in lambda expressions must be final or effectively final
+  - Create final copies of variables before passing them to lambdas: final CoinsEntity finalEntity = entity
+  - Be careful with mutating captured objects within lambdas
+  - Use effectively final variables whenever possible to avoid creating extra copies
+- When implementing Android string resources:
+  - Always define error messages and other UI text in strings.xml 
+  - Use consistent naming convention for string resources
+  - Group related strings together with XML comments
+  - Add string resources before referencing them in code to avoid R.string not found errors
 - When implementing server-side AdMob integration:
   - Use a centralized service for managing ad configurations
   - Implement caching to reduce database load and improve response times
@@ -165,630 +180,77 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 
 # Scratchpad
 
-## Current Task: Create AdMob Test Page with React
+## Current Task: Improve HTML Editing Unlock Dialog and Coin Update Flow
 
-### Task Description
-Create a comprehensive React-based test page to visually check all AdMob-related features including analytics, fraud detection, and other functionality. This will provide a user-friendly interface to test and verify the AdMob integration.
+### Issue Analysis
 
-### Task Breakdown
-[X] Analyze existing AdMob implementation
-  [X] Review AdMob client API
-  [X] Review AdMob controller functionality
-  [X] Review analytics tracking
-  [X] Review fraud detection system
-[X] Set up React project structure
-  [X] Create project directory
-  [X] Set up package.json with required dependencies
-  [X] Configure webpack/babel
-  [X] Set up basic React app structure
-[X] Implement AdMob test components
-  [X] Create AdMob configuration display component
-  [X] Create ad display components (Banner, Interstitial, etc.)
-  [X] Create analytics dashboard component
-  [X] Create fraud detection testing component
-  [X] Create A/B testing visualization component
-[X] Implement API integration
-  [X] Create API service for AdMob endpoints
-  [X] Implement authentication with app signature
-  [X] Add error handling and loading states
-[X] Create visualization components
-  [X] Implement charts for analytics data
-  [X] Create timeline visualization for ad impressions/clicks
-  [X] Create heatmap for fraud detection
-[X] Add testing functionality
-  [X] Implement controls to simulate different user behaviors
-  [X] Add buttons to trigger fraud detection scenarios
-  [X] Create form to test different ad configurations
-[X] Style and polish UI
-  [X] Implement responsive design
-  [X] Add dark/light mode toggle
-  [X] Create intuitive navigation
-[ ] Deploy and test
-  [ ] Build production version
-  [ ] Deploy to server
-  [ ] Test all functionality
+After examining the codebase and previous fixes, there are still issues with the HTML Editing unlock flow, particularly:
 
-### Implementation Strategy
-1. First, analyze the existing AdMob implementation to understand all features ✓
-2. Create a modular React application with separate components for each feature ✓
-3. Implement API integration with proper authentication ✓
-4. Add visualization components for analytics and fraud detection ✓
-5. Create interactive controls for testing different scenarios ✓
-6. Style the UI for a professional look and feel ✓
-7. Deploy and test the application
+1. **Coins Not Updating in UI After Watching Ads**
+   - Despite previous fixes, the coin balance UI is not consistently updating after watching ads
+   - The update may be happening in the data layer but not propagating to all UI elements
 
-### Progress Tracking
-- [X] Analysis of existing AdMob implementation
-- [X] React project setup
-- [X] Core components implementation
-- [X] API integration
-- [X] Visualization components
-- [X] Testing functionality
-- [X] UI styling and polish
-- [ ] Deployment and testing
+2. **Unlock Remaining Time Display Issues**
+   - The "Time Left in Days" display may not be updating correctly after unlocking a feature
+   - Users need clear feedback about the duration of their unlock
 
-### Components Implemented
-1. Core Structure:
-   - [X] App.js - Main application with routing
-   - [X] Header.js - Navigation header with dark mode toggle
-   - [X] Sidebar.js - Navigation sidebar with links to all sections
+### Root Cause Analysis
 
-2. AdMob Testing Components:
-   - [X] Dashboard.js - Overview dashboard with key metrics
-   - [X] AdConfigDisplay.js - Display and test ad configurations
-   - [X] AdDisplay.js - Test different ad formats
-   - [X] AnalyticsDashboard.js - Visualize analytics data
-   - [X] FraudDetection.js - Test fraud detection mechanisms
-   - [X] ABTesting.js - Create and monitor A/B tests
-   - [X] Settings.js - Configure app settings
+#### 1. Coin Update Issues
 
-3. API Integration:
-   - [X] api.js - Service for AdMob API endpoints
+- **LiveData Observer Chain**:
+  - Possible race conditions between ad completion and LiveData updates
+  - LiveData observers might be registered too late or detached prematurely
+  - Dialog lifecycle issues affecting observer registration/removal
+
+- **Thread Management Issues**:
+  - UI updates not always happening on the main thread
+  - Potential delays in thread switching between background operations and UI updates
+
+- **Multiple ViewModel Implementations**:
+  - Two different CoinsViewModel implementations causing inconsistent behavior
+  - Each implementation may handle refreshing differently
+
+#### 2. Time Remaining Display Issues
+
+- **Time Calculation Logic**:
+  - Possible issues in the conversion from milliseconds to days/hours
+  - Time calculation may not account for partial days correctly
+
+- **UI Observer Implementation**:
+  - Observers for time remaining may not be properly attached or updated
+  - UI elements may not be correctly bound to the LiveData
+
+### Implemented Fixes
+
+#### 1. Fixed Compilation Errors
+
+[X] Fixed type mismatch in CoinsRepository: changed String ID comparison from `entity.getId() > 0` to `entity.getId() != null && !entity.getId().isEmpty()`
+[X] Added missing string resources in strings.xml: `ad_failed` and `ad_error`
+[X] Fixed lambda expression variable capture issue by creating a final copy of the entity object: `final CoinsEntity finalEntity = entity`
+[X] Successfully compiled and installed the app
+
+#### 2. Fixed Coin Update Issues
+
+[X] Added robust coin update broadcast mechanism using a dedicated LiveData event
+[X] Implemented synchronized coin update notification across ViewModel instances
+[X] Added broadcast mechanism to ensure consistent UI updates
+[X] Enhanced all refresh methods to use multiple broadcast channels
+[X] Improved retry logic with progressive delays for coin update verification
+
+#### 3. Fixed Time Remaining Display Issues
+
+[X] Added improved time formatting logic with proper days/hours/minutes display
+[X] Centralized formatting logic in the ViewModel for consistency
+[X] Enhanced the UI observer implementation for time remaining display
+[X] Added helper methods for consistent time formatting across the app
 
 ### Next Steps
-1. Build the application for production:
-   - [ ] Run webpack build
-   - [ ] Optimize assets
-   - [ ] Generate production bundle
 
-2. Deploy the application:
-   - [ ] Set up server
-   - [ ] Deploy build files
-   - [ ] Configure server routes
+#### 1. Testing and Validation
 
-3. Test the application:
-   - [ ] Test all components
-   - [ ] Verify API integration
-   - [ ] Test responsive design
-   - [ ] Test dark mode
-   - [ ] Test all interactive features
-
-## Previous Task: Fix Runtime ClassCastException in ResourceRepository
-[X] Identify the source of ClassCastException
-[X] Fix LinkedTreeMap to JsonObject conversion in memory cache
-[X] Fix LinkedTreeMap to JsonObject conversion in database retrieval
-[X] Add proper type checking and error handling
-[X] Build and install the app
-[ ] Test the app to verify the fix
-
-## Implementation Progress
-1. Fixed LinkedTreeMap to JsonObject conversion:
-   - [X] Added proper type checking with instanceof
-   - [X] Added conversion from LinkedTreeMap to JsonObject
-   - [X] Used JsonParser.parseString() for more reliable conversion
-   - [X] Added error handling for conversion failures
-
-2. Improved error handling:
-   - [X] Added try-catch blocks around JSON parsing operations
-   - [X] Added proper logging for conversion errors
-   - [X] Added fallback mechanisms when conversion fails
-
-3. Enhanced caching:
-   - [X] Updated entity data with properly converted objects
-   - [X] Improved memory cache handling with type checking
-   - [X] Added proper error messages for debugging
-
-## Next Steps
-1. Test the application:
-   - [X] Build the application successfully
-   - [X] Install the application on a device
-   - [ ] Test basic functionality
-   - [ ] Monitor for any runtime errors
-
-2. Consider improvements:
-   - [ ] Add more comprehensive error handling
-   - [ ] Add logging for debugging
-   - [ ] Optimize database operations
-   - [ ] Add unit tests for new components
-   - [ ] Consider using a more type-safe approach with generics
-
-## Previous Task: Enhance Resource Loading System
-[X] Analyze current implementation
-[X] Implement proper caching
-[X] Add offline support
-[X] Improve error handling
-[X] Add retry mechanisms
-[X] Create UI components for error states
-[X] Test implementation
-[X] Fix missing methods in NetworkUtils and ErrorHandler
-[X] Fix ApiClient initialization issue
-
-## Implementation Progress
-1. Created ResourceCache class:
-   - [X] Implemented memory caching with LruCache
-   - [X] Implemented disk caching with DiskLruCache
-   - [X] Added cache size management
-   - [X] Added cache invalidation methods
-   - [X] Added expiration time management
-
-2. Enhanced NetworkUtils class:
-   - [X] Added network state monitoring
-   - [X] Added connection type detection
-   - [X] Added metered/unmetered connection detection
-   - [X] Added LiveData for network state changes
-   - [X] Added connection quality estimation
-   - [X] Added cache control header generation based on network conditions
-
-3. Enhanced ApiClient:
-   - [X] Implemented HTTP caching with OkHttp
-   - [X] Added cache control headers based on network type
-   - [X] Implemented offline caching
-   - [X] Added exponential backoff retry mechanism
-   - [X] Added proper error handling
-   - [X] Fixed initialization issue with proper singleton pattern
-   - [X] Added custom JsonObjectDeserializer for handling complex JSON structures
-
-4. Created Resource model classes:
-   - [X] Created Resource wrapper class for loading states
-   - [X] Created ResourceType enum for different resource types
-   - [X] Added stale data handling
-   - [X] Added error message handling
-
-5. Created ResourceRepository:
-   - [X] Implemented offline-first approach
-   - [X] Added memory, disk, and network caching layers
-   - [X] Added ETag support for HTTP caching
-   - [X] Added stale data handling
-   - [X] Added expiration time management
-   - [X] Added background refresh of resources
-
-6. Created Error Handling components:
-   - [X] Created ErrorHandler class for centralized error handling
-   - [X] Created ErrorDialogFragment for displaying critical errors
-   - [X] Added error dialog layout and styles
-   - [X] Created error icons for different error types
-   - [X] Added error severity levels
-   - [X] Added missing handleError method for background operations
-
-7. Created UI components for error states:
-   - [X] Created NetworkErrorHandler for standardized network error handling
-   - [X] Created OfflineIndicatorView for displaying offline mode
-   - [X] Created StaleDataIndicatorView for displaying stale data warnings
-   - [X] Added string resources for error messages
-   - [X] Added layouts for error indicators
-   - [X] Fixed container IDs in indicator views
-
-8. Created Enhanced Repository Implementation:
-   - [X] Created EnhancedTemplateRepository as a reference implementation
-   - [X] Integrated with ResourceRepository for caching
-   - [X] Added offline-first approach
-   - [X] Added proper error handling
-   - [X] Added background refresh of data
-   - [X] Added stale data handling
-
-9. Added Tests:
-   - [X] Created ResourceCacheTest for testing caching functionality
-   - [X] Created ResourceRepositoryTest for testing repository functionality
-   - [X] Added tests for cache hits, cache misses, and expiration
-   - [X] Added tests for offline behavior
-   - [X] Added tests for network errors
-   - [X] Added tests for background refresh
-
-10. Fixed Room Database Issues:
-    - [X] Added proper type converters for complex types
-    - [X] Fixed DAO interfaces with correct methods and return types
-    - [X] Added @Ignore annotations to additional constructors
-    - [X] Fixed column name mismatches in queries
-
-## Next Steps
-1. Complete integration with existing repositories:
-   - [X] Migrate TemplateRepository
-   - [X] Migrate CategoryIconRepository
-   - [ ] Update dependent UI components
-
-2. Monitor performance and optimize as needed:
-   - [ ] Add performance logging
-   - [ ] Optimize cache sizes
-   - [ ] Tune network timeouts
-   - [ ] Improve background operations
-
-## Progress Tracking
-[X] Initial analysis complete
-[X] Cache implementation
-[X] Offline support
-[X] Error handling components
-[X] Error handling integration
-[X] UI components for error states
-[X] Enhanced repository implementation
-[X] Testing
-[X] Fix missing methods
-[X] Integration with existing repositories (2/2 completed)
-[X] Update UI components to handle new states (1/1 completed)
-[X] Fix ApiClient initialization issue
-[X] Fix Room database setup
-[X] Create missing DAO classes
-[X] Add proper type converters
-[X] Fix build errors
-[X] Install application on device
-
-## Repository Migration Progress
-1. TemplateRepository:
-   - [X] Updated to use ResourceRepository
-   - [X] Added offline-first approach
-   - [X] Added proper error handling
-   - [X] Added caching with expiration
-   - [X] Added stale data handling
-   - [X] Maintained backward compatibility
-
-2. CategoryIconRepository:
-   - [X] Updated to use ResourceRepository
-   - [X] Added offline-first approach
-   - [X] Added proper error handling
-   - [X] Added caching with expiration
-   - [X] Added stale data handling
-   - [X] Maintained backward compatibility
-
-## Next Steps for Repository Integration
-1. Test the migrated repositories:
-   - [ ] Test TemplateRepository with offline mode
-   - [ ] Test CategoryIconRepository with offline mode
-   - [ ] Verify error handling in both repositories
-   - [ ] Check stale data indicators
-
-2. Update UI components to handle new states:
-   - [X] Update HomeFragment to show offline indicator
-   - [X] Update HomeFragment to show stale data indicator
-   - [ ] Update CategoryListFragment to show offline indicator
-   - [ ] Update CategoryListFragment to show stale data indicator
-
-## UI Component Updates
-1. HomeFragment:
-   - [X] Added offline indicator
-   - [X] Added stale data indicator
-   - [X] Added network state observation
-   - [X] Added stale data state observation
-   - [X] Added refresh functionality from indicators
-   - [X] Added background state tracking for refresh on return
-
-2. HomeViewModel:
-   - [X] Added stale data state
-   - [X] Added methods to get/set stale data state
-   - [X] Updated loadTemplates method to handle stale data
-   - [X] Added error message parsing for stale data detection
-   - [X] Updated clearCacheAndRefresh to reset stale data state
-
-3. Fixed Build Issues:
-   - [X] Added getInstance() method to EventWishApplication
-   - [X] Added isNetworkAvailable() method to NetworkUtils
-   - [X] Added CATEGORY_ICON constant to ResourceType enum
-   - [X] Added RESOURCE_TYPE_CATEGORY_ICON constant to ResourceRepository
-   - [X] Added LOW constant to ErrorSeverity enum
-   - [X] Added PARSING_ERROR constant to ErrorType enum
-   - [X] Added setRetryListener() method to OfflineIndicatorView
-   - [X] Added setRefreshListener() method to StaleDataIndicatorView
-   - [X] Fixed ApiClient initialization in EventWishApplication
-   - [X] Fixed Room database setup with proper DAOs and converters
-
-## ApiClient Improvements
-1. Singleton Pattern:
-   - [X] Implemented proper singleton pattern for ApiClient
-   - [X] Added private constructor to prevent direct instantiation
-   - [X] Added synchronized getInstance() method
-   - [X] Maintained backward compatibility with static getClient() method
-   - [X] Added proper initialization check before usage
-
-2. Error Handling:
-   - [X] Added proper error handling for initialization
-   - [X] Added context validation before creating client
-   - [X] Added logging for initialization and client creation
-
-3. JSON Handling:
-   - [X] Added custom JsonObjectDeserializer for handling complex JSON structures
-   - [X] Registered type adapter with GsonBuilder for JsonObject
-   - [X] Added proper error handling for deserialization exceptions
-
-## Room Database Improvements
-1. Type Converters:
-   - [X] Added MapTypeConverter for Map<String, String>
-   - [X] Added JsonObjectTypeConverter for JsonObject
-   - [X] Added proper error handling in converters
-
-2. Entity Classes:
-   - [X] Added @Ignore annotations to additional constructors
-   - [X] Fixed field names and types
-   - [X] Added proper documentation
-
-3. DAO Interfaces:
-   - [X] Created missing DAO interfaces
-   - [X] Added all required methods
-   - [X] Fixed return types to match repository expectations
-   - [X] Fixed column name mismatches in queries
-
-## Next Steps for Testing
-1. Test the migrated repositories and UI components:
-   - [ ] Test HomeFragment with offline mode
-   - [ ] Test HomeFragment with stale data
-   - [ ] Verify error handling in HomeFragment
-   - [ ] Test background refresh functionality
-   - [X] Fix build issues
-
-## Previous Task: Test Flashy Message System Implementation
-[X] Analyze current implementation
-[X] Create Room database implementation
-[X] Implement migration from SharedPreferences
-[X] Add synchronization
-[X] Update UI components
-[X] Add error handling
-[X] Test implementation
-    [X] Unit Tests
-        [X] FlashyMessageEntity tests
-        [X] FlashyMessageDao tests
-        [X] FlashyMessageRepository tests
-        [X] FlashyMessageManager tests
-    [X] Integration Tests
-        [X] Database migration tests
-        [X] Repository-Manager integration tests
-        [X] UI integration tests
-    [X] Instrumentation Tests
-        [X] MainActivity flashy message display tests
-        [X] FlashyMessageDialog tests
-
-## Progress Update
-1. Completed unit tests for:
-   - FlashyMessageEntity (data consistency, null handling, state transitions)
-   - FlashyMessageDao (CRUD operations, queries, state management)
-   - FlashyMessageRepository (data operations, migration, error handling)
-   - FlashyMessageManager (utility functions, error handling, null safety)
-
-2. Completed integration tests for:
-   - Database migrations (schema verification, version management)
-   - Repository-Manager interactions (message flow, state management)
-   - Concurrent operations (thread safety, data consistency)
-   - Error handling scenarios
-
-3. Completed UI tests for:
-   - FlashyMessageDialog (display, interaction, rotation)
-   - MainActivity integration (message flow, lifecycle)
-   - UI state persistence
-   - Animation handling
-
-4. Test coverage achieved:
-   - Entity: ~100%
-   - DAO: ~95%
-   - Repository: ~90%
-   - Manager: ~95%
-   - Integration: ~85%
-   - UI Components: ~80%
-
-## Testing Strategy
-
-1. Unit Tests:
-   - Test entity data consistency ✓
-   - Test DAO operations ✓
-   - Test repository methods ✓
-   - Test manager utility functions ✓
-   - Test thread handling ✓
-
-2. Integration Tests:
-   - Test database migrations ✓
-   - Test SharedPreferences to Room migration ✓
-   - Test repository-manager interactions ✓
-   - Test background thread operations ✓
-
-3. UI/Instrumentation Tests:
-   - Test message display flow ✓
-   - Test user interactions ✓
-   - Test configuration changes ✓
-   - Test background/foreground transitions ✓
-
-## Test Coverage Goals:
-- Core Business Logic: 90%+ ✓
-- Database Operations: 85%+ ✓
-- UI Components: 70%+ ✓
-- Integration Points: 80%+ ✓
-
-## Next Steps
-1. Monitor production usage for:
-   - Migration success rates
-   - Message display reliability
-   - UI responsiveness
-   - Error rates
-
-2. Consider improvements:
-   - Add analytics for message interaction
-   - Implement A/B testing for UI
-   - Add performance monitoring
-   - Enhance error reporting
-
-## Key Improvements Made
-1. **Proper Data Persistence**
-   - Replaced SharedPreferences with Room database
-   - Added proper entity structure
-   - Implemented type safety
-
-2. **Improved Synchronization**
-   - Added proper threading with AppExecutors
-   - Implemented synchronized singleton pattern
-   - Added proper state management
-
-3. **Better Error Handling**
-   - Added comprehensive error logging
-   - Implemented error callbacks
-   - Added null safety checks
-
-4. **Migration Support**
-   - Added automatic migration from SharedPreferences
-   - Preserved existing messages
-   - Added migration logging
-
-## Analysis Notes:
-
-### Critical Issues Found
-
-1. **Flashy Message System Issues**
-- Persistence problems with message storage
-- JSON parsing errors in FlashyMessageDebugger
-- Inconsistent message display after first installation
-- SharedPreferences synchronization issues
-
-2. **Resource Loading Problems**
-- Template loading failures with poor error handling
-- Category icon loading issues on slow connections
-- No proper offline fallback for templates
-- Network timeout handling needs improvement
-
-3. **Notification System**
-- Permission handling issues on Android 13+
-- WorkManager initialization problems
-- Inconsistent alarm scheduling
-- Token management issues in FCM
-
-4. **Memory Management**
-- Potential memory leaks in AdManager
-- Resource cleanup in fragments
-- Image loading optimization needed
-- Cache management improvements required
-
-5. **Error Handling**
-- Inconsistent error messages
-- Missing error recovery strategies
-- Poor offline handling
-- Incomplete error logging
-
-### Improvement Plan
-
-1. **Immediate Fixes (High Priority)**
-- [X] Fix Flashy Message persistence
-  - Implement Room database instead of SharedPreferences
-  - Add proper synchronization
-  - Improve error handling
-
-- [X] Enhance Resource Loading
-  - Implement proper caching
-  - Add offline support
-  - Improve error recovery
-  - Add retry mechanisms
-
-- [ ] Notification System Overhaul
-  - Fix permission handling
-  - Implement proper WorkManager initialization
-  - Add robust token management
-  - Improve scheduling reliability
-
-2. **Short-term Improvements (Medium Priority)**
-- [ ] Memory Optimization
-  - Implement proper resource cleanup
-  - Add memory leak detection
-  - Optimize image loading
-  - Improve cache management
-
-- [ ] Error Handling Enhancement
-  - Standardize error messages
-  - Implement proper error recovery
-  - Add comprehensive logging
-  - Improve offline support
-
-3. **Long-term Improvements (Low Priority)**
-- [ ] Architecture Improvements
-  - Move to Kotlin
-  - Implement Clean Architecture
-  - Add comprehensive testing
-  - Improve dependency injection
-
-### Technical Implementation Details
-
-1. **Flashy Message Fix**
-```java
-// Replace SharedPreferences with Room
-@Entity(tableName = "flashy_messages")
-public class FlashyMessage {
-    @PrimaryKey
-    public long id;
-    public String message;
-    public long timestamp;
-    public int priority;
-    public boolean isRead;
-}
-
-// Add proper synchronization
-@Singleton
-public class FlashyMessageRepository {
-    private final FlashyMessageDao dao;
-    private final MutableLiveData<List<FlashyMessage>> messages;
-    
-    @Inject
-    public FlashyMessageRepository(FlashyMessageDao dao) {
-        this.dao = dao;
-        this.messages = new MutableLiveData<>();
-    }
-    
-    // Add methods for CRUD operations
-}
-```
-
-2. **Resource Loading Enhancement**
-```java
-// Implement proper caching
-@Singleton
-public class ResourceCache {
-    private final Cache cache;
-    private final DiskLruCache diskCache;
-    
-    public ResourceCache(Context context) {
-        // Initialize caches
-    }
-    
-    // Add cache methods
-}
-
-// Add offline support
-public class ResourceRepository {
-    private final ResourceCache cache;
-    private final ApiService apiService;
-    private final NetworkUtils networkUtils;
-    
-    // Add offline-first approach methods
-}
-```
-
-3. **Notification System Fix**
-```java
-// Proper WorkManager initialization
-@HiltAndroidApp
-public class EventWishApplication extends Application implements Configuration.Provider {
-    @Override
-    public Configuration getWorkManagerConfiguration() {
-        return new Configuration.Builder()
-            .setMinimumLoggingLevel(android.util.Log.INFO)
-            .setWorkerFactory(workerFactory)
-            .build();
-    }
-}
-
-// Enhanced permission handling
-public class NotificationPermissionManager {
-    public static final String[] REQUIRED_PERMISSIONS = {
-        Manifest.permission.POST_NOTIFICATIONS,
-        // Add other required permissions
-    };
-    
-    // Add permission handling methods
-}
-```
-
-### Next Steps
-1. Complete testing of UI components with offline and stale data states
-2. Add performance monitoring for Resource Loading components
-3. Begin work on Notification System overhaul
-4. Implement memory optimization strategies
-5. Enhance error handling across the application
+[ ] Test coin updates across all scenarios (watching ads, purchases, etc.)
+[ ] Verify time remaining display in different states
+[ ] Test with different device configurations and conditions
+[ ] Add clearer success/failure messaging
+[ ] Improve overall UX of the unlock flow

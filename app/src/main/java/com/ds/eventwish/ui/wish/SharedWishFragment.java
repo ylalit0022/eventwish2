@@ -3,6 +3,8 @@ package com.ds.eventwish.ui.wish;
 import static android.content.ContentValues.TAG;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -26,6 +28,7 @@ import com.ds.eventwish.data.model.response.WishResponse;
 import com.ds.eventwish.databinding.FragmentSharedWishBinding;
 import com.ds.eventwish.ui.history.HistoryViewModel;
 import com.ds.eventwish.ui.history.SharedPrefsManager;
+import com.ds.eventwish.utils.AnalyticsUtils;
 import com.ds.eventwish.utils.DeepLinkUtil;
 import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.data.model.Template;
@@ -53,8 +56,6 @@ import com.google.gson.JsonArray;
 import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.data.remote.ApiService;
 
-import android.os.Handler;
-
 public class SharedWishFragment extends Fragment {
     private SharedPrefsManager prefsManager;
     private FragmentSharedWishBinding binding;
@@ -64,6 +65,13 @@ public class SharedWishFragment extends Fragment {
     private WishResponse currentWish;
     private OnBackPressedCallback backPressCallback;
     private JsonObject analyticsData;
+    
+    // Analytics tracking
+    private static final long ANALYTICS_HEARTBEAT_INTERVAL = 30000; // 30 seconds
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private Runnable analyticsHeartbeatRunnable;
+    private long viewStartTime;
+    private boolean isTracking = false;
 
     // Constants for share platforms
     private static final String SHARE_VIA_WHATSAPP = "whatsapp";
@@ -283,7 +291,7 @@ public class SharedWishFragment extends Fragment {
             showError("Unable to load wish: No data available");
             return;
         }
-
+        
         if (wish.getCustomizedHtml() == null || wish.getCustomizedHtml().trim().isEmpty()) {
             Log.e(TAG, "HTML content is null or empty for wish: " + wish.getShortCode());
             showError("Unable to load wish: No content available");
@@ -313,12 +321,26 @@ public class SharedWishFragment extends Fragment {
         // Ensure we have non-null values for string formatting
         if (cssContent == null) cssContent = "";
         if (jsContent == null) jsContent = "";
-
+        
         // Log content lengths for debugging
         Log.d(TAG, "HTML Content length: " + htmlContent.length());
         Log.d(TAG, "CSS Content length: " + cssContent.length());
         Log.d(TAG, "JS Content length: " + jsContent.length());
-
+              
+        // Load the wish content into the WebView
+        loadWebViewContent(htmlContent, cssContent, jsContent);
+        
+        // Start analytics tracking once content is loaded
+        startAnalyticsTracking();
+    }
+    
+    /**
+     * Load content into the WebView
+     * @param htmlContent The HTML content to load
+     * @param cssContent The CSS content to include
+     * @param jsContent The JavaScript content to include
+     */
+    private void loadWebViewContent(String htmlContent, String cssContent, String jsContent) {
         // Construct the full HTML document
         String fullHtml = String.format(
             "<!DOCTYPE html>" +
@@ -335,7 +357,7 @@ public class SharedWishFragment extends Fragment {
             "</html>",
             cssContent, htmlContent, jsContent
         );
-
+        
         // Log a sample of the full HTML for debugging
         Log.d(TAG, "Full HTML sample: " + (fullHtml.length() > 100 ? fullHtml.substring(0, 100) + "..." : fullHtml));
 
@@ -756,13 +778,27 @@ public class SharedWishFragment extends Fragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        
+        // Stop analytics tracking if still running
+        stopAnalyticsTracking();
+        
         binding = null;
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        backPressCallback.remove();
+        
+        // Stop analytics tracking if still running
+        stopAnalyticsTracking();
+        
+        // Remove callback
+        if (backPressCallback != null) {
+            backPressCallback.remove();
+        }
+        
+        // Clear handlers
+        mainHandler.removeCallbacksAndMessages(null);
     }
 
     /**
@@ -774,5 +810,91 @@ public class SharedWishFragment extends Fragment {
             Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
             // You could also show an error view in the UI
         }
+    }
+
+    /**
+     * Start tracking analytics for real-time viewers
+     */
+    private void startAnalyticsTracking() {
+        if (shortCode == null || isTracking) return;
+        
+        // Extract recipient and sender names if available
+        String recipientName = null;
+        String senderName = null;
+        if (currentWish != null) {
+            recipientName = currentWish.getRecipientName();
+            senderName = currentWish.getSenderName();
+        }
+        
+        // Track shared wish view once
+        AnalyticsUtils.trackSharedWishView(shortCode, senderName, recipientName);
+        
+        // Track active viewer
+        AnalyticsUtils.trackViewerActive(shortCode);
+        
+        // Store start time for duration calculation
+        viewStartTime = System.currentTimeMillis();
+        isTracking = true;
+        
+        // Setup heartbeat to track active viewers
+        analyticsHeartbeatRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!isAdded() || getActivity() == null) return;
+                
+                // Track active viewer again to maintain real-time count
+                AnalyticsUtils.trackViewerActive(shortCode);
+                
+                // Schedule next heartbeat
+                mainHandler.postDelayed(this, ANALYTICS_HEARTBEAT_INTERVAL);
+            }
+        };
+        
+        // Start heartbeat
+        mainHandler.postDelayed(analyticsHeartbeatRunnable, ANALYTICS_HEARTBEAT_INTERVAL);
+        
+        Log.d(TAG, "Started analytics tracking for shared wish: " + shortCode);
+    }
+    
+    /**
+     * Stop tracking analytics for real-time viewers
+     */
+    private void stopAnalyticsTracking() {
+        if (!isTracking) return;
+        
+        // Remove heartbeat runnable
+        if (analyticsHeartbeatRunnable != null) {
+            mainHandler.removeCallbacks(analyticsHeartbeatRunnable);
+        }
+        
+        // Calculate view duration
+        long endTime = System.currentTimeMillis();
+        long durationSeconds = (endTime - viewStartTime) / 1000;
+        
+        // Track viewer inactive with duration
+        if (shortCode != null) {
+            AnalyticsUtils.trackViewerInactive(shortCode, durationSeconds);
+        }
+        
+        isTracking = false;
+        Log.d(TAG, "Stopped analytics tracking for shared wish: " + shortCode + ", duration: " + durationSeconds + "s");
+    }
+    
+    @Override
+    public void onResume() {
+        super.onResume();
+        
+        // Resume analytics tracking if needed
+        if (shortCode != null && !isTracking && currentWish != null) {
+            startAnalyticsTracking();
+        }
+    }
+    
+    @Override
+    public void onPause() {
+        super.onPause();
+        
+        // Stop analytics tracking
+        stopAnalyticsTracking();
     }
 }

@@ -46,6 +46,18 @@ router.post('/validate', verifyApiKey, coinsController.validateUnlock);
 router.post('/report', verifyApiKey, coinsController.reportUnlock);
 
 /**
+ * @route   POST /api/coins/security
+ * @desc    Report security violation from client to server
+ * @access  Private
+ */
+router.post('/security', verifyApiKey, (req, res) => {
+    // Set securityViolation flag to true
+    req.body.securityViolation = true;
+    // Forward to reportUnlock which handles security violations
+    coinsController.reportUnlock(req, res);
+});
+
+/**
  * @route   POST /api/coins/reward
  * @desc    Track ad reward (proxy for addCoins with analytics)
  * @access  Private

@@ -11,4 +11,10 @@
         android:icon="@drawable/ic_save"
         android:title="Save"
         app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_edit_html"
+        android:icon="@drawable/ic_edit"
+        android:title="@string/edit_html"
+        android:visible="false"
+        app:showAsAction="ifRoom" />
 </menu>

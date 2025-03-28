@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 import okhttp3.Cache;
 import okhttp3.CacheControl;
 import okhttp3.ConnectionPool;
+import okhttp3.Dispatcher;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Protocol;
@@ -33,47 +34,224 @@ import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 public class ApiClient {
+    // Static members
     private static final String TAG = "ApiClient";
-    
-    // Network constants
-    private static final int CONNECT_TIMEOUT = 15;
-    private static final int READ_TIMEOUT = 30;
-    private static final int WRITE_TIMEOUT = 30;
-    private static final int MAX_RETRIES = 3;
-    private static final String BASE_URL = "https://eventwish2.onrender.com/api/";
-    
-    // Cache constants
-    private static final int CACHE_SIZE = 10 * 1024 * 1024; // 10MB
-    private static final int CACHE_MAX_AGE = 60 * 60; // 1 hour
-    private static final int CACHE_MAX_STALE = 60 * 60 * 24 * 7; // 1 week
-    
-    // Singleton instances
+    private static final String API_BASE_URL = "https://eventwish2.onrender.com/api/";
+    public static final String BASE_URL = API_BASE_URL;
     private static Retrofit retrofit = null;
-    private static ApiService apiService = null;
-    private static OkHttpClient okHttpClient = null;
     private static Context applicationContext = null;
-    private static volatile ApiClient instance = null;
+    private static ApiClient instance;
+    private static OkHttpClient okHttpClient = null;
     
     /**
-     * Private constructor to prevent direct instantiation
-     */
-    private ApiClient() {
-        // Private constructor to enforce singleton pattern
-    }
-    
-    /**
-     * Initialize the ApiClient with application context
+     * Initialize ApiClient with application context
      * @param context Application context
      */
     public static void init(Context context) {
+        if (context == null) {
+            throw new IllegalArgumentException("Context cannot be null");
+        }
+        
+        applicationContext = context.getApplicationContext();
+        
+        // Clean up any existing client to avoid leaks
+        if (okHttpClient != null) {
+            cleanupOkHttpClient();
+        }
+        
+        // Create new OkHttpClient
+        okHttpClient = createOkHttpClient(applicationContext);
+        
+        Log.d(TAG, "ApiClient initialized with application context");
+    }
+    
+    /**
+     * Get the API service instance
+     * @return API service
+     */
+    public static ApiService getClient() {
         if (applicationContext == null) {
-            applicationContext = context.getApplicationContext();
-            Log.d(TAG, "ApiClient initialized with application context");
+            throw new IllegalStateException("ApiClient must be initialized with context before use");
+        }
+        
+        if (retrofit == null) {
+            if (okHttpClient == null) {
+                okHttpClient = createOkHttpClient(applicationContext);
+            }
+            
+            // Create GSON converter
+            Gson gson = new GsonBuilder()
+                .setLenient() // Add lenient parsing
+                .create();
+                
+            // Create Retrofit instance
+            retrofit = new Retrofit.Builder()
+                .baseUrl(API_BASE_URL)
+                .client(okHttpClient)
+                .addConverterFactory(GsonConverterFactory.create(gson))
+                .build();
+        }
+        
+        return retrofit.create(ApiService.class);
+    }
+    
+    /**
+     * Create a new OkHttpClient instance
+     * @param context Application context
+     * @return New OkHttpClient instance
+     */
+    private static OkHttpClient createOkHttpClient(Context context) {
+        // Create logging interceptor
+        HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
+        logging.setLevel(BuildConfig.DEBUG ? 
+            HttpLoggingInterceptor.Level.BODY : 
+            HttpLoggingInterceptor.Level.BASIC);
+        
+        // Create connection error interceptor
+        Interceptor connectionErrorInterceptor = new Interceptor() {
+            @Override
+            public Response intercept(Chain chain) throws IOException {
+                Request request = chain.request();
+                try {
+                    return chain.proceed(request);
+                } catch (IOException e) {
+                    Log.e(TAG, "Connection error: " + e.getMessage(), e);
+                    if (e.getMessage() != null && e.getMessage().contains("closed")) {
+                        Log.e(TAG, "Connection was closed, creating new request");
+                        // Try to create a new request to avoid closed connection issues
+                        Request newRequest = request.newBuilder().build();
+                        return chain.proceed(newRequest);
+                    }
+                    throw e;
+                }
+            }
+        };
+        
+        // Create dispatcher with custom settings
+        Dispatcher dispatcher = new Dispatcher();
+        dispatcher.setMaxRequests(64); // Increase from 20 to default 64
+        dispatcher.setMaxRequestsPerHost(10); // Increase from 5 to 10
+        
+        // Create OkHttpClient
+        return new OkHttpClient.Builder()
+            .addInterceptor(logging)
+            .addInterceptor(connectionErrorInterceptor)
+            .addInterceptor(provideNoCacheInterceptor())
+            .connectTimeout(30, TimeUnit.SECONDS) // Increase from 15 to 30
+            .readTimeout(45, TimeUnit.SECONDS) // Increase from 30 to 45
+            .writeTimeout(45, TimeUnit.SECONDS) // Increase from 30 to 45
+            .retryOnConnectionFailure(true)
+            .dispatcher(dispatcher)
+            .connectionPool(new ConnectionPool(10, 60, TimeUnit.SECONDS)) // Increase pool size and idle time
+            .protocols(Arrays.asList(Protocol.HTTP_1_1)) // Use only HTTP/1.1
+            .build();
+    }
+    
+    /**
+     * Clean up OkHttpClient resources
+     */
+    private static void cleanupOkHttpClient() {
+        if (okHttpClient != null) {
+            try {
+                // Only cleanup if there are no active calls
+                if (okHttpClient.dispatcher().runningCallsCount() == 0) {
+                    // Clear connection pool
+                    okHttpClient.connectionPool().evictAll();
+                    
+                    // Shutdown executor service only if no active calls
+                    if (!okHttpClient.dispatcher().executorService().isShutdown()) {
+                        okHttpClient.dispatcher().executorService().shutdown();
+                    }
+                    
+                    Log.d(TAG, "OkHttpClient resources cleaned up");
+                } else {
+                    Log.d(TAG, "Skipping cleanup due to active calls: " + 
+                          okHttpClient.dispatcher().runningCallsCount());
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error cleaning up OkHttpClient", e);
+            }
         }
     }
     
     /**
-     * Get the ApiClient singleton instance
+     * Provide a no-cache interceptor to force network requests
+     * @return Interceptor for preventing caching
+     */
+    private static Interceptor provideNoCacheInterceptor() {
+        return chain -> {
+            Request request = chain.request();
+            
+            // Add no-cache headers to force network requests
+            request = request.newBuilder()
+                .header("Cache-Control", "no-cache")
+                .header("Cache-Control", "no-store")
+                .header("Pragma", "no-cache")
+                .header("Expires", "0")
+                .build();
+            
+            // Execute the request with retry logic
+            Response response = null;
+            IOException lastException = null;
+            int maxRetries = 3;
+            int retryCount = 0;
+            
+            while (retryCount < maxRetries && response == null) {
+                try {
+                    response = chain.proceed(request);
+                } catch (IOException e) {
+                    lastException = e;
+                    
+                    // Don't retry if the request was explicitly canceled
+                    if (e.getMessage() != null && e.getMessage().contains("Canceled")) {
+                        Log.d(TAG, "Request was canceled, not retrying");
+                        throw e;
+                    }
+                    
+                    // Retry on connection issues
+                    if (e.getMessage() != null && 
+                        (e.getMessage().contains("closed") || 
+                         e.getMessage().contains("timeout") || 
+                         e.getMessage().contains("connection"))) {
+                        
+                        retryCount++;
+                        Log.w(TAG, "Retry attempt " + retryCount + " of " + maxRetries);
+                        
+                        if (retryCount < maxRetries) {
+                            // Wait before retrying
+                            try {
+                                Thread.sleep(1000 * retryCount);
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                                throw e;
+                            }
+                            
+                            // Create a new request for retry
+                            request = request.newBuilder().build();
+                            continue;
+                        }
+                    }
+                    
+                    // If we get here, either we've exhausted retries or hit a non-retryable error
+                    throw lastException;
+                }
+            }
+            
+            if (response == null && lastException != null) {
+                throw lastException;
+            }
+            
+            // Add no-cache headers to response
+            return response.newBuilder()
+                .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                .header("Pragma", "no-cache")
+                .header("Expires", "0")
+                .build();
+        };
+    }
+
+    /**
+     * Get singleton instance of ApiClient (for backward compatibility)
      * @return ApiClient instance
      */
     public static synchronized ApiClient getInstance() {
@@ -82,9 +260,9 @@ public class ApiClient {
         }
         return instance;
     }
-    
+
     /**
-     * Get the ApiService instance
+     * Get ApiService instance (for backward compatibility)
      * @return ApiService instance
      */
     public ApiService getApiService() {
@@ -92,225 +270,14 @@ public class ApiClient {
     }
     
     /**
-     * Get the ApiService instance (static method for backward compatibility)
-     * @return ApiService instance
+     * Clean up resources when the app is closing
+     * Should be called from Application.onTerminate or similar lifecycle method
      */
-    public static ApiService getClient() {
-        if (apiService == null) {
-            if (applicationContext == null) {
-                throw new IllegalStateException("ApiClient must be initialized with context before use");
-            }
-            
-            // Create OkHttpClient
-            OkHttpClient client = getOkHttpClient();
-            
-            // Create custom Gson instance
-            Gson gson = new GsonBuilder()
-                .registerTypeAdapter(JsonObject.class, new JsonObjectDeserializer())
-                .create();
-            
-            // Create Retrofit instance
-            retrofit = new Retrofit.Builder()
-                    .baseUrl(BASE_URL)
-                    .addConverterFactory(GsonConverterFactory.create(gson))
-                    .client(client)
-                    .build();
-            
-            apiService = retrofit.create(ApiService.class);
-            Log.d(TAG, "ApiService created");
-        }
-        return apiService;
-    }
-    
-    /**
-     * Custom deserializer for JsonObject to handle LinkedTreeMap conversion
-     */
-    private static class JsonObjectDeserializer implements JsonDeserializer<JsonObject> {
-        @Override
-        public JsonObject deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
-                throws JsonParseException {
-            if (json.isJsonObject()) {
-                return json.getAsJsonObject();
-            } else if (json.isJsonArray()) {
-                // If it's an array, create an empty object
-                return new JsonObject();
-            } else if (json.isJsonNull()) {
-                // If it's null, create an empty object
-                return new JsonObject();
-            } else {
-                // For primitive values, create an object with a "value" property
-                JsonObject obj = new JsonObject();
-                obj.add("value", json);
-                return obj;
-            }
-        }
-    }
-    
-    /**
-     * Get the OkHttpClient instance with caching and retry mechanisms
-     * @return OkHttpClient instance
-     */
-    private static OkHttpClient getOkHttpClient() {
-        if (okHttpClient == null) {
-            // Create logging interceptor
-            HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
-            logging.setLevel(BuildConfig.DEBUG ? 
-                HttpLoggingInterceptor.Level.BODY : 
-                HttpLoggingInterceptor.Level.NONE);
-            
-            // Create cache
-            File cacheDir = new File(applicationContext.getCacheDir(), "http_cache");
-            Cache cache = new Cache(cacheDir, CACHE_SIZE);
-            
-            // Create OkHttpClient
-            okHttpClient = new OkHttpClient.Builder()
-                .cache(cache)
-                .addInterceptor(logging)
-                .addInterceptor(provideOfflineCacheInterceptor())
-                .addNetworkInterceptor(provideCacheInterceptor())
-                .addInterceptor(provideRetryInterceptor())
-                .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
-                .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
-                .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
-                .connectionPool(new ConnectionPool(0, 1, TimeUnit.MILLISECONDS)) // Disable connection pooling
-                .protocols(Arrays.asList(Protocol.HTTP_1_1)) // Use only HTTP/1.1
-                .retryOnConnectionFailure(true)
-                .build();
-            
-            Log.d(TAG, "OkHttpClient created with cache at: " + cacheDir.getAbsolutePath());
-        }
-        return okHttpClient;
-    }
-    
-    /**
-     * Provide cache interceptor for network requests
-     * @return Interceptor for caching
-     */
-    private static Interceptor provideCacheInterceptor() {
-        return chain -> {
-            Response response = chain.proceed(chain.request());
-            
-            CacheControl cacheControl;
-            
-            // Cache based on network type
-            if (NetworkUtils.getInstance(applicationContext).isConnectionUnmetered()) {
-                // Unmetered connection (WiFi) - cache for 1 hour
-                cacheControl = new CacheControl.Builder()
-                    .maxAge(CACHE_MAX_AGE, TimeUnit.SECONDS)
-                    .build();
-            } else {
-                // Metered connection (Cellular) - cache for 5 minutes
-                cacheControl = new CacheControl.Builder()
-                    .maxAge(5 * 60, TimeUnit.SECONDS)
-                    .build();
-            }
-            
-            return response.newBuilder()
-                .removeHeader("Pragma")
-                .removeHeader("Cache-Control")
-                .header("Cache-Control", cacheControl.toString())
-                .build();
-        };
-    }
-    
-    /**
-     * Provide offline cache interceptor for when the device is offline
-     * @return Interceptor for offline caching
-     */
-    private static Interceptor provideOfflineCacheInterceptor() {
-        return chain -> {
-            Request request = chain.request();
-            
-            if (!NetworkUtils.getInstance(applicationContext).isConnected()) {
-                Log.d(TAG, "Device is offline, using cached data");
-                
-                CacheControl cacheControl = new CacheControl.Builder()
-                    .maxStale(CACHE_MAX_STALE, TimeUnit.SECONDS)
-                    .build();
-                
-                request = request.newBuilder()
-                    .cacheControl(cacheControl)
-                    .build();
-            }
-            
-            return chain.proceed(request);
-        };
-    }
-    
-    /**
-     * Provide retry interceptor for failed requests
-     * @return Interceptor for retrying requests
-     */
-    private static Interceptor provideRetryInterceptor() {
-        return chain -> {
-            Request request = chain.request();
-            
-            // Don't retry POST, PUT, DELETE requests
-            if (!request.method().equals("GET")) {
-                return chain.proceed(request);
-            }
-            
-            int retryCount = 0;
-            Response response = null;
-            IOException ioException = null;
-            
-            while (retryCount < MAX_RETRIES) {
-                try {
-                    if (response != null) {
-                        response.close();
-                    }
-                    
-                    // Log retry attempt
-                    if (retryCount > 0) {
-                        Log.d(TAG, "Retry attempt " + retryCount + " for: " + request.url());
-                    }
-                    
-                    response = chain.proceed(request);
-                    
-                    if (response.isSuccessful()) {
-                        return response;
-                    }
-                } catch (IOException e) {
-                    ioException = e;
-                    Log.e(TAG, "Attempt " + (retryCount + 1) + " failed: " + e.getMessage());
-                }
-                
-                retryCount++;
-                
-                if (retryCount < MAX_RETRIES) {
-                    // Exponential backoff
-                    try {
-                        long sleepTime = (long) (1000 * Math.pow(2, retryCount - 1));
-                        Log.d(TAG, "Waiting " + sleepTime + "ms before retry");
-                        Thread.sleep(sleepTime);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        throw new IOException("Retry interrupted", e);
-                    }
-                }
-            }
-            
-            // If we got a response, return it even if it's not successful
-            if (response != null) {
-                return response;
-            }
-            
-            // Otherwise, throw the last exception
-            throw ioException != null ? ioException : new IOException("Request failed after " + MAX_RETRIES + " retries");
-        };
-    }
-    
-    /**
-     * Clear the HTTP cache
-     */
-    public static void clearCache() {
-        if (okHttpClient != null && okHttpClient.cache() != null) {
-            try {
-                okHttpClient.cache().evictAll();
-                Log.d(TAG, "HTTP cache cleared");
-            } catch (IOException e) {
-                Log.e(TAG, "Failed to clear HTTP cache", e);
-            }
-        }
+    public static void cleanup() {
+        cleanupOkHttpClient();
+        okHttpClient = null;
+        retrofit = null;
+        instance = null;
+        Log.d(TAG, "ApiClient cleaned up");
     }
 }

@@ -4,6 +4,98 @@ const logger = require('../config/logger');
 const { coinsLogger } = require('../logs/logger-setup');
 const crypto = require('crypto');
 
+// Set of known fraudulent device IDs
+const blacklistedDeviceIds = new Set();
+
+// Map to keep track of suspicious devices
+const suspiciousDevices = new Map();
+
+/**
+ * Validate device ID format and check blacklist
+ * @param {string} deviceId - Device ID to validate
+ * @returns {object} Validation result
+ */
+function validateDeviceId(deviceId) {
+    // Basic validation
+    if (!deviceId || typeof deviceId !== 'string') {
+        return { valid: false, reason: 'missing_device_id' };
+    }
+    
+    // Length validation
+    if (deviceId.length < 10 || deviceId.length > 100) {
+        return { valid: false, reason: 'invalid_length' };
+    }
+    
+    // Format validation (this would depend on your expected format)
+    // Example: Android IDs are 16 characters hexadecimal
+    const validFormatRegex = /^[a-zA-Z0-9_\-\.]+$/;
+    if (!validFormatRegex.test(deviceId)) {
+        return { valid: false, reason: 'invalid_format' };
+    }
+    
+    // Check blacklist
+    if (blacklistedDeviceIds.has(deviceId)) {
+        return { valid: false, reason: 'blacklisted' };
+    }
+    
+    return { valid: true };
+}
+
+/**
+ * Track suspicious activity for a device
+ * @param {string} deviceId - Device ID
+ * @param {string} activityType - Type of suspicious activity
+ * @param {object} details - Additional details
+ */
+function trackSuspiciousActivity(deviceId, activityType, details = {}) {
+    if (!suspiciousDevices.has(deviceId)) {
+        suspiciousDevices.set(deviceId, {
+            firstDetection: Date.now(),
+            activities: [],
+            score: 0
+        });
+    }
+    
+    const record = suspiciousDevices.get(deviceId);
+    record.activities.push({
+        timestamp: Date.now(),
+        type: activityType,
+        details
+    });
+    
+    // Increment suspicion score based on activity type
+    switch (activityType) {
+        case 'time_manipulation':
+            record.score += 10;
+            break;
+        case 'quick_rewards':
+            record.score += 5;
+            break;
+        case 'invalid_signature':
+            record.score += 15;
+            break;
+        case 'suspicious_device_info':
+            record.score += 8;
+            break;
+        case 'security_violation':
+            record.score += 30;
+            break;
+        default:
+            record.score += 1;
+    }
+    
+    // If score exceeds threshold, blacklist the device
+    if (record.score >= 50) {
+        blacklistedDeviceIds.add(deviceId);
+        coinsLogger.fraud(deviceId, 'blacklisted', `Device blacklisted due to high suspicion score: ${record.score}`, {
+            activities: record.activities,
+            firstDetection: new Date(record.firstDetection).toISOString()
+        });
+    }
+    
+    return record.score;
+}
+
 /**
  * Get current server time
  * @param {*} req - Request object
@@ -63,10 +155,18 @@ exports.getCoins = async (req, res) => {
     try {
         const { deviceId } = req.params;
         
-        if (!deviceId) {
+        // Validate device ID
+        const validation = validateDeviceId(deviceId);
+        if (!validation.valid) {
+            coinsLogger.fraud(deviceId || 'unknown', 'invalid_device_id', `Invalid device ID: ${validation.reason}`, {
+                deviceId,
+                userAgent: req.headers['user-agent']
+            });
+            
             return res.status(400).json({
                 success: false,
-                message: 'Device ID is required'
+                message: 'Invalid device ID',
+                reason: validation.reason
             });
         }
         
@@ -84,6 +184,17 @@ exports.getCoins = async (req, res) => {
             isNewRecord = true;
             
             logger.info(`Created new coins record for device: ${deviceId}`);
+        }
+        
+        // Check if the device has been flagged for security violations
+        if (coins.securityViolations && coins.securityViolations.length > 0) {
+            logger.warn(`Device with security violations: ${deviceId}, violations: ${coins.securityViolations.length}`);
+            
+            // Add to suspicious devices tracker
+            trackSuspiciousActivity(deviceId, 'security_violation', {
+                violationsCount: coins.securityViolations.length,
+                latestViolation: coins.securityViolations[coins.securityViolations.length - 1]
+            });
         }
         
         // Check if unlock has expired
@@ -114,6 +225,21 @@ exports.getCoins = async (req, res) => {
                 await coins.save();
                 
                 coinsLogger.timeSync(deviceId, clientTime, serverTime, offset);
+                
+                // Check for suspicious time difference
+                if (Math.abs(offset) > 300000) { // 5 minutes
+                    trackSuspiciousActivity(deviceId, 'time_manipulation', {
+                        offset,
+                        clientTime,
+                        serverTime
+                    });
+                    
+                    coinsLogger.timeSuspicious(deviceId, `Large time offset detected: ${offset}ms`, {
+                        offset,
+                        clientTime,
+                        serverTime
+                    });
+                }
             }
         }
         
@@ -431,12 +557,20 @@ exports.validateUnlock = async (req, res) => {
  */
 exports.reportUnlock = async (req, res) => {
     try {
-        const { deviceId, timestamp, duration } = req.body;
+        const { deviceId, timestamp, duration, deviceInfo, securityViolation } = req.body;
         
-        if (!deviceId || !timestamp || !duration) {
+        // Validate device ID
+        const validation = validateDeviceId(deviceId);
+        if (!validation.valid) {
+            coinsLogger.fraud(deviceId || 'unknown', 'invalid_device_id', `Invalid device ID in report: ${validation.reason}`, {
+                deviceId,
+                userAgent: req.headers['user-agent']
+            });
+            
             return res.status(400).json({
                 success: false,
-                message: 'Missing required parameters'
+                message: 'Invalid device ID',
+                reason: validation.reason
             });
         }
         
@@ -447,9 +581,43 @@ exports.reportUnlock = async (req, res) => {
             // Create new coins record
             coins = new Coins({
                 deviceId,
-                isUnlocked: true,
-                unlockTimestamp: new Date(parseInt(timestamp)),
-                unlockDuration: parseInt(duration)
+                isUnlocked: securityViolation ? false : true,
+                unlockTimestamp: securityViolation ? null : new Date(parseInt(timestamp)),
+                unlockDuration: securityViolation ? 0 : parseInt(duration)
+            });
+        } else if (securityViolation) {
+            // Handle security violation report
+            if (!coins.securityViolations) {
+                coins.securityViolations = [];
+            }
+            
+            coins.securityViolations.push({
+                timestamp: Date.now(),
+                deviceInfo: deviceInfo || {},
+                isRooted: deviceInfo?.isRooted || false,
+                isEmulator: deviceInfo?.isEmulator || false
+            });
+            
+            // Revoke access if security violation is reported
+            coins.isUnlocked = false;
+            coins.unlockTimestamp = null;
+            coins.unlockDuration = 0;
+            
+            // Track the security violation
+            const score = trackSuspiciousActivity(deviceId, 'security_violation', deviceInfo || {});
+            
+            // Log the security violation
+            coinsLogger.security(deviceId, 'device_security_violation', `Security violation reported from client`, {
+                deviceInfo: deviceInfo || {},
+                suspicionScore: score
+            });
+            
+            await coins.save();
+            
+            return res.json({
+                success: true,
+                message: 'Security violation reported',
+                timestamp: Date.now()
             });
         } else {
             // Update existing record
@@ -469,7 +637,8 @@ exports.reportUnlock = async (req, res) => {
         coinsLogger.unlock(deviceId, duration, "Unlock reported from client", {
             unlockTimestamp: new Date(parseInt(timestamp)).toISOString(),
             unlockExpiry: coins.unlockExpiry,
-            signature: signature.substring(0, 8) + '...'
+            signature: signature.substring(0, 8) + '...',
+            deviceInfo: deviceInfo || {}
         });
         
         res.json({

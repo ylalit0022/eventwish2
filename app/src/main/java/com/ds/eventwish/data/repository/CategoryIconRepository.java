@@ -25,6 +25,7 @@ import com.google.gson.reflect.TypeToken;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +68,13 @@ public class CategoryIconRepository {
     private final Map<String, CategoryIcon> categoryIconMap = new HashMap<>();
     private boolean isInitialized = false;
     private Call<CategoryIconResponse> currentCall;
+
+    // Network retry constants
+    private static final int MAX_RETRIES = 3;
+    private static final long INITIAL_BACKOFF_MS = 1000; // 1 second
+    private static final float BACKOFF_MULTIPLIER = 1.5f;
+    private int currentRetryCount = 0;
+    private long currentBackoffMs = INITIAL_BACKOFF_MS;
 
     /**
      * Get the singleton instance of CategoryIconRepository
@@ -187,164 +195,191 @@ public class CategoryIconRepository {
      * Load category icons with offline-first approach
      */
     public void loadCategoryIcons() {
-        if (loading.getValue()) {
+        loadCategoryIcons(0, INITIAL_BACKOFF_MS);
+    }
+
+    /**
+     * Load category icons with retry mechanism and exponential backoff
+     * @param retryCount Current retry count
+     * @param backoffMs Current backoff time in milliseconds
+     */
+    private void loadCategoryIcons(int retryCount, long backoffMs) {
+        if (loading.getValue() != null && loading.getValue()) {
             return;
         }
         
         loading.setValue(true);
-        Log.d(TAG, "Loading category icons with offline-first approach");
+        Log.d(TAG, "Loading category icons" + (retryCount > 0 ? " (retry " + retryCount + ")" : ""));
         
-        try {
-            // Use ResourceRepository to load the resource
-            LiveData<Resource<JsonObject>> resourceLiveData = resourceRepository.getResource(
-                ResourceRepository.RESOURCE_TYPE_CATEGORY_ICON,
-                CACHE_KEY_CATEGORY_ICONS,
-                !isInitialized // Force refresh if not initialized
-            );
-            
-            // Observe the resource
-            MediatorLiveData<Resource<JsonObject>> mediator = new MediatorLiveData<>();
-            mediator.addSource(resourceLiveData, resource -> {
-                if (resource.isSuccess()) {
-                    // Process the successful response
-                    JsonObject data = resource.getData();
-                    if (data != null) {
-                        try {
-                            Type listType = new TypeToken<List<CategoryIcon>>(){}.getType();
-                            List<CategoryIcon> icons = gson.fromJson(data.getAsJsonArray("data"), listType);
-                            processCategoryIcons(icons);
-                            
-                            // If data is stale, show a message
-                            if (resource.isStale()) {
-                                error.setValue("You're offline. Showing cached icons that may be outdated.");
-                            } else {
-                                error.setValue(null);
-                            }
-                        } catch (Exception e) {
-                            Log.e(TAG, "Error parsing category icons response", e);
-                            error.setValue("Error parsing category icons data");
-                            // Add fallback icons since parsing failed
-                            addFallbackIcons();
-                        }
-                    } else {
-                        // Add fallback icons since data is null
-                        addFallbackIcons();
-                    }
-                    loading.setValue(false);
-                } else if (resource.isError()) {
-                    // Handle error
-                    error.setValue(resource.getMessage());
-                    loading.setValue(false);
-                    // Add fallback icons since there was an error
-                    addFallbackIcons();
-                } else {
-                    // Still loading, wait for result
-                }
-            });
-        } catch (Exception e) {
-            Log.e(TAG, "Error loading category icons: " + e.getMessage());
-            loading.setValue(false);
-            // Continue with app initialization even if category icons fail to load
-            isInitialized = true;
+        // If we don't have network, load from cache immediately
+        if (!networkUtils.isConnected()) {
+            Log.d(TAG, "No network connection, loading from cache");
+            loadFromCache();
+            return;
         }
         
-        // Also load from network to ensure we have the latest data
-        loadCategoryIconsFromNetwork();
-    }
-    
-    /**
-     * Load category icons from network
-     */
-    private void loadCategoryIconsFromNetwork() {
-        Log.d(TAG, "Loading category icons from network");
-        
+        // Direct API call for faster response
+        cancelCurrentCall();
         Call<CategoryIconResponse> call = apiService.getCategoryIcons();
         setCurrentCall(call);
+        
         call.enqueue(new Callback<CategoryIconResponse>() {
             @Override
             public void onResponse(@NonNull Call<CategoryIconResponse> call, @NonNull Response<CategoryIconResponse> response) {
-                loading.setValue(false);
-                
-                try {
-                    if (response.isSuccessful() && response.body() != null) {
-                        CategoryIconResponse iconResponse = response.body();
-                        List<CategoryIcon> icons = iconResponse.getData();
+                if (response.isSuccessful() && response.body() != null) {
+                    try {
+                        CategoryIconResponse data = response.body();
                         
-                        if (icons == null || icons.isEmpty()) {
-                            Log.w(TAG, "Received empty category icons list or null");
-                            // Add fallback icons since we got an empty response
-                            addFallbackIcons();
-                            return;
-                        }
+                        // Log full response for debugging
+                        Log.d(TAG, "Got response: " + gson.toJson(response.body()));
                         
-                        // Cache the response using ResourceRepository
-                        JsonObject jsonObject = gson.toJsonTree(iconResponse).getAsJsonObject();
-                        
-                        // Save resource
-                        resourceRepository.saveResource(
-                            ResourceRepository.RESOURCE_TYPE_CATEGORY_ICON,
-                            CACHE_KEY_CATEGORY_ICONS,
-                            jsonObject,
-                            null,
-                            null,
-                            new java.util.Date(System.currentTimeMillis() + CACHE_EXPIRATION_ICONS)
-                        );
-                        
-                        // Process the icons
-                        processCategoryIcons(icons);
-                        
-                    } else {
-                        String errorMsg = "Failed to load category icons";
-                        try {
-                            if (response.errorBody() != null) {
-                                errorMsg = response.errorBody().string();
+                        if (data != null && data.getData() != null && !data.getData().isEmpty()) {
+                            // Process and cache the response
+                            processCategoryIcons(data.getData());
+                            
+                            // Cache the response for offline use
+                            try {
+                                JsonObject jsonObject = new JsonObject();
+                                jsonObject.add("data", gson.toJsonTree(data.getData()));
+                                
+                                // Use proper method to cache resource
+                                resourceRepository.saveResource(
+                                    ResourceType.CATEGORY_ICON.getKey(),
+                                    CACHE_KEY_CATEGORY_ICONS,
+                                    jsonObject,
+                                    null,  // No metadata
+                                    null,  // No etag
+                                    new Date(System.currentTimeMillis() + CACHE_EXPIRATION_ICONS)
+                                );
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error caching category icons", e);
                             }
-                        } catch (IOException e) {
-                            Log.e(TAG, "Error reading error body", e);
+                            
+                            // Reset retry counter on success
+                            currentRetryCount = 0;
+                            currentBackoffMs = INITIAL_BACKOFF_MS;
+                            
+                            loading.setValue(false);
+                        } else {
+                            // No data received
+                            Log.e(TAG, "Received empty category icons data");
+                            handleNetworkFailure(retryCount, backoffMs, new Exception("Empty data received"));
                         }
-                        
-                        error.setValue(errorMsg);
-                        errorHandler.handleError(
-                                ErrorHandler.ErrorType.SERVER_ERROR,
-                                errorMsg,
-                                ErrorHandler.ErrorSeverity.LOW);
-                        
-                        // Add fallback icons since API call failed
-                        addFallbackIcons();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error processing category icons response", e);
+                        handleNetworkFailure(retryCount, backoffMs, e);
                     }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error parsing category icons response: " + e.getMessage(), e);
-                    error.setValue("Error parsing category icons: " + e.getMessage());
-                    errorHandler.handleError(
-                            ErrorHandler.ErrorType.PARSING_ERROR,
-                            "Error parsing category icons: " + e.getMessage(),
-                            ErrorHandler.ErrorSeverity.LOW);
-                    
-                    // Add fallback icons since parsing failed
-                    addFallbackIcons();
+                } else {
+                    // API error
+                    Log.e(TAG, "Error loading category icons: " + response.code());
+                    handleNetworkFailure(retryCount, backoffMs, 
+                        new Exception("API error: " + response.code()));
                 }
             }
-
+            
             @Override
             public void onFailure(@NonNull Call<CategoryIconResponse> call, @NonNull Throwable t) {
                 if (call.isCanceled()) {
-                    Log.d(TAG, "Call was canceled");
+                    Log.d(TAG, "Category icons request was canceled");
                     loading.setValue(false);
-                    return;
+                } else {
+                    Log.e(TAG, "Failed to load category icons", t);
+                    handleNetworkFailure(retryCount, backoffMs, t);
                 }
-                
-                loading.setValue(false);
-                
-                String errorMsg = NetworkErrorHandler.getErrorMessage(context, t);
-                error.setValue(errorMsg);
-                NetworkErrorHandler.handleNetworkError(context, t, errorHandler);
-                
-                // Add fallback icons since API call failed
-                addFallbackIcons();
             }
         });
     }
-    
+
+    /**
+     * Handle network failure with retry mechanism
+     * @param retryCount Current retry count
+     * @param backoffMs Current backoff time in milliseconds
+     * @param error Error that occurred
+     */
+    private void handleNetworkFailure(int retryCount, long backoffMs, Throwable error) {
+        if (retryCount < MAX_RETRIES) {
+            // Calculate next backoff duration with exponential increase
+            final long nextBackoffMs = (long) (backoffMs * BACKOFF_MULTIPLIER);
+            final int nextRetryCount = retryCount + 1;
+            
+            Log.d(TAG, "Scheduling retry " + nextRetryCount + " in " + backoffMs + "ms");
+            
+            // Use executor to schedule retry after backoff delay
+            executors.mainThread().execute(() -> {
+                // Schedule a retry with exponential backoff
+                new android.os.Handler().postDelayed(() -> {
+                    loadCategoryIcons(nextRetryCount, nextBackoffMs);
+                }, backoffMs);
+            });
+        } else {
+            // Max retries reached, load from cache
+            Log.e(TAG, "Max retries reached, loading from cache", error);
+            loadFromCache();
+        }
+    }
+
+    /**
+     * Load category icons from cache
+     */
+    private void loadFromCache() {
+        executors.diskIO().execute(() -> {
+            try {
+                // Use proper method to get resource from cache - use LiveData version but extract value synchronously
+                LiveData<Resource<JsonObject>> resourceLiveData = resourceRepository.getResource(
+                    ResourceType.CATEGORY_ICON.getKey(),
+                    CACHE_KEY_CATEGORY_ICONS,
+                    false  // Don't force refresh
+                );
+                
+                // Since we need it synchronously, we need a workaround
+                // Check in-memory cache first
+                JsonObject cachedData = resourceRepository.getResourceSync(
+                    ResourceType.CATEGORY_ICON.getKey(),
+                    CACHE_KEY_CATEGORY_ICONS
+                );
+
+                if (cachedData != null) {
+                    try {
+                        if (cachedData.has("data") && cachedData.get("data").isJsonArray()) {
+                            Type listType = new TypeToken<List<CategoryIcon>>(){}.getType();
+                            List<CategoryIcon> icons = gson.fromJson(cachedData.getAsJsonArray("data"), listType);
+                            
+                            executors.mainThread().execute(() -> {
+                                processCategoryIcons(icons);
+                                loading.setValue(false);
+                            });
+                        } else {
+                            Log.e(TAG, "Cache data doesn't contain valid 'data' array");
+                            executors.mainThread().execute(() -> {
+                                addFallbackIcons();
+                                loading.setValue(false);
+                            });
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error parsing cached category icons JSON", e);
+                        executors.mainThread().execute(() -> {
+                            addFallbackIcons();
+                            loading.setValue(false);
+                        });
+                    }
+                } else {
+                    Log.d(TAG, "No valid cache data found for category icons");
+                    executors.mainThread().execute(() -> {
+                        // Add fallback icons since there is no cached data
+                        addFallbackIcons();
+                        loading.setValue(false);
+                    });
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error loading category icons from cache", e);
+                executors.mainThread().execute(() -> {
+                    addFallbackIcons();
+                    loading.setValue(false);
+                });
+            }
+        });
+    }
+
     /**
      * Process category icons and update LiveData
      * @param icons List of category icons to process

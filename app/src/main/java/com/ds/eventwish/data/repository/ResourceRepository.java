@@ -1105,4 +1105,16 @@ public class ResourceRepository {
             return null;
         }
     }
+    
+    /**
+     * Get a resource synchronously from the cache
+     * This method is for internal use only and should be used sparingly
+     * @param resourceType The resource type
+     * @param resourceKey The resource key
+     * @return The resource data as JsonObject, or null if not found
+     */
+    public JsonObject getResourceSync(String resourceType, String resourceKey) {
+        String cacheKey = getCacheKey(resourceType, resourceKey);
+        return resourceCache.get(cacheKey);
+    }
 } 

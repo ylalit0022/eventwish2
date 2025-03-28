@@ -53,6 +53,9 @@ public class HomeViewModel extends ViewModel {
     // Add stale data state
     private final MutableLiveData<Boolean> staleData = new MutableLiveData<>(false);
 
+    // Add a MutableLiveData for Category objects
+    private final MutableLiveData<List<com.ds.eventwish.ui.home.Category>> categoryObjects = new MutableLiveData<>(new ArrayList<>());
+
     // Enum for sort options
     public enum SortOption {
         TRENDING("Trending"),
@@ -89,8 +92,28 @@ public class HomeViewModel extends ViewModel {
         }
     }
 
+    // Observer reference to avoid creating multiple observers
+    private androidx.lifecycle.Observer<Map<String, Integer>> categoriesObserver;
+
+    /**
+     * Constructor
+     */
     public HomeViewModel() {
         repository = TemplateRepository.getInstance();
+        
+        // Setup the categories observer once
+        categoriesObserver = categoriesMap -> {
+            if (categoriesMap != null && !categoriesMap.isEmpty()) {
+                Log.d(TAG, "Categories updated from repository, updating category objects");
+                updateCategoryObjects(categoriesMap);
+            }
+        };
+        
+        // Observe categories
+        repository.getCategories().observeForever(categoriesObserver);
+        
+        // Load initial data
+        loadTemplates(true);
     }
 
     public void init(Context context) {
@@ -149,25 +172,106 @@ public class HomeViewModel extends ViewModel {
         return repository.getCategories();
     }
 
+    // New method for getting Category objects
+    public LiveData<List<com.ds.eventwish.ui.home.Category>> getCategoryObjects() {
+        return categoryObjects;
+    }
+
+    /**
+     * Convert category map to category objects and update the LiveData
+     */
+    private void updateCategoryObjects(Map<String, Integer> categoriesMap) {
+        Log.d(TAG, "Updating category objects with " + categoriesMap.size() + " categories");
+        
+        try {
+            List<com.ds.eventwish.ui.home.Category> categories = new ArrayList<>();
+            
+            // Get CategoryIconRepository instance
+            com.ds.eventwish.data.repository.CategoryIconRepository iconRepository = 
+                com.ds.eventwish.data.repository.CategoryIconRepository.getInstance();
+            
+            // Add "All" category first with a special icon
+            com.ds.eventwish.data.model.CategoryIcon allIcon = 
+                iconRepository.getCategoryIconByCategory("all");
+            
+            String allIconUrl = (allIcon != null && allIcon.getCategoryIcon() != null) ? 
+                allIcon.getCategoryIcon() : "";
+                
+            categories.add(new com.ds.eventwish.ui.home.Category(
+                null,
+                "All",
+                allIconUrl
+            ));
+            
+            Log.d(TAG, "Added 'All' category with icon URL: " + allIconUrl);
+            
+            // Add all other categories
+            for (Map.Entry<String, Integer> entry : categoriesMap.entrySet()) {
+                String categoryName = entry.getKey();
+                Integer count = entry.getValue();
+                
+                // Skip empty categories
+                if (count == null || count <= 0) {
+                    Log.d(TAG, "Skipping empty category: " + categoryName);
+                    continue;
+                }
+                
+                // Get icon from repository
+                com.ds.eventwish.data.model.CategoryIcon icon = 
+                    iconRepository.getCategoryIconByCategory(categoryName);
+                
+                String iconUrl = "";
+                if (icon != null && icon.getCategoryIcon() != null) {
+                    iconUrl = icon.getCategoryIcon();
+                    Log.d(TAG, "Found icon for category " + categoryName + ": " + iconUrl);
+                } else {
+                    Log.d(TAG, "No icon found for category: " + categoryName + ", using default");
+                }
+                
+                Log.d(TAG, "Adding category: " + categoryName + " with " + count + " templates");
+                
+                // Create category object and add to list
+                categories.add(new com.ds.eventwish.ui.home.Category(
+                    categoryName.toLowerCase(),
+                    categoryName,
+                    iconUrl
+                ));
+            }
+            
+            Log.d(TAG, "Setting " + categories.size() + " category objects to LiveData");
+            categoryObjects.postValue(categories);
+        } catch (Exception e) {
+            Log.e(TAG, "Error updating category objects", e);
+        }
+    }
+
     /**
      * Load categories from the repository
      */
     public void loadCategories() {
-        // Check if we already have categories
-        Map<String, Integer> existingCategories = repository.getCategories().getValue();
+        Log.d(TAG, "loadCategories called");
         
-        if (existingCategories == null || existingCategories.isEmpty()) {
-            // No categories available, load them by loading templates
-            Log.d(TAG, "No categories available, loading templates to get categories");
-            loadTemplates(true);
-        } else {
-            // Categories already available, just notify observers
-            Log.d(TAG, "Categories already available (" + existingCategories.size() + "), notifying observers");
+        // Use a safe approach to handle categories
+        try {
+            Map<String, Integer> categoriesMap = repository.getCategories().getValue();
             
-            // We can't directly call setValue on the LiveData returned by repository.getCategories()
-            // Instead, we'll reload templates with the current filters to refresh categories
-            // but with a flag to avoid clearing existing data
-            repository.loadTemplates(false);
+            if (categoriesMap != null && !categoriesMap.isEmpty()) {
+                Log.d(TAG, "Categories loaded from repository: " + categoriesMap.size());
+                updateCategoryObjects(categoriesMap);
+            } else {
+                Log.d(TAG, "No categories available from repository, fetching...");
+                // Load categories by loading templates
+                loadTemplates(true);
+                
+                // Check if we need to observe temporarily
+                if (categoriesObserver == null) {
+                    Log.e(TAG, "Categories observer is null, this shouldn't happen");
+                } else {
+                    Log.d(TAG, "Categories observer is already set up");
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading categories", e);
         }
     }
 
@@ -177,6 +281,20 @@ public class HomeViewModel extends ViewModel {
 
     public LiveData<Boolean> getHasNewTemplates() {
         return hasNewTemplates;
+    }
+
+    /**
+     * Set the selected category by ID
+     * @param categoryId The category ID to filter by, or null for all categories
+     */
+    public void setSelectedCategory(String categoryId) {
+        // Handle "all" category specially
+        if (categoryId != null && categoryId.equals("all")) {
+            setCategory(null);
+        } else {
+            // For other categories, use the original method
+            setCategory(categoryId);
+        }
     }
 
     /**
@@ -269,39 +387,37 @@ public class HomeViewModel extends ViewModel {
      * @param refresh Whether to force a refresh from the server
      */
     public void loadTemplates(boolean refresh) {
-        Log.d(TAG, "Loading templates - refresh: " + refresh);
+        Log.d(TAG, "loadTemplates called with refresh=" + refresh);
         
-        // Reset stale data state when forcing a refresh
+        // If forced refresh, clear the cache
         if (refresh) {
-            setStaleData(false);
+            Log.d(TAG, "Force refresh triggered for templates");
+            repository.clearCache();
         }
         
-        // Apply filters
+        // Remember when we last refreshed
+        lastRefreshTime = System.currentTimeMillis();
+        
+        // Set the category filter if needed
         if (selectedCategory != null) {
+            Log.d(TAG, "Applying category filter: " + selectedCategory);
             repository.setCategory(selectedCategory);
+        } else {
+            Log.d(TAG, "No category filter applied");
+            repository.setCategory(null);
         }
         
         // Apply sort option
+        Log.d(TAG, "Applying sort option: " + selectedSortOption.name());
         applySortOption(selectedSortOption);
         
         // Apply time filter
+        Log.d(TAG, "Applying time filter: " + selectedTimeFilter.name());
         applyTimeFilter(selectedTimeFilter);
         
-        // Load templates
+        // Fetch templates
+        Log.d(TAG, "Loading templates from repository");
         repository.loadTemplates(refresh);
-        
-        // Update last refresh time
-        lastRefreshTime = System.currentTimeMillis();
-        
-        // Check for stale data in error message
-        repository.getError().observeForever(error -> {
-            if (error != null && (error.contains("offline") || error.contains("cached") || error.contains("stale"))) {
-                Log.d(TAG, "Detected stale data from error message: " + error);
-                setStaleData(true);
-            } else if (error == null || error.isEmpty()) {
-                setStaleData(false);
-            }
-        });
     }
 
     /**
@@ -378,48 +494,63 @@ public class HomeViewModel extends ViewModel {
 
     public void checkForNewTemplates(List<Template> templates) {
         if (templates == null || templates.isEmpty() || appContext == null) {
+            Log.w(TAG, "Cannot check for new templates: templates list is empty or context is null");
+            return;
+        }
+        
+        // Get the last check time to determine what's new
+        SharedPreferences prefs = appContext.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
+        long lastCheckTime = prefs.getLong(PREF_LAST_CHECK_TIME, 0);
+        
+        // If it's the first time we're checking, consider everything as viewed
+        if (lastCheckTime == 0) {
+            Log.d(TAG, "First time checking for new templates, marking all as viewed");
+            lastCheckTime = System.currentTimeMillis();
+            prefs.edit().putLong(PREF_LAST_CHECK_TIME, lastCheckTime).apply();
+            
+            // Update the viewed template IDs
+            for (Template template : templates) {
+                viewedTemplateIds.add(template.getId());
+            }
+            
+            // Save the viewed template IDs
+            saveViewedTemplateIds();
             return;
         }
         
         Set<String> newIds = new HashSet<>();
         for (Template template : templates) {
+            // A template is new if it's not in viewed templates
             if (!viewedTemplateIds.contains(template.getId())) {
+                Log.d(TAG, "Found new template: " + template.getId() + " - " + template.getTitle());
                 newIds.add(template.getId());
             }
         }
         
         if (!newIds.isEmpty()) {
+            Log.d(TAG, "Found " + newIds.size() + " new templates");
             hasNewTemplates.setValue(true);
             newTemplateIds.setValue(newIds);
+        } else {
+            Log.d(TAG, "No new templates found");
+            hasNewTemplates.setValue(false);
+            newTemplateIds.setValue(new HashSet<>());
         }
     }
 
-    public void markTemplateAsViewed(String templateId) {
-        if (templateId == null || templateId.isEmpty() || appContext == null) {
+    private void saveViewedTemplateIds() {
+        if (appContext == null) {
+            Log.e(TAG, "Cannot save viewed template IDs: context is null");
             return;
         }
         
-        viewedTemplateIds.add(templateId);
-        
-        // Update the new template IDs
-        Set<String> currentNewIds = newTemplateIds.getValue();
-        if (currentNewIds != null && currentNewIds.contains(templateId)) {
-            currentNewIds.remove(templateId);
-            newTemplateIds.setValue(currentNewIds);
-            
-            // If all new templates have been viewed, clear the flag
-            if (currentNewIds.isEmpty()) {
-                hasNewTemplates.setValue(false);
-            }
-        }
-        
-        // Save the viewed template IDs
         SharedPreferences prefs = appContext.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
         StringBuilder sb = new StringBuilder();
         for (String id : viewedTemplateIds) {
             sb.append(id).append(",");
         }
         prefs.edit().putString(PREF_VIEWED_TEMPLATES, sb.toString()).apply();
+        Log.d(TAG, "Saved " + viewedTemplateIds.size() + " viewed template IDs");
     }
 
     public LiveData<Set<String>> getNewTemplateIds() {
@@ -510,5 +641,83 @@ public class HomeViewModel extends ViewModel {
     protected void onCleared() {
         super.onCleared();
         repository.cancelCurrentCall();
+        
+        // Remove the observer when ViewModel is cleared
+        if (categoriesObserver != null) {
+            repository.getCategories().removeObserver(categoriesObserver);
+        }
+    }
+
+    // Add a method to set the selected template for navigation
+    public void setSelectedTemplate(Template template) {
+        // This method is used for navigating to the template customize screen
+        // No state needs to be maintained in this ViewModel
+        // Navigation is handled in the Fragment
+    }
+
+    public void markTemplateAsViewed(String templateId) {
+        if (templateId == null || templateId.isEmpty() || appContext == null) {
+            Log.w(TAG, "Cannot mark template as viewed: invalid ID or null context");
+            return;
+        }
+        
+        Log.d(TAG, "Marking template as viewed: " + templateId);
+        viewedTemplateIds.add(templateId);
+        
+        // Update the new template IDs
+        Set<String> currentNewIds = newTemplateIds.getValue();
+        if (currentNewIds != null && currentNewIds.contains(templateId)) {
+            currentNewIds.remove(templateId);
+            newTemplateIds.setValue(currentNewIds);
+            
+            // If all new templates have been viewed, clear the flag
+            if (currentNewIds.isEmpty()) {
+                hasNewTemplates.setValue(false);
+            }
+        }
+        
+        // Save the viewed template IDs
+        saveViewedTemplateIds();
+    }
+
+    /**
+     * Check if the ViewModel has any templates loaded
+     * @return true if templates are loaded, false otherwise
+     */
+    public boolean hasTemplates() {
+        List<Template> templates = getTemplates().getValue();
+        return templates != null && !templates.isEmpty();
+    }
+    
+    /**
+     * Check if a refresh is needed based on time threshold
+     * @return true if refresh is needed, false otherwise
+     */
+    public boolean isRefreshNeeded() {
+        long currentTime = System.currentTimeMillis();
+        return (currentTime - lastRefreshTime) > REFRESH_THRESHOLD;
+    }
+    
+    /**
+     * Get whether the repository needs to be refreshed
+     * @return LiveData with refresh needed state
+     */
+    public LiveData<Boolean> getRefreshNeeded() {
+        // Assuming the repository has a getRefreshNeeded method
+        // If not, you may need to implement this differently
+        return new MutableLiveData<>(isRefreshNeeded());
+    }
+    
+    /**
+     * Refresh the UI after a feature change
+     * This is called when a premium feature is unlocked
+     */
+    public void refreshForFeatureChange() {
+        Log.d(TAG, "Refreshing UI after feature change");
+        // Reload templates with current filters
+        loadTemplates(true);
+        
+        // Refresh categories if needed
+        loadCategories();
     }
 }

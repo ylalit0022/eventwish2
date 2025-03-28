@@ -22,6 +22,7 @@ import com.ds.eventwish.data.repository.CategoryIconRepository;
 import com.ds.eventwish.data.repository.TokenRepository;
 import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.data.remote.ApiService;
+import com.ds.eventwish.utils.AnalyticsUtils;
 import com.ds.eventwish.utils.CacheManager;
 import com.ds.eventwish.utils.ReminderScheduler;
 import com.ds.eventwish.workers.ReminderCheckWorker;
@@ -36,6 +37,7 @@ import java.util.concurrent.TimeUnit;
 import com.ds.eventwish.ui.ads.AppOpenAdHelper;
 import com.ds.eventwish.utils.EventWishNotificationManager;
 import com.ds.eventwish.utils.NotificationScheduler;
+import android.app.Activity;
 
 public class EventWishApplication extends Application implements Configuration.Provider {
     private static final String TAG = "EventWishApplication";
@@ -71,14 +73,30 @@ public class EventWishApplication extends Application implements Configuration.P
             Log.e(TAG, "Firebase initialization failed", e);
         }
         
+        // Initialize Analytics
+        try {
+            AnalyticsUtils.init(this);
+            Log.d(TAG, "Analytics initialized successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Analytics initialization failed", e);
+        }
+        
         // Create notification channels
         createNotificationChannels();
         
         // Initialize Firebase In-App Messaging Handler
         FirebaseInAppMessagingHandler.initialize(this);
         
-        // Initialize ApiClient before using it
-        ApiClient.init(this);
+        // Initialize both ApiClient implementations
+        try {
+            // Initialize only the data.remote.ApiClient - it's the main one
+            com.ds.eventwish.data.remote.ApiClient.init(this);
+            Log.d(TAG, "ApiClient initialized successfully");
+            
+            // Remove the network.ApiClient initialization - we'll deprecate this class later
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing ApiClient: " + e.getMessage(), e);
+        }
         
         // Initialize TokenRepository and check for unsent tokens
         TokenRepository.getInstance(this, ApiClient.getClient())
@@ -105,6 +123,9 @@ public class EventWishApplication extends Application implements Configuration.P
         // Restore any pending reminders
         restorePendingReminders();
         
+        // Initialize MobileAds
+        initializeAdMob();
+        
         // Initialize CategoryIconRepository and preload icons
         Log.d(TAG, "Initializing CategoryIconRepository");
         try {
@@ -113,12 +134,6 @@ public class EventWishApplication extends Application implements Configuration.P
             Log.e(TAG, "Error initializing CategoryIconRepository: " + e.getMessage());
             // Continue with app initialization even if category icons fail to load
         }
-        
-        // Initialize AdMob and AdManager
-        initializeAdMob();
-        
-        // Log initialization complete
-        Log.i(TAG, "Application initialized successfully");
     }
 
     @Override
@@ -221,15 +236,23 @@ public class EventWishApplication extends Application implements Configuration.P
             MobileAds.initialize(this, initializationStatus -> {
                 Log.d(TAG, "AdMob SDK initialized successfully");
                 
-                // Initialize AdManager
-                AdManager.getInstance(this);
+                // Don't initialize AdManager here since we need an Activity context
+                // It will be initialized later in initializeAdManager()
                 
-                // Initialize AppOpenAdHelper
-                appOpenAdHelper = new AppOpenAdHelper(this);
+                // Don't initialize AppOpenAdHelper here since we need an Activity context
+                // It will be initialized later in initializeAdManager()
+                Log.d(TAG, "Waiting for Activity context to initialize ad components");
             });
             Log.d(TAG, "AdMob initialization started");
         } catch (Exception e) {
             Log.e(TAG, "Error initializing AdMob: " + e.getMessage());
         }
+    }
+
+    // Method to initialize AdManager and AppOpenAdHelper from an Activity
+    public void initializeAdManager(Activity activity) {
+        AdManager adManager = AdManager.getInstance(this);
+        adManager.setActivity(activity);
+        appOpenAdHelper = new AppOpenAdHelper(this);
     }
 }

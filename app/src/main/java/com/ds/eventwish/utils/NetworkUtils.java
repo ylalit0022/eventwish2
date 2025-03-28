@@ -387,4 +387,28 @@ public class NetworkUtils {
         }
         return result.toString();
     }
+
+    /**
+     * Gets the current network type as a string
+     * @return A string representing the network type (WIFI, MOBILE, NONE)
+     */
+    public String getNetworkType() {
+        ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) {
+            return "NONE";
+        }
+        
+        NetworkInfo activeNetwork = connectivityManager.getActiveNetworkInfo();
+        if (activeNetwork == null) {
+            return "NONE";
+        }
+        
+        if (activeNetwork.getType() == ConnectivityManager.TYPE_WIFI) {
+            return "WIFI";
+        } else if (activeNetwork.getType() == ConnectivityManager.TYPE_MOBILE) {
+            return "MOBILE";
+        } else {
+            return "OTHER";
+        }
+    }
 }

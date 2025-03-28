@@ -70,6 +70,39 @@ const CoinsSchema = new mongoose.Schema({
         }
     }],
     
+    // Track security violations
+    securityViolations: [{
+        timestamp: {
+            type: Date,
+            default: Date.now
+        },
+        type: {
+            type: String,
+            enum: ['root', 'emulator', 'id_tampering', 'time_manipulation', 'other'],
+            default: 'other'
+        },
+        details: {
+            type: String
+        },
+        deviceInfo: {
+            type: Object,
+            default: {}
+        },
+        isRooted: {
+            type: Boolean,
+            default: false
+        },
+        isEmulator: {
+            type: Boolean,
+            default: false
+        },
+        action: {
+            type: String,
+            enum: ['warning', 'revoke', 'blacklist', 'none'],
+            default: 'none'
+        }
+    }],
+    
     // Last sync with server
     lastSyncTimestamp: {
         type: Date,
@@ -80,6 +113,26 @@ const CoinsSchema = new mongoose.Schema({
     timeOffset: {
         type: Number,
         default: 0
+    },
+    
+    // Device integrity information
+    deviceIntegrity: {
+        fingerprint: {
+            type: String,
+            default: null
+        },
+        lastVerifiedAt: {
+            type: Date,
+            default: null
+        },
+        verified: {
+            type: Boolean,
+            default: false
+        },
+        failedVerifications: {
+            type: Number,
+            default: 0
+        }
     },
     
     // Plan configuration

@@ -1,148 +1,170 @@
 package com.ds.eventwish.ui.customize;
 
+import android.app.Application;
+import android.content.Context;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
-import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.data.model.Template;
-import com.ds.eventwish.data.remote.ApiClient;
-import com.ds.eventwish.data.remote.ApiService;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
+import com.ds.eventwish.data.model.SharedWish;
+import com.ds.eventwish.data.repository.TemplateRepository;
+import com.ds.eventwish.data.repository.SharedWishRepository;
+import com.ds.eventwish.data.local.entity.SharedWishEntity;
+import java.util.HashMap;
+import java.util.Map;
 
 public class TemplateCustomizeViewModel extends ViewModel {
-    private final ApiService apiService;
+    private static TemplateCustomizeViewModel instance;
+    private final TemplateRepository templateRepository;
+    private final SharedWishRepository sharedWishRepository;
+    
     private final MutableLiveData<Template> template = new MutableLiveData<>();
     private final MutableLiveData<String> previewHtml = new MutableLiveData<>();
     private final MutableLiveData<SharedWish> sharedWish = new MutableLiveData<>();
     private final MutableLiveData<String> error = new MutableLiveData<>();
-
+    
     private String recipientName = "";
     private String senderName = "";
     private String message = "";
     private String templateId;
-
-    public TemplateCustomizeViewModel() {
-        apiService = ApiClient.getClient();
+    
+    /**
+     * Get singleton instance of TemplateCustomizeViewModel
+     * @return the instance
+     */
+    public static synchronized TemplateCustomizeViewModel getInstance() {
+        if (instance == null) {
+            throw new IllegalStateException("TemplateCustomizeViewModel must be initialized with init() first");
+        }
+        return instance;
     }
-
-    public LiveData<Template> getTemplate() {
-        return template;
+    
+    /**
+     * Initialize the ViewModel with application context
+     * @param context the application context
+     */
+    public static synchronized void init(Context context) {
+        if (instance == null) {
+            instance = new TemplateCustomizeViewModel(context.getApplicationContext());
+        }
     }
-
-    public LiveData<String> getPreviewHtml() {
-        return previewHtml;
+    
+    private TemplateCustomizeViewModel(Context context) {
+        // Use repository instances that take context
+        templateRepository = TemplateRepository.getInstance();
+        sharedWishRepository = SharedWishRepository.getInstance(context);
     }
-
-    public LiveData<SharedWish> getSharedWish() {
-        return sharedWish;
-    }
-
-    public LiveData<String> getError() {
-        return error;
-    }
-
-    public void setRecipientName(String name) {
-        this.recipientName = name;
-        generatePreview();
-    }
-
-    public void setSenderName(String name) {
-        this.senderName = name;
-        generatePreview();
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-        generatePreview();
-    }
-
-    public String getRecipientName() {
-        return recipientName;
-    }
-
-    public String getSenderName() {
-        return senderName;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
+    
     public void loadTemplate(String templateId) {
         this.templateId = templateId;
         
-        apiService.getTemplateById(templateId).enqueue(new Callback<Template>() {
-            @Override
-            public void onResponse(Call<Template> call, Response<Template> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    template.setValue(response.body());
-                    generatePreview();
-                } else {
-                    error.setValue("Failed to load template");
-                }
-            }
-
-            @Override
-            public void onFailure(Call<Template> call, Throwable t) {
-                error.setValue("Network error: " + t.getMessage());
+        // Use the Resource<Template> LiveData
+        templateRepository.getTemplateById(templateId, false).observeForever(resource -> {
+            if (resource.isSuccess() && resource.getData() != null) {
+                Template loadedTemplate = resource.getData();
+                this.template.setValue(loadedTemplate);
+                updatePreview();
+            } else if (resource.isError()) {
+                error.setValue(resource.getMessage());
             }
         });
     }
-
-    private void generatePreview() {
-        Template currentTemplate = template.getValue();
-        if (currentTemplate == null) return;
-
-        String html = currentTemplate.getHtmlContent();
-        if (html == null) return;
-
-        // Replace placeholders with actual values
-        html = html.replace("{{recipientName}}", recipientName)
-                  .replace("{{senderName}}", senderName)
-                  .replace("{{message}}", message);
-
-        // Add CSS and JS
-        String css = currentTemplate.getCssContent();
-        String js = currentTemplate.getJsContent();
+    
+    public LiveData<Template> getTemplate() {
+        return template;
+    }
+    
+    public void setRecipientName(String recipientName) {
+        this.recipientName = recipientName;
+        updatePreview();
+    }
+    
+    public void setSenderName(String senderName) {
+        this.senderName = senderName;
+        updatePreview();
+    }
+    
+    public void setMessage(String message) {
+        this.message = message;
+        updatePreview();
+    }
+    
+    private void updatePreview() {
+        if (template.getValue() == null) return;
         
-        StringBuilder fullHtml = new StringBuilder();
-        fullHtml.append("<!DOCTYPE html><html><head><style>");
-        if (css != null) fullHtml.append(css);
-        fullHtml.append("</style></head><body>");
-        fullHtml.append(html);
-        fullHtml.append("<script>");
-        if (js != null) fullHtml.append(js);
-        fullHtml.append("</script></body></html>");
-
-        previewHtml.setValue(fullHtml.toString());
+        // Get the HTML template
+        String templateHtml = template.getValue().getHtml();
+        
+        // Replace placeholder values
+        templateHtml = templateHtml.replace("{{recipient}}", recipientName)
+                                  .replace("{{sender}}", senderName)
+                                  .replace("{{message}}", message);
+        
+        previewHtml.setValue(templateHtml);
     }
-
+    
     public void saveWish() {
-        Template currentTemplate = template.getValue();
-        if (currentTemplate == null) return;
-
-        SharedWish wish = new SharedWish();
-        wish.setTemplateId(templateId);
-        wish.setRecipientName(recipientName);
-        wish.setSenderName(senderName);
-        wish.setMessage(message);
-
-        apiService.createSharedWish(wish).enqueue(new Callback<SharedWish>() {
-            @Override
-            public void onResponse(Call<SharedWish> call, Response<SharedWish> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    sharedWish.setValue(response.body());
-                } else {
-                    error.setValue("Failed to save wish");
+        if (template.getValue() == null) {
+            error.setValue("No template selected");
+            return;
+        }
+        
+        // Create a customization data map
+        Map<String, Object> customizationData = new HashMap<>();
+        customizationData.put("recipientName", recipientName);
+        customizationData.put("senderName", senderName);
+        customizationData.put("message", message);
+        
+        // Get the current template HTML content
+        String customizedHtml = previewHtml.getValue();
+        
+        // Use createSharedWish with the correct parameter types
+        sharedWishRepository.createSharedWish(templateId, customizedHtml, customizationData)
+            .observeForever(result -> {
+                if (result.isSuccess()) {
+                    // Create a SharedWish from the SharedWishEntity
+                    SharedWishEntity entity = result.getData();
+                    
+                    // Manual conversion from SharedWishEntity to SharedWish
+                    SharedWish wish = new SharedWish();
+                    wish.setShortCode(entity.getShortCode());
+                    wish.setTemplateId(entity.getTemplateId());
+                    wish.setCustomizedHtml(entity.getCustomizedHtml());
+                    wish.setPreviewUrl(entity.getShareUrl());
+                    
+                    sharedWish.setValue(wish);
+                } else if (result.isError()) {
+                    error.setValue(result.getMessage());
                 }
-            }
-
-            @Override
-            public void onFailure(Call<SharedWish> call, Throwable t) {
-                error.setValue("Network error: " + t.getMessage());
-            }
-        });
+            });
+    }
+    
+    public LiveData<String> getPreviewHtml() {
+        return previewHtml;
+    }
+    
+    public LiveData<SharedWish> getSharedWish() {
+        return sharedWish;
+    }
+    
+    public LiveData<String> getError() {
+        return error;
+    }
+    
+    // Method to update HTML content directly (for HTML editor)
+    public void updateHtmlContent(String updatedHtml) {
+        if (template.getValue() == null) return;
+        
+        // Store the current template
+        Template currentTemplate = template.getValue();
+        
+        // Update the HTML content
+        currentTemplate.setHtml(updatedHtml);
+        
+        // Update the template
+        template.setValue(currentTemplate);
+        
+        // Update the preview with the new HTML
+        previewHtml.setValue(updatedHtml);
     }
 }

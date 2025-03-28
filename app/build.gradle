@@ -151,6 +151,7 @@ dependencies {
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.google.firebase:firebase-inappmessaging-display'
     implementation 'com.google.firebase:firebase-installations'
+    implementation 'com.google.firebase:firebase-database'
 
     // Palette for color extraction
     implementation 'androidx.palette:palette:1.0.0'

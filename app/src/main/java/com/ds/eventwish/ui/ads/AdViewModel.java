@@ -2,6 +2,7 @@ package com.ds.eventwish.ui.ads;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.Context;
 import android.util.Log;
 import android.view.ViewGroup;
 
@@ -47,9 +48,9 @@ public class AdViewModel extends AndroidViewModel {
      * Constructor for AdViewModel.
      * @param application the application
      */
-    public AdViewModel(@NonNull Application application) {
+    public AdViewModel(@NonNull Context context, Application application ) {
         super(application);
-        adRepository = new AdRepository(application);
+        adRepository = new AdRepository(context);
         adManagerExtended = AdManagerExtended.getInstance(application);
         
         // Observe app open ad loading state

@@ -594,4 +594,14 @@ public class TemplateRepository {
         
         return result;
     }
+    
+    /**
+     * Clear all templates from memory (not clearing cache)
+     */
+    public void clearTemplates() {
+        Log.d(TAG, "Clearing templates from memory");
+        if (templates.getValue() != null) {
+            templates.setValue(new ArrayList<>());
+        }
+    }
 }

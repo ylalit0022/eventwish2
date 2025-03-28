@@ -14,6 +14,9 @@ import com.ds.eventwish.data.remote.ApiService;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
+import java.util.HashMap;
+import java.util.Map;
+import com.google.gson.JsonObject;
 
 public class TemplateDetailViewModel extends ViewModel {
     private final ApiService apiService;
@@ -177,57 +180,44 @@ public class TemplateDetailViewModel extends ViewModel {
             Log.d(TAG, "Set preview URL: " + wish.getPreviewUrl());
         }
 
-        apiService.createSharedWish(wish).enqueue(new Callback<SharedWish>() {
+        // Convert SharedWish to Map<String, Object> for the API call
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("templateId", wish.getTemplateId());
+        requestBody.put("customizedHtml", wish.getCustomizedHtml());
+        requestBody.put("senderName", wish.getSenderName());
+        requestBody.put("recipientName", wish.getRecipientName());
+        requestBody.put("message", wish.getMessage());
+        requestBody.put("previewUrl", wish.getPreviewUrl());
+        
+        apiService.createSharedWish(requestBody).enqueue(new Callback<JsonObject>() {
             @Override
-            public void onResponse(Call<SharedWish> call, Response<SharedWish> response) {
+            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
                 Log.d(TAG, "API Response Code: " + response.code());
                 Log.d(TAG, "API URL Called: " + call.request().url());
                 isLoading.setValue(false);
                 
-                if (response.isSuccessful()) {
-                    SharedWish responseWish = response.body();
-                    if (responseWish != null) {
-                        // Try to get shortCode directly from the response body
-                        String shortCode = responseWish.getShortCode();
-                        
-                        // If shortCode is null, try to extract it from the response as a JSON field
-                        if (shortCode == null || shortCode.isEmpty()) {
-                            try {
-                                // The server might return a JSON object with a shortCode field
-                                String responseString = new com.google.gson.Gson().toJson(responseWish);
-                                Log.d(TAG, "Response body: " + responseString);
-                                
-                                com.google.gson.JsonObject jsonObject = new com.google.gson.JsonParser().parse(responseString).getAsJsonObject();
-                                if (jsonObject.has("shortCode")) {
-                                    shortCode = jsonObject.get("shortCode").getAsString();
-                                    Log.d(TAG, "Extracted shortCode from JSON: " + shortCode);
-                                }
-                            } catch (Exception e) {
-                                Log.e(TAG, "Error parsing response JSON", e);
-                            }
+                if (response.isSuccessful() && response.body() != null) {
+                    JsonObject responseBody = response.body();
+                    try {
+                        // Try to get shortCode directly from the response
+                        String shortCode = null;
+                        if (responseBody.has("shortCode")) {
+                            shortCode = responseBody.get("shortCode").getAsString();
                         }
                         
                         Log.d(TAG, "Final shortCode: " + shortCode);
                         
-                        // Set deep link for the wish
+                        // If we have a valid shortCode, save it
                         if (shortCode != null && !shortCode.isEmpty()) {
-                            // Set the deep link for the wish
-                            responseWish.setDeepLink("eventwish://wish/" + shortCode);
+                            // Update wish object with the shortCode
+                            wish.setShortCode(shortCode);
+                            wish.setDeepLink("eventwish://wish/" + shortCode);
                             
-                            // Set the preview URL for the landing page if not already set
-                            if (responseWish.getPreviewUrl() == null || responseWish.getPreviewUrl().isEmpty()) {
-                                // Use the template thumbnail URL or a default image
-                                String previewUrl = currentTemplate.getThumbnailUrl();
-                                if (previewUrl != null && !previewUrl.isEmpty()) {
-                                    if (!previewUrl.startsWith("http")) {
-                                        previewUrl = SERVER_BASE_URL + previewUrl;
-                                    }
-                                } else {
-                                    // Use a default image URL
-                                    previewUrl = SERVER_BASE_URL + "/images/default-preview.png";
-                                }
-                                responseWish.setPreviewUrl(previewUrl);
-                                Log.d(TAG, "Set preview URL from response: " + previewUrl);
+                            // Set shareUrl if available
+                            if (responseBody.has("shareUrl")) {
+                                String shareUrl = responseBody.get("shareUrl").getAsString();
+                                // Use preview URL as the share URL if available
+                                wish.setPreviewUrl(shareUrl);
                             }
                             
                             wishSaved.setValue(shortCode);
@@ -235,9 +225,9 @@ public class TemplateDetailViewModel extends ViewModel {
                             Log.e(TAG, "API returned null or empty shortCode");
                             error.setValue("Failed to get wish code from server");
                         }
-                    } else {
-                        Log.e(TAG, "API returned null response body");
-                        error.setValue("Failed to save wish - empty response");
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error parsing response JSON", e);
+                        error.setValue("Failed to save wish: " + response.code());
                     }
                 } else {
                     try {
@@ -253,7 +243,7 @@ public class TemplateDetailViewModel extends ViewModel {
             }
 
             @Override
-            public void onFailure(Call<SharedWish> call, Throwable t) {
+            public void onFailure(Call<JsonObject> call, Throwable t) {
                 Log.e(TAG, "API Call Failed", t);
                 Log.e(TAG, "Failed URL: " + call.request().url());
                 isLoading.setValue(false);
