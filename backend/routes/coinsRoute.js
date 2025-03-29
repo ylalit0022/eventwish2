@@ -9,8 +9,10 @@ const jwt = require('jsonwebtoken');
 router.post('/register', async (req, res) => {
     try {
         const { deviceId, deviceInfo } = req.body;
+        logger.debug('Registration request received:', { deviceId });
         
         if (!deviceId) {
+            logger.warn('Missing device ID in registration request');
             return res.status(400).json({
                 success: false,
                 message: 'Device ID is required',
@@ -18,8 +20,15 @@ router.post('/register', async (req, res) => {
             });
         }
 
+        // Find existing device
         let coinsDoc = await Coins.findOne({ deviceId });
+        logger.debug('Existing device check:', { 
+            exists: !!coinsDoc, 
+            deviceId 
+        });
+
         if (!coinsDoc) {
+            // Create new device record
             coinsDoc = new Coins({ 
                 deviceId,
                 coins: 0,
@@ -27,6 +36,7 @@ router.post('/register', async (req, res) => {
                     deviceInfo: deviceInfo || {}
                 }
             });
+            logger.debug('Created new device record:', { deviceId });
         }
 
         // Generate new tokens
@@ -42,17 +52,18 @@ router.post('/register', async (req, res) => {
             { expiresIn: '7d' }
         );
 
+        logger.debug('Generated tokens:', { 
+            deviceId,
+            tokenExpiry: '1h',
+            refreshTokenExpiry: '7d'
+        });
+
         // Update auth tokens
-        coinsDoc.auth.token = token;
-        coinsDoc.auth.refreshToken = refreshToken;
-        coinsDoc.auth.tokenExpiry = new Date(Date.now() + 3600000); // 1 hour
-        coinsDoc.auth.refreshTokenExpiry = new Date(Date.now() + 604800000); // 7 days
-        coinsDoc.auth.isAuthenticated = true;
-        
-        await coinsDoc.save();
+        await coinsDoc.updateAuthTokens(token, refreshToken);
+        logger.debug('Updated auth tokens in database:', { deviceId });
 
         // Return success response
-        res.json({
+        const response = {
             success: true,
             data: {
                 token,
@@ -62,7 +73,15 @@ router.post('/register', async (req, res) => {
                 isUnlocked: coinsDoc.isUnlocked,
                 deviceId: coinsDoc.deviceId
             }
+        };
+        
+        logger.debug('Sending registration response:', {
+            deviceId,
+            coins: coinsDoc.coins,
+            isUnlocked: coinsDoc.isUnlocked
         });
+
+        res.json(response);
     } catch (error) {
         logger.error('Device registration error:', error);
         res.status(500).json({

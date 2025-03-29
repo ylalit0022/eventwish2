@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 
 const CoinsSchema = new mongoose.Schema({
     // Device identifier for the user
@@ -343,13 +344,22 @@ CoinsSchema.methods.validateAuth = function() {
 
 // Add method to find by auth token
 CoinsSchema.statics.findByToken = async function(token) {
+    if (!token) {
+        return null;
+    }
+    
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (!decoded || !decoded.deviceId) {
+            return null;
+        }
+        
         return this.findOne({
             deviceId: decoded.deviceId,
             'auth.token': token
         });
     } catch (error) {
+        console.error('Token verification error:', error);
         return null;
     }
 };
