@@ -149,6 +149,39 @@ const CoinsSchema = new mongoose.Schema({
             type: Number,
             default: 30
         }
+    },
+
+    // Add auth-related fields
+    auth: {
+        token: {
+            type: String,
+            default: null
+        },
+        refreshToken: {
+            type: String,
+            default: null
+        },
+        tokenExpiry: {
+            type: Date,
+            default: null
+        },
+        refreshTokenExpiry: {
+            type: Date,
+            default: null
+        },
+        lastLogin: {
+            type: Date,
+            default: null
+        },
+        isAuthenticated: {
+            type: Boolean,
+            default: false
+        },
+        deviceInfo: {
+            type: Map,
+            of: String,
+            default: {}
+        }
     }
 }, {
     timestamps: true,
@@ -271,6 +304,41 @@ CoinsSchema.statics.validateSignature = function(deviceId, timestamp, duration, 
     const expectedSignature = crypto.createHmac('sha256', secret).update(data).digest('hex');
     
     return signature === expectedSignature;
+};
+
+// Add method to update auth tokens
+CoinsSchema.methods.updateAuthTokens = async function(token, refreshToken) {
+    this.auth.token = token;
+    this.auth.refreshToken = refreshToken;
+    this.auth.tokenExpiry = new Date(Date.now() + (60 * 60 * 1000)); // 1 hour
+    this.auth.refreshTokenExpiry = new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)); // 7 days
+    this.auth.lastLogin = new Date();
+    this.auth.isAuthenticated = true;
+    return this.save();
+};
+
+// Add method to clear auth tokens
+CoinsSchema.methods.clearAuthTokens = async function() {
+    this.auth.token = null;
+    this.auth.refreshToken = null;
+    this.auth.tokenExpiry = null;
+    this.auth.refreshTokenExpiry = null;
+    this.auth.isAuthenticated = false;
+    return this.save();
+};
+
+// Add method to validate auth tokens
+CoinsSchema.methods.validateAuth = function() {
+    if (!this.auth.isAuthenticated || !this.auth.token || !this.auth.refreshToken) {
+        return false;
+    }
+    
+    const now = new Date();
+    if (now > this.auth.refreshTokenExpiry) {
+        return false;
+    }
+    
+    return true;
 };
 
 // Create the model
