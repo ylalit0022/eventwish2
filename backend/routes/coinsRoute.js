@@ -33,57 +33,57 @@ router.post('/register', async (req, res) => {
                 deviceId,
                 coins: 0,
                 auth: {
-                    deviceInfo: deviceInfo || {}
+                    deviceInfo: deviceInfo || {},
+                    isAuthenticated: false
                 }
             });
             logger.debug('Created new device record:', { deviceId });
         }
 
-        // Generate new tokens
-        const token = jwt.sign(
-            { deviceId, userId: coinsDoc._id },
-            process.env.JWT_SECRET,
-            { expiresIn: '1h' }
-        );
-        
-        const refreshToken = jwt.sign(
-            { deviceId, userId: coinsDoc._id },
-            process.env.REFRESH_TOKEN_SECRET,
-            { expiresIn: '7d' }
-        );
-
-        logger.debug('Generated tokens:', { 
+        // Generate tokens with more data in payload
+        const tokenPayload = {
             deviceId,
-            tokenExpiry: '1h',
-            refreshTokenExpiry: '7d'
-        });
+            userId: coinsDoc._id,
+            type: 'auth'
+        };
 
-        // Update auth tokens
-        await coinsDoc.updateAuthTokens(token, refreshToken);
-        logger.debug('Updated auth tokens in database:', { deviceId });
+        const refreshTokenPayload = {
+            deviceId,
+            userId: coinsDoc._id,
+            type: 'refresh'
+        };
 
-        // Return success response
-        const response = {
+        const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const refreshToken = jwt.sign(refreshTokenPayload, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
+
+        // Update auth tokens with explicit timestamps
+        const now = new Date();
+        coinsDoc.auth.token = token;
+        coinsDoc.auth.refreshToken = refreshToken;
+        coinsDoc.auth.tokenExpiry = new Date(now.getTime() + (60 * 60 * 1000)); // 1 hour
+        coinsDoc.auth.refreshTokenExpiry = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000)); // 7 days
+        coinsDoc.auth.lastLogin = now;
+        coinsDoc.auth.isAuthenticated = true;
+
+        await coinsDoc.save();
+        
+        logger.debug('Device registered successfully:', { deviceId });
+
+        res.json({
             success: true,
             data: {
                 token,
                 refreshToken,
                 expiresIn: 3600,
+                tokenExpiry: coinsDoc.auth.tokenExpiry,
+                refreshTokenExpiry: coinsDoc.auth.refreshTokenExpiry,
                 coins: coinsDoc.coins,
                 isUnlocked: coinsDoc.isUnlocked,
                 deviceId: coinsDoc.deviceId
             }
-        };
-        
-        logger.debug('Sending registration response:', {
-            deviceId,
-            coins: coinsDoc.coins,
-            isUnlocked: coinsDoc.isUnlocked
         });
-
-        res.json(response);
     } catch (error) {
-        logger.error('Device registration error:', error);
+        logger.error('Registration error:', error);
         res.status(500).json({
             success: false,
             message: 'Registration failed',
@@ -157,6 +157,45 @@ router.post('/refresh-token', async (req, res) => {
             success: false,
             message: 'Token refresh failed',
             error: 'REFRESH_ERROR'
+        });
+    }
+});
+
+// Add a new endpoint to check auth status
+router.get('/auth-status', async (req, res) => {
+    try {
+        const deviceId = req.header('x-device-id');
+        if (!deviceId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Device ID required',
+                error: 'MISSING_DEVICE_ID'
+            });
+        }
+
+        const coinsDoc = await Coins.findOne({ deviceId });
+        if (!coinsDoc) {
+            return res.status(404).json({
+                success: false,
+                message: 'Device not found',
+                error: 'DEVICE_NOT_FOUND'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: {
+                isAuthenticated: coinsDoc.auth.isAuthenticated,
+                tokenExpiry: coinsDoc.auth.tokenExpiry,
+                refreshTokenExpiry: coinsDoc.auth.refreshTokenExpiry
+            }
+        });
+    } catch (error) {
+        logger.error('Auth status check error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error checking auth status',
+            error: 'AUTH_CHECK_ERROR'
         });
     }
 });
