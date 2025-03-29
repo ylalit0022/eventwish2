@@ -149,16 +149,17 @@ const verifyApiKey = (req, res, next) => {
     
     // Check if API key exists
     if (!apiKey) {
+      logger.warn('Missing API key');
       return res.status(401).json({
         success: false,
-        message: 'No API key, authorization denied',
+        message: 'No API key provided',
         error: 'API_KEY_MISSING'
       });
     }
     
     // Verify API key
     if (apiKey !== process.env.API_KEY) {
-      logger.warn('Invalid API key');
+      logger.warn('Invalid API key provided:', apiKey);
       return res.status(401).json({
         success: false,
         message: 'API key is not valid',
@@ -168,7 +169,7 @@ const verifyApiKey = (req, res, next) => {
     
     next();
   } catch (error) {
-    logger.error(`API key middleware error: ${error.message}`, { error });
+    logger.error('API key verification error:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error during API key verification',

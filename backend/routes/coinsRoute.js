@@ -1,15 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const { verifyTokenWithRefresh } = require('../middleware/authMiddleware');
+const { verifyTokenWithRefresh, verifyApiKey } = require('../middleware/authMiddleware');
 const logger = require('../config/logger');
 const Coins = require('../models/Coins');
 const jwt = require('jsonwebtoken');
 
-// Log all incoming requests
+// Apply API key verification to all routes
+router.use(verifyApiKey);
+
+// Log all incoming requests with headers
 router.use((req, res, next) => {
     logger.debug(`Coins route accessed: ${req.method} ${req.path}`, {
         body: req.body,
-        headers: req.headers
+        headers: {
+            'x-api-key': req.header('x-api-key') ? '[PRESENT]' : '[MISSING]',
+            'authorization': req.header('authorization') ? '[PRESENT]' : '[MISSING]'
+        }
     });
     next();
 });

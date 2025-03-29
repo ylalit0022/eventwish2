@@ -135,6 +135,7 @@ public class ApiClient {
                     .header("Content-Type", "application/json")
                     .header("App-Signature", DeviceUtils.getAppSignature(context))
                     .header("Accept", "application/json")  // Add this line
+                    .header("x-api-key", "eventwish_default_development_key_2024") // Add API key
                     .method(original.method(), original.body());
                 
                 // Add auth token if available
