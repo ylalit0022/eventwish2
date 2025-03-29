@@ -2,10 +2,12 @@ package com.ds.eventwish.data.remote;
 
 import android.content.Context;
 import android.util.Log;
+import android.content.SharedPreferences;
 
 import com.ds.eventwish.BuildConfig;
 import com.ds.eventwish.config.ApiConfig;
 import com.ds.eventwish.utils.NetworkUtils;
+import com.ds.eventwish.utils.DeviceUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializationContext;
@@ -127,6 +129,21 @@ public class ApiClient {
             .addInterceptor(logging)
             .addInterceptor(connectionErrorInterceptor)
             .addInterceptor(provideNoCacheInterceptor())
+            .addInterceptor(chain -> {
+                Request original = chain.request();
+                Request.Builder requestBuilder = original.newBuilder()
+                    .header("Content-Type", "application/json")
+                    .header("App-Signature", DeviceUtils.getAppSignature(context))
+                    .method(original.method(), original.body());
+                
+                // Add auth token if available
+                String authToken = getStoredAuthToken(context);
+                if (authToken != null) {
+                    requestBuilder.header("Authorization", "Bearer " + authToken);
+                }
+                
+                return chain.proceed(requestBuilder.build());
+            })
             .connectTimeout(30, TimeUnit.SECONDS) // Increase from 15 to 30
             .readTimeout(45, TimeUnit.SECONDS) // Increase from 30 to 45
             .writeTimeout(45, TimeUnit.SECONDS) // Increase from 30 to 45
@@ -238,6 +255,11 @@ public class ApiClient {
                 .header("Expires", "0")
                 .build();
         };
+    }
+
+    private static String getStoredAuthToken(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences("coins_secure_prefs", Context.MODE_PRIVATE);
+        return prefs.getString("auth_token", null);
     }
 
     /**

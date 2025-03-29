@@ -64,7 +64,38 @@ const UserSegmentSchema = new mongoose.Schema({
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
-  }
+  },
+
+  // App signature for validation
+  appSignature: {
+    type: String,
+    trim: true,
+    sparse: true
+  },
+  
+  // Registration info
+  registrationDate: {
+    type: Date,
+    default: Date.now
+  },
+  
+  lastValidated: {
+    type: Date,
+    default: null
+  },
+
+  securityViolations: [{
+    type: {
+      type: String,
+      enum: ['signature_mismatch', 'root_detected', 'emulator_detected', 'timing_manipulation'],
+      required: true
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    },
+    details: mongoose.Schema.Types.Mixed
+  }]
 }, {
   timestamps: true
 });
@@ -72,4 +103,4 @@ const UserSegmentSchema = new mongoose.Schema({
 // Create model
 const UserSegment = mongoose.model('UserSegment', UserSegmentSchema);
 
-module.exports = { UserSegment }; 
+module.exports = { UserSegment };

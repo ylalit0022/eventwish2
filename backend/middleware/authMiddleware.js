@@ -45,6 +45,98 @@ const verifyToken = (req, res, next) => {
 };
 
 /**
+ * Enhanced token verification that handles expired tokens
+ */
+const verifyTokenWithRefresh = (req, res, next) => {
+  try {
+    const token = req.header('x-auth-token');
+    const refreshToken = req.header('x-refresh-token');
+    const deviceId = req.header('x-device-id');
+
+    // Check if token exists
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'No token, authorization denied',
+        error: 'AUTH_TOKEN_MISSING'
+      });
+    }
+
+    try {
+      // Try to verify the token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded.user;
+      next();
+    } catch (err) {
+      // If token is expired and refresh token is provided, try to refresh
+      if (err.name === 'TokenExpiredError' && refreshToken && deviceId) {
+        try {
+          // Verify refresh token
+          const decodedRefresh = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+          
+          // Validate device ID matches
+          if (decodedRefresh.deviceId !== deviceId) {
+            logger.warn('Device ID mismatch during token refresh');
+            return res.status(401).json({
+              success: false,
+              message: 'Invalid refresh token',
+              error: 'REFRESH_TOKEN_INVALID'
+            });
+          }
+
+          // Generate new tokens
+          const newToken = generateToken(decodedRefresh.user);
+          const newRefreshToken = generateRefreshToken(decodedRefresh.user, deviceId);
+
+          // Set new tokens in response headers
+          res.set('x-auth-token', newToken);
+          res.set('x-refresh-token', newRefreshToken);
+
+          // Set user in request
+          req.user = decodedRefresh.user;
+          next();
+        } catch (refreshErr) {
+          logger.warn('Refresh token error', { error: refreshErr.message });
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid refresh token',
+            error: 'REFRESH_TOKEN_INVALID'
+          });
+        }
+      } else {
+        logger.warn('Invalid token', { error: err.message });
+        return res.status(401).json({
+          success: false,
+          message: 'Token is not valid',
+          error: 'AUTH_TOKEN_INVALID'
+        });
+      }
+    }
+  } catch (error) {
+    logger.error(`Auth middleware error: ${error.message}`, { error });
+    return res.status(500).json({
+      success: false,
+      message: 'Server error during authentication',
+      error: 'AUTH_SERVER_ERROR'
+    });
+  }
+};
+
+/**
+ * Generate JWT token
+ */
+const generateToken = (user) => {
+  return jwt.sign({ user }, process.env.JWT_SECRET, { expiresIn: '1h' });
+};
+
+/**
+ * Generate refresh token
+ */
+const generateRefreshToken = (user, deviceId) => {
+  return jwt.sign({ user, deviceId }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
+};
+
+/**
  * Middleware to verify API key
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
@@ -175,10 +267,53 @@ const verifyAdmin = (req, res, next) => {
  */
 const verifyAppSignature = verifyClientApp;
 
+/**
+ * Middleware to validate registration
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next function
+ */
+const validateRegistration = (req, res, next) => {
+  try {
+    const { deviceId, appSignature } = req.body;
+    
+    if (!deviceId || !appSignature) {
+      return res.status(400).json({
+        success: false,
+        message: 'Device ID and app signature are required',
+        error: 'MISSING_REQUIRED_FIELDS'
+      });
+    }
+
+    // Check if signature format is valid (base64 encoded SHA-256)
+    const signatureRegex = /^[A-Za-z0-9+/=]{44}$/;
+    if (!signatureRegex.test(appSignature)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid signature format',
+        error: 'INVALID_SIGNATURE_FORMAT'
+      });
+    }
+
+    next();
+  } catch (error) {
+    logger.error(`Registration validation error: ${error.message}`, { error });
+    return res.status(500).json({
+      success: false, 
+      message: 'Validation error',
+      error: 'VALIDATION_ERROR'
+    });
+  }
+};
+
 module.exports = {
   verifyToken,
+  verifyTokenWithRefresh,
+  generateToken,
+  generateRefreshToken,
   verifyApiKey,
   verifyClientApp,
   verifyAdmin,
-  verifyAppSignature
-}; 
+  verifyAppSignature,
+  validateRegistration
+};

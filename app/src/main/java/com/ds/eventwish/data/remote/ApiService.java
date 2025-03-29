@@ -156,4 +156,14 @@ public interface ApiService {
      */
     @POST("security/violation")
     Call<JsonObject> reportSecurityViolation(@Body Map<String, Object> payload);
+
+    // Authentication endpoints
+    @POST("auth/refresh")
+    Call<JsonObject> refreshToken(@Body Map<String, Object> refreshRequest);
+
+    @POST("auth/register")
+    Call<JsonObject> registerNewUser(@Body Map<String, Object> payload);
+    
+    @GET("auth/validate")
+    Call<JsonObject> validateAppSignature(@HeaderMap Map<String, String> headers);
 }

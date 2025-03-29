@@ -66,6 +66,10 @@ public class CoinsRepository {
     private static final String SECURE_PREF_LAST_TIME = "last_time_check";
     private static final String SECURE_PREF_SIGNATURE = "unlock_signature";
     
+    private static final String PREF_FIRST_LAUNCH = "first_launch";
+    private static final String PREF_USER_INITIALIZED = "user_initialized";
+    private static final int INITIAL_COINS_AMOUNT = 100; // Give new users some initial coins
+    
     private long lastServerTime = 0L;
     private long lastTimeOffset = 0L;
     private long lastLocalTime = 0L;
@@ -85,6 +89,9 @@ public class CoinsRepository {
         
         // Initialize security
         initializeSecurity();
+        
+        // Check if this is first launch
+        checkFirstLaunch();
     }
 
     public static CoinsRepository getInstance(Context context) {
@@ -404,22 +411,42 @@ public class CoinsRepository {
             return;
         }
         
-        Log.d(TAG, "Starting coin update process. Amount to add: " + amount);
+        addCoinsWithRetry(amount, 1);
+    }
+
+    private void addCoinsWithRetry(int amount, int attempt) {
+        if (attempt > 2) {
+            Log.e(TAG, "Max retry attempts reached for adding coins");
+            return;
+        }
+
+        Log.d(TAG, "Starting coin update process. Amount: " + amount + ", Attempt: " + attempt);
         
-        // Create request body
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("amount", amount);
         requestBody.put("deviceId", getDeviceId());
         requestBody.put("timestamp", getAdjustedTime());
+        requestBody.put("auth_token", getAuthToken());
         
-        Log.d(TAG, "Sending coin update request to server. DeviceId: " + getDeviceId());
+        // Add app signature to request
+        requestBody.put("app_signature", getAppSignature());
         
-        // Make API call to update coins
         apiService.addCoins(requestBody).enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
-                Log.d(TAG, "Received response from server: " + response.code());
+                Log.d(TAG, "Received response: " + response.code());
                 
+                if (response.code() == 401) {
+                    Log.d(TAG, "Token expired, attempting refresh");
+                    refreshAuthToken();
+                    
+                    // Retry after a short delay to allow token refresh
+                    new android.os.Handler().postDelayed(() -> 
+                        addCoinsWithRetry(amount, attempt + 1), 1000);
+                    return;
+                }
+
+                // ...existing code for handling successful response...
                 if (response.isSuccessful() && response.body() != null) {
                     try {
                         JsonObject data = response.body();
@@ -462,6 +489,83 @@ public class CoinsRepository {
         });
     }
 
+    private String getAuthToken() {
+        String token = retrieveSecurely("auth_token");
+        if (token == null) {
+            Log.w(TAG, "No auth token found, attempting refresh");
+            refreshAuthToken();
+            token = retrieveSecurely("auth_token");
+        }
+        return token;
+    }
+
+    private void refreshAuthToken() {
+        // Get refresh token from secure storage
+        String refreshToken = retrieveSecurely("refresh_token");
+        if (refreshToken == null) {
+            Log.e(TAG, "No refresh token available, need to re-authenticate");
+            handleReAuthenticationRequired();
+            return;
+        }
+
+        // Create refresh request
+        Map<String, Object> refreshRequest = new HashMap<>();
+        refreshRequest.put("refresh_token", refreshToken);
+        refreshRequest.put("device_id", getDeviceId());
+        refreshRequest.put("timestamp", getAdjustedTime());
+        
+        Log.d(TAG, "Attempting to refresh auth token");
+
+        // Call token refresh API
+        apiService.refreshToken(refreshRequest).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    try {
+                        JsonObject data = response.body();
+                        if (data.has("token") && data.has("refresh_token")) {
+                            String newToken = data.get("token").getAsString();
+                            String newRefreshToken = data.get("refresh_token").getAsString();
+
+                            // Store new tokens securely
+                            storeSecurely("auth_token", newToken);
+                            storeSecurely("refresh_token", newRefreshToken);
+
+                            Log.d(TAG, "Auth token refreshed successfully");
+                        } else {
+                            Log.e(TAG, "Invalid token refresh response format");
+                            handleReAuthenticationRequired();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error processing refresh token response", e);
+                        handleReAuthenticationRequired();
+                    }
+                } else {
+                    Log.e(TAG, "Failed to refresh token: " + response.code());
+                    if (response.code() == 401 || response.code() == 403) {
+                        handleReAuthenticationRequired();
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<JsonObject> call, Throwable t) {
+                Log.e(TAG, "Network error refreshing token", t);
+            }
+        });
+    }
+
+    private void handleReAuthenticationRequired() {
+        // Clear existing tokens
+        storeSecurely("auth_token", null);
+        storeSecurely("refresh_token", null);
+        
+        // Notify the app that re-authentication is needed
+        // This should be implemented according to your app's authentication flow
+        Log.w(TAG, "Re-authentication required");
+        // Example: EventBus.getDefault().post(new ReAuthenticationRequiredEvent());
+    }
+    
     public void unlockFeature(int duration) {
         // Synchronize with server time before unlocking
         apiService.getServerTime().enqueue(new Callback<ServerTimeResponse>() {
@@ -982,6 +1086,109 @@ public class CoinsRepository {
             });
         } catch (Exception e) {
             Log.e(TAG, "Error reporting security violation", e);
+        }
+    }
+    
+    private void checkFirstLaunch() {
+        SharedPreferences prefs = context.getSharedPreferences(SECURE_PREFS_NAME, Context.MODE_PRIVATE);
+        boolean isFirstLaunch = prefs.getBoolean(PREF_FIRST_LAUNCH, true);
+        
+        if (isFirstLaunch) {
+            Log.d(TAG, "First launch detected, initializing user data");
+            initializeNewUser();
+            prefs.edit().putBoolean(PREF_FIRST_LAUNCH, false).apply();
+        }
+    }
+    
+    private void initializeNewUser() {
+        executors.diskIO().execute(() -> {
+            try {
+                // Check if user already exists
+                CoinsEntity existingUser = coinsDao.getCoinsById(DEFAULT_USER_ID);
+                if (existingUser == null) {
+                    Log.d(TAG, "Creating new user with initial coins: " + INITIAL_COINS_AMOUNT);
+                    
+                    // Create new user with initial coins
+                    CoinsEntity newUser = new CoinsEntity();
+                    newUser.setId(DEFAULT_USER_ID);
+                    newUser.setCoins(INITIAL_COINS_AMOUNT);
+                    newUser.setUnlocked(false);
+                    newUser.setUnlockTimestamp(0);
+                    newUser.setUnlockDuration(0);
+                    
+                    // Insert into database
+                    coinsDao.insert(newUser);
+                    
+                    // Update LiveData
+                    coinsLiveData.postValue(INITIAL_COINS_AMOUNT);
+                    
+                    // Register user with server
+                    registerNewUserWithServer();
+                } else {
+                    Log.d(TAG, "User already exists in database");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing new user", e);
+            }
+        });
+    }
+    
+    private void registerNewUserWithServer() {
+        String deviceId = getDeviceId();
+        if (deviceId == null) {
+            Log.e(TAG, "Cannot register new user: device ID is null");
+            return;
+        }
+        
+        // Create registration payload
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("deviceId", deviceId);
+        payload.put("initialCoins", INITIAL_COINS_AMOUNT);
+        payload.put("deviceInfo", DeviceUtils.getDetailedDeviceInfo(context));
+        payload.put("appSignature", getAppSignature()); // Add this method
+        
+        // Register with server
+        apiService.registerNewUser(payload).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    try {
+                        JsonObject data = response.body();
+                        if (data.has("token") && data.has("refresh_token")) {
+                            // Store authentication tokens
+                            String token = data.get("token").getAsString();
+                            String refreshToken = data.get("refresh_token").getAsString();
+                            storeSecurely("auth_token", token);
+                            storeSecurely("refresh_token", refreshToken);
+                            
+                            Log.d(TAG, "New user registered successfully");
+                            
+                            // Mark user as initialized
+                            SharedPreferences prefs = context.getSharedPreferences(
+                                SECURE_PREFS_NAME, Context.MODE_PRIVATE);
+                            prefs.edit().putBoolean(PREF_USER_INITIALIZED, true).apply();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error processing registration response", e);
+                    }
+                } else {
+                    Log.e(TAG, "Failed to register new user: " + response.code());
+                }
+            }
+            
+            @Override
+            public void onFailure(Call<JsonObject> call, Throwable t) {
+                Log.e(TAG, "Network error registering new user", t);
+            }
+        });
+    }
+    
+    private String getAppSignature() {
+        try {
+            return DeviceUtils.getAppSignature(context);
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting app signature", e);
+            return null;
         }
     }
 }
