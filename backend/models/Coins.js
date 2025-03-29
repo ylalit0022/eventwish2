@@ -341,6 +341,56 @@ CoinsSchema.methods.validateAuth = function() {
     return true;
 };
 
+// Add method to find by auth token
+CoinsSchema.statics.findByToken = async function(token) {
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        return this.findOne({
+            deviceId: decoded.deviceId,
+            'auth.token': token
+        });
+    } catch (error) {
+        return null;
+    }
+};
+
+// Add method to verify tokens
+CoinsSchema.methods.verifyTokens = function() {
+    const now = new Date();
+    
+    // Check if tokens exist
+    if (!this.auth.token || !this.auth.refreshToken) {
+        return {
+            valid: false,
+            needsRefresh: false,
+            error: 'MISSING_TOKENS'
+        };
+    }
+    
+    // Check if refresh token is expired
+    if (now > this.auth.refreshTokenExpiry) {
+        return {
+            valid: false,
+            needsRefresh: false,
+            error: 'REFRESH_TOKEN_EXPIRED'
+        };
+    }
+    
+    // Check if auth token is expired
+    if (now > this.auth.tokenExpiry) {
+        return {
+            valid: false,
+            needsRefresh: true,
+            error: 'TOKEN_EXPIRED'
+        };
+    }
+    
+    return {
+        valid: true,
+        needsRefresh: false
+    };
+};
+
 // Create the model
 const Coins = mongoose.model('Coins', CoinsSchema);
 
