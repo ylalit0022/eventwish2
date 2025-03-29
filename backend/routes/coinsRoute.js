@@ -10,7 +10,6 @@ router.post('/register', async (req, res) => {
     try {
         const { deviceId, deviceInfo } = req.body;
         
-        // Validate device ID
         if (!deviceId) {
             return res.status(400).json({
                 success: false,
@@ -19,7 +18,6 @@ router.post('/register', async (req, res) => {
             });
         }
 
-        // Find or create coins document for device
         let coinsDoc = await Coins.findOne({ deviceId });
         if (!coinsDoc) {
             coinsDoc = new Coins({ 
@@ -29,8 +27,6 @@ router.post('/register', async (req, res) => {
                     deviceInfo: deviceInfo || {}
                 }
             });
-            await coinsDoc.save();
-            logger.info(`New device registered: ${deviceId}`);
         }
 
         // Generate new tokens
@@ -46,10 +42,16 @@ router.post('/register', async (req, res) => {
             { expiresIn: '7d' }
         );
 
-        // Update coins document with new tokens
-        await coinsDoc.updateAuthTokens(token, refreshToken);
+        // Update auth tokens
+        coinsDoc.auth.token = token;
+        coinsDoc.auth.refreshToken = refreshToken;
+        coinsDoc.auth.tokenExpiry = new Date(Date.now() + 3600000); // 1 hour
+        coinsDoc.auth.refreshTokenExpiry = new Date(Date.now() + 604800000); // 7 days
+        coinsDoc.auth.isAuthenticated = true;
+        
+        await coinsDoc.save();
 
-        // Return tokens and initial state
+        // Return success response
         res.json({
             success: true,
             data: {

@@ -320,15 +320,17 @@ public class CoinsRepository {
 
     private void initializeCoinsData() {
         executors.diskIO().execute(() -> {
+            // Check if we need to register the device first
+            if (!isDeviceRegistered()) {
+                registerDevice();
+                return;
+            }
+
             CoinsEntity entity = coinsDao.getCoinsById(DEFAULT_USER_ID);
             if (entity == null) {
-                // Create initial entity if not exists
                 entity = new CoinsEntity();
                 entity.setId(DEFAULT_USER_ID);
                 entity.setCoins(0);
-                entity.setUnlockTimestamp(0);
-                entity.setUnlockDuration(30);
-                entity.setUnlocked(false);
                 coinsDao.insert(entity);
             }
             
@@ -339,6 +341,59 @@ public class CoinsRepository {
             
             // Validate unlock status securely
             validateUnlockStatus();
+        });
+    }
+
+    private boolean isDeviceRegistered() {
+        String deviceId = getDeviceId();
+        String authToken = retrieveSecurely("auth_token");
+        String refreshToken = retrieveSecurely("refresh_token");
+        return deviceId != null && (authToken != null || refreshToken != null);
+    }
+
+    private void registerDevice() {
+        String deviceId = getDeviceId();
+        if (deviceId == null) {
+            Log.e(TAG, "Cannot register device: no device ID");
+            return;
+        }
+
+        // Create registration payload
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("deviceId", deviceId);
+        payload.put("deviceInfo", DeviceUtils.getDetailedDeviceInfo(context));
+        payload.put("appSignature", getAppSignature());
+
+        // Call registration endpoint
+        apiService.registerNewUser(payload).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    try {
+                        JsonObject data = response.body();
+                        if (data.has("token") && data.has("refreshToken")) {
+                            String token = data.get("token").getAsString();
+                            String refreshToken = data.get("refreshToken").getAsString();
+                            
+                            // Store tokens securely
+                            storeSecurely("auth_token", token);
+                            storeSecurely("refresh_token", refreshToken);
+                            
+                            Log.d(TAG, "Device registered successfully");
+                            
+                            // Initialize coins data after registration
+                            initializeCoinsData();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error processing registration response", e);
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<JsonObject> call, Throwable t) {
+                Log.e(TAG, "Registration request failed", t);
+            }
         });
     }
 
@@ -500,72 +555,58 @@ public class CoinsRepository {
     }
 
     private void refreshAuthToken() {
-        // Get refresh token from secure storage
         String refreshToken = retrieveSecurely("refresh_token");
         if (refreshToken == null) {
             Log.e(TAG, "No refresh token available, need to re-authenticate");
-            handleReAuthenticationRequired();
+            // Clear any existing tokens
+            storeSecurely("auth_token", null);
+            storeSecurely("refresh_token", null);
+            
+            // Trigger re-registration
+            registerDevice();
             return;
         }
 
-        // Create refresh request
         Map<String, Object> refreshRequest = new HashMap<>();
-        refreshRequest.put("refresh_token", refreshToken);
-        refreshRequest.put("device_id", getDeviceId());
-        refreshRequest.put("timestamp", getAdjustedTime());
-        
-        Log.d(TAG, "Attempting to refresh auth token");
+        refreshRequest.put("refreshToken", refreshToken);
+        refreshRequest.put("deviceId", getDeviceId());
 
-        // Call token refresh API
         apiService.refreshToken(refreshRequest).enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
                 if (response.isSuccessful() && response.body() != null) {
+                    JsonObject data = response.body();
                     try {
-                        JsonObject data = response.body();
-                        if (data.has("token") && data.has("refresh_token")) {
+                        if (data.has("token") && data.has("refreshToken")) {
                             String newToken = data.get("token").getAsString();
-                            String newRefreshToken = data.get("refresh_token").getAsString();
+                            String newRefreshToken = data.get("refreshToken").getAsString();
 
-                            // Store new tokens securely
                             storeSecurely("auth_token", newToken);
                             storeSecurely("refresh_token", newRefreshToken);
 
-                            Log.d(TAG, "Auth token refreshed successfully");
+                            Log.d(TAG, "Tokens refreshed successfully");
                         } else {
-                            Log.e(TAG, "Invalid token refresh response format");
-                            handleReAuthenticationRequired();
+                            Log.e(TAG, "Token refresh failed - missing token data");
+                            registerDevice();
                         }
                     } catch (Exception e) {
-                        Log.e(TAG, "Error processing refresh token response", e);
-                        handleReAuthenticationRequired();
+                        Log.e(TAG, "Error processing token refresh response", e);
+                        registerDevice();
                     }
                 } else {
-                    Log.e(TAG, "Failed to refresh token: " + response.code());
-                    if (response.code() == 401 || response.code() == 403) {
-                        handleReAuthenticationRequired();
-                    }
+                    Log.e(TAG, "Token refresh failed, triggering re-registration");
+                    registerDevice();
                 }
             }
 
             @Override
             public void onFailure(Call<JsonObject> call, Throwable t) {
-                Log.e(TAG, "Network error refreshing token", t);
+                Log.e(TAG, "Token refresh request failed", t);
+                registerDevice();
             }
         });
     }
 
-    private void handleReAuthenticationRequired() {
-        // Clear existing tokens
-        storeSecurely("auth_token", null);
-        storeSecurely("refresh_token", null);
-        
-        // Notify the app that re-authentication is needed
-        // This should be implemented according to your app's authentication flow
-        Log.w(TAG, "Re-authentication required");
-        // Example: EventBus.getDefault().post(new ReAuthenticationRequiredEvent());
-    }
-    
     public void unlockFeature(int duration) {
         // Synchronize with server time before unlocking
         apiService.getServerTime().enqueue(new Callback<ServerTimeResponse>() {
@@ -1167,6 +1208,8 @@ public class CoinsRepository {
                             SharedPreferences prefs = context.getSharedPreferences(
                                 SECURE_PREFS_NAME, Context.MODE_PRIVATE);
                             prefs.edit().putBoolean(PREF_USER_INITIALIZED, true).apply();
+                        } else {
+                            Log.e(TAG, "Token data missing from response");
                         }
                     } catch (Exception e) {
                         Log.e(TAG, "Error processing registration response", e);
