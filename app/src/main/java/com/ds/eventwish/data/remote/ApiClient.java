@@ -134,6 +134,7 @@ public class ApiClient {
                 Request.Builder requestBuilder = original.newBuilder()
                     .header("Content-Type", "application/json")
                     .header("App-Signature", DeviceUtils.getAppSignature(context))
+                    .header("Accept", "application/json")  // Add this line
                     .method(original.method(), original.body());
                 
                 // Add auth token if available

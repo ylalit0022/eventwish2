@@ -5,14 +5,22 @@ const logger = require('../config/logger');
 const Coins = require('../models/Coins');
 const jwt = require('jsonwebtoken');
 
-// Device registration and authentication endpoint
+// Log all incoming requests
+router.use((req, res, next) => {
+    logger.debug(`Coins route accessed: ${req.method} ${req.path}`, {
+        body: req.body,
+        headers: req.headers
+    });
+    next();
+});
+
+// Device registration endpoint (moved from /auth/register to /coins/register)
 router.post('/register', async (req, res) => {
     try {
         const { deviceId, deviceInfo } = req.body;
-        logger.debug('Registration request received:', { deviceId });
-        
+        logger.debug('Registration request received:', { deviceId, deviceInfo });
+
         if (!deviceId) {
-            logger.warn('Missing device ID in registration request');
             return res.status(400).json({
                 success: false,
                 message: 'Device ID is required',
@@ -20,63 +28,46 @@ router.post('/register', async (req, res) => {
             });
         }
 
-        // Find existing device
+        // Find or create coins document
         let coinsDoc = await Coins.findOne({ deviceId });
-        logger.debug('Existing device check:', { 
-            exists: !!coinsDoc, 
-            deviceId 
-        });
-
-        if (!coinsDoc) {
-            // Create new device record
+        
+        if (coinsDoc) {
+            logger.debug('Existing device found:', { deviceId });
+        } else {
             coinsDoc = new Coins({ 
                 deviceId,
                 coins: 0,
                 auth: {
-                    deviceInfo: deviceInfo || {},
-                    isAuthenticated: false
+                    deviceInfo: deviceInfo || {}
                 }
             });
-            logger.debug('Created new device record:', { deviceId });
+            logger.debug('Creating new device record:', { deviceId });
         }
 
-        // Generate tokens with more data in payload
-        const tokenPayload = {
-            deviceId,
-            userId: coinsDoc._id,
-            type: 'auth'
-        };
-
-        const refreshTokenPayload = {
-            deviceId,
-            userId: coinsDoc._id,
-            type: 'refresh'
-        };
-
-        const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
-        const refreshToken = jwt.sign(refreshTokenPayload, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
-
-        // Update auth tokens with explicit timestamps
-        const now = new Date();
-        coinsDoc.auth.token = token;
-        coinsDoc.auth.refreshToken = refreshToken;
-        coinsDoc.auth.tokenExpiry = new Date(now.getTime() + (60 * 60 * 1000)); // 1 hour
-        coinsDoc.auth.refreshTokenExpiry = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000)); // 7 days
-        coinsDoc.auth.lastLogin = now;
-        coinsDoc.auth.isAuthenticated = true;
-
-        await coinsDoc.save();
+        // Generate tokens
+        const token = jwt.sign(
+            { deviceId, userId: coinsDoc._id },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
         
-        logger.debug('Device registered successfully:', { deviceId });
+        const refreshToken = jwt.sign(
+            { deviceId, userId: coinsDoc._id },
+            process.env.REFRESH_TOKEN_SECRET,
+            { expiresIn: '7d' }
+        );
 
+        // Update auth tokens
+        await coinsDoc.updateAuthTokens(token, refreshToken);
+        logger.debug('Auth tokens updated:', { deviceId });
+
+        // Return success response
         res.json({
             success: true,
             data: {
                 token,
                 refreshToken,
                 expiresIn: 3600,
-                tokenExpiry: coinsDoc.auth.tokenExpiry,
-                refreshTokenExpiry: coinsDoc.auth.refreshTokenExpiry,
                 coins: coinsDoc.coins,
                 isUnlocked: coinsDoc.isUnlocked,
                 deviceId: coinsDoc.deviceId

@@ -161,7 +161,7 @@ public interface ApiService {
     @POST("auth/refresh")
     Call<JsonObject> refreshToken(@Body Map<String, Object> refreshRequest);
 
-    @POST("auth/register")
+    @POST("coins/register")  // Change this from auth/register
     Call<JsonObject> registerNewUser(@Body Map<String, Object> payload);
     
     @GET("auth/validate")
