@@ -133,9 +133,9 @@ public class ApiClient {
                 Request original = chain.request();
                 Request.Builder requestBuilder = original.newBuilder()
                     .header("Content-Type", "application/json")
-                    .header("App-Signature", DeviceUtils.getAppSignature(context))
-                    .header("Accept", "application/json")  // Add this line
-                    .header("x-api-key", "eventwish_default_development_key_2024") // Add API key
+                    .header("Accept", "application/json")
+                    // Use constant API key
+                    .header("x-api-key", ApiConstants.API_KEY)
                     .method(original.method(), original.body());
                 
                 // Add auth token if available

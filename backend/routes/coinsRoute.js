@@ -24,7 +24,13 @@ router.use((req, res, next) => {
 router.post('/register', async (req, res) => {
     try {
         const { deviceId, deviceInfo } = req.body;
-        logger.debug('Registration request received:', { deviceId, deviceInfo });
+        const apiKey = req.header('x-api-key');
+        
+        logger.debug('Registration request:', { 
+            deviceId,
+            hasDeviceInfo: !!deviceInfo,
+            apiKey: apiKey ? '***' + apiKey.slice(-4) : 'none'
+        });
 
         if (!deviceId) {
             return res.status(400).json({

@@ -144,29 +144,38 @@ const generateRefreshToken = (user, deviceId) => {
  */
 const verifyApiKey = (req, res, next) => {
   try {
-    // Get API key from header
     const apiKey = req.header('x-api-key');
+    logger.debug('API Key received:', { masked_key: apiKey ? '***' + apiKey.slice(-4) : 'none' });
     
-    // Check if API key exists
     if (!apiKey) {
-      logger.warn('Missing API key');
+      logger.warn('Missing API key in request');
       return res.status(401).json({
         success: false,
         message: 'No API key provided',
         error: 'API_KEY_MISSING'
       });
     }
-    
-    // Verify API key
-    if (apiKey !== process.env.API_KEY) {
-      logger.warn('Invalid API key provided:', apiKey);
+
+    // Get API key from environment
+    const validApiKey = process.env.API_KEY;
+    logger.debug('Comparing API keys:', {
+      received_length: apiKey.length,
+      expected_length: validApiKey.length
+    });
+
+    if (apiKey !== validApiKey) {
+      logger.warn('Invalid API key:', {
+        received: apiKey.slice(-4),
+        expected: validApiKey.slice(-4)
+      });
       return res.status(401).json({
         success: false,
         message: 'API key is not valid',
         error: 'API_KEY_INVALID'
       });
     }
-    
+
+    logger.debug('API key validated successfully');
     next();
   } catch (error) {
     logger.error('API key verification error:', error);
