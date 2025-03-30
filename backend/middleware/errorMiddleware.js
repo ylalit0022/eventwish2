@@ -1,7 +1,16 @@
 const logger = require('../config/logger');
 
 const errorHandler = (err, req, res, next) => {
-    logger.error('Error:', err);
+    logger.error({
+        message: err.message,
+        stack: err.stack,
+        request: {
+            method: req.method,
+            path: req.path,
+            headers: req.headers,
+            body: req.body
+        }
+    }, 'Error occurred');
 
     // Handle JWT errors
     if (err.name === 'JsonWebTokenError') {

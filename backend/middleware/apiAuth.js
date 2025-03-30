@@ -1,4 +1,9 @@
 const apiAuth = (req, res, next) => {
+    console.log(`Incoming request to ${req.path} from ${req.ip}`, {
+        headers: req.headers,
+        method: req.method,
+        body: req.body
+    });
     const apiKey = req.headers['x-api-key'];
     const validApiKey = process.env.API_KEY;
     
@@ -24,6 +29,7 @@ const apiAuth = (req, res, next) => {
         });
     }
     
+    console.debug(`API key validation successful for ${req.ip} (User-Agent: ${req.headers['user-agent']})`);
     next();
 };
 
