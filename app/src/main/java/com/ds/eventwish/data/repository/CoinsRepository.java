@@ -359,6 +359,11 @@ public class CoinsRepository {
             return;
         }
 
+        // Log API key (masked)
+        String apiKey = ApiConstants.API_KEY;
+        Log.d(TAG, "Using API key: " + (apiKey.length() > 8 ? 
+              apiKey.substring(0, 4) + "..." : "invalid"));
+
         Map<String, Object> payload = new HashMap<>();
         payload.put("deviceId", deviceId);
         payload.put("deviceInfo", DeviceUtils.getDetailedDeviceInfo(context));
@@ -369,6 +374,22 @@ public class CoinsRepository {
         apiService.registerNewUser(payload).enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                if (!response.isSuccessful()) {
+                    Log.e(TAG, "Registration failed: " + response.code());
+                    if (response.errorBody() != null) {
+                        try {
+                            String errorBody = response.errorBody().string();
+                            Log.e(TAG, "Error body: " + errorBody);
+                            if (errorBody.contains("API_KEY_INVALID")) {
+                                Log.e(TAG, "API key validation failed. Please check your API key configuration.");
+                            }
+                        } catch (IOException e) {
+                            Log.e(TAG, "Error reading error body", e);
+                        }
+                    }
+                    return;
+                }
+                // ... rest of existing success handling ...
                 if (response.isSuccessful() && response.body() != null) {
                     try {
                         JsonObject responseBody = response.body();
@@ -404,18 +425,7 @@ public class CoinsRepository {
                     Log.e(TAG, "Registration failed: " + response.code());
                     if (response.errorBody() != null) {
                         try {
-                            String errorBody = response.errorBody().string();
-                            Log.e(TAG, "Error body: " + errorBody);
-                            
-                            // Check for API key issues
-                            if (errorBody.contains("API_KEY_INVALID")) {
-                                Log.e(TAG, "API key validation failed. Please check your API key configuration.");
-                                // Log the API key being used (first few characters only for security)
-                                String apiKey = ApiConstants.API_KEY;
-                                Log.d(TAG, "Using API key: " + (apiKey != null ? apiKey.substring(0, Math.min(apiKey.length(), 10)) + "..." : "null"));
-                                // Attempt to retry with a delay
-                                new android.os.Handler().postDelayed(() -> registerDevice(), 5000);
-                            }
+                            Log.e(TAG, "Error body: " + response.errorBody().string());
                         } catch (IOException e) {
                             Log.e(TAG, "Error reading error body", e);
                         }
@@ -426,11 +436,6 @@ public class CoinsRepository {
             @Override
             public void onFailure(Call<JsonObject> call, Throwable t) {
                 Log.e(TAG, "Registration request failed", t);
-                // Check for timeout issues
-                if (t instanceof java.net.SocketTimeoutException) {
-                    Log.e(TAG, "Connection timed out. Retrying in 5 seconds...");
-                    new android.os.Handler().postDelayed(() -> registerDevice(), 5000);
-                }
             }
         });
     }

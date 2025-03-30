@@ -145,7 +145,10 @@ const generateRefreshToken = (user, deviceId) => {
 const verifyApiKey = (req, res, next) => {
   try {
     const apiKey = req.header('x-api-key');
-    logger.debug('API Key received:', { masked_key: apiKey ? '***' + apiKey.slice(-4) : 'none' });
+    logger.debug('API Key verification:', { 
+        hasKey: !!apiKey,
+        keyLength: apiKey ? apiKey.length : 0
+    });
     
     if (!apiKey) {
       logger.warn('Missing API key in request');
@@ -158,16 +161,17 @@ const verifyApiKey = (req, res, next) => {
 
     // Get API key from environment
     const validApiKey = process.env.API_KEY;
-    logger.debug('Comparing API keys:', {
-      received_length: apiKey.length,
-      expected_length: validApiKey.length
-    });
-
+    
+    // Simple equality check for API key
     if (apiKey !== validApiKey) {
-      logger.warn('Invalid API key:', {
-        received: apiKey.slice(-4),
-        expected: validApiKey.slice(-4)
+      logger.warn('Invalid API key detected', {
+          receivedKeyLength: apiKey.length,
+          validKeyLength: validApiKey.length,
+          // Log last 4 chars for debugging
+          receivedKeySuffix: apiKey.slice(-4),
+          validKeySuffix: validApiKey.slice(-4)
       });
+      
       return res.status(401).json({
         success: false,
         message: 'API key is not valid',

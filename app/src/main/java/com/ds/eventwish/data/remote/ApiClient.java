@@ -40,8 +40,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class ApiClient {
     // Static members
     private static final String TAG = "ApiClient";
-    // Use the configured base URL from ApiConfig
-    private static final String API_BASE_URL = ApiConfig.getBaseUrl();
+    private static final String API_BASE_URL = "https://eventwish2.onrender.com/api/";
     public static final String BASE_URL = API_BASE_URL;
     private static Retrofit retrofit = null;
     private static Context applicationContext = null;
@@ -136,8 +135,8 @@ public class ApiClient {
                 Request.Builder requestBuilder = original.newBuilder()
                     .header("Content-Type", "application/json")
                     .header("Accept", "application/json")
-                    // Use constant API key - trim to remove any whitespace
-                    .header("x-api-key", ApiConstants.API_KEY.trim())
+                    // Use constant API key
+                    .header("x-api-key", ApiConstants.API_KEY)
                     .method(original.method(), original.body());
                 
                 // Add auth token if available
