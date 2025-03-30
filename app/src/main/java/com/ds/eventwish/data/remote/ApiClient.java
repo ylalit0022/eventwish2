@@ -6,7 +6,6 @@ import android.content.SharedPreferences;
 
 import com.ds.eventwish.BuildConfig;
 import com.ds.eventwish.config.ApiConfig;
-import com.ds.eventwish.utils.ApiConstants;
 import com.ds.eventwish.utils.NetworkUtils;
 import com.ds.eventwish.utils.DeviceUtils;
 import com.google.gson.Gson;
@@ -135,7 +134,7 @@ public class ApiClient {
                 Request.Builder requestBuilder = original.newBuilder()
                     .header("Content-Type", "application/json")
                     .header("Accept", "application/json")
-                    .header("x-api-key", ApiConstants.API_KEY)  // API key header
+                    .header("x-api-key", BuildConfig.API_KEY)  // API key header
                     .method(original.method(), original.body());
                 
                 // Add auth token if available
@@ -198,16 +197,40 @@ public class ApiClient {
                 .header("Pragma", "no-cache")
                 .header("Expires", "0")
                 .build();
-            
-            // Execute the request with retry logic
+            // Execute the request with retry logic and handle 502 errors
             Response response = null;
             IOException lastException = null;
             int maxRetries = 3;
             int retryCount = 0;
+            long baseDelayMillis = 1000; // Start with 1 second delay
             
             while (retryCount < maxRetries && response == null) {
                 try {
                     response = chain.proceed(request);
+                    
+                    // Check for 502 Bad Gateway and other 5xx errors
+                    if (response != null && response.code() >= 500) {
+                        String errorBody = response.peekBody(Long.MAX_VALUE).string();
+                        Log.e(TAG, "Server error: " + response.code() + ", Body: " + errorBody);
+                        
+                        // Close the current response before retrying
+                        response.close();
+                        
+                        if (retryCount < maxRetries - 1) {
+                            retryCount++;
+                            // Exponential backoff with jitter
+                            long delay = (long) (baseDelayMillis * Math.pow(2, retryCount - 1));
+                            delay += (long) (delay * 0.1 * Math.random()); // Add 0-10% jitter
+                            
+                            Log.w(TAG, "Retrying request after " + delay + "ms (attempt " + retryCount + " of " + maxRetries + ")");
+                            Thread.sleep(delay);
+                            
+                            // Create a new request for retry
+                            request = request.newBuilder().build();
+                            response = null; // Reset response for next iteration
+                            continue;
+                        }
+                    }
                 } catch (IOException e) {
                     lastException = e;
                     
@@ -227,13 +250,10 @@ public class ApiClient {
                         Log.w(TAG, "Retry attempt " + retryCount + " of " + maxRetries);
                         
                         if (retryCount < maxRetries) {
-                            // Wait before retrying
-                            try {
-                                Thread.sleep(1000 * retryCount);
-                            } catch (InterruptedException ie) {
-                                Thread.currentThread().interrupt();
-                                throw e;
-                            }
+                            // Exponential backoff with jitter
+                            long delay = (long) (baseDelayMillis * Math.pow(2, retryCount - 1));
+                            delay += (long) (delay * 0.1 * Math.random()); // Add 0-10% jitter
+                            Thread.sleep(delay);
                             
                             // Create a new request for retry
                             request = request.newBuilder().build();

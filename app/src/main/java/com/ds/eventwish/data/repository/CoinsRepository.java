@@ -18,10 +18,10 @@ import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.data.remote.ApiService;
 import com.ds.eventwish.data.model.ServerTimeResponse;
 import com.ds.eventwish.util.AppExecutors;
-import com.ds.eventwish.utils.ApiConstants;
 import com.ds.eventwish.utils.DeviceUtils;
 import com.google.gson.JsonObject;
 import com.ds.eventwish.EventWishApplication;
+import com.ds.eventwish.BuildConfig;
 
 import org.json.JSONObject;
 import retrofit2.Call;
@@ -361,7 +361,7 @@ public class CoinsRepository {
         }
 
         // Log API key (masked)
-        String apiKey = ApiConstants.API_KEY;
+        String apiKey = BuildConfig.API_KEY;
         Log.d(TAG, "Using API key: " + (apiKey.length() > 8 ? 
               apiKey.substring(0, 4) + "..." : "invalid"));
 
