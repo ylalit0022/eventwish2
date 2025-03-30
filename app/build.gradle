@@ -22,7 +22,7 @@ android {
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         
-        buildConfigField "String", "API_KEY", "\"eventwish_default_development_key_2024\""
+        buildConfigField "String", "API_KEY", secrets.getProperty("API_KEY") ? "\"${secrets.getProperty("API_KEY")}\"" : "\"eventwish_default_development_key_2024\""
         buildConfigField "String", "BASE_URL", "\"https://eventwish2.onrender.com/api/\""
 
         ndk {

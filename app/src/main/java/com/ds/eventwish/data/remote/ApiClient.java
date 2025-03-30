@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 
 import com.ds.eventwish.BuildConfig;
 import com.ds.eventwish.config.ApiConfig;
+import com.ds.eventwish.utils.ApiConstants;
 import com.ds.eventwish.utils.NetworkUtils;
 import com.ds.eventwish.utils.DeviceUtils;
 import com.google.gson.Gson;
@@ -39,7 +40,8 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class ApiClient {
     // Static members
     private static final String TAG = "ApiClient";
-    private static final String API_BASE_URL = "https://eventwish2.onrender.com/api/";
+    // Use the configured base URL from ApiConfig
+    private static final String API_BASE_URL = ApiConfig.getBaseUrl();
     public static final String BASE_URL = API_BASE_URL;
     private static Retrofit retrofit = null;
     private static Context applicationContext = null;
@@ -134,8 +136,8 @@ public class ApiClient {
                 Request.Builder requestBuilder = original.newBuilder()
                     .header("Content-Type", "application/json")
                     .header("Accept", "application/json")
-                    // Use constant API key
-                    .header("x-api-key", ApiConstants.API_KEY)
+                    // Use constant API key - trim to remove any whitespace
+                    .header("x-api-key", ApiConstants.API_KEY.trim())
                     .method(original.method(), original.body());
                 
                 // Add auth token if available
