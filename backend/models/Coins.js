@@ -228,7 +228,7 @@ CoinsSchema.virtual('remainingTime').get(function() {
 
 // Add API key validation
 CoinsSchema.statics.validateApiKey = function(apiKey) {
-    const validApiKey = process.env.API_KEY || 'your-default-api-key';
+    const validApiKey = process.env.API_KEY;
     return apiKey === validApiKey;
 };
 

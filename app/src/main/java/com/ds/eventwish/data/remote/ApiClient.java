@@ -135,8 +135,7 @@ public class ApiClient {
                 Request.Builder requestBuilder = original.newBuilder()
                     .header("Content-Type", "application/json")
                     .header("Accept", "application/json")
-                    // Use constant API key
-                    .header("x-api-key", ApiConstants.API_KEY)
+                    .header("x-api-key", ApiConstants.API_KEY)  // API key header
                     .method(original.method(), original.body());
                 
                 // Add auth token if available
