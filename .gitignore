@@ -64,3 +64,6 @@ coverage/
 
 # Render specific
 .render-buildpacks/
+
+# Test logs
+backend-mock/test-logs/*.log

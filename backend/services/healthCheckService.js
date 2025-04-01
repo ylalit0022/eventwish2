@@ -189,7 +189,7 @@ async function checkApiEndpoints() {
       { url: '/api/suspicious-activity/health', name: 'Suspicious Activity API' }
     ];
     
-    const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
+    const baseUrl = process.env.API_BASE_URL || 'https://eventwish2.onrender.com';
     
     const results = await Promise.all(
       endpoints.map(async (endpoint) => {
@@ -457,7 +457,7 @@ async function checkAdMobConfigService() {
 async function checkAdServingService() {
   try {
     // Check if ad serving is working by making a test request
-    const response = await axios.get(`${process.env.API_BASE_URL || 'http://localhost:3000'}/api/client/test-ad`, {
+    const response = await axios.get(`${process.env.API_BASE_URL || 'https://eventwish2.onrender.com'}/api/client/test-ad`, {
       timeout: 3000,
       headers: {
         'x-api-key': process.env.INTERNAL_API_KEY
@@ -493,7 +493,7 @@ async function checkAdServingService() {
 async function checkFraudDetectionService() {
   try {
     // Check if fraud detection service is working
-    const response = await axios.get(`${process.env.API_BASE_URL || 'http://localhost:3000'}/api/fraud/health`, {
+    const response = await axios.get(`${process.env.API_BASE_URL || 'https://eventwish2.onrender.com'}/api/fraud/health`, {
       timeout: 3000,
       headers: {
         'x-api-key': process.env.INTERNAL_API_KEY
@@ -529,7 +529,7 @@ async function checkFraudDetectionService() {
 async function checkSuspiciousActivityService() {
   try {
     // Check if suspicious activity service is working
-    const response = await axios.get(`${process.env.API_BASE_URL || 'http://localhost:3000'}/api/suspicious-activity/health`, {
+    const response = await axios.get(`${process.env.API_BASE_URL || 'https://eventwish2.onrender.com'}/api/suspicious-activity/health`, {
       timeout: 3000,
       headers: {
         'x-api-key': process.env.INTERNAL_API_KEY

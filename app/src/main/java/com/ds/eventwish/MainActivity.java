@@ -31,6 +31,7 @@ import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
+import com.ds.eventwish.ads.AdMobManager;
 import com.ds.eventwish.databinding.ActivityMainBinding;
 import com.ds.eventwish.ui.reminder.ReminderFragment;
 import com.ds.eventwish.utils.DeepLinkHandler;
@@ -46,7 +47,6 @@ import com.ds.eventwish.utils.AppUpdateChecker;
 import com.ds.eventwish.data.repository.FestivalRepository;
 import com.ds.eventwish.ui.festival.FestivalViewModel;
 import com.ds.eventwish.utils.NotificationHelper;
-import com.google.firebase.messaging.FirebaseMessaging;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -64,16 +64,17 @@ public class MainActivity extends AppCompatActivity {
     private FestivalViewModel festivalViewModel;
     private String currentFragmentTag = "";
     private boolean isFirstLaunch = true;
+    private AdMobManager adMobManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             Window window = getWindow();
-           // window.setFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
             window.setNavigationBarColor(Color.TRANSPARENT);
         }
 
@@ -103,8 +104,10 @@ public class MainActivity extends AppCompatActivity {
             isFirstLaunch = false;
         }
 
-        // Initialize Firebase Messaging
-        initializeFirebaseMessaging();
+        // Initialize AdMobManager
+        adMobManager = AdMobManager.getInstance(this);
+        adMobManager.setCurrentActivity(this);
+        adMobManager.loadAppOpenAd();
     }
 
     private void setupPermissionLauncher() {
@@ -370,6 +373,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
         viewModel.setAppInForeground(true); // App is in foreground
+        if (adMobManager != null) {
+            adMobManager.showAppOpenAdIfAvailable();
+        }
     }
 
     @Override
@@ -390,6 +396,9 @@ public class MainActivity extends AppCompatActivity {
         // Set app in foreground state
         if (viewModel != null) {
             viewModel.setAppInForeground(true);
+        }
+        if (adMobManager != null) {
+            adMobManager.setCurrentActivity(this);
         }
     }
 
@@ -428,43 +437,14 @@ public class MainActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         // Don't clear cache when app is paused/backgrounded
+        if (adMobManager != null) {
+            adMobManager.setCurrentActivity(null);
+        }
     }
 
-    /**
-     * Initialize Firebase Cloud Messaging
-     */
-    private void initializeFirebaseMessaging() {
-        FirebaseMessaging.getInstance().getToken()
-            .addOnCompleteListener(task -> {
-                if (!task.isSuccessful()) {
-                    Log.w(TAG, "Fetching FCM registration token failed", task.getException());
-                    return;
-                }
-
-                // Get new FCM registration token
-                String token = task.getResult();
-
-                // Log and send token to your server
-                Log.d(TAG, "FCM Token: " + token);
-                sendRegistrationToServer(token);
-            });
-
-        // Subscribe to topics if needed
-        FirebaseMessaging.getInstance().subscribeToTopic("all_users")
-            .addOnCompleteListener(task -> {
-                if (task.isSuccessful()) {
-                    Log.d(TAG, "Subscribed to all_users topic");
-                } else {
-                    Log.e(TAG, "Failed to subscribe to all_users topic", task.getException());
-                }
-            });
-    }
-
-    /**
-     * Send registration token to server
-     */
-    private void sendRegistrationToServer(String token) {
-        // TODO: Implement this method to send token to your app server.
-        Log.d(TAG, "Sending FCM token to server: " + token);
+    public void logout() {
+        // Clear any local data or preferences
+        // Navigate to login screen or home screen
+        finish();
     }
 }

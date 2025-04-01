@@ -19,7 +19,9 @@ import com.ds.eventwish.data.remote.ApiService;
 import com.ds.eventwish.data.model.ServerTimeResponse;
 import com.ds.eventwish.util.AppExecutors;
 import com.ds.eventwish.utils.DeviceUtils;
+import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.ds.eventwish.EventWishApplication;
 import com.ds.eventwish.BuildConfig;
 
@@ -75,6 +77,8 @@ public class CoinsRepository {
     private long lastServerTime = 0L;
     private long lastTimeOffset = 0L;
     private long lastLocalTime = 0L;
+
+    private final Gson gson = new Gson();
 
     private CoinsRepository(Context context) {
         this.context = context.getApplicationContext();
@@ -456,29 +460,29 @@ public class CoinsRepository {
 
         Log.d(TAG, "Attempting to refresh token");
 
-        apiService.refreshToken(refreshRequest).enqueue(new Callback<JsonObject>() {
+        apiService.refreshToken(refreshRequest).enqueue(new Callback<Object>() {
             @Override
-            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+            public void onResponse(Call<Object> call, Response<Object> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     try {
-                        JsonObject responseBody = response.body();
-                        if (!responseBody.has("success") || !responseBody.get("success").getAsBoolean()) {
-                            Log.e(TAG, "Token refresh failed: " + responseBody);
-                            clearAuthData();
-                            registerDevice();
-                            return;
+                        // Convert response to JsonObject for processing
+                        String responseJson = gson.toJson(response.body());
+                        JsonObject jsonObject = JsonParser.parseString(responseJson).getAsJsonObject();
+                        
+                        // Extract tokens
+                        if (jsonObject.has("token")) {
+                            String token = jsonObject.get("token").getAsString();
+                            storeSecurely("auth_token", token);
                         }
-
-                        JsonObject data = responseBody.getAsJsonObject("data");
-                        String newToken = data.get("token").getAsString();
-                        String newRefreshToken = data.get("refreshToken").getAsString();
-
-                        storeSecurely("auth_token", newToken);
-                        storeSecurely("refresh_token", newRefreshToken);
+                        
+                        if (jsonObject.has("refreshToken")) {
+                            String newRefreshToken = jsonObject.get("refreshToken").getAsString();
+                            storeSecurely("refresh_token", newRefreshToken);
+                        }
 
                         Log.d(TAG, "Tokens refreshed successfully");
                     } catch (Exception e) {
-                        Log.e(TAG, "Error processing token refresh response", e);
+                        Log.e(TAG, "Error parsing refresh token response", e);
                         clearAuthData();
                         registerDevice();
                     }
@@ -490,7 +494,7 @@ public class CoinsRepository {
             }
 
             @Override
-            public void onFailure(Call<JsonObject> call, Throwable t) {
+            public void onFailure(Call<Object> call, Throwable t) {
                 Log.e(TAG, "Token refresh request failed", t);
                 clearAuthData();
                 registerDevice();

@@ -65,8 +65,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.ds.eventwish.ads.AdMobManager;
+import com.ds.eventwish.ads.AdMobManager.OnAdClosedListener;
+
 public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemplateClickListener {
     private static final String TAG = "HomeFragment";
+    private static final String INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"; // Test ad unit ID
     private FragmentHomeBinding binding;
     private HomeViewModel viewModel;
     private FestivalViewModel festivalViewModel;
@@ -86,6 +90,8 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     private androidx.lifecycle.Observer<Integer> coinsObserver;
     private MenuItem coinsMenuItem;
     
+    private AdMobManager adMobManager;
+    
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentHomeBinding.inflate(inflater, container, false);
@@ -95,6 +101,9 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        
+        // Initialize AdMobManager
+        adMobManager = AdMobManager.getInstance(requireContext());
         
         // Initialize view models
         viewModel = new ViewModelProvider(this).get(HomeViewModel.class);
@@ -840,76 +849,15 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
 
     @Override
     public void onTemplateClick(Template template) {
-        try {
-            Log.d(TAG, "Template clicked: " + (template != null ? template.getId() : "null"));
-            
-            // Check if template is valid
-            if (template == null) {
-                Log.e(TAG, "Attempted to click on null template");
-                return;
-            }
-            
-            // Check if it's an HTML template that needs premium features
-            if (template.getType() != null && template.getType().equals("html")) {
-                try {
-                    if (featureManager == null) {
-                        featureManager = FeatureManager.getInstance(requireContext());
-                        Log.d(TAG, "FeatureManager initialized in onTemplateClick");
-                    }
-                    
-                    if (!featureManager.isFeatureUnlocked(FeatureManager.HTML_EDITING)) {
-                        // Show unlock dialog manually instead of using checkFeatureAccess which might cause issues
-                        String message = featureManager.getLockedFeatureMessage(FeatureManager.HTML_EDITING);
-                        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
-                        
-                        // Use the safer way to show the dialog
-                        try {
-                            UnifiedAdRewardDialog dialog = UnifiedAdRewardDialog.newInstance("Unlock HTML Editing")
-                                .setCallback(new UnifiedAdRewardDialog.AdRewardCallback() {
-                                    @Override
-                                    public void onCoinsEarned(int amount) {
-                                        Toast.makeText(requireContext(), "You earned " + amount + " coins!", Toast.LENGTH_SHORT).show();
-                                    }
-                                    
-                                    @Override
-                                    public void onFeatureUnlocked(int durationDays) {
-                                        Toast.makeText(requireContext(), "Feature unlocked for " + durationDays + " days!", Toast.LENGTH_SHORT).show();
-                                        
-                                        // Now that it's unlocked, navigate to the detail
-                                        navigateToTemplateDetail(template);
-                                    }
-                                    
-                                    @Override
-                                    public void onDismissed() {
-                                        // Nothing to do here
-                                    }
-                                });
-                            
-                            dialog.show(requireActivity().getSupportFragmentManager());
-                        } catch (Exception e) {
-                            Log.e(TAG, "Error showing unlock dialog", e);
-                            // Fall back to a simple toast
-                            Toast.makeText(requireContext(), 
-                                "This feature requires premium access. Please check the coins menu to unlock.",
-                                Toast.LENGTH_LONG).show();
-                        }
-                        
-                        return;
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error checking feature access", e);
-                    // Continue with normal navigation if there's an error checking access
+        if (adMobManager != null && adMobManager.canShowAd(INTERSTITIAL_AD_UNIT_ID)) {
+            adMobManager.showInterstitialAd(INTERSTITIAL_AD_UNIT_ID, new OnAdClosedListener() {
+                @Override
+                public void onAdClosed() {
+                    navigateToTemplateDetail(template);
                 }
-            }
-            
-            // Continue with normal template click handling
+            });
+        } else {
             navigateToTemplateDetail(template);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in onTemplateClick", e);
-            // Show user-friendly error
-            Toast.makeText(requireContext(), 
-                "Something went wrong. Please try again.", 
-                Toast.LENGTH_SHORT).show();
         }
     }
     
@@ -1004,83 +952,89 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     }
 
     private void showAdRewardDialog() {
-        Log.d(TAG, "Showing ad reward dialog");
-        
-        // Create and show the UnifiedAdRewardDialog with proper initialization
-        UnifiedAdRewardDialog dialog = UnifiedAdRewardDialog.newInstance("Earn Coins")
-            .setCallback(new UnifiedAdRewardDialog.AdRewardCallback() {
+        if (adMobManager != null && adMobManager.canShowAd(INTERSTITIAL_AD_UNIT_ID)) {
+            adMobManager.showInterstitialAd(INTERSTITIAL_AD_UNIT_ID, new OnAdClosedListener() {
                 @Override
-                public void onCoinsEarned(int amount) {
-                    // Show toast message
-                    Toast.makeText(requireContext(), 
-                        getString(R.string.coins_earned, amount), 
-                        Toast.LENGTH_SHORT).show();
-                    
-                    // Explicitly refresh coins after dialog closes
-                    if (coinsViewModel != null) {
-                        Log.d(TAG, "Forcing coins refresh after reward");
-                        coinsViewModel.refreshCoinsCount();
-                    }
-                }
-                
-                @Override
-                public void onFeatureUnlocked(int durationDays) {
-                    Toast.makeText(requireContext(), 
-                        getString(R.string.feature_unlocked, durationDays), 
-                        Toast.LENGTH_SHORT).show();
-                }
-                
-                @Override
-                public void onDismissed() {
-                    // Force a final refresh when dialog is dismissed
-                    if (coinsViewModel != null) {
-                        Log.d(TAG, "Final coins refresh after dialog dismissed");
-                        coinsViewModel.refreshCoinsCount();
-                    }
+                public void onAdClosed() {
+                    UnifiedAdRewardDialog.show(requireContext(), new UnifiedAdRewardDialog.OnRewardListener() {
+                        @Override
+                        public void onCoinsEarned(int amount) {
+                            // Handle coins earned
+                        }
+
+                        @Override
+                        public void onFeatureUnlocked(int durationDays) {
+                            // Handle feature unlocked
+                        }
+
+                        @Override
+                        public void onDismissed() {
+                            // Handle dialog dismissed
+                        }
+                    });
                 }
             });
-        
-        dialog.show(requireActivity().getSupportFragmentManager());
-        
-        // Log for debugging
-        Log.d(TAG, "Ad reward dialog shown");
+        } else {
+            UnifiedAdRewardDialog.show(requireContext(), new UnifiedAdRewardDialog.OnRewardListener() {
+                @Override
+                public void onCoinsEarned(int amount) {
+                    // Handle coins earned
+                }
+
+                @Override
+                public void onFeatureUnlocked(int durationDays) {
+                    // Handle feature unlocked
+                }
+
+                @Override
+                public void onDismissed() {
+                    // Handle dialog dismissed
+                }
+            });
+        }
     }
 
     private void showPremiumFeaturesDialog() {
-        Log.d(TAG, "Showing premium features dialog");
-        
-        // Create and show the UnifiedAdRewardDialog with proper initialization
-        UnifiedAdRewardDialog dialog = UnifiedAdRewardDialog.newInstance("Premium Features")
-            .setCallback(new UnifiedAdRewardDialog.AdRewardCallback() {
+        if (adMobManager != null && adMobManager.canShowAd(INTERSTITIAL_AD_UNIT_ID)) {
+            adMobManager.showInterstitialAd(INTERSTITIAL_AD_UNIT_ID, new OnAdClosedListener() {
                 @Override
-                public void onCoinsEarned(int amount) {
-                    Toast.makeText(requireContext(), 
-                        getString(R.string.coins_earned, amount), 
-                        Toast.LENGTH_SHORT).show();
-                }
-                
-                @Override
-                public void onFeatureUnlocked(int durationDays) {
-                    Toast.makeText(requireContext(), 
-                        getString(R.string.feature_unlocked, durationDays), 
-                        Toast.LENGTH_SHORT).show();
-                    
-                    // Refresh UI if needed after unlocking feature
-                    if (viewModel != null) {
-                        viewModel.refreshForFeatureChange();
-                    }
-                }
-                
-                @Override
-                public void onDismissed() {
-                    // Nothing to do here
+                public void onAdClosed() {
+                    UnifiedAdRewardDialog.show(requireContext(), new UnifiedAdRewardDialog.OnRewardListener() {
+                        @Override
+                        public void onCoinsEarned(int amount) {
+                            // Handle coins earned
+                        }
+
+                        @Override
+                        public void onFeatureUnlocked(int durationDays) {
+                            // Handle feature unlocked
+                        }
+
+                        @Override
+                        public void onDismissed() {
+                            // Handle dialog dismissed
+                        }
+                    });
                 }
             });
-        
-        dialog.show(requireActivity().getSupportFragmentManager());
-        
-        // Log for debugging
-        Log.d(TAG, "Premium features dialog shown");
+        } else {
+            UnifiedAdRewardDialog.show(requireContext(), new UnifiedAdRewardDialog.OnRewardListener() {
+                @Override
+                public void onCoinsEarned(int amount) {
+                    // Handle coins earned
+                }
+
+                @Override
+                public void onFeatureUnlocked(int durationDays) {
+                    // Handle feature unlocked
+                }
+
+                @Override
+                public void onDismissed() {
+                    // Handle dialog dismissed
+                }
+            });
+        }
     }
 
     private void setupSwipeRefresh() {

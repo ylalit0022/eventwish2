@@ -1,19 +1,16 @@
 package com.ds.eventwish;
 
 import android.app.Application;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.content.Context;
-import android.graphics.Color;
-import android.os.Build;
 import android.util.Log;
-import androidx.core.app.NotificationCompat;
+
 import androidx.work.Configuration;
 import androidx.work.Constraints;
 import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.NetworkType;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
+import com.ds.eventwish.ads.AdMobManager;
 import com.ds.eventwish.data.ads.AdManager;
 import com.ds.eventwish.data.local.AppDatabase;
 import com.ds.eventwish.data.local.ReminderDao;
@@ -21,16 +18,12 @@ import com.ds.eventwish.data.model.Reminder;
 import com.ds.eventwish.data.repository.CategoryIconRepository;
 import com.ds.eventwish.data.repository.TokenRepository;
 import com.ds.eventwish.data.remote.ApiClient;
-import com.ds.eventwish.data.remote.ApiService;
 import com.ds.eventwish.utils.AnalyticsUtils;
 import com.ds.eventwish.utils.CacheManager;
 import com.ds.eventwish.utils.ReminderScheduler;
 import com.ds.eventwish.workers.ReminderCheckWorker;
 import com.ds.eventwish.workers.TemplateUpdateWorker;
-import com.ds.eventwish.utils.FirebaseInAppMessagingHandler;
 import com.google.android.gms.ads.MobileAds;
-import com.google.firebase.FirebaseApp;
-import com.google.firebase.FirebaseOptions;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -41,6 +34,7 @@ import android.app.Activity;
 import com.google.android.gms.ads.RequestConfiguration;
 import com.ds.eventwish.config.AdConfig;
 import java.util.Arrays;
+import com.ds.eventwish.util.SecureTokenManager;
 
 public class EventWishApplication extends Application implements Configuration.Provider {
     private static final String TAG = "EventWishApplication";
@@ -49,6 +43,8 @@ public class EventWishApplication extends Application implements Configuration.P
     
     // Static instance of the application
     private static EventWishApplication instance;
+
+    private static Context context;
 
     /**
      * Get the application instance
@@ -65,16 +61,11 @@ public class EventWishApplication extends Application implements Configuration.P
         // Set the instance
         instance = this;
         
-        // Initialize Firebase with logging
-        try {
-            FirebaseApp.initializeApp(this);
-            FirebaseOptions options = FirebaseApp.getInstance().getOptions();
-            Log.d(TAG, "Firebase initialized successfully");
-            Log.d(TAG, "Firebase project ID: " + options.getProjectId());
-            Log.d(TAG, "Firebase application ID: " + options.getApplicationId());
-        } catch (Exception e) {
-            Log.e(TAG, "Firebase initialization failed", e);
-        }
+        // Initialize SecureTokenManager
+        initializeSecureTokenManager();
+        
+        // Initialize API client
+        initializeApiClient();
         
         // Initialize Analytics
         try {
@@ -86,27 +77,6 @@ public class EventWishApplication extends Application implements Configuration.P
         
         // Create notification channels
         createNotificationChannels();
-        
-        // Initialize Firebase In-App Messaging Handler
-        FirebaseInAppMessagingHandler.initialize(this);
-        
-        // Initialize both ApiClient implementations
-        try {
-            // Initialize only the data.remote.ApiClient - it's the main one
-            com.ds.eventwish.data.remote.ApiClient.init(this);
-            Log.d(TAG, "ApiClient initialized successfully");
-            
-            // Remove the network.ApiClient initialization - we'll deprecate this class later
-        } catch (Exception e) {
-            Log.e(TAG, "Error initializing ApiClient: " + e.getMessage(), e);
-        }
-        
-        // Initialize TokenRepository and check for unsent tokens
-        TokenRepository.getInstance(this, ApiClient.getClient())
-                .checkAndSendToken();
-        
-        // Note: We don't need to initialize WorkManager here since we're using Configuration.Provider
-        // WorkManager will be initialized automatically using the configuration from getWorkManagerConfiguration()
         
         // Schedule periodic reminder check using the helper method
         ReminderCheckWorker.schedule(this);
@@ -126,7 +96,7 @@ public class EventWishApplication extends Application implements Configuration.P
         // Restore any pending reminders
         restorePendingReminders();
         
-        // Initialize MobileAds
+        // Initialize AdMob
         initializeAdMob();
         
         // Initialize CategoryIconRepository and preload icons
@@ -137,6 +107,8 @@ public class EventWishApplication extends Application implements Configuration.P
             Log.e(TAG, "Error initializing CategoryIconRepository: " + e.getMessage());
             // Continue with app initialization even if category icons fail to load
         }
+
+        Log.d(TAG, "EventWish Application initialized");
     }
 
     @Override
@@ -232,15 +204,13 @@ public class EventWishApplication extends Application implements Configuration.P
     }
     
     /**
-     * Initialize AdMob and AdManager
+     * Initialize AdMob and AdMobManager
      */
     private void initializeAdMob() {
         try {
-            MobileAds.initialize(this, initializationStatus -> {
-                Log.d(TAG, "AdMob SDK initialized successfully");
-                Log.d(TAG, "Waiting for Activity context to initialize ad components");
-            });
-            Log.d(TAG, "AdMob initialization started");
+            // Initialize AdMobManager
+            AdMobManager.getInstance(this);
+            Log.d(TAG, "AdMobManager initialized successfully");
 
             // Configure test devices if in test mode
             if (AdConfig.USE_TEST_ADS) {
@@ -258,10 +228,36 @@ public class EventWishApplication extends Application implements Configuration.P
         }
     }
 
-    // Method to initialize AdManager and AppOpenAdHelper from an Activity
-    public void initializeAdManager(Activity activity) {
-        AdManager adManager = AdManager.getInstance(this);
-        adManager.setActivity(activity);
-        appOpenAdHelper = new AppOpenAdHelper(this);
+    // Method to initialize AdMobManager from an Activity
+    public void initializeAdMobManager(Activity activity) {
+        AdMobManager.getInstance(this).setCurrentActivity(activity);
+    }
+
+    private void initializeSecureTokenManager() {
+        try {
+            SecureTokenManager.init(this);
+            Log.d(TAG, "SecureTokenManager initialized successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "SecureTokenManager initialization failed", e);
+        }
+    }
+
+    private void initializeApiClient() {
+        try {
+            ApiClient.init(this);
+            Log.d(TAG, "ApiClient initialized successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "ApiClient initialization failed", e);
+        }
+    }
+
+    public static Context getAppContext() {
+        return context;
+    }
+
+    @Override
+    public void onTerminate() {
+        super.onTerminate();
+        // Clean up resources
     }
 }

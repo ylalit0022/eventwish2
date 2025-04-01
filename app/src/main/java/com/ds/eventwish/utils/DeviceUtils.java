@@ -237,17 +237,21 @@ public class DeviceUtils {
     }
     
     /**
-     * Checks if the device is an emulator
+     * Checks if the app is running on an Android emulator
+     * @return true if running on an emulator, false if running on a real device
      */
     public static boolean isEmulator() {
-        return (Build.FINGERPRINT.startsWith("generic")
+        return Build.FINGERPRINT.startsWith("generic")
                 || Build.FINGERPRINT.startsWith("unknown")
                 || Build.MODEL.contains("google_sdk")
                 || Build.MODEL.contains("Emulator")
                 || Build.MODEL.contains("Android SDK built for x86")
                 || Build.MANUFACTURER.contains("Genymotion")
                 || (Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic"))
-                || "google_sdk".equals(Build.PRODUCT));
+                || "google_sdk".equals(Build.PRODUCT)
+                || Build.PRODUCT.contains("sdk_gphone")
+                || Build.HARDWARE.contains("goldfish")
+                || Build.HARDWARE.contains("ranchu");
     }
     
     /**

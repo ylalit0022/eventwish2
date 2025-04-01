@@ -17,8 +17,10 @@ import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.ViewModelProvider;
 import com.ds.eventwish.R;
-import com.ds.eventwish.ui.viewmodel.AdViewModel;
+import com.ds.eventwish.ads.AdMobManager;
 import com.ds.eventwish.ui.viewmodel.CoinsViewModel;
+import com.google.android.gms.ads.OnUserEarnedRewardListener;
+import com.google.android.gms.ads.rewarded.RewardItem;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -27,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 public class UnifiedAdRewardDialog extends DialogFragment implements AdRewardInterface {
     private static final String TAG = "UnifiedAdRewardDialog";
     private static final String ARG_TITLE = "title";
+    private static final String REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"; // Test ad unit ID
     
     // Constants
     private static final int REWARD_AMOUNT = 10;    // Coins per ad view
@@ -34,7 +37,6 @@ public class UnifiedAdRewardDialog extends DialogFragment implements AdRewardInt
     private static final int UNLOCK_DURATION = 30;  // Days to unlock feature
     
     // ViewModels
-    private AdViewModel adViewModel;
     private CoinsViewModel coinsViewModel;
     
     // UI elements
@@ -44,6 +46,9 @@ public class UnifiedAdRewardDialog extends DialogFragment implements AdRewardInt
     private Button unlockFeatureButton;
     private ProgressBar progressBar;
     private TextView errorText;
+    
+    // AdMobManager
+    private AdMobManager adMobManager;
     
     // Callback
     private AdRewardCallback callback;
@@ -123,8 +128,10 @@ public class UnifiedAdRewardDialog extends DialogFragment implements AdRewardInt
         View view = LayoutInflater.from(context).inflate(R.layout.dialog_ad_reward, null);
         
         // Initialize ViewModels using activity scope to share data
-        adViewModel = new ViewModelProvider(requireActivity()).get(AdViewModel.class);
         coinsViewModel = new ViewModelProvider(requireActivity()).get(CoinsViewModel.class);
+        
+        // Initialize AdMobManager
+        adMobManager = AdMobManager.getInstance(context);
         
         // Initialize views
         coinsText = view.findViewById(R.id.coins_text);
@@ -141,7 +148,7 @@ public class UnifiedAdRewardDialog extends DialogFragment implements AdRewardInt
         setupClickListeners();
         
         // Load rewarded ad
-        adViewModel.loadRewardedAd();
+        adMobManager.loadRewardedAd(REWARDED_AD_UNIT_ID);
         
         // Get dialog title from arguments
         String title = getArguments() != null 
@@ -241,391 +248,116 @@ public class UnifiedAdRewardDialog extends DialogFragment implements AdRewardInt
                 }
             }
         });
-        
-        // Observe ad loading state
-        adViewModel.getIsRewardedAdLoading().observe(this, isLoading -> {
-            if (progressBar != null && watchAdButton != null) {
-                progressBar.setVisibility(isLoading ? View.VISIBLE : View.GONE);
-                watchAdButton.setEnabled(!isLoading);
-                watchAdButton.setText(isLoading ? R.string.loading : R.string.watch_ad);
-                
-                Log.d(TAG, "Ad loading state changed: " + (isLoading ? "loading" : "not loading"));
-            }
-        });
-        
-        // Observe ad ready state
-        adViewModel.getIsRewardedAdReady().observe(this, isReady -> {
-            if (watchAdButton != null) {
-                watchAdButton.setEnabled(isReady);
-                Log.d(TAG, "Ad ready state changed: " + (isReady ? "ready" : "not ready"));
-            }
-        });
-        
-        // Observe ad error
-        adViewModel.getAdError().observe(this, error -> {
-            if (errorText != null) {
-                if (error != null && !error.isEmpty()) {
-                    errorText.setVisibility(View.VISIBLE);
-                    errorText.setText(error);
-                    Log.e(TAG, "Ad error: " + error);
-                } else {
-                    errorText.setVisibility(View.GONE);
-                }
-            }
-        });
     }
     
     private void setupClickListeners() {
-        Log.d(TAG, "Setting up click listeners");
-        
-        watchAdButton.setOnClickListener(v -> {
-            Log.d(TAG, "Watch ad button clicked");
-            
-            // Show progress and disable buttons
-            setLoading(true);
-            
-            // Show the rewarded ad
-            adViewModel.showRewardedAd(requireActivity(), success -> {
-                // Execute on main thread
-                requireActivity().runOnUiThread(() -> {
-                    try {
-                        Log.d(TAG, "Ad reward result: " + (success ? "Success" : "Failed"));
-                        setLoading(false);
-                        
-                        if (success) {
-                            // Show success message
-                            showTemporaryMessage("Ad watched successfully! Earning coins...");
-                            
-                            // Introduce delay to ensure server registers the reward
-                            new Handler().postDelayed(() -> {
-                                // Explicitly refresh coins with verification
-                                verifyCoinsUpdated();
-                                
-                                // Notify callback
+        if (watchAdButton != null) {
+            watchAdButton.setOnClickListener(v -> {
+                if (adMobManager != null && adMobManager.canShowAd(REWARDED_AD_UNIT_ID)) {
+                    setLoading(true);
+                    adMobManager.showRewardedAd(REWARDED_AD_UNIT_ID, new OnUserEarnedRewardListener() {
+                        @Override
+                        public void onUserEarnedReward(@NonNull RewardItem rewardItem) {
+                            // Handle reward earned
+                            if (coinsViewModel != null) {
+                                coinsViewModel.addCoins(REWARD_AMOUNT);
                                 if (callback != null) {
                                     callback.onCoinsEarned(REWARD_AMOUNT);
                                 }
-                            }, 1000);
-                        } else {
-                            // Show error message
-                            errorText.setText(R.string.ad_failed);
-                            errorText.setVisibility(View.VISIBLE);
-                            
-                            // Reload ad after failure
-                            adViewModel.loadRewardedAd();
+                            }
                         }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error in ad reward callback", e);
-                        setLoading(false);
-                        errorText.setText(R.string.ad_error);
-                        errorText.setVisibility(View.VISIBLE);
-                    }
-                });
-            });
-        });
-        
-        unlockFeatureButton.setOnClickListener(v -> {
-            Log.d(TAG, "Unlock feature button clicked");
-            
-            // Show progress and disable buttons
-            setLoading(true);
-            
-            // Check if user has enough coins
-            int currentCoins = coinsViewModel.getCurrentCoins();
-            if (currentCoins < REQUIRED_COINS) {
-                errorText.setText(getString(R.string.not_enough_coins, REQUIRED_COINS));
-                errorText.setVisibility(View.VISIBLE);
-                setLoading(false);
-                return;
-            }
-            
-            // Unlock the feature
-            coinsViewModel.unlockFeature(UNLOCK_DURATION);
-            
-            // Introduce delay to ensure UI updates
-            new Handler().postDelayed(() -> {
-                // Explicitly refresh to make sure UI updates
-                coinsViewModel.refreshCoinsCount();
-                
-                // Show success message
-                showTemporaryMessage("Feature unlocked successfully!");
-                
-                // Notify callback
-                if (callback != null) {
-                    callback.onFeatureUnlocked(UNLOCK_DURATION);
+                    }, new AdMobManager.OnAdClosedListener() {
+                        @Override
+                        public void onAdClosed() {
+                            setLoading(false);
+                            // Reload the ad for next time
+                            adMobManager.loadRewardedAd(REWARDED_AD_UNIT_ID);
+                        }
+                    });
+                } else {
+                    showMessage(R.string.ad_not_ready);
                 }
-                
-                // Dismiss the dialog after a short delay
-                new Handler().postDelayed(() -> {
-                    dismissAllowingStateLoss();
-                }, 1200);
-            }, 800);
-        });
+            });
+        }
+        
+        if (unlockFeatureButton != null) {
+            unlockFeatureButton.setOnClickListener(v -> {
+                if (coinsViewModel != null) {
+                    int currentCoins = coinsViewModel.getCoinsLiveData().getValue();
+                    if (currentCoins >= REQUIRED_COINS) {
+                        // Deduct coins and unlock feature
+                        coinsViewModel.deductCoins(REQUIRED_COINS);
+                        coinsViewModel.unlockFeature(UNLOCK_DURATION);
+                        
+                        if (callback != null) {
+                            callback.onFeatureUnlocked(UNLOCK_DURATION);
+                        }
+                        
+                        // Dismiss dialog
+                        dismiss();
+                    } else {
+                        showMessage(R.string.not_enough_coins);
+                    }
+                }
+            });
+        }
     }
     
     private void updateUnlockButtonState(int coins) {
         if (unlockFeatureButton != null) {
             boolean canUnlock = coins >= REQUIRED_COINS;
             unlockFeatureButton.setEnabled(canUnlock);
-            unlockFeatureButton.setText(getString(R.string.unlock_feature_format, REQUIRED_COINS));
+            unlockFeatureButton.setAlpha(canUnlock ? 1.0f : 0.5f);
         }
     }
     
     private void showMessage(int messageResId) {
-        showMessage(getString(R.string.app_name), getString(messageResId));
+        if (errorText != null) {
+            errorText.setText(messageResId);
+            errorText.setVisibility(View.VISIBLE);
+            new Handler().postDelayed(() -> {
+                if (errorText != null) {
+                    errorText.setVisibility(View.GONE);
+                }
+            }, 3000);
+        }
     }
     
     private void showMessage(String title, String message) {
-        if (getContext() != null) {
-            new AlertDialog.Builder(requireContext())
-                .setTitle(title)
-                .setMessage(message)
-                .setPositiveButton(R.string.ok, null)
-                .show();
-        }
+        new AlertDialog.Builder(requireContext())
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton(R.string.ok, null)
+            .show();
     }
     
     @Override
     public void onResume() {
         super.onResume();
-        
-        // Add null checks to prevent crashes
-        try {
-            // Only verify unlock status if the ViewModel is initialized
-            if (coinsViewModel != null) {
-                // Verify unlock status when dialog is shown
-                coinsViewModel.verifyUnlockStatus();
-                
-                // Force full background refresh when dialog is shown
-                Log.d(TAG, "Performing full background refresh in onResume");
-                showTemporaryMessage("Loading latest coin balance...");
-                
-                coinsViewModel.forceBackgroundRefresh(success -> {
-                    Log.d(TAG, "Background refresh completed in onResume: " + (success ? "success" : "failed"));
-                    if (!success) {
-                        // Fallback to local refresh if server refresh fails
-                        coinsViewModel.refreshCoinsCount();
-                    }
-                });
-            } else {
-                Log.e(TAG, "coinsViewModel is null in onResume");
-                // Try to initialize ViewModels if they're null
-                try {
-                    coinsViewModel = new ViewModelProvider(requireActivity()).get(CoinsViewModel.class);
-                    adViewModel = new ViewModelProvider(requireActivity()).get(AdViewModel.class);
-                    
-                    if (coinsViewModel != null) {
-                        // Now we can safely call methods
-                        coinsViewModel.verifyUnlockStatus();
-                        
-                        // Use improved refresh method
-                        Log.d(TAG, "Performing background refresh after ViewModel initialization");
-                        coinsViewModel.forceBackgroundRefresh();
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Failed to initialize ViewModels in onResume", e);
-                }
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error in onResume", e);
+        // Reload rewarded ad if needed
+        if (adMobManager != null) {
+            adMobManager.loadRewardedAd(REWARDED_AD_UNIT_ID);
         }
     }
     
     @Override
     public void onDestroy() {
         super.onDestroy();
-        Log.d(TAG, "onDestroy called - cleaning up resources");
-        
-        // Clean up any observers that might cause memory leaks
-        if (adViewModel != null) {
-            adViewModel.getIsRewardedAdReady().removeObservers(this);
-            adViewModel.getIsRewardedAdLoading().removeObservers(this);
-            adViewModel.getAdError().removeObservers(this);
-        }
-        
-        if (coinsViewModel != null) {
-            coinsViewModel.getCoinsLiveData().removeObservers(this);
-            coinsViewModel.getIsUnlockedLiveData().removeObservers(this);
-            coinsViewModel.getRemainingTimeLiveData().removeObservers(this);
+        // Clean up any resources
+        if (callback != null) {
+            callback.onDismissed();
         }
     }
     
     @Override
     public void onDismiss(@NonNull android.content.DialogInterface dialog) {
         super.onDismiss(dialog);
-        Log.d(TAG, "onDismiss called");
-        
-        // Force a final background refresh to ensure UI is updated
-        if (coinsViewModel != null) {
-            Log.d(TAG, "Final refresh in onDismiss");
-            
-            // Use the callback implementation to ensure we don't block the UI
-            coinsViewModel.forceBackgroundRefresh(success -> {
-                Log.d(TAG, "Final refresh in onDismiss completed: " + (success ? "success" : "failed"));
-                
-                // Notify callback if set
-                if (callback != null) {
-                    callback.onDismissed();
-                }
-            });
-        } else {
-            // Call callback directly if ViewModel is unavailable
-            if (callback != null) {
-                callback.onDismissed();
-            }
+        if (callback != null) {
+            callback.onDismissed();
         }
     }
     
-    /**
-     * Verify that coins were actually updated and retry if needed
-     */
-    private void verifyCoinsUpdated() {
-        // Get initial coins count for comparison
-        final int initialCoins = coinsViewModel.getCurrentCoins();
-        Log.d(TAG, "Verifying coins update. Initial count: " + initialCoins);
-        
-        // Show temporary loading message
-        showTemporaryMessage("Refreshing coin balance...");
-        
-        // Use improved background refresh with callback
-        coinsViewModel.forceBackgroundRefresh(success -> {
-            if (success) {
-                // Get updated coin count after refresh
-                int currentCoins = coinsViewModel.getCurrentCoins();
-                Log.d(TAG, "Coin update after server refresh: " + initialCoins + " -> " + currentCoins);
-                
-                if (currentCoins > initialCoins) {
-                    // Success - coins updated
-                    Log.d(TAG, "Coin update verified: " + initialCoins + " -> " + currentCoins);
-                    
-                    // Update UI with animation
-                    if (coinsText != null) {
-                        updateCoinsDisplay(currentCoins, true);
-                    }
-                    
-                    // Update button state
-                    updateUnlockButtonState(currentCoins);
-                    
-                    // Show success message
-                    showTemporaryMessage("+" + (currentCoins - initialCoins) + " coins earned!");
-                } else {
-                    // Coins didn't increase - retry with delay
-                    Log.d(TAG, "Coin update not verified, scheduling retry");
-                    verifyCoinsWithRetry(initialCoins, 1);
-                }
-            } else {
-                // Server refresh failed - fall back to local refresh
-                Log.d(TAG, "Server refresh failed, trying local refresh with retry");
-                coinsViewModel.refreshCoinsCount();
-                verifyCoinsWithRetry(initialCoins, 1);
-            }
-        });
-    }
-    
-    /**
-     * Recursively verify coins with increasing retry count and delays
-     */
-    private void verifyCoinsWithRetry(int initialCoins, int retryCount) {
-        if (retryCount > 3) {
-            Log.w(TAG, "Giving up on coin verification after 3 retries");
-            if (isAdded()) {
-                showTemporaryMessage("Coins may take a moment to update");
-                coinsViewModel.refreshCoinsCount();
-            }
-            return;
-        }
-
-        // Use exponential backoff for retries
-        int delay = retryCount * 800;
-
-        new Handler().postDelayed(() -> {
-            // Check if fragment is still attached
-            if (!isAdded()) {
-                Log.d(TAG, "Fragment no longer attached, abandoning coin verification");
-                return;
-            }
-
-            // Force refresh again
-            coinsViewModel.refreshCoinsCount(success -> {
-                // Verify fragment is still attached before proceeding
-                if (!isAdded()) {
-                    Log.d(TAG, "Fragment no longer attached during refresh callback");
-                    return;
-                }
-
-                // Rest of the verification logic
-                int currentCoins = coinsViewModel.getCurrentCoins();
-                Log.d(TAG, "Verification attempt " + retryCount + ": Current coins: " + currentCoins);
-
-                if (currentCoins > initialCoins) {
-                    Log.d(TAG, "Coin update verified on retry: " + initialCoins + " -> " + currentCoins);
-                    updateCoinsDisplay(currentCoins, true);
-                    updateUnlockButtonState(currentCoins);
-                    showTemporaryMessage("+" + (currentCoins - initialCoins) + " coins earned!");
-                } else {
-                    verifyCoinsWithRetry(initialCoins, retryCount + 1);
-                }
-            });
-        }, delay);
-    }
-
-    /**
-     * Show a temporary message and then hide it
-     */
-    private void showTemporaryMessage(String message) {
-        // First check if fragment is attached and errorText exists
-        if (!isAdded() || errorText == null) {
-            Log.d(TAG, "Cannot show message - fragment detached or view null");
-            return;
-        }
-
-        try {
-            errorText.setText(message);
-            errorText.setTextColor(requireContext().getResources().getColor(R.color.colorSuccess));
-            errorText.setVisibility(View.VISIBLE);
-
-            // Hide the message after a delay
-            new Handler().postDelayed(() -> {
-                // Check again if still attached when hiding
-                if (isAdded() && errorText != null) {
-                    errorText.setVisibility(View.GONE);
-                    errorText.setTextColor(requireContext().getResources().getColor(R.color.colorError));
-                }
-            }, 3000);
-        } catch (Exception e) {
-            Log.e(TAG, "Error showing temporary message", e);
-        }
-    }
-
-    /**
-     * Helper method to update the coins display with optional animation
-     */
-    private void updateCoinsDisplay(int coins, boolean animate) {
-        if (!isAdded() || coinsText == null) {
-            Log.d(TAG, "Cannot update coins display - fragment detached or view null");
-            return;
-        }
-
-        try {
-            if (animate) {
-                coinsText.setAlpha(0.3f);
-                coinsText.setText(getString(R.string.coins_format, coins));
-                coinsText.animate().alpha(1.0f).setDuration(500).start();
-            } else {
-                coinsText.setText(getString(R.string.coins_format, coins));
-            }
-            coinsText.setTag(coins);
-        } catch (Exception e) {
-            Log.e(TAG, "Error updating coins display", e);
-        }
-    }
-
     private void setLoading(boolean isLoading) {
-        if (!isAdded()) {
-            Log.d(TAG, "Cannot set loading state - fragment detached");
-            return;
-        }
-
         if (progressBar != null && watchAdButton != null) {
             progressBar.setVisibility(isLoading ? View.VISIBLE : View.GONE);
             watchAdButton.setEnabled(!isLoading);

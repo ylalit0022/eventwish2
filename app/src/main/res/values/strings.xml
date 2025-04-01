@@ -279,4 +279,54 @@
     <string name="custom_fonts_locked">Custom fonts are locked. Watch ads to earn coins.</string>
     <string name="priority_support_locked">Priority support is locked. Watch ads to earn coins.</string>
     <string name="premium_features">Premium Features</string>
+
+    <!-- Auth strings -->
+    <string name="app_logo">App Logo</string>
+    <string name="phone_auth_title">Login with Phone</string>
+    <string name="phone_auth_subtitle">Enter your phone number to continue</string>
+    <string name="phone_number">Phone Number</string>
+    <string name="continue_text">Continue</string>
+    <string name="forgot_password">Forgot Password?</string>
+    
+    <string name="verify_phone_number">Verify Your Phone Number</string>
+    <string name="otp_subtitle">Enter the verification code sent to your phone</string>
+    <string name="verification_code">Verification Code</string>
+    <string name="verify_code">Verify</string>
+    <string name="resend_code">Resend Code</string>
+    <string name="change_number">Change Number</string>
+    <string name="bullet_separator">•</string>
+    <string name="otp_verification">OTP Verification</string>
+    
+    <string name="create_password">Create Password</string>
+    <string name="create_password_subtitle">Create a strong password for your account</string>
+    <string name="enter_password">Enter Password</string>
+    <string name="enter_password_subtitle">Enter your password to continue</string>
+    <string name="password">Password</string>
+    <string name="confirm_password">Confirm Password</string>
+    <string name="register">Register</string>
+    <string name="login">Login</string>
+    <string name="back">Back</string>
+    
+    <string name="forgot_password_title">Reset Password</string>
+    <string name="forgot_password_subtitle">Enter your phone number to receive a verification code</string>
+    <string name="send_reset_code">Send Code</string>
+    
+    <string name="verify_code_title">Enter Verification Code</string>
+    <string name="verify_code_subtitle">Enter the verification code sent to your phone</string>
+    
+    <string name="new_password_title">Create New Password</string>
+    <string name="new_password_subtitle">Create a strong, secure password for your account</string>
+    <string name="new_password">New Password</string>
+    <string name="reset_password">Reset Password</string>
+
+    <!-- Auth Error Messages -->
+    <string name="error_invalid_phone">Invalid phone number</string>
+    <string name="error_invalid_password">Password must be at least 6 characters</string>
+    <string name="error_passwords_dont_match">Passwords don\'t match</string>
+    <string name="error_verification_code">Invalid verification code</string>
+    <string name="error_auth_failed">Authentication failed</string>
+    <string name="password_reset_success">Password reset successful</string>
+    <string name="password_reset_failed">Password reset failed</string>
+    <string name="code_sent">Verification code sent</string>
+    <string name="code_sent_failed">Failed to send verification code</string>
 </resources>

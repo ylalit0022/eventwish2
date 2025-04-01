@@ -227,6 +227,7 @@ public class TemplateRepository {
         }
         
         loading.setValue(true);
+        error.setValue(null);
         
         // If this is a forced refresh, reset pagination
         if (forceRefresh) {
@@ -325,7 +326,21 @@ public class TemplateRepository {
             public void onResponse(@NonNull Call<TemplateResponse> call, @NonNull Response<TemplateResponse> response) {
                 loading.setValue(false);
 
-                if (response.isSuccessful() && response.body() != null) {
+                if (!response.isSuccessful()) {
+                    Log.e(TAG, "Server returned error: " + response.code());
+                    String errorMessage;
+                    if (response.code() >= 500) {
+                        errorMessage = "Server is experiencing issues. Please try again later.";
+                    } else if (response.code() == 401) {
+                        errorMessage = "Authentication error. Please restart the app.";
+                    } else {
+                        errorMessage = "Failed to load templates. Please try again.";
+                    }
+                    error.setValue(errorMessage);
+                    return;
+                }
+
+                if (response.body() != null) {
                     TemplateResponse templateResponse = response.body();
                     
                     // Cache the response using ResourceRepository
@@ -393,6 +408,14 @@ public class TemplateRepository {
                 }
                 
                 loading.setValue(false);
+                String errorMessage;
+                if (!networkUtils.isNetworkAvailable()) {
+                    errorMessage = "No internet connection. Please check your network settings.";
+                } else if (t instanceof IOException) {
+                    errorMessage = "Server is temporarily unavailable. Please try again later.";
+                } else {
+                    errorMessage = "Failed to load templates. Please try again.";
+                }
                 
                 // Try to get from cache using ResourceRepository
                 String resourceKey = currentCategory != null 

@@ -4,8 +4,6 @@ import android.content.Context;
 import android.os.Bundle;
 import android.util.Log;
 
-import com.google.firebase.analytics.FirebaseAnalytics;
-
 /**
  * Utility class for tracking analytics events
  */
@@ -26,7 +24,6 @@ public class AnalyticsUtils {
     public static final String PARAM_SESSION_ID = "session_id";
     public static final String PARAM_VIEW_DURATION = "view_duration";
     
-    private static FirebaseAnalytics firebaseAnalytics;
     private static String sessionId;
     
     /**
@@ -34,12 +31,9 @@ public class AnalyticsUtils {
      * @param context Application context
      */
     public static void init(Context context) {
-        if (firebaseAnalytics == null) {
-            firebaseAnalytics = FirebaseAnalytics.getInstance(context);
-            // Generate a unique session ID
-            sessionId = generateSessionId();
-            Log.d(TAG, "Analytics initialized with session ID: " + sessionId);
-        }
+        // Generate a unique session ID
+        sessionId = generateSessionId();
+        Log.d(TAG, "Analytics initialized with session ID: " + sessionId);
     }
     
     /**
@@ -47,17 +41,11 @@ public class AnalyticsUtils {
      * @param templateId ID of the viewed template
      */
     public static void trackTemplateView(String templateId) {
-        if (firebaseAnalytics == null) {
-            Log.e(TAG, "Analytics not initialized");
-            return;
-        }
-        
         Bundle params = new Bundle();
         params.putString(PARAM_TEMPLATE_ID, templateId);
         params.putString(PARAM_SESSION_ID, sessionId);
         
-        firebaseAnalytics.logEvent(EVENT_TEMPLATE_VIEW, params);
-        Log.d(TAG, "Tracked template view: " + templateId);
+        Log.d(TAG, "Tracked template view: " + templateId + ", params: " + params.toString());
     }
     
     /**
@@ -67,11 +55,6 @@ public class AnalyticsUtils {
      * @param recipientName Name of the recipient (if available)
      */
     public static void trackSharedWishView(String shortCode, String senderName, String recipientName) {
-        if (firebaseAnalytics == null) {
-            Log.e(TAG, "Analytics not initialized");
-            return;
-        }
-        
         Bundle params = new Bundle();
         params.putString(PARAM_SHORT_CODE, shortCode);
         params.putString(PARAM_SESSION_ID, sessionId);
@@ -84,8 +67,7 @@ public class AnalyticsUtils {
             params.putString(PARAM_RECIPIENT_NAME, recipientName);
         }
         
-        firebaseAnalytics.logEvent(EVENT_SHARED_WISH_VIEW, params);
-        Log.d(TAG, "Tracked shared wish view: " + shortCode);
+        Log.d(TAG, "Tracked shared wish view: " + shortCode + ", params: " + params.toString());
     }
     
     /**
@@ -93,17 +75,11 @@ public class AnalyticsUtils {
      * @param pageIdentifier An identifier for the page (template ID or short code)
      */
     public static void trackViewerActive(String pageIdentifier) {
-        if (firebaseAnalytics == null) {
-            Log.e(TAG, "Analytics not initialized");
-            return;
-        }
-        
         Bundle params = new Bundle();
         params.putString("page_id", pageIdentifier);
         params.putString(PARAM_SESSION_ID, sessionId);
         
-        firebaseAnalytics.logEvent(EVENT_VIEWER_ACTIVE, params);
-        Log.d(TAG, "Tracked viewer active: " + pageIdentifier);
+        Log.d(TAG, "Tracked viewer active: " + pageIdentifier + ", params: " + params.toString());
     }
     
     /**
@@ -112,18 +88,12 @@ public class AnalyticsUtils {
      * @param durationSeconds Duration in seconds that the viewer was active
      */
     public static void trackViewerInactive(String pageIdentifier, long durationSeconds) {
-        if (firebaseAnalytics == null) {
-            Log.e(TAG, "Analytics not initialized");
-            return;
-        }
-        
         Bundle params = new Bundle();
         params.putString("page_id", pageIdentifier);
         params.putString(PARAM_SESSION_ID, sessionId);
         params.putLong(PARAM_VIEW_DURATION, durationSeconds);
         
-        firebaseAnalytics.logEvent(EVENT_VIEWER_INACTIVE, params);
-        Log.d(TAG, "Tracked viewer inactive: " + pageIdentifier + ", duration: " + durationSeconds + "s");
+        Log.d(TAG, "Tracked viewer inactive: " + pageIdentifier + ", duration: " + durationSeconds + "s, params: " + params.toString());
     }
     
     /**
@@ -131,13 +101,8 @@ public class AnalyticsUtils {
      * @param userId User ID (if available)
      */
     public static void setUserProperties(String userId) {
-        if (firebaseAnalytics == null) {
-            Log.e(TAG, "Analytics not initialized");
-            return;
-        }
-        
         if (userId != null && !userId.isEmpty()) {
-            firebaseAnalytics.setUserId(userId);
+            Log.d(TAG, "Set user ID: " + userId);
         }
     }
     

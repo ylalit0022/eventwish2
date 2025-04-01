@@ -166,7 +166,7 @@ public class CategoryIconRepository {
         
         // If still not found, add a generic fallback for this specific category
         Log.d(TAG, "No icon found for category: " + category + ", adding generic fallback");
-        String fallbackUrl = "https://raw.githubusercontent.com/google/material-design-icons/master/png/action/category/materialicons/24dp/2x/baseline_category_black_24dp.png";
+        String fallbackUrl = "https://raw.githubusercontent.com/google/material-design-icons/master/png/action/category/materialicons/24dp/2x/category_black_24dp.png";
         CategoryIcon fallbackIcon = new CategoryIcon(lowerCategory, category, fallbackUrl);
         categoryIconMap.put(lowerCategory, fallbackIcon);
         

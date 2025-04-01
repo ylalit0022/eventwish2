@@ -1,15 +1,15 @@
 package com.ds.eventwish.ui.coins;
 
 import android.app.Application;
+import android.content.Context;
+import android.util.Log;
+
+import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
+
 import com.ds.eventwish.data.repository.CoinsRepository;
-import android.os.Handler;
-import android.os.Looper;
-import android.util.Log;
-import java.util.concurrent.TimeUnit;
-import javax.inject.Inject;
 
 /**
  * ViewModel for managing coins data throughout the app.
@@ -25,161 +25,123 @@ public class CoinsViewModel extends AndroidViewModel {
         void onRefreshComplete(boolean success);
     }
 
-    private final CoinsRepository repository;
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private final MutableLiveData<Boolean> isRefreshing = new MutableLiveData<>(false);
-    private final MutableLiveData<Integer> coinUpdateEvent = new MutableLiveData<>();
+    private final CoinsRepository coinsRepository;
+    private final MutableLiveData<Integer> coins = new MutableLiveData<>(0);
+    private final MutableLiveData<Boolean> isUnlocked = new MutableLiveData<>(false);
+    private final MutableLiveData<Long> remainingTime = new MutableLiveData<>(0L);
+    private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>(false);
+    private final MutableLiveData<String> errorMessage = new MutableLiveData<>("");
+    private final MutableLiveData<Integer> transactionCoins = new MutableLiveData<>(0);
+    private final MutableLiveData<Boolean> refreshing = new MutableLiveData<>(false);
+    private final MutableLiveData<Boolean> refreshSuccess = new MutableLiveData<>(false);
 
-    @Inject
-    public CoinsViewModel(Application application, CoinsRepository repository) {
+    public CoinsViewModel(@NonNull Application application) {
         super(application);
-        this.repository = repository;
-        Log.d(TAG, "CoinsViewModel initialized");
-    }
-
-    /**
-     * Get LiveData for observing coins balance
-     * @return LiveData containing the Coins object
-     */
-    public LiveData<Integer> getCoinsLiveData() {
-        return repository.getCoinsLiveData();
-    }
-
-    /**
-     * Get LiveData for observing whether features are unlocked
-     * @return LiveData<Boolean> true if features are unlocked, false otherwise
-     */
-    public LiveData<Boolean> getIsUnlockedLiveData() {
-        return repository.getIsUnlockedLiveData();
-    }
-
-    /**
-     * Force refresh coins count from the repository
-     * This should be called after any operation that changes the coins balance,
-     * such as watching a rewarded ad, purchasing coins, or using coins for features.
-     */
-    public void refreshCoinsCount() {
-        Log.d(TAG, "Refreshing coins count");
-        isRefreshing.setValue(true);
+        coinsRepository = CoinsRepository.getInstance(application);
         
-        try {
-            repository.forceRefreshCoinsLiveData();
-        } catch (Exception e) {
-            Log.e(TAG, "Error refreshing coins", e);
-        } finally {
-            isRefreshing.setValue(false);
-        }
-    }
-
-    /**
-     * Refresh coins with callback and retry logic
-     * @param callback Optional callback to notify when refresh completes
-     */
-    public void refreshCoinsCount(RefreshCallback callback) {
-        Log.d(TAG, "Explicitly refreshing coins count");
-        isRefreshing.setValue(true);
+        // Observe repository LiveData
+        coinsRepository.getCoinsLiveData().observeForever(newCoins -> {
+            coins.setValue(newCoins);
+        });
         
-        try {
-            mainHandler.post(() -> {
-                repository.forceRefreshCoinsLiveData();
-                broadcastCoinUpdate();
-
-                mainHandler.postDelayed(() -> {
-                    repository.forceRefreshCoinsLiveData();
-                    broadcastCoinUpdate();
-                    isRefreshing.postValue(false);
-                    if (callback != null) {
-                        callback.onRefreshComplete(true);
-                    }
-                }, 800);
-            });
-        } catch (Exception e) {
-            Log.e(TAG, "Error refreshing coins", e);
-            handleRefreshError(callback);
-        }
+        coinsRepository.getIsUnlockedLiveData().observeForever(newIsUnlocked -> {
+            isUnlocked.setValue(newIsUnlocked);
+        });
+        
+        coinsRepository.getRemainingTimeLiveData().observeForever(newRemainingTime -> {
+            remainingTime.setValue(newRemainingTime);
+        });
+        
+        // Force refresh to get latest coins status
+        refreshCoinsStatus();
     }
-
-    /**
-     * Get LiveData that indicates whether coins are currently being refreshed
-     * @return LiveData<Boolean> true if refreshing, false otherwise
-     */
-    public LiveData<Boolean> isRefreshingCoins() {
-        return isRefreshing;
+    
+    public LiveData<Integer> getCoins() {
+        return coins;
     }
-
-    /**
-     * Add coins to the user's balance
-     * @param amount the amount of coins to add
-     */
+    
+    public LiveData<Boolean> getIsUnlocked() {
+        return isUnlocked;
+    }
+    
+    public LiveData<Long> getRemainingTime() {
+        return remainingTime;
+    }
+    
+    public LiveData<Boolean> getIsLoading() {
+        return isLoading;
+    }
+    
+    public LiveData<String> getErrorMessage() {
+        return errorMessage;
+    }
+    
+    public LiveData<Integer> getTransactionCoins() {
+        return transactionCoins;
+    }
+    
+    public LiveData<Boolean> getRefreshing() {
+        return refreshing;
+    }
+    
+    public LiveData<Boolean> getRefreshSuccess() {
+        return refreshSuccess;
+    }
+    
     public void addCoins(int amount) {
-        Log.d(TAG, "Adding " + amount + " coins");
-        repository.addCoins(amount);
-        refreshCoinsCount();
+        isLoading.setValue(true);
+        errorMessage.setValue("");
+        
+        coinsRepository.addCoins(amount);
+        
+        // Update transaction amount
+        transactionCoins.setValue(amount);
     }
-
-    /**
-     * Get the current coins balance
-     * @return the current coins balance
-     */
-    public int getCurrentCoins() {
-        return repository.getCurrentCoins();
-    }
-
-    /**
-     * Get LiveData for observing the remaining time for unlocked features
-     * @return LiveData containing the remaining time in milliseconds
-     */
-    public LiveData<Long> getRemainingTimeLiveData() {
-        return repository.getRemainingTimeLiveData();
-    }
-
-    /**
-     * Check if the feature is currently unlocked
-     * @return true if the feature is unlocked, false otherwise
-     */
-    public boolean isFeatureUnlocked() {
-        return repository.isFeatureUnlocked();
-    }
-
-    /**
-     * Verify the unlock status with the repository
-     * This triggers validation checks against time manipulation
-     */
-    public void verifyUnlockStatus() {
-        Log.d(TAG, "Verifying unlock status");
-        repository.validateUnlockStatus();
-    }
-
-    /**
-     * Unlock a feature for a specific duration
-     * @param duration the duration in days to unlock the feature
-     */
+    
     public void unlockFeature(int duration) {
-        Log.d(TAG, "Unlocking feature for " + duration + " days");
-        repository.unlockFeature(duration);
-        refreshCoinsCount();
+        isLoading.setValue(true);
+        errorMessage.setValue("");
+        
+        coinsRepository.unlockFeature(duration);
     }
-
-    /**
-     * Handle refresh error cases
-     */
-    private void handleRefreshError(RefreshCallback callback) {
-        mainHandler.post(() -> {
-            isRefreshing.setValue(false);
-            repository.forceRefreshCoinsLiveData();
-            broadcastCoinUpdate();
-            if (callback != null) {
-                callback.onRefreshComplete(false);
+    
+    public void refreshCoinsStatus() {
+        refreshing.setValue(true);
+        
+        MutableLiveData<Boolean> result = coinsRepository.refreshFromServer();
+        result.observeForever(success -> {
+            refreshing.setValue(false);
+            refreshSuccess.setValue(success);
+            
+            if (success) {
+                errorMessage.setValue("");
             }
         });
     }
-
-    /**
-     * Broadcast a coin update event to all observers
-     */
-    private void broadcastCoinUpdate() {
-        int currentCoins = repository.getCurrentCoins();
-        Log.d(TAG, "Broadcasting coin update event with value: " + currentCoins);
-        coinUpdateEvent.setValue(currentCoins);
+    
+    public void setError(String error) {
+        errorMessage.setValue(error);
+    }
+    
+    public boolean shouldShowErrorDialog() {
+        String error = errorMessage.getValue();
+        return error != null && !error.isEmpty();
+    }
+    
+    public void clearError() {
+        errorMessage.setValue("");
+    }
+    
+    public void clearTransactionCoins() {
+        transactionCoins.setValue(0);
+    }
+    
+    @Override
+    protected void onCleared() {
+        super.onCleared();
+        // Remove observers to avoid memory leaks
+        coinsRepository.getCoinsLiveData().removeObserver(newCoins -> {});
+        coinsRepository.getIsUnlockedLiveData().removeObserver(newIsUnlocked -> {});
+        coinsRepository.getRemainingTimeLiveData().removeObserver(newRemainingTime -> {});
     }
 }

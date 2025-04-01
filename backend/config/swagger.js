@@ -28,7 +28,7 @@ const swaggerDefinition = {
   },
   servers: [
     {
-      url: process.env.API_BASE_URL || 'http://localhost:3000',
+      url: process.env.API_BASE_URL || 'https://eventwish2.onrender.com',
       description: 'Development server',
     },
     {

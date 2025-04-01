@@ -16,6 +16,12 @@ import androidx.lifecycle.MutableLiveData;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Utility class for monitoring network state and providing information about network connectivity
@@ -410,5 +416,50 @@ public class NetworkUtils {
         } else {
             return "OTHER";
         }
+    }
+
+    /**
+     * Check if the device has an active internet connection
+     * @param context Application context
+     * @return true if connected, false otherwise
+     */
+    public static boolean isNetworkAvailable(Context context) {
+        if (context == null) {
+            return false;
+        }
+        
+        ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm == null) {
+            return false;
+        }
+        
+        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+        return activeNetwork != null && activeNetwork.isConnectedOrConnecting();
+    }
+    
+    /**
+     * Convert a JSONObject to a Map<String, Object>
+     * @param jsonObject JSONObject to convert
+     * @return Map representation of the JSONObject
+     */
+    public static Map<String, Object> jsonToMap(JSONObject jsonObject) {
+        Map<String, Object> map = new HashMap<>();
+        
+        if (jsonObject == null) {
+            return map;
+        }
+        
+        try {
+            Iterator<String> keys = jsonObject.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                Object value = jsonObject.get(key);
+                map.put(key, value);
+            }
+        } catch (JSONException e) {
+            Log.e(TAG, "Error converting JSONObject to Map", e);
+        }
+        
+        return map;
     }
 }

@@ -177,80 +177,169 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Add proper error handling in middleware functions
   - Use next() to pass control to the next middleware in the chain
   - Document middleware functions with JSDoc comments
+- When implementing Firebase Phone Authentication:
+  - Add proper exception handling for FirebaseException in callbacks
+  - Ensure variables used in lambda expressions are final or effectively final
+  - Use SecureTokenManager for storing sensitive authentication tokens
+  - Create a separate UserRepository to manage user authentication state
+  - Implement proper token refresh logic in API clients
+  - Add debug logging for authentication processes
+  - Consider creating a mock server for local testing without Firebase dependencies
+  - Save test logs when running automated authentication tests
+  - Use different API base URLs for debug and production environments
+  - Provide comprehensive technical documentation for the authentication system
+- When configuring OkHttp client for Android applications:
+  - Use connection pooling to improve connection reuse
+  - Enable retryOnConnectionFailure for intermittent network issues
+  - Add HTTP response caching to reduce network requests
+  - Log detailed connection information in debug builds
+  - Set appropriate timeouts for different network conditions
+  - Track timing metrics for API calls to identify performance issues
+  - Add detailed error logging for failed requests
+  - Use interceptors to add common headers across all requests
 
 # Scratchpad
 
-## Current Task: Improve HTML Editing Unlock Dialog and Coin Update Flow
+## Current Task: Implement AdMob Ads System
 
-### Issue Analysis
+### Analysis of Existing Files
+[X] Checked AdMob.js model for server-side ad unit management
+[X] Reviewed Coins.js for reward system integration
+[X] Analyzed ResourceFragment.java for interstitial ad placement
+[X] Examined HomeFragment.java for rewarded ad integration
+[X] Verified backend configuration and API endpoints
 
-After examining the codebase and previous fixes, there are still issues with the HTML Editing unlock flow, particularly:
+### Implementation Plan
 
-1. **Coins Not Updating in UI After Watching Ads**
-   - Despite previous fixes, the coin balance UI is not consistently updating after watching ads
-   - The update may be happening in the data layer but not propagating to all UI elements
+#### 1. Server-Side Setup
+[X] Update AdMob.js model with additional fields:
+  - Add lastAdShown timestamp
+  - Add adFrequency settings
+  - Add reward thresholds
+  - Add ad cooldown periods
+[X] Create new API endpoints:
+  - GET /api/admob/units - Get ad units
+  - POST /api/admob/reward - Handle reward redemption
+  - GET /api/admob/status - Get ad status and cooldowns
+  - POST /api/admob/impression - Record ad impressions
+  - POST /api/admob/click - Record ad clicks
 
-2. **Unlock Remaining Time Display Issues**
-   - The "Time Left in Days" display may not be updating correctly after unlocking a feature
-   - Users need clear feedback about the duration of their unlock
+#### 2. Client-Side Ad Implementation
+[X] Create AdMobManager singleton class:
+  - Initialize AdMob SDK
+  - Handle ad loading and caching
+  - Manage ad cooldowns
+  - Track ad impressions
+[X] Implement App Open Ads:
+  - Load on app start
+  - Handle cold/warm starts
+  - Follow AdMob policies
+[X] Implement Interstitial Ads:
+  - Show on fragment switches
+  - Show on button clicks
+  - Show on shared link views
+[X] Implement Rewarded Ads:
+  - Add ad icon in header
+  - Show live coins
+  - Handle reward redemption
+  - Implement 15-day cooldown
 
-### Root Cause Analysis
+#### 3. UI Integration
+[X] Update HomeFragment:
+  - Add ad icon next to refresh
+  - Show live coins
+  - Add reward dialog
+[X] Update ResourceFragment:
+  - Add interstitial ad triggers
+  - Handle ad loading states
+[X] Create RewardDialog:
+  - Show reward options
+  - Handle redemption
+  - Display cooldown status
 
-#### 1. Coin Update Issues
+#### 4. Data Management
+[X] Implement local storage:
+  - Store ad cooldowns
+  - Track impressions
+  - Cache ad units
+[X] Sync with server:
+  - Update device data
+  - Sync reward status
+  - Handle offline mode
 
-- **LiveData Observer Chain**:
-  - Possible race conditions between ad completion and LiveData updates
-  - LiveData observers might be registered too late or detached prematurely
-  - Dialog lifecycle issues affecting observer registration/removal
+#### 5. Testing & Validation
+[ ] Unit tests for AdMobManager
+[ ] Integration tests for reward system
+[ ] UI tests for ad placement
+[ ] Performance testing for ad loading
 
-- **Thread Management Issues**:
-  - UI updates not always happening on the main thread
-  - Potential delays in thread switching between background operations and UI updates
+### Important Features to Add
+1. Ad Loading Optimization:
+   - Preload ads for better UX
+   - Implement ad queue
+   - Handle failed loads gracefully
 
-- **Multiple ViewModel Implementations**:
-  - Two different CoinsViewModel implementations causing inconsistent behavior
-  - Each implementation may handle refreshing differently
+2. Analytics & Tracking:
+   [X] Track ad performance
+   [X] Monitor user engagement
+   [X] Log reward redemptions
 
-#### 2. Time Remaining Display Issues
+3. Error Handling:
+   [X] Network failures
+   [X] Ad loading failures
+   [X] Reward sync issues
 
-- **Time Calculation Logic**:
-  - Possible issues in the conversion from milliseconds to days/hours
-  - Time calculation may not account for partial days correctly
-
-- **UI Observer Implementation**:
-  - Observers for time remaining may not be properly attached or updated
-  - UI elements may not be correctly bound to the LiveData
-
-### Implemented Fixes
-
-#### 1. Fixed Compilation Errors
-
-[X] Fixed type mismatch in CoinsRepository: changed String ID comparison from `entity.getId() > 0` to `entity.getId() != null && !entity.getId().isEmpty()`
-[X] Added missing string resources in strings.xml: `ad_failed` and `ad_error`
-[X] Fixed lambda expression variable capture issue by creating a final copy of the entity object: `final CoinsEntity finalEntity = entity`
-[X] Successfully compiled and installed the app
-
-#### 2. Fixed Coin Update Issues
-
-[X] Added robust coin update broadcast mechanism using a dedicated LiveData event
-[X] Implemented synchronized coin update notification across ViewModel instances
-[X] Added broadcast mechanism to ensure consistent UI updates
-[X] Enhanced all refresh methods to use multiple broadcast channels
-[X] Improved retry logic with progressive delays for coin update verification
-
-#### 3. Fixed Time Remaining Display Issues
-
-[X] Added improved time formatting logic with proper days/hours/minutes display
-[X] Centralized formatting logic in the ViewModel for consistency
-[X] Enhanced the UI observer implementation for time remaining display
-[X] Added helper methods for consistent time formatting across the app
+4. User Experience:
+   [X] Smooth transitions
+   [X] Clear reward messaging
+   [X] Intuitive ad placement
 
 ### Next Steps
+[X] Start with server-side updates
+[X] Create server-side API endpoints for ad management
+[X] Implement AdMobManager
+[X] Add basic ad loading
+[X] Integrate with existing UI
+[X] Add reward system
+[X] Implement analytics
+[X] Add error handling
+[ ] Test thoroughly
 
-#### 1. Testing and Validation
+### Technical Considerations
+- Use device ID for user tracking
+- Implement proper ad lifecycle management
+- Follow AdMob policies strictly
+- Handle configuration changes
+- Manage memory efficiently
+- Implement proper error recovery
 
-[ ] Test coin updates across all scenarios (watching ads, purchases, etc.)
-[ ] Verify time remaining display in different states
-[ ] Test with different device configurations and conditions
-[ ] Add clearer success/failure messaging
-[ ] Improve overall UX of the unlock flow
+### Progress Notes
+1. Updated AdMob.js model with:
+   - Cooldown management
+   - Reward system integration
+   - Device-specific tracking
+   - Analytics improvements
+   - Frequency controls
+2. Created server-side API endpoints:
+   - GET /api/admob/units for fetching available ad units
+   - GET /api/admob/status for checking ad and reward status
+   - POST /api/admob/reward for handling reward redemption
+   - POST /api/admob/impression for tracking impressions
+   - POST /api/admob/click for tracking clicks
+3. Implemented AdMobManager singleton class:
+   - Added proper initialization
+   - Implemented ad loading and caching
+   - Added cooldown management
+   - Added impression tracking
+4. Updated UnifiedAdRewardDialog:
+   - Integrated with AdMobManager
+   - Improved reward handling
+   - Added proper error handling
+   - Enhanced UI feedback
+5. Implemented AdAnalytics:
+   - Created simple analytics service
+   - Added tracking for impressions
+   - Added tracking for load failures
+   - Added tracking for show failures
+   - Integrated with AdMobManager
+6. Next: Implement comprehensive testing

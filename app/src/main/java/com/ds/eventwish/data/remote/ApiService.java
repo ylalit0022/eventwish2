@@ -24,6 +24,7 @@ import retrofit2.http.Path;
 import retrofit2.http.Query;
 
 import com.google.gson.JsonObject;
+import okhttp3.OkHttpClient;
 
 public interface ApiService {
     @GET("templates")
@@ -157,13 +158,94 @@ public interface ApiService {
     @POST("security/violation")
     Call<JsonObject> reportSecurityViolation(@Body Map<String, Object> payload);
 
-    // Authentication endpoints
-    @POST("auth/refresh")
-    Call<JsonObject> refreshToken(@Body Map<String, Object> refreshRequest);
-
+    // Old authentication methods (deprecated, use the Object versions below)
     @POST("coins/register")  // Change this from auth/register
     Call<JsonObject> registerNewUser(@Body Map<String, Object> payload);
     
     @GET("auth/validate")
     Call<JsonObject> validateAppSignature(@HeaderMap Map<String, String> headers);
+    
+    /**
+     * Change user password
+     */
+    @POST("auth/change-password")
+    Call<JsonObject> changePassword(@Body Map<String, String> passwordRequest);
+
+    /**
+     * Get the OkHttpClient for this service
+     * @return OkHttpClient instance
+     */
+    OkHttpClient getClient();
+
+    // SMS verification endpoints
+    /**
+     * Send SMS verification code to phone number
+     * @param body Request body containing phoneNumber
+     * @return Response
+     */
+    @POST("auth/send-verification-code")
+    Call<Object> sendVerificationCode(@Body Map<String, Object> body);
+    
+    /**
+     * Verify SMS code
+     * @param body Request body containing phoneNumber and verificationCode
+     * @return Response
+     */
+    @POST("auth/verify-code")
+    Call<Object> verifyCode(@Body Map<String, Object> body);
+    
+    // Authentication endpoints
+    /**
+     * Register a new user
+     * @param body User data including phoneNumber, password, etc.
+     * @return API response with user data
+     */
+    @POST("users/register")
+    Call<JsonObject> registerUser(@Body Map<String, Object> body);
+    
+    /**
+     * Login with phone number and password
+     * @param body Login credentials including phoneNumber and password
+     * @return Response with tokens and user data
+     */
+    @POST("auth/login")
+    Call<Object> loginUser(@Body Map<String, Object> body);
+    
+    /**
+     * Refresh access token
+     * @param body Request body containing refreshToken
+     * @return Response with new tokens
+     */
+    @POST("auth/refresh")
+    Call<Object> refreshToken(@Body Map<String, Object> body);
+    
+    /**
+     * Logout user
+     * @return Response
+     */
+    @POST("auth/logout")
+    Call<Object> logout();
+    
+    /**
+     * Send password reset code via SMS
+     * @param body Request body containing phoneNumber
+     * @return Response
+     */
+    @POST("auth/password/reset/send-code")
+    Call<Object> sendPasswordResetCode(@Body Map<String, Object> body);
+    
+    /**
+     * Reset password using verification code
+     * @param body Request containing phoneNumber, verificationCode, and newPassword
+     * @return Response
+     */
+    @POST("auth/password/reset")
+    Call<Object> resetPassword(@Body Map<String, Object> body);
+    
+    /**
+     * Get current user info
+     * @return Response with user data
+     */
+    @GET("auth/me")
+    Call<Object> getCurrentUser();
 }
