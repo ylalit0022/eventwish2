@@ -35,6 +35,33 @@ router.get('/', (req, res) => {
     }
 });
 
+/**
+ * @route   GET /api/server/time
+ * @desc    Get current server time (alternative endpoint for Android client)
+ * @access  Public
+ */
+router.get('/server/time', (req, res) => {
+    try {
+        // Get current server timestamp in milliseconds
+        const timestamp = Date.now();
+        const date = new Date(timestamp);
+        const formatted = date.toISOString();
+        
+        // Return server time in the expected format for Android client
+        res.json({
+            timestamp: timestamp,
+            formatted: formatted,
+            success: true
+        });
+    } catch (error) {
+        console.error('Error in server time endpoint:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error getting server time'
+        });
+    }
+});
+
 module.exports = router;
 
  
