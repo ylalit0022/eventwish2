@@ -228,6 +228,29 @@ app.use('/api/test/time', require('./routes/timeRoutes'));
 app.use('/api/images', require('./routes/images'));
 app.use('/api/share', require('./routes/share'));
 
+// Time synchronization route for Android client
+app.get('/api/server/time', (req, res) => {
+    try {
+        // Get current server timestamp in milliseconds
+        const timestamp = Date.now();
+        const date = new Date(timestamp);
+        const formatted = date.toISOString();
+        
+        // Return server time in the expected format for Android client
+        res.json({
+            timestamp: timestamp,
+            formatted: formatted,
+            success: true
+        });
+    } catch (error) {
+        console.error('Error in server time endpoint:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error getting server time'
+        });
+    }
+});
+
 // Health check routes
 app.use('/api/health', require('./routes/healthRoutes'));
 
