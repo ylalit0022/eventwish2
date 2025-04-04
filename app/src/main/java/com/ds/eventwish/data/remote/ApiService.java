@@ -1,6 +1,5 @@
 package com.ds.eventwish.data.remote;
 
-import com.ds.eventwish.data.local.entity.AdMobEntity;
 import com.ds.eventwish.data.model.CategoryIcon;
 import com.ds.eventwish.data.model.Festival;
 import com.ds.eventwish.data.model.SharedWish;
@@ -20,6 +19,7 @@ import retrofit2.http.DELETE;
 import retrofit2.http.GET;
 import retrofit2.http.HeaderMap;
 import retrofit2.http.POST;
+import retrofit2.http.PUT;
 import retrofit2.http.Path;
 import retrofit2.http.Query;
 
@@ -27,6 +27,7 @@ import com.google.gson.JsonObject;
 import okhttp3.OkHttpClient;
 
 public interface ApiService {
+    // Template endpoints
     @GET("templates")
     Call<TemplateResponse> getTemplates(
         @Query("page") int page,
@@ -42,7 +43,8 @@ public interface ApiService {
 
     @GET("templates/{id}")
     Call<Template> getTemplateById(@Path("id") String id);
-
+    
+    // Wish sharing endpoints
     @POST("share")
     Call<JsonObject> createSharedWish(@Body Map<String, Object> sharedWish);
 
@@ -65,11 +67,6 @@ public interface ApiService {
     Call<Void> clearHistory();
     
     // Festival endpoints
-    // The backend only has /api/festivals/upcoming endpoint
-    @GET("festivals/upcoming")
-    Call<List<Festival>> getAllFestivals();
-    
-    // Using the same endpoint for upcoming festivals
     @GET("festivals/upcoming")
     Call<List<Festival>> getUpcomingFestivals();
     
@@ -79,14 +76,13 @@ public interface ApiService {
     @GET("festivals/{id}")
     Call<Festival> getFestivalById(@Path("id") String id);
 
+    // Category icon endpoints
     @GET("categoryIcons")
     Call<CategoryIconResponse> getCategoryIcons();
 
+    // Server time endpoint
     @GET("server/time")
     Call<ServerTimeResponse> getServerTime();
-
-    @GET("festivals/upcoming")
-    Call<List<Festival>> getFestivals();
 
     // FCM token registration
     @POST("tokens/register")
@@ -101,7 +97,7 @@ public interface ApiService {
     );
     
     @GET("templates")
-    Call<List<JsonObject>> getTemplates(@HeaderMap Map<String, String> headers);
+    Call<List<JsonObject>> getTemplatesJson(@HeaderMap Map<String, String> headers);
     
     @GET("categories")
     Call<List<JsonObject>> getCategories(@HeaderMap Map<String, String> headers);
@@ -117,13 +113,6 @@ public interface ApiService {
     
     @GET("icons/{id}")
     Call<JsonObject> getIcon(@Path("id") String id, @HeaderMap Map<String, String> headers);
-
-    // AdMob endpoints for client
-    @GET("admob/units")
-    Call<List<AdMobEntity>> getAdMobData();
-
-    @GET("admob/byType/{adType}")
-    Call<List<Map<String, Object>>> getAdMobByType(@Path("adType") String adType);
 
     // Coins endpoints
     @GET("coins/{deviceId}")
@@ -142,14 +131,6 @@ public interface ApiService {
     @POST("coins/unlock/report")
     Call<JsonObject> reportUnlock(@Body Map<String, Object> payload);
 
-    // Rename for clarity and avoid duplication
-    @POST("coins/unlock/report")
-    Call<JsonObject> reportUnlockStatus(@Body Map<String, Object> payload);
-
-    // Track ad rewards
-    @POST("coins/reward")
-    Call<JsonObject> trackAdReward(@Body JsonObject payload);
-
     /**
      * Report security violation
      * @param payload Security violation details
@@ -158,8 +139,8 @@ public interface ApiService {
     @POST("security/violation")
     Call<JsonObject> reportSecurityViolation(@Body Map<String, Object> payload);
 
-    // Old authentication methods (deprecated, use the Object versions below)
-    @POST("coins/register")  // Change this from auth/register
+    // Authentication methods
+    @POST("coins/register")
     Call<JsonObject> registerNewUser(@Body Map<String, Object> payload);
     
     @GET("auth/validate")
@@ -194,7 +175,7 @@ public interface ApiService {
     @POST("auth/verify-code")
     Call<Object> verifyCode(@Body Map<String, Object> body);
     
-    // Authentication endpoints
+    // User endpoints
     /**
      * Register a new user
      * @param body User data including phoneNumber, password, etc.
@@ -248,4 +229,36 @@ public interface ApiService {
      */
     @GET("auth/me")
     Call<Object> getCurrentUser();
+
+    /**
+     * Register device with the server
+     * @param requestBody Device registration request data
+     * @return Response
+     */
+    @POST("device/register")
+    Call<JsonObject> registerDevice(@Body JsonObject requestBody);
+
+    /**
+     * Register user with device ID
+     * @param requestBody Request body containing deviceId
+     * @return Response with user data
+     */
+    @POST("users/register")
+    Call<JsonObject> registerDeviceUser(@Body Map<String, Object> requestBody);
+
+    /**
+     * Update user activity (last online timestamp and optional category visit)
+     * @param requestBody Request body containing deviceId and optional category
+     * @return Response
+     */
+    @PUT("users/activity")
+    Call<JsonObject> updateUserActivity(@Body Map<String, Object> requestBody);
+
+    /**
+     * Get user data by device ID
+     * @param deviceId Device ID
+     * @return Response with user data
+     */
+    @GET("users/{deviceId}")
+    Call<JsonObject> getUserByDeviceId(@Path("deviceId") String deviceId);
 }

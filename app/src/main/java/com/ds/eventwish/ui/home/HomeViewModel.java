@@ -720,4 +720,24 @@ public class HomeViewModel extends ViewModel {
         // Refresh categories if needed
         loadCategories();
     }
+
+    /**
+     * Refresh templates from the repository
+     */
+    public void refreshTemplates() {
+        Log.d(TAG, "Refreshing templates");
+        loadTemplates(true);
+    }
+
+    /**
+     * Reset the selected category to default (null)
+     */
+    public void resetSelectedCategory() {
+        Log.d(TAG, "Resetting selected category");
+        selectedCategory = null;
+        if (appContext != null) {
+            SharedPreferences prefs = appContext.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
+            prefs.edit().remove(PREF_SELECTED_CATEGORY).apply();
+        }
+    }
 }

@@ -20,19 +20,13 @@ import com.ds.eventwish.data.local.dao.FestivalDao;
 import com.ds.eventwish.data.local.dao.ResourceDao;
 import com.ds.eventwish.data.local.dao.UserDao;
 import com.ds.eventwish.data.local.entity.ResourceEntity;
-import com.ds.eventwish.data.local.entity.CoinsEntity;
-import com.ds.eventwish.data.local.entity.AdMobEntity;
 import com.ds.eventwish.data.local.entity.UserEntity;
 import com.ds.eventwish.data.model.Festival;
-import com.ds.eventwish.data.local.dao.CoinsDao;
-import com.ds.eventwish.data.local.dao.AdMobDao;
 
 @Database(
     entities = {
         Festival.class,
         ResourceEntity.class,
-        CoinsEntity.class,
-        AdMobEntity.class,
         UserEntity.class
     },
     version = 2,
@@ -54,8 +48,6 @@ public abstract class AppDatabase extends RoomDatabase {
     
     public abstract FestivalDao festivalDao();
     public abstract ResourceDao resourceDao();
-    public abstract CoinsDao coinsDao();
-    public abstract AdMobDao adMobDao();
     public abstract UserDao userDao();
     
     public static synchronized AppDatabase getInstance(Context context) {

@@ -16,6 +16,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.internal.LinkedTreeMap;
+import com.ds.eventwish.util.SecureTokenManager;
 
 import java.io.File;
 import java.io.IOException;
@@ -36,137 +37,201 @@ import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
+/**
+ * API Client for the EventWish API
+ */
 public class ApiClient {
     // Static members
     private static final String TAG = "ApiClient";
     
-    // Production API URL
-    public static final String BASE_URL = "https://eventwish2.onrender.com/api/";
+    // Base URL of the API
+    private static final String BASE_URL = "https://eventwish2.onrender.com/api/";
     
-    private static Retrofit retrofit = null;
-    private static Context applicationContext = null;
-    private static ApiClient instance;
-    private static ApiService apiService = null;
+    // API service
+    private static ApiService apiService;
+    
+    // Retrofit instance
+    private static Retrofit retrofit;
+    
+    // Context
+    private static Context context;
 
     /**
-     * Initialize ApiClient with application context
-     * @param context Application context
+     * Initialize the API client with the application context
+     * @param appContext Application context
      */
-    public static void init(Context context) {
-        if (context == null) {
+    public static void init(Context appContext) {
+        if (appContext == null) {
+            Log.e(TAG, "Cannot initialize ApiClient with null context");
             throw new IllegalArgumentException("Context cannot be null");
         }
-
-        applicationContext = context.getApplicationContext();
-
-        // Clean up any existing client to avoid leaks
-        if (apiService != null) {
-            cleanupApiService();
-        }
-
-        // Create new ApiService
-        apiService = createApiService(context);
-
-        Log.d(TAG, "ApiClient initialized with application context");
-        Log.d(TAG, "Using API URL: " + BASE_URL);
+        
+        context = appContext.getApplicationContext();
+        
+        // Log for debugging
+        Log.d(TAG, "ApiClient initialized with API URL: " + BASE_URL);
     }
 
     /**
-     * Get the API service instance
+     * Get the API service
      * @return API service
      */
     public static ApiService getClient() {
-        if (apiService == null) {
-            synchronized (ApiClient.class) {
-                if (apiService == null) {
-                    OkHttpClient client = getHttpClient();
-                    
-                    Retrofit retrofit = new Retrofit.Builder()
-                        .baseUrl(BASE_URL)
-                    .client(client)
-                    .addConverterFactory(GsonConverterFactory.create())
-                    .build();
-                    
-                    apiService = retrofit.create(ApiService.class);
-                }
-            }
+        if (context == null) {
+            Log.e(TAG, "ApiClient not initialized. Call ApiClient.init() first");
+            throw new IllegalStateException("ApiClient not initialized. Call ApiClient.init() first");
         }
+        
+        if (apiService == null) {
+            // Create a new API service
+            apiService = createApiService();
+            Log.d(TAG, "Created new ApiService instance");
+        }
+        
         return apiService;
+    }
+    
+    /**
+     * Get API service instance (singleton)
+     * @return API service instance
+     */
+    public static ApiService getInstance() {
+        return getClient();
     }
 
     /**
-     * Create a new ApiService instance
-     * @param context Application context
-     * @return New ApiService instance
+     * Create the API service
+     * @return API service
      */
-    private static ApiService createApiService(Context context) {
-        // Create Gson converter with pretty printing for debugging
-        Gson gson = new GsonBuilder()
-            .setLenient()
-            .setPrettyPrinting()
-            .create();
-        
-        // Create OkHttp client with logging and timeouts
-        OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS);
-        
-        // Add common headers interceptor
-        httpClientBuilder.addInterceptor(chain -> {
-            Request original = chain.request();
-            Request.Builder requestBuilder = original.newBuilder()
-                .header("Accept", "application/json")
-                .header("Content-Type", "application/json")
-                .header("X-API-Key", BuildConfig.API_KEY)
-                .method(original.method(), original.body());
-            return chain.proceed(requestBuilder.build());
-        });
-        
-        // Add logging interceptor in debug mode
-        if (BuildConfig.DEBUG) {
-            HttpLoggingInterceptor loggingInterceptor = new HttpLoggingInterceptor();
-            loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
-            httpClientBuilder.addInterceptor(loggingInterceptor);
-        }
-        
-        // Build OkHttp client
-        OkHttpClient httpClient = httpClientBuilder.build();
-        
-        // Create Retrofit instance
-        if (retrofit == null) {
-            retrofit = new Retrofit.Builder()
-                .baseUrl(BASE_URL)
-                .addConverterFactory(GsonConverterFactory.create(gson))
-                .client(httpClient)
-                .build();
-        }
-        
-        // Create and return API service
+    private static ApiService createApiService() {
+        // Get API key from BuildConfig or secure storage
+        String apiKey = getApiKey();
+        Log.d(TAG, "Creating API service with API key: " + (apiKey != null ? "valid key" : "null key"));
+
+        // Create OkHttp client with interceptors
+        OkHttpClient okHttpClient = new OkHttpClient.Builder()
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .addInterceptor(chain -> {
+                Request original = chain.request();
+                
+                // Add API key header to every request
+                Request.Builder requestBuilder = original.newBuilder()
+                    .header("x-api-key", apiKey) // Using lowercase header name for consistency
+                    .method(original.method(), original.body());
+                
+                // Add auth token if available
+                SecureTokenManager tokenManager = SecureTokenManager.getInstance();
+                if (tokenManager != null && tokenManager.hasTokens()) {
+                    String token = tokenManager.getAccessToken();
+                    if (token != null && !token.isEmpty()) {
+                        requestBuilder.header("Authorization", "Bearer " + token);
+                    }
+                }
+                
+                Request request = requestBuilder.build();
+                
+                // Log request details in debug mode
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "API Request: " + request.url() +
+                          "\nAPI Key: " + (apiKey != null ? apiKey.substring(0, 10) + "..." : "null") +
+                          "\nHeaders: " + request.headers());
+                }
+                
+                return chain.proceed(request);
+            })
+            .addInterceptor(getLoggingInterceptor())
+            .build();
+
+        // Create Retrofit with Gson converter
+        retrofit = new Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build();
+
         return retrofit.create(ApiService.class);
     }
 
     /**
-     * Clean up the API service
+     * Get API key from the most reliable source
+     * @return API key
      */
-    private static void cleanupApiService() {
-        if (apiService != null) {
-            apiService = null;
+    private static String getApiKey() {
+        // First try to get from SecureTokenManager if available
+        try {
+            if (context != null) {
+                SecureTokenManager tokenManager = SecureTokenManager.getInstance();
+                if (tokenManager != null) {
+                    String secureApiKey = tokenManager.getApiKey();
+                    if (secureApiKey != null && !secureApiKey.isEmpty()) {
+                        Log.d(TAG, "Using API key from SecureTokenManager");
+                        return secureApiKey;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting API key from SecureTokenManager", e);
         }
-        if (retrofit != null) {
-            retrofit = null;
+        
+        // Fallback to BuildConfig
+        if (BuildConfig.API_KEY != null && !BuildConfig.API_KEY.isEmpty()) {
+            Log.d(TAG, "Using API key from BuildConfig");
+            return BuildConfig.API_KEY;
         }
+        
+        // Final fallback to hardcoded key (not recommended)
+        Log.w(TAG, "No API key found in SecureTokenManager or BuildConfig, using fallback key");
+        return "ew_dev_c1ce47afeff9fa8b7b1aa165562cb915"; // This is a fallback that should be replaced
     }
 
     /**
-     * Get the singleton instance
-     * @return ApiClient instance
+     * Update the API key (used when the key changes or is refreshed)
+     * @param newApiKey The new API key to use
      */
-    public static synchronized ApiClient getInstance() {
-        if (instance == null) {
-            instance = new ApiClient();
+    public static void updateApiKey(String newApiKey) {
+        if (newApiKey == null || newApiKey.isEmpty()) {
+            Log.e(TAG, "Cannot update API key: new key is null or empty");
+            return;
         }
-        return instance;
+        
+        // Store in SecureTokenManager if possible
+        try {
+            if (context != null) {
+                SecureTokenManager tokenManager = SecureTokenManager.getInstance();
+                if (tokenManager != null) {
+                    tokenManager.saveApiKey(newApiKey);
+                    Log.d(TAG, "Saved new API key to SecureTokenManager");
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving API key to SecureTokenManager", e);
+        }
+        
+        // Recreate API service with new key
+        apiService = null;
+        getClient(); // This will recreate the service with the new key
+        
+        Log.d(TAG, "API service recreated with updated API key");
+    }
+
+    /**
+     * Get a logging interceptor for debugging
+     * @return Logging interceptor
+     */
+    private static HttpLoggingInterceptor getLoggingInterceptor() {
+        HttpLoggingInterceptor loggingInterceptor = new HttpLoggingInterceptor();
+        
+        // Only log in debug mode
+        if (BuildConfig.DEBUG) {
+            loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
+        } else {
+            loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.NONE);
+        }
+        
+        return loggingInterceptor;
     }
 
     /**
@@ -181,8 +246,8 @@ public class ApiClient {
      * Clean up resources
      */
     public static void cleanup() {
-        cleanupApiService();
-        instance = null;
+        apiService = null;
+        retrofit = null;
     }
 
     /**
@@ -197,9 +262,21 @@ public class ApiClient {
             .retryOnConnectionFailure(true)
             .connectionPool(new ConnectionPool(5, 30, TimeUnit.SECONDS));
 
+        // Add API key header interceptor
+        builder.addInterceptor(chain -> {
+            Request original = chain.request();
+            Request.Builder requestBuilder = original.newBuilder()
+                .header("x-api-key", BuildConfig.API_KEY);
+                
+            Request request = requestBuilder.build();
+            Log.d(TAG, "Sending request with API key: " + request.url());
+            
+            return chain.proceed(request);
+        });
+
         // Add cache if application context is available
-        if (applicationContext != null) {
-            File httpCacheDirectory = new File(applicationContext.getCacheDir(), "http-cache");
+        if (context != null) {
+            File httpCacheDirectory = new File(context.getCacheDir(), "http-cache");
             int cacheSize = 10 * 1024 * 1024; // 10 MB
             Cache cache = new Cache(httpCacheDirectory, cacheSize);
             builder.cache(cache);

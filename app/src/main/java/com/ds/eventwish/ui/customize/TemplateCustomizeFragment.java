@@ -16,105 +16,146 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 import com.ds.eventwish.R;
 import com.ds.eventwish.databinding.FragmentTemplateCustomizeBinding;
-import com.ds.eventwish.ui.dialog.UnifiedAdRewardDialog;
-import com.ds.eventwish.ui.viewmodel.CoinsViewModel;
-import com.google.android.material.snackbar.Snackbar;
 import com.ds.eventwish.utils.FeatureManager;
+import com.google.android.material.snackbar.Snackbar;
 
 public class TemplateCustomizeFragment extends Fragment {
+    private static final String TAG = "TemplateCustomizeFragment";
+    
     private FragmentTemplateCustomizeBinding binding;
     private TemplateCustomizeViewModel viewModel;
-    private CoinsViewModel coinsViewModel;
+    private FeatureManager featureManager;
     private TextChangeListener textChangeListener;
-    private boolean isHtmlTemplate = false;
-
+    
+    // Constants
+    private static final String ARG_TEMPLATE_ID = "templateId";
+    
+    public static TemplateCustomizeFragment newInstance(String templateId) {
+        TemplateCustomizeFragment fragment = new TemplateCustomizeFragment();
+        Bundle args = new Bundle();
+        args.putString(ARG_TEMPLATE_ID, templateId);
+        fragment.setArguments(args);
+        return fragment;
+    }
+    
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        
+        // Initialize view models
+        viewModel = new ViewModelProvider(this).get(TemplateCustomizeViewModel.class);
+        
+        // Initialize feature manager
+        featureManager = FeatureManager.getInstance(requireContext());
+        
+        // Get template ID from arguments
+        String templateId = null;
+        if (getArguments() != null) {
+            templateId = getArguments().getString(ARG_TEMPLATE_ID);
+        }
+        
+        // Load template
+        if (templateId != null && !templateId.isEmpty()) {
+            viewModel.loadTemplate(templateId);
+        }
+    }
+    
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentTemplateCustomizeBinding.inflate(inflater, container, false);
         return binding.getRoot();
     }
-
+    
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         
-        setupViewModel();
-        setupToolbar();
-        setupInputListeners();
-        setupWebView();
-        setupObservers();
-        setupClickListeners();
+        // Setup UI
+        setupUI();
         
-        // Load template data
-        String templateId = TemplateCustomizeFragmentArgs.fromBundle(getArguments()).getTemplateId();
-        viewModel.loadTemplate(templateId);
-    }
-
-    private void setupViewModel() {
-        viewModel = new ViewModelProvider(this).get(TemplateCustomizeViewModel.class);
-        coinsViewModel = new ViewModelProvider(this).get(CoinsViewModel.class);
-    }
-
-    private void setupToolbar() {
-        binding.toolbar.setNavigationOnClickListener(v -> 
-            Navigation.findNavController(requireView()).navigateUp());
-            
-        binding.toolbar.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == R.id.action_preview) {
-                // Preview is now auto-generated when text changes
-                return true;
-            } else if (item.getItemId() == R.id.action_save) {
-                viewModel.saveWish();
-                return true;
-            } else if (item.getItemId() == R.id.action_edit_html) {
-                // Check if HTML editing is unlocked
-                if (checkHtmlEditingUnlocked()) {
-                    // Show HTML editor dialog or navigate to HTML editor fragment
-                    showHtmlEditor();
-                } else {
-                    // Show dialog to unlock HTML editing
-                    showAdRewardDialog();
-                }
-                return true;
+        // Observe template data
+        viewModel.getTemplate().observe(getViewLifecycleOwner(), template -> {
+            if (template != null) {
+                binding.templateTitle.setText(template.getName());
+                binding.previewWebView.loadData(template.getHtml(), "text/html", "UTF-8");
             }
-            return false;
+        });
+        
+        // Observe customized HTML
+        viewModel.getPreviewHtml().observe(getViewLifecycleOwner(), html -> {
+            if (html != null && !html.isEmpty()) {
+                binding.previewWebView.loadData(html, "text/html", "UTF-8");
+            }
         });
     }
-
-    private boolean checkHtmlEditingUnlocked() {
-        if (!isHtmlTemplate) {
-            return true; // Not an HTML template, no unlock needed
-        }
-        
-        // Use FeatureManager to check unlock status
-        return FeatureManager.getInstance(requireContext())
-                .isFeatureUnlocked(FeatureManager.HTML_EDITING);
-    }
     
-    private void showAdRewardDialog() {
-        // Create and show the UnifiedAdRewardDialog
-        UnifiedAdRewardDialog dialog = UnifiedAdRewardDialog.newInstance("Unlock HTML Editing")
-            .setCallback(new UnifiedAdRewardDialog.AdRewardCallback() {
-                @Override
-                public void onCoinsEarned(int amount) {
-                    Toast.makeText(requireContext(), "You earned " + amount + " coins!", Toast.LENGTH_SHORT).show();
-                    // Check if they now have enough coins to unlock
-                    updateUiForTemplateType();
-                }
-                
-                @Override
-                public void onFeatureUnlocked(int durationDays) {
-                    Toast.makeText(requireContext(), "HTML Editing unlocked for " + durationDays + " days!", Toast.LENGTH_SHORT).show();
-                    showHtmlEditor();
-                }
-                
-                @Override
-                public void onDismissed() {
-                    // Nothing to do here
-                }
-            });
+    private void setupUI() {
+        // Setup input listeners
+        setupInputListeners();
         
-        dialog.show(requireActivity().getSupportFragmentManager());
+        // Setup WebView
+        setupWebView();
+        
+        // Setup HTML editing button
+        binding.editHtmlButton.setOnClickListener(v -> {
+            if (featureManager.isFeatureUnlocked(FeatureManager.FEATURE_HTML_EDITING)) {
+                showHtmlEditor();
+            } else {
+                Snackbar.make(binding.getRoot(), 
+                    getString(R.string.html_editing_locked), 
+                    Snackbar.LENGTH_LONG)
+                    .setAction(getString(R.string.unlock), view -> {
+                        // Show premium features dialog
+                        featureManager.showPremiumFeaturesDialog(requireActivity());
+                    })
+                    .show();
+            }
+        });
+        
+        // Setup preview button
+        binding.previewButton.setOnClickListener(v -> {
+            // Set the input values in the ViewModel first
+            viewModel.setRecipientName(binding.recipientNameInput.getText().toString());
+            viewModel.setSenderName(binding.senderNameInput.getText().toString());
+            viewModel.setMessage(binding.messageInput.getText().toString());
+            
+            // Then update the preview
+            viewModel.updatePreview();
+        });
+        
+        // Setup save button
+        binding.saveButton.setOnClickListener(v -> {
+            // Set the input values in the ViewModel first
+            viewModel.setRecipientName(binding.recipientNameInput.getText().toString());
+            viewModel.setSenderName(binding.senderNameInput.getText().toString());
+            viewModel.setMessage(binding.messageInput.getText().toString());
+            
+            // Save the current customization
+            viewModel.saveCustomization();
+            
+            // Show confirmation message
+            Snackbar.make(binding.getRoot(), 
+                getString(R.string.customization_saved), 
+                Snackbar.LENGTH_SHORT).show();
+        });
+        
+        // Setup share button
+        binding.shareButton.setOnClickListener(v -> {
+            // Generate sharing link or image
+            String sharingUrl = viewModel.getSharingUrl();
+            
+            if (sharingUrl != null && !sharingUrl.isEmpty()) {
+                Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                shareIntent.setType("text/plain");
+                shareIntent.putExtra(Intent.EXTRA_TEXT, sharingUrl);
+                shareIntent.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_subject));
+                startActivity(Intent.createChooser(shareIntent, getString(R.string.share_using)));
+            } else {
+                Snackbar.make(binding.getRoot(), 
+                    getString(R.string.sharing_error), 
+                    Snackbar.LENGTH_SHORT).show();
+            }
+        });
     }
     
     private void showHtmlEditor() {
@@ -137,106 +178,39 @@ public class TemplateCustomizeFragment extends Fragment {
         binding.previewWebView.getSettings().setLoadWithOverviewMode(true);
         binding.previewWebView.getSettings().setUseWideViewPort(true);
     }
-
-    private void setupObservers() {
-        viewModel.getTemplate().observe(getViewLifecycleOwner(), template -> {
-            if (template != null) {
-                // Check if this is an HTML template
-                isHtmlTemplate = "html".equals(template.getType());
-                
-                // Update UI based on template type
-                updateUiForTemplateType();
-            }
-        });
-        
-        viewModel.getPreviewHtml().observe(getViewLifecycleOwner(), html -> {
-            if (html != null) {
-                binding.previewWebView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
-            }
-        });
-
-        viewModel.getSharedWish().observe(getViewLifecycleOwner(), sharedWish -> {
-            if (sharedWish != null) {
-                Bundle args = new Bundle();
-                args.putString("shortCode", sharedWish.getShortCode());
-                Navigation.findNavController(requireView())
-                        .navigate(R.id.action_template_customize_to_shared_wish, args);
-            }
-        });
-
-        viewModel.getError().observe(getViewLifecycleOwner(), error -> {
-            if (error != null) {
-                showError(error);
-            }
-        });
-        
-        // Observe feature unlock status to update UI
-        coinsViewModel.getIsUnlockedLiveData().observe(getViewLifecycleOwner(), isUnlocked -> {
-            if (isHtmlTemplate) {
-                updateUiForTemplateType();
-            }
-        });
-    }
     
-    private void updateUiForTemplateType() {
-        if (isHtmlTemplate) {
-            // Show or hide HTML edit button based on unlock status
-            boolean isUnlocked = FeatureManager.getInstance(requireContext())
-                                               .isFeatureUnlocked(FeatureManager.HTML_EDITING);
-            
-            // Assuming you have a menu item for HTML editing
-            MenuItem htmlEditItem = binding.toolbar.getMenu().findItem(R.id.action_edit_html);
-            if (htmlEditItem != null) {
-                htmlEditItem.setVisible(true);
-                
-                // Optionally change the icon or title based on lock status
-                if (!isUnlocked) {
-                    htmlEditItem.setTitle(R.string.unlock_html_editing);
-                    htmlEditItem.setIcon(R.drawable.ic_lock);
-                } else {
-                    htmlEditItem.setTitle(R.string.edit_html);
-                    htmlEditItem.setIcon(R.drawable.ic_edit);
-                }
-            }
-        } else {
-            // Not an HTML template, hide HTML editing options
-            MenuItem htmlEditItem = binding.toolbar.getMenu().findItem(R.id.action_edit_html);
-            if (htmlEditItem != null) {
-                htmlEditItem.setVisible(false);
-            }
-        }
-    }
-
-    private void setupClickListeners() {
-        binding.shareButton.setOnClickListener(v -> viewModel.saveWish());
-    }
-
-    private void showError(String message) {
-        if (getView() != null) {
-            Snackbar.make(getView(), message, Snackbar.LENGTH_LONG).show();
-        }
-    }
-
     private class TextChangeListener implements TextWatcher {
         @Override
-        public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
+        public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            // Not used
+        }
+        
         @Override
-        public void onTextChanged(CharSequence s, int start, int before, int count) {}
-
+        public void onTextChanged(CharSequence s, int start, int before, int count) {
+            // Enable preview button when text changes
+            binding.previewButton.setEnabled(true);
+        }
+        
         @Override
         public void afterTextChanged(Editable s) {
-            // Update the ViewModel with new text values
-            viewModel.setRecipientName(binding.recipientNameInput.getText().toString());
-            viewModel.setSenderName(binding.senderNameInput.getText().toString());
-            viewModel.setMessage(binding.messageInput.getText().toString());
+            // Not used
         }
     }
-
+    
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            // Navigate back when home/up button is pressed
+            Navigation.findNavController(requireView()).navigateUp();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+    
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        binding.previewWebView.loadUrl("about:blank");
         binding = null;
+        textChangeListener = null;
     }
 }

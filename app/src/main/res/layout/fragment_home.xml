@@ -112,7 +112,6 @@
                     android:layout_marginStart="16dp"/>
             </LinearLayout>
 
-
             <!-- Filter Chips Section -->
             <HorizontalScrollView
                 android:id="@+id/filterChipsScrollView"

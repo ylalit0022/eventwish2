@@ -1,24 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">EventWish</string>
+    <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
 
     <!-- Bottom Navigation -->
     <string name="title_home">Home</string>
     <string name="title_history">History</string>
     <string name="title_reminder">Reminder</string>
     <string name="title_more">More</string>
+    <string name="title_profile">Profile</string>
+    <string name="title_settings">Settings</string>
+
+    <!-- App Navigation -->
+    <string name="press_back_again_to_exit">Press back again to exit</string>
 
     <string name="reply">Reply</string>
 
     <!-- Settings -->
     <string name="settings">Settings</string>
-    <string name="notifications">Notifications</string>
-    <string name="notifications_desc">Get notified about upcoming events</string>
+    <string name="settings_about">About</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_enable_notifications">Enable Notifications</string>
+    <string name="settings_notifications_description">Get notified about upcoming events and reminders</string>
+    <string name="settings_version">App Version</string>
+    <string name="settings_privacy_policy">Privacy Policy</string>
     <string name="cancel">Cancel</string>
     <string name="category_icon">Category Icon</string>
     <string name="update">Update</string>
 
-    <string name="coins_earned">Update</string>
+    <string name="coins_earned">Feature Unlocked</string>
 
 <!--    Chooser diologe-->
     <string name="open_with">Open With</string>
@@ -202,7 +212,7 @@
     <!-- Offline Indicator -->
     <string name="offline_message">You\'re offline. Some features may be unavailable.</string>
     <string name="offline_icon_description">Offline indicator icon</string>
-    <string name="retry">Retry</string>
+    <string name="retry_button">Retry</string>
     
     <!-- Stale Data Indicator -->
     <string name="stale_data_message">Showing cached data that may be outdated.</string>
@@ -244,20 +254,21 @@
     <string name="base_url">https://eventwish2.onrender.com/api/</string>
 
     <!-- Ad Reward Dialog -->
-    <string name="ad_reward_title">Earn Coins</string>
+    <string name="ad_reward_title">Unlock Features</string>
     <string name="reward_dialog_title">Rewards</string>
-    <string name="coins_count">Coins: %d</string>
-    <string name="coins_format">%d Coins</string>
+    <string name="coins_count">Premium Features</string>
+    <string name="coins_format">Premium</string>
     <string name="remaining_time">Feature unlocked for %d more days</string>
     <string name="remaining_time_format" formatted="false">%d days, %d hours remaining</string>
-    <string name="watch_ad">Watch Ad (+10 coins)</string>
+    <string name="watch_ad">Unlock Premium</string>
     <string name="loading">Loading...</string>
-    <string name="unlock_feature">Unlock Feature (%d coins)</string>
-    <string name="unlock_feature_format">Unlock Feature (%d coins)</string>
-    <string name="insufficient_coins">Need %d more coins</string>
-    <string name="not_enough_coins">You need %d more coins to unlock this feature.</string>
-    <string name="coins_icon_description">Coins icon</string>
-    <string name="reward_success">Congratulations! You earned coins!</string>
+    <string name="unlock_feature">Unlock Feature</string>
+    <string name="unlock_feature_format">Unlock Feature</string>
+    <string name="insufficient_coins">Feature Locked</string>
+    <string name="not_enough_coins">This feature is currently locked.</string>
+    <string name="coins_icon_description">Premium icon</string>
+    <string name="reward_earned_message">Feature unlocked successfully!</string>
+    <string name="reward_success">Congratulations! Feature unlocked!</string>
     <string name="reward_error">Failed to show ad. Please try again.</string>
     <string name="ad_failed">Ad failed to load. Please try again.</string>
     <string name="ad_error">Error showing ad. Please try again later.</string>
@@ -267,18 +278,40 @@
     <string name="edit_html">Edit HTML</string>
     <string name="unlock_html_editing">Unlock HTML Editing</string>
     <string name="html_editor_title">HTML Editor</string>
-    <string name="html_editing_locked">HTML editing is locked. Watch ads to earn coins.</string>
+    <string name="html_editing_locked">HTML editing is a premium feature.</string>
     <string name="html_editing_unlocked">HTML editing is now available for %d days!</string>
     <string name="html_editing_days_remaining">HTML editing: %d days remaining</string>
     
     <!-- Premium Features -->
     <string name="feature_unlocked">Feature unlocked for %d days!</string>
-    <string name="ad_not_ready">Ad not ready</string>
-    <string name="premium_feature_locked">This is a premium feature. Watch ads to earn coins.</string>
-    <string name="template_download_locked">Template download is locked. Watch ads to earn coins.</string>
-    <string name="custom_fonts_locked">Custom fonts are locked. Watch ads to earn coins.</string>
-    <string name="priority_support_locked">Priority support is locked. Watch ads to earn coins.</string>
+    <string name="ad_not_ready">Ad not ready. Please try again later.</string>
+    <string name="ad_loading_timeout">Ad loading timed out. Please try again.</string>
+    <string name="premium_feature_locked">This is a premium feature.</string>
+    <string name="template_download_locked">Template download is a premium feature.</string>
+    <string name="custom_fonts_locked">Custom fonts are a premium feature.</string>
+    <string name="priority_support_locked">Priority support is a premium feature.</string>
     <string name="premium_features">Premium Features</string>
+    <string name="template_unlocked">Template unlocked successfully!</string>
+    <string name="template_unlocked_message">Template unlocked successfully!</string>
+    <string name="ads_removed_from_app">Ads have been removed from this application.</string>
+    <string name="feature_requires_points">This feature requires points to unlock.</string>
+    <string name="template_requires_points">This template requires points to unlock.</string>
+    <string name="html_editing_description">Edit HTML code directly for complete customization</string>
+    <string name="premium_templates_description">Access premium templates with unique designs</string>
+    <string name="remove_ads_description">Remove all advertisements from the app</string>
+    <string name="advanced_colors_description">Use advanced color customization options</string>
+    <string name="unlock">Unlock</string>
+    <string name="feature_locked">This feature is locked</string>
+    <string name="premium_templates_locked">Premium templates are locked</string>
+    <string name="remove_ads_locked">Ad removal feature is locked</string>
+    <string name="advanced_colors_locked">Advanced colors feature is locked</string>
+    <string name="close">Close</string>
+    <string name="customization_saved">Customization saved successfully</string>
+    <string name="share_subject">Check out my EventWish creation!</string>
+    <string name="share_using">Share using</string>
+    <string name="sharing_error">Error creating sharing link</string>
+    <string name="feature_unlocked_message">Feature unlocked successfully!</string>
+    <string name="feature_unlock_failed">Failed to unlock feature</string>
 
     <!-- Auth strings -->
     <string name="app_logo">App Logo</string>
@@ -329,4 +362,16 @@
     <string name="password_reset_failed">Password reset failed</string>
     <string name="code_sent">Verification code sent</string>
     <string name="code_sent_failed">Failed to send verification code</string>
+
+    <string name="premium">Premium</string>
+
+    <!-- Template Selection -->
+    <string name="all_templates">All Templates</string>
+    <string name="no_templates_found">No templates found</string>
+    <string name="retry">Retry</string>
+    <string name="template_image_description">Template image</string>
+
+    <string name="profile_default_username">User</string>
+    <string name="profile_default_email">user@example.com</string>
+    <string name="profile_edit">Edit Profile</string>
 </resources>

@@ -42,14 +42,14 @@ import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.ui.base.BaseFragment;
 import com.ds.eventwish.ui.home.adapter.TemplateAdapter;
 import com.ds.eventwish.ui.home.adapter.CategoriesAdapter;
-import com.ds.eventwish.ui.viewmodel.CoinsViewModel;
-import com.ds.eventwish.ui.dialog.UnifiedAdRewardDialog;
 import com.ds.eventwish.ui.festival.FestivalViewModel;
 import com.ds.eventwish.data.repository.CategoryIconRepository;
 import com.ds.eventwish.ui.views.OfflineIndicatorView;
 import com.ds.eventwish.ui.views.StaleDataIndicatorView;
 import com.ds.eventwish.utils.NetworkUtils;
 import com.ds.eventwish.utils.FeatureManager;
+import com.ds.eventwish.EventWishApplication;
+import com.ds.eventwish.data.repository.UserRepository;
 
 import com.google.android.flexbox.FlexboxLayoutManager;
 import com.google.android.flexbox.FlexDirection;
@@ -65,36 +65,29 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.ds.eventwish.ads.AdMobManager;
-import com.ds.eventwish.ads.AdMobManager.OnAdClosedListener;
-
 public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemplateClickListener {
     private static final String TAG = "HomeFragment";
-    private static final String INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"; // Test ad unit ID
     private FragmentHomeBinding binding;
     private HomeViewModel viewModel;
     private FestivalViewModel festivalViewModel;
-    private CoinsViewModel coinsViewModel;
+    private MenuItem premiumMenuItem;
     private TemplateAdapter adapter;
     private CategoriesAdapter categoriesAdapter;
     private GridLayoutManager layoutManager;
     private static final int VISIBLE_THRESHOLD = 5;
     private BottomNavigationView bottomNav;
     private long backPressedTime;
-    private static final long BACK_PRESS_DELAY = 2000; // 2 seconds
+    private static final long BACK_PRESS_DELAY = 2000; // 2 seconds window for double back press
     private CategoryIconRepository categoryIconRepository;
     private boolean wasInBackground = false;
     private NetworkUtils networkUtils;
     private FeatureManager featureManager;
+    private UserRepository userRepository;
 
-    private androidx.lifecycle.Observer<Integer> coinsObserver;
-    private MenuItem coinsMenuItem;
-    
-    private AdMobManager adMobManager;
-    
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentHomeBinding.inflate(inflater, container, false);
+        setHasOptionsMenu(true);
         return binding.getRoot();
     }
 
@@ -102,32 +95,31 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         
-        // Initialize AdMobManager
-        adMobManager = AdMobManager.getInstance(requireContext());
-        
         // Initialize view models
         viewModel = new ViewModelProvider(this).get(HomeViewModel.class);
         festivalViewModel = new ViewModelProvider(requireActivity()).get(FestivalViewModel.class);
-        
-        // Initialize CoinsViewModel
-        try {
-            coinsViewModel = new ViewModelProvider(requireActivity()).get(CoinsViewModel.class);
-        } catch (Exception e) {
-            Log.e(TAG, "Error initializing CoinsViewModel", e);
-            coinsViewModel = new ViewModelProvider(this).get(CoinsViewModel.class);
-        }
         
         // Initialize other components
         categoryIconRepository = CategoryIconRepository.getInstance();
         networkUtils = NetworkUtils.getInstance(requireContext());
         featureManager = FeatureManager.getInstance(requireContext());
+        userRepository = EventWishApplication.getInstance().getUserRepository();
+        
+        // Force refresh category icons to ensure they're loaded immediately
+        categoryIconRepository.refreshCategoryIcons();
+        
+        // Setup back press handling
+        setupBackPressHandling();
         
         // Setup UI components
         setupRecyclerView();
         setupUi();
+        
+        // Show swipe refresh indicator immediately to indicate initial data loading
+        binding.swipeRefreshLayout.setRefreshing(true);
+        
         setupObservers();
         setupMenuProvider();
-        setupCoinsObserver();
     }
 
     private void setupRecyclerView() {
@@ -135,6 +127,33 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         layoutManager = new GridLayoutManager(requireContext(), 1);
         binding.templatesRecyclerView.setLayoutManager(layoutManager);
         binding.templatesRecyclerView.setAdapter(adapter);
+    }
+
+    /**
+     * Set up back press handling with double press to exit
+     */
+    private void setupBackPressHandling() {
+        OnBackPressedCallback callback = new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                // Check if this is the second back press within 2 seconds
+                if (backPressedTime + BACK_PRESS_DELAY > System.currentTimeMillis()) {
+                    // Second back press within time window, exit the app
+                    this.setEnabled(false);
+                    requireActivity().onBackPressed();
+                } else {
+                    // First back press, show message
+                    Toast.makeText(requireContext(), 
+                        R.string.press_back_again_to_exit, 
+                        Toast.LENGTH_SHORT).show();
+                }
+                
+                // Update the time of this back press
+                backPressedTime = System.currentTimeMillis();
+            }
+        };
+        
+        requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), callback);
     }
 
     private void setupObservers() {
@@ -179,6 +198,11 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                     */
                     // Use progress indicator instead
                     binding.loadingProgressBar.setVisibility(View.VISIBLE);
+                    
+                    // Ensure swipe refresh indicator is showing for initial load
+                    if (!binding.swipeRefreshLayout.isRefreshing()) {
+                        binding.swipeRefreshLayout.setRefreshing(true);
+                    }
                 }
             } else {
                 /*
@@ -187,10 +211,12 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                 */
                 binding.loadingProgressBar.setVisibility(View.GONE);
                 
-                // Make sure swipe refresh is not stuck
-                if (binding.swipeRefreshLayout.isRefreshing()) {
-                    binding.swipeRefreshLayout.setRefreshing(false);
-                }
+                // Give a small delay before hiding the refresh indicator for better UX
+                new Handler().postDelayed(() -> {
+                    if (binding != null && binding.swipeRefreshLayout.isRefreshing()) {
+                        binding.swipeRefreshLayout.setRefreshing(false);
+                    }
+                }, 300); // 300ms delay for better visibility
             }
         });
         
@@ -233,10 +259,10 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         MenuProvider menuProvider = new MenuProvider() {
             @Override
             public void onCreateMenu(@NonNull Menu menu, @NonNull MenuInflater menuInflater) {
-                menuInflater.inflate(R.menu.menu_home, menu);
+                menuInflater.inflate(R.menu.home_menu, menu);
                 
-                // Get the coins menu item
-                coinsMenuItem = menu.findItem(R.id.action_ads);
+                // Get the premium menu item
+                premiumMenuItem = menu.findItem(R.id.action_premium);
                 
                 // Add API tester menu item
                 MenuItem apiTesterItem = menu.add(Menu.NONE, R.id.action_api_tester, Menu.NONE, "API Tester");
@@ -246,24 +272,31 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                 MenuItem dbLogItem = menu.add(Menu.NONE, R.id.action_db_log, Menu.NONE, "Database Log");
                 dbLogItem.setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
                 
-                // Add premium features menu item
-                MenuItem premiumFeaturesItem = menu.add(Menu.NONE, R.id.action_premium_features, Menu.NONE, "Premium Features");
-                premiumFeaturesItem.setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
-                
-                // Update the coins menu item with current value
-                updateCoinsMenuItem();
+                // Update the premium menu item with current value
+                updatePremiumMenuItem();
             }
             
             @Override
             public boolean onMenuItemSelected(@NonNull MenuItem menuItem) {
                 // Handle menu item selection
-                if (menuItem.getItemId() == R.id.action_ads) {
-                    showAdRewardDialog();
+                if (menuItem.getItemId() == R.id.action_premium) {
+                    showAdRewardDialogForFeature();
+                    return true;
+                } else if (menuItem.getItemId() == R.id.action_refresh) {
+                    // Refresh templates
+                    binding.swipeRefreshLayout.setRefreshing(true);
+                    viewModel.refreshTemplates();
+                    return true;
+                } else if (menuItem.getItemId() == R.id.action_settings) {
+                    // Navigate to settings
+                    NavController navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment);
+                    navController.navigate(R.id.navigation_more);
                     return true;
                 } else if (menuItem.getItemId() == R.id.action_api_tester) {
-                    // ... existing code
-                } else if (menuItem.getItemId() == R.id.action_premium_features) {
-                    showPremiumFeaturesDialog();
+                    // Navigate to API tester
+                    return true;
+                } else if (menuItem.getItemId() == R.id.action_db_log) {
+                    // Navigate to DB log
                     return true;
                 }
                 
@@ -274,292 +307,96 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         requireActivity().addMenuProvider(menuProvider, getViewLifecycleOwner(), androidx.lifecycle.Lifecycle.State.RESUMED);
     }
 
-    /**
-     * Update the coins menu item title with animation
-     */
-    private void updateCoinsMenuItem() {
-        try {
-            if (coinsMenuItem != null && isAdded() && !isDetached()) {
-                // Get current coins
-                int coins = 0;
-                if (coinsViewModel != null) {
-                    try {
-                        coins = coinsViewModel.getCurrentCoins();
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error getting current coins count", e);
-                    }
-                }
-                
-                final int coinValue = coins;
-                Log.d(TAG, "Updating coins menu item to: " + coinValue);
-                
-                // Run on UI thread to avoid exceptions
-                if (getActivity() != null) {
-                    getActivity().runOnUiThread(() -> {
-                        try {
-                            // Set the updated title
-                            String coinsText = getString(R.string.coins_format, coinValue);
-                            
-                            // Check if the value changed from previous
-                            String currentText = coinsMenuItem.getTitle().toString();
-                            boolean valueChanged = !currentText.equals(coinsText);
-                            
-                            // Set the new text
-                            coinsMenuItem.setTitle(coinsText);
-                            
-                            // Animate icon if value changed to draw attention
-                            if (valueChanged && coinsMenuItem.getActionView() != null) {
-                                Log.d(TAG, "Animating coins icon due to value change");
-                                
-                                View actionView = coinsMenuItem.getActionView();
-                                
-                                // Scale animation
-                                actionView.animate()
-                                    .scaleX(1.5f)
-                                    .scaleY(1.5f)
-                                    .setDuration(200)
-                                    .withEndAction(() -> {
-                                        // Scale back to normal
-                                        actionView.animate()
-                                            .scaleX(1.0f)
-                                            .scaleY(1.0f)
-                                            .setDuration(200)
-                                            .start();
-                                    })
-                                    .start();
-                            }
-                        } catch (Exception e) {
-                            Log.e(TAG, "Error updating coins menu item", e);
-                        }
-                    });
-                } else {
-                    Log.d(TAG, "Skip updating coins menu item - not attached or menu not created yet");
-                }
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error in updateCoinsMenuItem", e);
-        }
+    private void updatePremiumMenuItem() {
+        // Coins functionality is removed, so this is now a no-op
     }
     
-    /**
-     * Setup the coins observer
-     */
-    private void setupCoinsObserver() {
-        Log.d(TAG, "Setting up coins observer");
-        
-        if (coinsViewModel == null) {
-            try {
-                coinsViewModel = new ViewModelProvider(requireActivity()).get(CoinsViewModel.class);
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing CoinsViewModel", e);
-                coinsViewModel = new ViewModelProvider(this).get(CoinsViewModel.class);
-            }
-        }
-        
-        // Remove any existing observer to avoid duplicates
-        if (coinsObserver != null) {
-            Log.d(TAG, "Removing existing coins observer");
-            coinsViewModel.getCoinsLiveData().removeObserver(coinsObserver);
-        }
-        
-        // Create a new coins observer that updates the menu
-        coinsObserver = coins -> {
-            Log.d(TAG, "Coins observer triggered with value: " + coins);
-            updateCoinsMenuItem();
-        };
-        
-        // Register observer with the view lifecycle owner
-        coinsViewModel.getCoinsLiveData().observe(getViewLifecycleOwner(), coinsObserver);
-        
-        // Also observe coin update events for guaranteed updates
-        coinsViewModel.getCoinUpdateEvent().observe(getViewLifecycleOwner(), coins -> {
-            Log.d(TAG, "Coin update event received in HomeFragment: " + coins);
-            updateCoinsMenuItem();
-        });
-        
-        // Force a refresh to ensure we have the latest value
-        Log.d(TAG, "Initial background refresh in setupCoinsObserver");
-        coinsViewModel.forceBackgroundRefresh(success -> {
-            Log.d(TAG, "Initial coins background refresh completed: " + (success ? "success" : "failed"));
-            
-            // Update UI immediately even if refresh failed
-            if (isAdded() && !isDetached()) {
-                updateCoinsMenuItem();
-            }
-        });
-        
-        // Schedule periodic refreshes
-        startPeriodicCoinsRefresh();
-    }
-    
-    // Handler for periodic refreshes
     private final Handler periodicRefreshHandler = new Handler(Looper.getMainLooper());
     private final Runnable periodicRefreshRunnable = new Runnable() {
         @Override
         public void run() {
-            if (isAdded() && !isDetached() && coinsViewModel != null) {
-                Log.d(TAG, "Running periodic coins refresh");
-                
-                // Use standard refresh for periodic updates to reduce server load
-                coinsViewModel.refreshCoinsCount(success -> {
-                    Log.d(TAG, "Periodic refresh completed: " + (success ? "success" : "failed"));
-                });
-                
-                // Schedule next refresh
-                periodicRefreshHandler.postDelayed(this, 60000); // 1 minute
+            if (isAdded() && !isDetached()) {
+                // Refresh templates
+                viewModel.refreshTemplates();
             }
+            // Schedule next run
+            periodicRefreshHandler.postDelayed(this, 30000); // 30 seconds
         }
     };
-    
-    /**
-     * Start periodic refreshes of coins data
-     */
-    private void startPeriodicCoinsRefresh() {
-        // Remove any existing callbacks to avoid duplicates
-        periodicRefreshHandler.removeCallbacks(periodicRefreshRunnable);
-        
-        // Schedule first refresh after a delay
-        periodicRefreshHandler.postDelayed(periodicRefreshRunnable, 60000); // 1 minute delay
-        
-        Log.d(TAG, "Scheduled periodic coins refresh");
+
+    private void startPeriodicRefresh() {
+        // DISABLED: This method is kept for manual refresh functionality only
+        // and should not be called automatically to reduce server load
+        periodicRefreshHandler.postDelayed(periodicRefreshRunnable, 30000); // First run after 30 seconds
     }
-    
-    /**
-     * Stop periodic refreshes to prevent memory leaks
-     */
-    private void stopPeriodicCoinsRefresh() {
+
+    private void stopPeriodicRefresh() {
+        // Remove callbacks
         periodicRefreshHandler.removeCallbacks(periodicRefreshRunnable);
-        Log.d(TAG, "Stopped periodic coins refresh");
     }
-    
+
     @Override
     public void onResume() {
         super.onResume();
         
-        Log.d(TAG, "onResume called");
-        
-        // Original onResume functionality
-        if (viewModel != null) {
-            // Clear any stale data flag to fetch fresh data
-            viewModel.setStaleData(false);
-            
-            // Only load templates if we have no templates or it's been a while since the last refresh
-            if (!viewModel.hasTemplates() || viewModel.isRefreshNeeded()) {
-                viewModel.loadTemplates(false);
-            }
-        }
-        
-        // New functionality: Full background refresh for coins when returning to fragment
-        if (coinsViewModel != null) {
-            Log.d(TAG, "Full background refresh for coins in onResume");
-            try {
-                // Use background refresh for more reliable results
-                coinsViewModel.forceBackgroundRefresh(success -> {
-                    Log.d(TAG, "Coins background refresh in onResume completed: " + (success ? "success" : "failed"));
-                    
-                    // Always update UI regardless of refresh result
-                    if (isAdded() && !isDetached()) {
-                        updateCoinsMenuItem();
-                    }
-                });
-                
-                // Restart periodic refresh
-                stopPeriodicCoinsRefresh();
-                startPeriodicCoinsRefresh();
-            } catch (Exception e) {
-                Log.e(TAG, "Error refreshing coins in onResume", e);
-                
-                // Try a fallback refresh if background refresh failed
-                coinsViewModel.refreshCoinsCount();
-            }
-        }
-        
-        // Check if we're coming back from another fragment
+        // Check if we were in background
         if (wasInBackground) {
-            Log.d(TAG, "Returning from background");
+            Log.d(TAG, "Coming back from background, refreshing data");
             
-            // Refresh category icons
-            if (categoryIconRepository != null) {
-                categoryIconRepository.refreshCategoryIcons();
-            }
-            
-            // Always load categories when returning to the fragment
-            if (viewModel != null) {
-                Log.d(TAG, "Loading categories in onResume");
-                viewModel.loadCategories();
-            }
-            
-            // Restore selected category
-            if (categoriesAdapter != null && viewModel != null) {
-                String selectedCategory = viewModel.getSelectedCategory();
-                Log.d(TAG, "Restoring selected category: " + (selectedCategory != null ? selectedCategory : "All"));
-                
-                // Update the selected category in the adapter
-                categoriesAdapter.updateSelectedCategory(selectedCategory);
-                
-                // Make sure the categories adapter is refreshed
-                categoriesAdapter.notifyDataSetChanged();
-            }
-            
-            // Refresh templates if needed
-            if (viewModel != null && viewModel.shouldRefreshOnReturn()) {
-                viewModel.loadTemplates(true);
-            }
-            
-            // Update chip selections based on current filters
-            updateChipSelections();
-            
-            // Restore scroll position if needed
-            if (layoutManager != null && viewModel != null) {
-                int lastPosition = viewModel.getLastVisiblePosition();
-                if (lastPosition > 0) {
-                    layoutManager.scrollToPosition(lastPosition);
-                }
-            }
+            // Refresh data
+            viewModel.refreshTemplates();
             
             wasInBackground = false;
-        }
-        
-        // Ensure categories are visible
-        ensureCategoriesVisible();
-        
-        // Check for unread festivals - using the correct method
-        if (festivalViewModel != null) {
-            // Refresh festivals to check for new ones
-            festivalViewModel.refreshFestivals();
+        } else {
+            // When coming back from another fragment (not from background),
+            // we don't want to reload all data, but we should ensure UI is up-to-date
+            Log.d(TAG, "Resuming from another fragment, updating UI without full reload");
             
-            // Update the notification badge based on unread count
-            festivalViewModel.getUnreadCount().observe(getViewLifecycleOwner(), count -> {
-                if (count != null && count > 0) {
-                    binding.notificationBadge.setVisibility(View.VISIBLE);
-                    binding.notificationBadge.setText(count <= 9 ? String.valueOf(count) : "9+");
-                } else {
-                    binding.notificationBadge.setVisibility(View.GONE);
-                }
-            });
+            // Make sure categories are visible
+            ensureCategoriesVisible();
+            
+            // Restore scroll position if needed
+            if (layoutManager != null) {
+                binding.templatesRecyclerView.getLayoutManager().scrollToPosition(viewModel.getLastVisiblePosition());
+            }
         }
+        
+        // DISABLE automatic periodic refresh to reduce server load
+        // startPeriodicRefresh();
     }
 
     @Override
     public void onPause() {
         super.onPause();
         
-        Log.d(TAG, "onPause called");
+        // Only set background flag if we're actually going to background
+        // and not just navigating to another fragment
+        if (!isNavigatingToAnotherFragment()) {
+            Log.d(TAG, "Going to background, setting background flag");
+            wasInBackground = true;
+        } else {
+            Log.d(TAG, "Navigating to another fragment, not setting background flag");
+        }
         
-        // Save the current scroll position
-        int position = layoutManager.findFirstVisibleItemPosition();
-        if (position >= 0) {
+        // Save current scroll position
+        if (layoutManager != null) {
+            int position = layoutManager.findFirstVisibleItemPosition();
             viewModel.saveScrollPosition(position);
-            Log.d(TAG, "Saved scroll position in onPause: " + position);
         }
         
-        // Save the current page for pagination
-        if (viewModel.getCurrentPage() > 1) {
-            Log.d(TAG, "Saved current page in onPause: " + viewModel.getCurrentPage());
-        }
+        // Stop periodic refresh
+        stopPeriodicRefresh();
+    }
+
+    // Helper method to determine if we're navigating to another fragment
+    private boolean isNavigatingToAnotherFragment() {
+        if (getActivity() == null) return false;
         
-        // Mark that we're going to background
-        wasInBackground = true;
+        // Check if we're navigating to another fragment within the app
+        // by checking if there's a pending navigation
+        NavController navController = Navigation.findNavController(getActivity(), R.id.nav_host_fragment);
+        return navController.getCurrentDestination() != null && 
+               navController.getCurrentDestination().getId() != R.id.navigation_home;
     }
 
     private void setupUi() {
@@ -849,16 +686,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
 
     @Override
     public void onTemplateClick(Template template) {
-        if (adMobManager != null && adMobManager.canShowAd(INTERSTITIAL_AD_UNIT_ID)) {
-            adMobManager.showInterstitialAd(INTERSTITIAL_AD_UNIT_ID, new OnAdClosedListener() {
-                @Override
-                public void onAdClosed() {
-                    navigateToTemplateDetail(template);
-                }
-            });
-        } else {
-            navigateToTemplateDetail(template);
-        }
+        navigateToTemplateDetail(template);
     }
     
     // Helper method to navigate to template detail
@@ -924,6 +752,17 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                 if (viewModel != null) {
                     viewModel.setSelectedCategory(category.getId());
                 }
+                
+                // Track category visit in UserRepository
+                if (userRepository != null) {
+                    // For the "All" category, track as null (server handles this as "all")
+                    if (category.getId() == null) {
+                        userRepository.updateUserActivity("all");
+                    } else {
+                        userRepository.updateUserActivity(category.getId());
+                    }
+                    Log.d(TAG, "Tracking category visit: " + (category.getId() != null ? category.getId() : "all"));
+                }
             }
         );
         
@@ -941,6 +780,9 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         binding.categoriesRecyclerView.setPadding(padding, 0, padding, 0);
         binding.categoriesRecyclerView.setClipToPadding(false);
         
+        // Load categories immediately
+        viewModel.loadCategories();
+        
         // Log categories adapter state
         if (viewModel != null && viewModel.getCategoryObjects().getValue() != null) {
             List<com.ds.eventwish.ui.home.Category> categories = viewModel.getCategoryObjects().getValue();
@@ -952,89 +794,47 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     }
 
     private void showAdRewardDialog() {
-        if (adMobManager != null && adMobManager.canShowAd(INTERSTITIAL_AD_UNIT_ID)) {
-            adMobManager.showInterstitialAd(INTERSTITIAL_AD_UNIT_ID, new OnAdClosedListener() {
-                @Override
-                public void onAdClosed() {
-                    UnifiedAdRewardDialog.show(requireContext(), new UnifiedAdRewardDialog.OnRewardListener() {
-                        @Override
-                        public void onCoinsEarned(int amount) {
-                            // Handle coins earned
-                        }
+        // UnifiedAdRewardDialog.showDialog(getParentFragmentManager(), new UnifiedAdRewardDialog.OnRewardListener() {
+        //     @Override
+        //     public void onRewardEarned(int amount) {
+        //         // Handle reward earned
+        //         handleRewardEarned(amount);
+        //     }
 
-                        @Override
-                        public void onFeatureUnlocked(int durationDays) {
-                            // Handle feature unlocked
-                        }
+        //     @Override
+        //     public void onRewardFailed() {
+        //         // Handle reward failed
+        //         handleRewardFailed();
+        //     }
 
-                        @Override
-                        public void onDismissed() {
-                            // Handle dialog dismissed
-                        }
-                    });
-                }
-            });
-        } else {
-            UnifiedAdRewardDialog.show(requireContext(), new UnifiedAdRewardDialog.OnRewardListener() {
-                @Override
-                public void onCoinsEarned(int amount) {
-                    // Handle coins earned
-                }
-
-                @Override
-                public void onFeatureUnlocked(int durationDays) {
-                    // Handle feature unlocked
-                }
-
-                @Override
-                public void onDismissed() {
-                    // Handle dialog dismissed
-                }
-            });
-        }
+        //     @Override
+        //     public void onDialogDismissed() {
+        //         // Handle dialog dismissed
+        //         handleDialogDismissed();
+        //     }
+        // });
     }
 
-    private void showPremiumFeaturesDialog() {
-        if (adMobManager != null && adMobManager.canShowAd(INTERSTITIAL_AD_UNIT_ID)) {
-            adMobManager.showInterstitialAd(INTERSTITIAL_AD_UNIT_ID, new OnAdClosedListener() {
-                @Override
-                public void onAdClosed() {
-                    UnifiedAdRewardDialog.show(requireContext(), new UnifiedAdRewardDialog.OnRewardListener() {
-                        @Override
-                        public void onCoinsEarned(int amount) {
-                            // Handle coins earned
-                        }
+    private void showAdRewardDialogForFeature() {
+        // UnifiedAdRewardDialog.showDialog(getParentFragmentManager(), new UnifiedAdRewardDialog.OnRewardListener() {
+        //     @Override
+        //     public void onRewardEarned(int amount) {
+        //         // Handle reward earned
+        //         handleFeatureRewardEarned(amount);
+        //     }
 
-                        @Override
-                        public void onFeatureUnlocked(int durationDays) {
-                            // Handle feature unlocked
-                        }
+        //     @Override
+        //     public void onRewardFailed() {
+        //         // Handle reward failed
+        //         handleFeatureRewardFailed();
+        //     }
 
-                        @Override
-                        public void onDismissed() {
-                            // Handle dialog dismissed
-                        }
-                    });
-                }
-            });
-        } else {
-            UnifiedAdRewardDialog.show(requireContext(), new UnifiedAdRewardDialog.OnRewardListener() {
-                @Override
-                public void onCoinsEarned(int amount) {
-                    // Handle coins earned
-                }
-
-                @Override
-                public void onFeatureUnlocked(int durationDays) {
-                    // Handle feature unlocked
-                }
-
-                @Override
-                public void onDismissed() {
-                    // Handle dialog dismissed
-                }
-            });
-        }
+        //     @Override
+        //     public void onDialogDismissed() {
+        //         // Handle dialog dismissed
+        //         handleFeatureDialogDismissed();
+        //     }
+        // });
     }
 
     private void setupSwipeRefresh() {
@@ -1172,25 +972,6 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
             }
         });
         
-        // Initialize coins ViewModel if not already done
-        if (coinsViewModel == null) {
-            coinsViewModel = new ViewModelProvider(requireActivity()).get(CoinsViewModel.class);
-            Log.d(TAG, "CoinsViewModel initialized");
-            
-            // Setup coins observer for UI updates
-            coinsObserver = coinsCount -> {
-                Log.d(TAG, "Coins updated: " + coinsCount);
-                // Handle coins update in the activity or in the menu creation callback
-                // Menu might not be created yet, so we'll handle it there
-            };
-            
-            // Get initial coins count
-            coinsViewModel.refreshCoinsCount();
-            
-            // Setup periodic refresh
-            startPeriodicCoinsRefresh();
-        }
-        
         // Initialize festival ViewModel if not already done
         if (festivalViewModel == null) {
             festivalViewModel = new ViewModelProvider(requireActivity()).get(FestivalViewModel.class);
@@ -1209,15 +990,53 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     public void onDestroyView() {
         super.onDestroyView();
         
-        // Stop periodic refreshes to prevent memory leaks
-        stopPeriodicCoinsRefresh();
-        
-        // Clean up observers to prevent memory leaks
-        if (coinsViewModel != null && coinsObserver != null) {
-            coinsViewModel.getCoinsLiveData().removeObserver(coinsObserver);
+        // Clean up observers
+        if (viewModel != null) {
+            viewModel.resetSelectedCategory();
         }
         
-        // Clear reference to binding
+        // Removed coinsViewModel cleanup
+        
         binding = null;
+    }
+
+    private void handleRewardEarned(int amount) {
+        // Premium functionality is now enabled by default, just show a success message
+        Toast.makeText(requireContext(), getString(R.string.reward_earned_message), Toast.LENGTH_SHORT).show();
+    }
+
+    private void handleFeatureRewardEarned(int amount) {
+        // Premium functionality is now enabled by default, just show a success message
+        Toast.makeText(requireContext(), getString(R.string.feature_unlocked_message), Toast.LENGTH_SHORT).show();
+    }
+
+    private void handleRewardFailed() {
+        Toast.makeText(requireContext(), R.string.reward_error, Toast.LENGTH_SHORT).show();
+    }
+
+    private void handleFeatureRewardFailed() {
+        Toast.makeText(requireContext(), R.string.reward_error, Toast.LENGTH_SHORT).show();
+    }
+
+    private void handleDialogDismissed() {
+        // No-op now that ads are removed
+    }
+
+    private void handleFeatureDialogDismissed() {
+        // No-op now that ads are removed
+    }
+
+    @Override
+    public void onCreateOptionsMenu(@NonNull Menu menu, @NonNull MenuInflater inflater) {
+        super.onCreateOptionsMenu(menu, inflater);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        return super.onOptionsItemSelected(item);
+    }
+
+    private void updatePremiumDisplay() {
+        // Premium functionality is enabled by default, so this is now a no-op
     }
 }

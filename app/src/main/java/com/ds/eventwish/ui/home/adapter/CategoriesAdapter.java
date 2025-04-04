@@ -27,6 +27,7 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
     private List<Category> categories;
     private OnCategoryClickListener onCategoryClickListener;
     private OnMoreClickListener onMoreClickListener;
+    private String selectedCategoryId; // Track the selected category ID
     
     /**
      * Interface for handling category click events
@@ -91,7 +92,18 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         return new ArrayList<>(categories);
     }
     
+    /**
+     * Update the selected category
+     * @param categoryId ID of the selected category, can be null for "All"
+     */
     public void updateSelectedCategory(String categoryId) {
+        if ((selectedCategoryId == null && categoryId == null) ||
+            (selectedCategoryId != null && selectedCategoryId.equals(categoryId))) {
+            // No change, return
+            return;
+        }
+        
+        this.selectedCategoryId = categoryId;
         notifyDataSetChanged();
     }
     
@@ -123,6 +135,34 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
                         .into(imageView);
             } else {
                 imageView.setImageResource(R.drawable.ic_category);
+            }
+            
+            // Check if this category is selected - improved logic for handling "All" category
+            boolean isSelected;
+            if (selectedCategoryId == null) {
+                // When selectedCategoryId is null, the "All" category should be selected
+                isSelected = category.getId() == null;
+            } else {
+                // When selectedCategoryId is not null, match by ID
+                isSelected = selectedCategoryId.equals(category.getId());
+            }
+            
+            // Update the UI to reflect selection state
+            container.setSelected(isSelected);
+            
+            // Apply additional styling for selected state
+            if (isSelected) {
+                // Change text color for selected category
+                textView.setTextColor(context.getResources().getColor(R.color.colorPrimary, null));
+                
+                // Change icon tint for selected category
+                imageView.setColorFilter(context.getResources().getColor(R.color.colorPrimary, null));
+            } else {
+                // Default text color for unselected categories
+                textView.setTextColor(context.getResources().getColor(R.color.black, null));
+                
+                // Default icon tint for unselected categories
+                imageView.setColorFilter(context.getResources().getColor(R.color.purple_500, null));
             }
             
             // Set click listener

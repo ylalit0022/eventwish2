@@ -89,7 +89,11 @@ public class TemplateCustomizeViewModel extends ViewModel {
         updatePreview();
     }
     
-    private void updatePreview() {
+    /**
+     * Update the preview with the current values
+     * This can be called directly from the fragment
+     */
+    public void updatePreview() {
         if (template.getValue() == null) return;
         
         // Get the HTML template
@@ -149,6 +153,31 @@ public class TemplateCustomizeViewModel extends ViewModel {
     
     public LiveData<String> getError() {
         return error;
+    }
+    
+    /**
+     * Get the customized HTML content
+     * @return the current customized HTML content
+     */
+    public String getCustomizedHtml() {
+        return previewHtml.getValue();
+    }
+    
+    /**
+     * Get the sharing URL for the current shared wish
+     * @return the sharing URL or null if not available
+     */
+    public String getSharingUrl() {
+        SharedWish currentSharedWish = sharedWish.getValue();
+        return currentSharedWish != null ? currentSharedWish.getPreviewUrl() : null;
+    }
+    
+    /**
+     * Public method to save the customization
+     * This is just an alias for saveWish()
+     */
+    public void saveCustomization() {
+        saveWish();
     }
     
     // Method to update HTML content directly (for HTML editor)

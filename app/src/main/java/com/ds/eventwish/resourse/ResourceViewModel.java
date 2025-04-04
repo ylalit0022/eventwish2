@@ -43,8 +43,30 @@ public class ResourceViewModel extends ViewModel {
     public void loadWish(String shortCode) {
         if (shortCode == null || shortCode.isEmpty()) {
             error.setValue("Invalid wish code");
+            Log.e(TAG, "loadWish: Cannot load wish with null or empty shortCode");
             return;
         }
+
+        // Trim any whitespace or unnecessary characters
+        shortCode = shortCode.trim();
+        
+        // Check if shortCode has any URL encoding or special characters
+        if (shortCode.contains("%")) {
+            try {
+                shortCode = java.net.URLDecoder.decode(shortCode, "UTF-8");
+                Log.d(TAG, "loadWish: Decoded URL-encoded shortCode: " + shortCode);
+            } catch (Exception e) {
+                Log.e(TAG, "Error decoding shortCode", e);
+            }
+        }
+        
+        // Remove any path prefixes that might have been included
+        if (shortCode.startsWith("wish/")) {
+            shortCode = shortCode.substring(5);
+            Log.d(TAG, "loadWish: Removed 'wish/' prefix from shortCode: " + shortCode);
+        }
+        
+        Log.d(TAG, "loadWish: Final shortCode to use for API call: " + shortCode);
 
         if (currentCall != null) {
             currentCall.cancel();
@@ -52,6 +74,9 @@ public class ResourceViewModel extends ViewModel {
 
         isLoading.setValue(true);
         Log.d(TAG, "Loading wish with shortCode: " + shortCode);
+
+        // Store the final shortCode for retry logic
+        final String finalShortCode = shortCode;
 
         currentCall = apiService.getSharedWish(shortCode);
         currentCall.enqueue(new Callback<BaseResponse<WishResponse>>() {
@@ -61,10 +86,14 @@ public class ResourceViewModel extends ViewModel {
 
                 if (response.isSuccessful() && response.body() != null) {
                     BaseResponse<WishResponse> baseResponse = response.body();
+                    Log.d(TAG, "API Response received - success: " + baseResponse.isSuccess() + 
+                          ", message: " + baseResponse.getMessage());
+                    
                     if (baseResponse.isSuccess() && baseResponse.getData() != null) {
                         WishResponse wishResponse = baseResponse.getData();
                         if (wishResponse.getTemplate() != null) {
-                            Log.d(TAG, "Wish loaded successfully with template");
+                            Log.d(TAG, "Wish loaded successfully with template id: " + 
+                                  (wishResponse.getTemplate().getId() != null ? wishResponse.getTemplate().getId() : "null"));
                             wish.setValue(wishResponse);
                         } else {
                             Log.e(TAG, "Template is null in wish response");
@@ -74,10 +103,18 @@ public class ResourceViewModel extends ViewModel {
                         String errorMsg = baseResponse.getMessage() != null ? 
                             baseResponse.getMessage() : "Failed to load wish";
                         Log.e(TAG, "Error in response: " + errorMsg);
-                        error.setValue(errorMsg);
+                        
+                        // If the error message indicates the wish wasn't found, provide a better error message
+                        if (errorMsg.toLowerCase().contains("not found") || 
+                            errorMsg.toLowerCase().contains("invalid") || 
+                            errorMsg.toLowerCase().contains("does not exist")) {
+                            error.setValue("Shared wish not found. The link may be expired or invalid.");
+                        } else {
+                            error.setValue(errorMsg);
+                        }
                     }
                 } else {
-                    handleErrorResponse(response);
+                    handleErrorResponse(response, finalShortCode);
                 }
             }
 
@@ -89,12 +126,12 @@ public class ResourceViewModel extends ViewModel {
                 }
 
                 isLoading.setValue(false);
-                handleFailure(t);
+                handleFailure(t, finalShortCode);
             }
         });
     }
 
-    private void handleErrorResponse(Response<BaseResponse<WishResponse>> response) {
+    private void handleErrorResponse(Response<BaseResponse<WishResponse>> response, String shortCode) {
         String errorMsg;
         try {
             if (response.errorBody() != null) {
@@ -105,11 +142,27 @@ public class ResourceViewModel extends ViewModel {
         } catch (IOException e) {
             errorMsg = "Error reading error response";
         }
-        Log.e(TAG, "Error response: " + errorMsg);
-        error.setValue(errorMsg);
+        
+        Log.e(TAG, "Error response for shortCode [" + shortCode + "]: " + errorMsg + ", HTTP code: " + response.code());
+        
+        // Provide more user-friendly error messages based on HTTP status codes
+        if (response.code() == 404) {
+            error.setValue("Shared wish not found. The link may be expired or invalid.");
+        } else if (response.code() == 403) {
+            error.setValue("You don't have permission to view this wish.");
+        } else if (response.code() >= 500) {
+            error.setValue("Server error. Please try again later.");
+        } else {
+            // For other errors, use the error message from the response if possible
+            if (errorMsg.contains("not found") || errorMsg.toLowerCase().contains("invalid")) {
+                error.setValue("Shared wish not found. The link may be expired or invalid.");
+            } else {
+                error.setValue("Error loading wish: " + response.code());
+            }
+        }
     }
 
-    private void handleFailure(Throwable t) {
+    private void handleFailure(Throwable t, String shortCode) {
         String errorMessage;
         if (t instanceof SocketTimeoutException) {
             errorMessage = "Connection timed out. Please check your internet connection and try again.";
@@ -119,7 +172,7 @@ public class ResourceViewModel extends ViewModel {
             errorMessage = "An error occurred. Please try again.";
         }
         
-        Log.e(TAG, "Request failed: " + errorMessage, t);
+        Log.e(TAG, "Request failed for shortCode [" + shortCode + "]: " + errorMessage, t);
         error.setValue(errorMessage);
     }
 

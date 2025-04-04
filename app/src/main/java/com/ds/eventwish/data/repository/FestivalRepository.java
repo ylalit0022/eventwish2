@@ -239,7 +239,7 @@ public class FestivalRepository {
 
             // Then fetch festivals
             try {
-                Call<List<Festival>> call = apiService.getFestivals();
+                Call<List<Festival>> call = apiService.getUpcomingFestivals();
                 retrofit2.Response<List<Festival>> response = call.execute();
                 
                 if (response.isSuccessful() && response.body() != null) {

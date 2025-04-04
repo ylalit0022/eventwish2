@@ -1,6 +1,8 @@
 package com.ds.eventwish.data.cache;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.util.Log;
 import android.util.LruCache;
 
@@ -11,14 +13,27 @@ import com.ds.eventwish.utils.AppExecutors;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
-import com.jakewharton.disklrucache.DiskLruCache;
 
+import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FilterOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -42,9 +57,6 @@ public class ResourceCache {
     
     // Memory cache
     private final LruCache<String, CacheEntry<JsonObject>> memoryCache;
-    
-    // Disk cache
-    private final DiskLruCache diskCache;
     
     // Dependencies
     private final Context context;
@@ -94,14 +106,6 @@ public class ResourceCache {
             cacheDir.mkdirs();
         }
         
-        DiskLruCache cache = null;
-        try {
-            cache = DiskLruCache.open(cacheDir, 1, 1, DISK_CACHE_SIZE);
-        } catch (IOException e) {
-            Log.e(TAG, "Error opening disk cache", e);
-        }
-        diskCache = cache;
-        
         Log.d(TAG, "ResourceCache initialized");
         
         // Start cleanup task
@@ -149,13 +153,6 @@ public class ResourceCache {
                 Log.d(TAG, "Removed expired entry from memory cache: " + key);
             }
         }
-        
-        // Clean up disk cache
-        try {
-            diskCache.flush();
-        } catch (IOException e) {
-            Log.e(TAG, "Error flushing disk cache", e);
-        }
     }
     
     /**
@@ -184,21 +181,6 @@ public class ResourceCache {
             memoryCache.put(key, entry);
             expirationTimes.put(key, expiration);
         }
-        
-        // Add to disk cache
-        executors.diskIO().execute(() -> {
-            try {
-                DiskLruCache.Editor editor = diskCache.edit(key.hashCode() + "");
-                if (editor != null) {
-                    String json = gson.toJson(entry);
-                    editor.set(0, json);
-                    editor.commit();
-                    Log.d(TAG, "Added to disk cache: " + key);
-                }
-            } catch (IOException e) {
-                Log.e(TAG, "Error writing to disk cache", e);
-            }
-        });
     }
     
     /**
@@ -245,37 +227,6 @@ public class ResourceCache {
             return (T) entry.getValue();
         }
         
-        // Try disk cache
-        try {
-            DiskLruCache.Snapshot snapshot = diskCache.get(key.hashCode() + "");
-            if (snapshot != null) {
-                try {
-                    String json = snapshot.getString(0);
-                    CacheEntry<JsonObject> diskEntry = gson.fromJson(json, CacheEntry.class);
-                    
-                    if (diskEntry.isExpired()) {
-                        // Remove expired entry
-                        diskCache.remove(key.hashCode() + "");
-                        Log.d(TAG, "Disk cache entry expired: " + key);
-                        return null;
-                    }
-                    
-                    // Add to memory cache
-                    synchronized (memoryCache) {
-                        memoryCache.put(key, diskEntry);
-                        expirationTimes.put(key, diskEntry.getExpiration());
-                    }
-                    
-                    Log.d(TAG, "Cache hit (disk): " + key);
-                    return (T) diskEntry.getValue();
-                } finally {
-                    snapshot.close();
-                }
-            }
-        } catch (IOException | JsonSyntaxException e) {
-            Log.e(TAG, "Error reading from disk cache", e);
-        }
-        
         Log.d(TAG, "Cache miss: " + key);
         return null;
     }
@@ -294,15 +245,6 @@ public class ResourceCache {
             memoryCache.remove(key);
             expirationTimes.remove(key);
         }
-        
-        // Remove from disk cache
-        executors.diskIO().execute(() -> {
-            try {
-                diskCache.remove(key.hashCode() + "");
-            } catch (IOException e) {
-                Log.e(TAG, "Error removing from disk cache", e);
-            }
-        });
         
         Log.d(TAG, "Removed from cache: " + key);
     }
@@ -332,15 +274,6 @@ public class ResourceCache {
         }
         
         Log.d(TAG, "Removed " + keysToRemove.size() + " entries with prefix: " + prefix);
-        
-        // We can't easily remove by prefix from disk cache, so we'll just flush it
-        executors.diskIO().execute(() -> {
-            try {
-                diskCache.flush();
-            } catch (IOException e) {
-                Log.e(TAG, "Error flushing disk cache", e);
-            }
-        });
     }
     
     /**
@@ -352,33 +285,6 @@ public class ResourceCache {
             memoryCache.evictAll();
             expirationTimes.clear();
         }
-        
-        // Clear disk cache
-        executors.diskIO().execute(() -> {
-            try {
-                diskCache.delete();
-                
-                // Reinitialize disk cache
-                File cacheDir = new File(context.getCacheDir(), DISK_CACHE_DIR);
-                if (!cacheDir.exists()) {
-                    cacheDir.mkdirs();
-                }
-                
-                DiskLruCache newCache = DiskLruCache.open(cacheDir, 1, 1, DISK_CACHE_SIZE);
-                
-                synchronized (ResourceCache.class) {
-                    // Replace the disk cache reference
-                    try {
-                        ResourceCache.class.getDeclaredField("diskCache")
-                                .set(this, newCache);
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error replacing disk cache reference", e);
-                    }
-                }
-            } catch (IOException e) {
-                Log.e(TAG, "Error clearing disk cache", e);
-            }
-        });
         
         Log.d(TAG, "Cache cleared");
     }
@@ -411,29 +317,6 @@ public class ResourceCache {
             return true;
         }
         
-        // Check disk cache
-        try {
-            DiskLruCache.Snapshot snapshot = diskCache.get(key.hashCode() + "");
-            if (snapshot != null) {
-                try {
-                    String json = snapshot.getString(0);
-                    CacheEntry<JsonObject> diskEntry = gson.fromJson(json, CacheEntry.class);
-                    
-                    if (diskEntry.isExpired()) {
-                        // Remove expired entry
-                        diskCache.remove(key.hashCode() + "");
-                        return false;
-                    }
-                    
-                    return true;
-                } finally {
-                    snapshot.close();
-                }
-            }
-        } catch (IOException | JsonSyntaxException e) {
-            Log.e(TAG, "Error checking disk cache", e);
-        }
-        
         return false;
     }
     
@@ -452,12 +335,7 @@ public class ResourceCache {
      * @return Size in bytes
      */
     public long getDiskCacheSize() {
-        try {
-            return diskCache.size();
-        } catch (Exception e) {
-            Log.e(TAG, "Error getting disk cache size", e);
-            return 0;
-        }
+        return 0; // Disk cache is now managed by a separate file
     }
     
     /**

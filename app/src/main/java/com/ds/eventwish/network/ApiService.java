@@ -1,97 +1,88 @@
 package com.ds.eventwish.network;
 
-import com.ds.eventwish.data.local.entity.AdMobEntity;
+import com.ds.eventwish.data.model.ServerTimeResponse;
+import com.ds.eventwish.data.model.response.BaseResponse;
+import com.ds.eventwish.data.model.response.CategoryIconResponse;
+import com.ds.eventwish.data.model.response.TemplateResponse;
+import com.ds.eventwish.data.model.response.WishResponse;
 import com.google.gson.JsonObject;
-import com.ds.eventwish.data.model.Festival;
-import com.ds.eventwish.data.model.SharedWish;
-import com.ds.eventwish.data.model.Template;
-import org.json.JSONObject;
-import retrofit2.Call;
-import retrofit2.http.*;
 import java.util.List;
 import java.util.Map;
+import retrofit2.Call;
+import retrofit2.http.Body;
+import retrofit2.http.DELETE;
+import retrofit2.http.GET;
+import retrofit2.http.HeaderMap;
+import retrofit2.http.Headers;
+import retrofit2.http.POST;
+import retrofit2.http.PUT;
+import retrofit2.http.Path;
+import retrofit2.http.Query;
 
 /**
- * API service interface for Retrofit
+ * Retrofit interface for API calls
  */
 public interface ApiService {
-    
-    // Template endpoints
     @GET("templates")
-    Call<List<Template>> getTemplates();
-    
+    Call<TemplateResponse> getTemplates(@Query("page") int page, @Query("limit") int limit);
+
+    @GET("templates/category/{category}")
+    Call<TemplateResponse> getTemplatesByCategory(@Path("category") String category, @Query("page") int page, @Query("limit") int limit);
+
     @GET("templates/{id}")
-    Call<Template> getTemplateById(@Path("id") String id);
-    
-    // Festival endpoints
-    @GET("festivals")
-    Call<List<Festival>> getFestivals();
-    
-    // Shared wish endpoints
-    @POST("wishes/create")
-    Call<SharedWish> createSharedWish(@Body Map<String, Object> requestBody);
-    
+    Call<JsonObject> getTemplateById(@Path("id") String id);
+
+    @GET("categories")
+    Call<List<JsonObject>> getCategories();
+
+    @GET("icons")
+    Call<CategoryIconResponse> getCategoryIcons();
+
+    @POST("share")
+    Call<JsonObject> createSharedWish(@Body Map<String, Object> sharedWish);
+
     @GET("wishes/{shortCode}")
-    Call<SharedWish> getSharedWishByShortCode(@Path("shortCode") String shortCode);
-    
-    @GET("wishes/shared/{shortCode}")
+    Call<BaseResponse<WishResponse>> getSharedWish(@Path("shortCode") String shortCode);
+
+    @GET("wishes/{shortCode}")
     Call<JsonObject> getSharedWishJsonByShortCode(@Path("shortCode") String shortCode);
-    
-    // AdMob endpoints for client
-    @GET("admob")
-    Call<List<Map<String, Object>>> getAdMobConfig();
-    
-    @GET("admob/byType/{adType}")
-    Call<List<Map<String, Object>>> getAdMobByType(@Path("adType") String adType);
-    
-    /**
-     * Get all active AdMob units
-     * @return List of AdMob entities
-     */
-    @GET("admob/units")
-    Call<List<AdMobEntity>> getAdMobData();
-    
-    // Time and security endpoints
-    @GET("test/time")
-    Call<JSONObject> getServerTime();
-    
-    // Plan configuration endpoint
-    @GET("coins/plan")
-    Call<JsonObject> getPlanConfiguration();
-    
-    /**
-     * Get coins for a device
-     * @param deviceId Device ID
-     * @return Coins data
-     */
+
+    @POST("wishes/{shortCode}/share")
+    Call<JsonObject> updateSharedWishPlatform(@Path("shortCode") String shortCode, @Body JsonObject platform);
+
+    @GET("server/time")
+    Call<ServerTimeResponse> getServerTime();
+
+    // Coins endpoints
     @GET("coins/{deviceId}")
     Call<JsonObject> getCoins(@Path("deviceId") String deviceId);
-    
-    /**
-     * Add coins for watching a rewarded ad
-     * @param deviceId Device ID
-     * @param requestBody Body containing ad unit ID
-     * @return Updated coins data
-     */
-    @POST("coins/{deviceId}")
-    Call<JsonObject> addCoins(@Path("deviceId") String deviceId, @Body Map<String, Object> requestBody);
-    
-    /**
-     * Unlock HTML editing feature
-     * @param deviceId Device ID
-     * @return Unlock result
-     */
-    @POST("coins/{deviceId}/unlock")
-    Call<JsonObject> unlockFeature(@Path("deviceId") String deviceId);
-    
-    // Unlock validation endpoints
-    @POST("coins/validate")
-    Call<JsonObject> validateUnlock(@Body Map<String, Object> requestBody);
-    
-    @POST("coins/report")
-    Call<JsonObject> reportUnlock(@Body Map<String, Object> requestBody);
-    
-    // Track ad rewards
-    @POST("coins/reward")
-    Call<JSONObject> trackAdReward(@Body JSONObject payload);
+
+    @POST("coins/add")
+    Call<JsonObject> addCoins(@Body Map<String, Object> requestBody);
+
+    // User and registration
+    @POST("device/register")
+    Call<JsonObject> registerDevice(@Body JsonObject deviceInfo);
+
+    @POST("auth/validate")
+    Call<JsonObject> validateAppSignature(@HeaderMap Map<String, String> headers);
+
+    @POST("auth/register")
+    Call<JsonObject> registerUser(@Body Map<String, Object> user);
+
+    @POST("auth/login")
+    Call<JsonObject> login(@Body Map<String, Object> credentials);
+
+    @POST("auth/refresh")
+    Call<JsonObject> refreshToken(@Body Map<String, Object> refreshToken);
+
+    @POST("security/violation")
+    Call<JsonObject> reportSecurity(@Body Map<String, Object> securityData);
+
+    // Festivals
+    @GET("festivals/upcoming")
+    Call<JsonObject> getUpcomingFestivals();
+
+    @GET("festivals/category/{category}")
+    Call<JsonObject> getFestivalsByCategory(@Path("category") String category);
 } 

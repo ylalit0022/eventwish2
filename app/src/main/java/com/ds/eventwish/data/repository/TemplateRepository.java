@@ -96,7 +96,7 @@ public class TemplateRepository {
     private TemplateRepository(Context context) {
         this.context = context.getApplicationContext();
         this.resourceRepository = ResourceRepository.getInstance(context);
-        this.apiService = ApiClient.getInstance().getApiService();
+        this.apiService = ApiClient.getClient();
         this.executors = AppExecutors.getInstance();
         this.networkUtils = NetworkUtils.getInstance(context);
         this.gson = new Gson();

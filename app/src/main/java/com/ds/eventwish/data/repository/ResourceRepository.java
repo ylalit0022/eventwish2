@@ -65,12 +65,11 @@ public class ResourceRepository {
     
     // Dependencies
     private final ResourceDao resourceDao;
-    private final ApiClient apiClient;
+    private final ApiService apiService;
     private final AppExecutors appExecutors;
     private final NetworkUtils networkUtils;
     private final ResourceCache resourceCache;
     private final Gson gson;
-    private final ApiService apiService;
     private final ErrorHandler errorHandler;
     private final Context context;
     
@@ -101,12 +100,11 @@ public class ResourceRepository {
         this.context = context.getApplicationContext();
         ResourceDatabase database = ResourceDatabase.getInstance(context);
         resourceDao = database.resourceDao();
-        apiClient = ApiClient.getInstance();
+        apiService = ApiClient.getClient();
         appExecutors = AppExecutors.getInstance();
         networkUtils = NetworkUtils.getInstance(context);
         resourceCache = ResourceCache.getInstance(context);
         gson = new Gson();
-        apiService = ApiClient.getInstance().getApiService();
         errorHandler = ErrorHandler.getInstance(context);
         
         // Clean up expired resources periodically
@@ -1053,11 +1051,11 @@ public class ResourceRepository {
     private Call<JsonObject> getApiCall(String resourceType, String resourceKey, Map<String, String> headers) {
         switch (resourceType) {
             case RESOURCE_TYPE_TEMPLATE:
-                return apiClient.getApiService().getTemplate(resourceKey, headers);
+                return apiService.getTemplate(resourceKey, headers);
             case RESOURCE_TYPE_CATEGORY:
-                return apiClient.getApiService().getCategory(resourceKey, headers);
+                return apiService.getCategory(resourceKey, headers);
             case RESOURCE_TYPE_ICON:
-                return apiClient.getApiService().getIcon(resourceKey, headers);
+                return apiService.getIcon(resourceKey, headers);
             default:
                 return null;
         }
@@ -1073,11 +1071,11 @@ public class ResourceRepository {
     private Call<List<JsonObject>> getApiCallForAll(String resourceType, Map<String, String> headers) {
         switch (resourceType) {
             case RESOURCE_TYPE_TEMPLATE:
-                return apiClient.getApiService().getTemplates(headers);
+                return apiService.getTemplatesJson(headers);
             case RESOURCE_TYPE_CATEGORY:
-                return apiClient.getApiService().getCategories(headers);
+                return apiService.getCategories(headers);
             case RESOURCE_TYPE_ICON:
-                return apiClient.getApiService().getIcons(headers);
+                return apiService.getIcons(headers);
             default:
                 return null;
         }

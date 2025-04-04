@@ -197,149 +197,226 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Track timing metrics for API calls to identify performance issues
   - Add detailed error logging for failed requests
   - Use interceptors to add common headers across all requests
+- When removing AdMob integration from an Android application:
+  - Delete all ad-related classes and files (AdMobManager, AdConfig, etc.)
+  - Remove Firebase dependencies from build.gradle
+  - Update SecureTokenManager and DeviceUtils to maintain API compatibility
+  - Remove AdMob-related endpoints from ApiService
+  - Keep API key handling methods even after removing ad functionality
+  - Clean up imports and initialization code in Application class
+  - Remove AdMob-related references from Room database entities and DAOs
+  - Modify UI fragments and activities to remove ad containers and references
+  - Run clean builds frequently to catch missing files and dependencies
+  - Fix possible dependency issues by downgrading to compatible versions like OkHttp 4.9.0 instead of 4.12.0
 
 # Scratchpad
 
-## Current Task: Implement AdMob Ads System
+## Current Task: Background User Registration Feature
 
-### Analysis of Existing Files
-[X] Checked AdMob.js model for server-side ad unit management
-[X] Reviewed Coins.js for reward system integration
-[X] Analyzed ResourceFragment.java for interstitial ad placement
-[X] Examined HomeFragment.java for rewarded ad integration
-[X] Verified backend configuration and API endpoints
+### Problem Statement
+The app needs to implement automatic background user registration with the server when a user first opens the app. The key requirements are:
+1. Register new users with their device ID as a unique identifier
+2. Track when users were last online
+3. Record user activity history, specifically which categories they visit
+4. Implementation should be done server-side in the existing backend
 
-### Implementation Plan
+### Data Model
+For the `users` collection/table:
+```
+{
+  deviceId: String,          // Unique identifier from the device
+  lastOnline: Date,          // Timestamp of last activity
+  created: Date,             // When user was first registered
+  categories: [              // Array of category visit history
+    {
+      category: String,      // Category name/ID
+      visitDate: Date        // When the category was visited
+    }
+  ]
+}
+```
 
-#### 1. Server-Side Setup
-[X] Update AdMob.js model with additional fields:
-  - Add lastAdShown timestamp
-  - Add adFrequency settings
-  - Add reward thresholds
-  - Add ad cooldown periods
-[X] Create new API endpoints:
-  - GET /api/admob/units - Get ad units
-  - POST /api/admob/reward - Handle reward redemption
-  - GET /api/admob/status - Get ad status and cooldowns
-  - POST /api/admob/impression - Record ad impressions
-  - POST /api/admob/click - Record ad clicks
+### Action Plan
+[X] 1. Server-side implementation:
+   - Create a User model schema in the backend
+   - Implement API endpoints for user registration and activity tracking
+   - Set up proper validation and error handling
+   - Implement device ID verification
 
-#### 2. Client-Side Ad Implementation
-[X] Create AdMobManager singleton class:
-  - Initialize AdMob SDK
-  - Handle ad loading and caching
-  - Manage ad cooldowns
-  - Track ad impressions
-[X] Implement App Open Ads:
-  - Load on app start
-  - Handle cold/warm starts
-  - Follow AdMob policies
-[X] Implement Interstitial Ads:
-  - Show on fragment switches
-  - Show on button clicks
-  - Show on shared link views
-[X] Implement Rewarded Ads:
-  - Add ad icon in header
-  - Show live coins
-  - Handle reward redemption
-  - Implement 15-day cooldown
+[X] 2. Client-side implementation:
+   - Add background registration when app is first opened
+   - Implement background category visit tracking
+   - Set up periodic last online updates
+   - Handle network errors gracefully
 
-#### 3. UI Integration
-[X] Update HomeFragment:
-  - Add ad icon next to refresh
-  - Show live coins
-  - Add reward dialog
-[X] Update ResourceFragment:
-  - Add interstitial ad triggers
-  - Handle ad loading states
-[X] Create RewardDialog:
-  - Show reward options
-  - Handle redemption
-  - Display cooldown status
+### Implementation Details
 
-#### 4. Data Management
-[X] Implement local storage:
-  - Store ad cooldowns
-  - Track impressions
-  - Cache ad units
-[X] Sync with server:
-  - Update device data
-  - Sync reward status
-  - Handle offline mode
+#### 1. Server-side (Backend):
+[X] Create User model schema (models/User.js):
+   - Defined schema with deviceId, lastOnline, created, and categories fields
+   - Added indexes for efficient querying
+   - Implemented validation for incoming data
+   - Added helper methods for updating lastOnline and category visits
 
-#### 5. Testing & Validation
-[ ] Unit tests for AdMobManager
-[ ] Integration tests for reward system
-[ ] UI tests for ad placement
-[ ] Performance testing for ad loading
+[X] Create API routes (routes/users.js):
+   - POST /api/users/register - Register new user with device ID
+   - PUT /api/users/activity - Update user's last online and category visits
+   - GET /api/users/:deviceId - Get user data (for testing)
+   - Added proper error handling and validation
 
-### Important Features to Add
-1. Ad Loading Optimization:
-   - Preload ads for better UX
-   - Implement ad queue
-   - Handle failed loads gracefully
+[X] Implement middleware:
+   - Created validators.js middleware for input validation
+   - Added validation for device IDs and category names
+   - Implementation includes input sanitization and format checking
 
-2. Analytics & Tracking:
-   [X] Track ad performance
-   [X] Monitor user engagement
-   [X] Log reward redemptions
+[X] Update server.js:
+   - Added the new user routes to app.js
+   - Set up logger utility for proper logging
 
-3. Error Handling:
-   [X] Network failures
-   [X] Ad loading failures
-   [X] Reward sync issues
+#### 2. Client-side (Android App):
+[X] Generate and store unique device ID:
+   - Created UserRepository with device ID generation and storage
+   - Used Android ID with fallback to UUID generation
+   - Added SHA-256 hashing for privacy protection
+   - Store securely in SharedPreferences
 
-4. User Experience:
-   [X] Smooth transitions
-   [X] Clear reward messaging
-   [X] Intuitive ad placement
+[X] Implement background registration:
+   - Added user registration in EventWishApplication.onCreate
+   - Implemented API endpoints in ApiService
+   - Added error handling and retry logic
+   - Created asynchronous registration using Executor
 
-### Next Steps
-[X] Start with server-side updates
-[X] Create server-side API endpoints for ad management
-[X] Implement AdMobManager
-[X] Add basic ad loading
-[X] Integrate with existing UI
-[X] Add reward system
-[X] Implement analytics
-[X] Add error handling
-[ ] Test thoroughly
+[X] Track category visits:
+   - Updated HomeFragment to send category visit data
+   - Implemented tracking in category selection click handler
+   - Added special handling for "All" category
+   - Rate limiting to prevent too frequent updates (5 minute interval)
 
-### Technical Considerations
-- Use device ID for user tracking
-- Implement proper ad lifecycle management
-- Follow AdMob policies strictly
-- Handle configuration changes
-- Manage memory efficiently
-- Implement proper error recovery
+[X] Update last online status:
+   - Implemented period updates in onActivityResumed
+   - Added throttling to prevent excessive API calls
+   - Proper error handling for network failures
 
-### Progress Notes
-1. Updated AdMob.js model with:
-   - Cooldown management
-   - Reward system integration
-   - Device-specific tracking
-   - Analytics improvements
-   - Frequency controls
-2. Created server-side API endpoints:
-   - GET /api/admob/units for fetching available ad units
-   - GET /api/admob/status for checking ad and reward status
-   - POST /api/admob/reward for handling reward redemption
-   - POST /api/admob/impression for tracking impressions
-   - POST /api/admob/click for tracking clicks
-3. Implemented AdMobManager singleton class:
-   - Added proper initialization
-   - Implemented ad loading and caching
-   - Added cooldown management
-   - Added impression tracking
-4. Updated UnifiedAdRewardDialog:
-   - Integrated with AdMobManager
-   - Improved reward handling
-   - Added proper error handling
-   - Enhanced UI feedback
-5. Implemented AdAnalytics:
-   - Created simple analytics service
-   - Added tracking for impressions
-   - Added tracking for load failures
-   - Added tracking for show failures
-   - Integrated with AdMobManager
-6. Next: Implement comprehensive testing
+### Completion Notes
+The background user registration feature has been successfully implemented:
+
+1. **Server-side components** provide a robust system for tracking user activity:
+   - The `User` model with proper schema and validation
+   - Complete API endpoints with proper error handling
+   - Input validation middleware to ensure data integrity
+   - Logging for debugging and monitoring
+
+2. **Client-side implementation** handles automatic registration and tracking:
+   - Secure device ID generation with privacy protections
+   - Background registration when the app first starts
+   - Tracking of category visits when users browse different categories
+   - Automatic updates of online status as users use the app
+   - Rate limiting to prevent server overload
+
+These changes enable valuable analytics capabilities while maintaining user privacy. The system is designed to be lightweight and unobtrusive, with minimal impact on app performance. The collected data can be used for future personalization features, allowing the app to recommend templates based on users' browsing patterns.
+
+## Previous Task: Improve UI/UX Elements
+
+### Problem Statement
+Three UI/UX issues need to be addressed to improve the user experience:
+1. Swipe refresh loader is not showing when app is first opened, giving no indication that data is being fetched
+2. When a category is selected, there's no visual indication (highlighting) to show which category is active
+3. When users press the back button to exit the app from the HomeFragment, there's no confirmation, which can lead to accidental exits
+
+### Action Plan
+[X] 1. Fix swipe refresh loader visibility:
+   - Modify HomeFragment to show the swipe refresh indicator when the app first loads data
+   - Ensure the indicator is properly shown during initial data fetch and disappears when complete
+   - Add proper coordination between loading states and the SwipeRefreshLayout
+
+[X] 2. Implement category selection highlighting:
+   - Enhance the CategoriesAdapter to properly highlight the selected category
+   - Add visual styling for the active category (background color, text color change, etc.)
+   - Ensure the highlighting persists when navigating back to HomeFragment
+   - Update the category item layout to support highlighting states
+   - Fixed "All" category not highlighting properly with improved null handling logic
+
+[X] 3. Add back button exit confirmation:
+   - Implement double-back-press detection in HomeFragment
+   - Add a toast message notifying users to "Press back again to exit"
+   - Set up a timer to reset the back press state after a short delay
+   - Handle the back button press through the OnBackPressedCallback interface
+
+### Implementation Details
+1. **Swipe Refresh Loader**:
+   - Update HomeFragment.onViewCreated to trigger SwipeRefreshLayout.setRefreshing(true) during initial load
+   - Improved loading state observer to coordinate with the SwipeRefreshLayout indicator
+   - Added a small delay before hiding the refresh indicator for better visibility
+
+2. **Category Selection Highlighting**:
+   - Added a selectedCategoryId field to CategoriesAdapter to track the selected category
+   - Updated onBindViewHolder to apply different styling for selected items (colors for text and icon)
+   - Using the existing bg_category_selector drawable that already had selected state styling
+   - Improved updateSelectedCategory method to check for unchanged selections for better performance
+   - Fixed "All" category highlighting by improving the null-handling logic in isSelected calculation
+   - Made the selection logic more explicit with separate conditions for null (All category) and non-null cases
+
+3. **Back Button Exit Confirmation**:
+   - Added backPressedTime variable and BACK_PRESS_DELAY constant for tracking double-press timing
+   - Implemented setupBackPressHandling() with OnBackPressedCallback to handle back button presses
+   - Added toast message with "Press back again to exit" on first press
+   - Added a string resource for the exit message
+   - Implemented app exit on second press if within the time window (2 seconds)
+
+### Completion Notes
+All three UI/UX issues have been successfully addressed:
+1. The swipe refresh loader now provides proper visual feedback during initial data loading
+2. Categories are now visually highlighted when selected, with color changes to both text and icons, including special handling for the "All" category 
+3. Users now get a clear confirmation message when attempting to exit the app, preventing accidental exits
+
+These improvements collectively enhance the user experience by providing better visual feedback and navigation controls.
+
+## Previous Task: Fix UI Flow and Navigation Issues
+
+### Problem Statement
+Three specific issues in the app's UI flow and navigation needed to be addressed:
+1. When navigating from TemplateCustomizeFragment back to HomeFragment, data is unnecessarily reloaded
+2. When the app is first opened, only default category icons are shown until a manual refresh
+3. Clicking on the profile bottom navigation item doesn't navigate correctly
+
+### Action Plan
+[X] 1. Fix HomeFragment data state persistence:
+   - Modify onResume to avoid full data reloading when coming from another fragment
+   - Add isNavigatingToAnotherFragment helper to distinguish between background transitions and in-app navigation
+   - Save and restore scroll position when returning from other fragments
+
+[X] 2. Fix category icons loading:
+   - Force refresh category icons when HomeFragment is first created
+   - Explicitly load categories immediately when setting up the categories RecyclerView
+   - Ensure both default and dynamic category icons are available on first load
+
+[X] 3. Fix profile navigation:
+   - Add special handling for profile navigation in MainActivity's setupNavigation method
+   - Directly navigate to the profile fragment when the profile menu item is clicked
+   - Log navigation events for easier debugging
+
+### Implementation Notes
+The key issues were:
+
+1. **Fragment Navigation State**:
+   - The app was treating navigation between fragments the same as coming back from background
+   - This caused unnecessary API calls and data reloading
+   - Fixed by adding better state tracking to distinguish between different navigation types
+
+2. **Category Icons Loading**:
+   - CategoryIconRepository was only loading default icons initially
+   - Dynamic icons were only fetched when manually refreshed
+   - Fixed by forcing an immediate refresh when the fragment is first created
+
+3. **Bottom Navigation**:
+   - Profile tab navigation was relying on standard NavigationUI behavior which had issues
+   - Fixed by adding special handling similar to how home navigation was handled
+   - Now explicitly navigates to profile destination when the tab is selected
+
+### Completion Notes
+All three issues have been successfully fixed:
+1. HomeFragment now maintains its data state when navigating between fragments
+2. Category icons are properly loaded on first app launch without requiring manual refresh
+3. Profile navigation works correctly when clicking the profile tab in the bottom navigation
+
+The build completed successfully with no errors, indicating that all changes integrate well with the existing codebase.

@@ -7,6 +7,7 @@ const seedDatabase = require('./scripts/seedDatabase');
 const coinsRoute = require('./routes/coinsRoute');
 const authRoute = require('./routes/auth');
 const admobRoute = require('./routes/admob');
+const usersRoute = require('./routes/users');
 
 // Add this before any route definitions
 app.use(express.json());
@@ -16,6 +17,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/coins', coinsRoute);
 app.use('/api/auth', authRoute);
 app.use('/api/admob', admobRoute);
+app.use('/api/users', usersRoute);
 
 // Add this after database connection is established
 mongoose.connection.once('open', () => {

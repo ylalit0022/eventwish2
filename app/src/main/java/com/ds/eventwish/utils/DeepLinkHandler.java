@@ -5,193 +5,99 @@ import android.content.Intent;
 import android.net.Uri;
 import android.util.Log;
 
-/**
- * Utility class for handling deep links
- */
+import androidx.navigation.NavController;
+import com.ds.eventwish.R;
+
 public class DeepLinkHandler {
+    
     private static final String TAG = "DeepLinkHandler";
     
-    /**
-     * Handle a deep link
-     * @param context The context
-     * @param intent The intent containing the deep link
-     * @return true if the deep link was handled, false otherwise
-     */
     public static boolean handleDeepLink(Context context, Intent intent) {
-        if (context == null || intent == null) {
+        if (intent == null || intent.getData() == null) {
+            Log.d(TAG, "No deep link data in intent");
             return false;
         }
         
-        // Get the URI from the intent
-        Uri uri = intent.getData();
+        Uri deepLinkUri = intent.getData();
+        return processDeepLink(context, deepLinkUri, null);
+    }
+    
+    public static boolean handleDeepLink(Context context, Uri uri, NavController navController) {
         if (uri == null) {
+            Log.d(TAG, "No deep link URI provided");
             return false;
         }
         
-        String scheme = uri.getScheme();
+        return processDeepLink(context, uri, navController);
+    }
+    
+    private static boolean processDeepLink(Context context, Uri uri, NavController navController) {
+        Log.d(TAG, "Processing deep link: " + uri.toString());
+        
         String host = uri.getHost();
         String path = uri.getPath();
         
-        Log.d(TAG, "Handling deep link: " + uri);
-        Log.d(TAG, "Scheme: " + scheme + ", Host: " + host + ", Path: " + path);
-        
-        // Handle EventWish deep links
-        if ("eventwish".equals(scheme)) {
-            return handleEventWishScheme(context, uri);
-        }
-        
-        // Handle HTTP/HTTPS links to EventWish
-        if (("http".equals(scheme) || "https".equals(scheme)) && 
-                "eventwishes.onrender.com".equals(host)) {
-            return handleEventWishWebLink(context, uri);
-        }
-        
-        // Not an EventWish deep link
-        return false;
-    }
-    
-    /**
-     * Handle an EventWish scheme deep link
-     * @param context The context
-     * @param uri The URI to handle
-     * @return true if the deep link was handled, false otherwise
-     */
-    private static boolean handleEventWishScheme(Context context, Uri uri) {
-        String host = uri.getHost();
-        
-        if ("wish".equals(host)) {
-            // Handle wish links (e.g., eventwish://wish/abc123)
-            String shortCode = uri.getLastPathSegment();
-            if (shortCode != null && !shortCode.isEmpty()) {
-                return openWishDetail(context, shortCode);
-            }
-        } else if ("festival".equals(host)) {
-            // Handle festival links (e.g., eventwish://festival/abc123)
-            String festivalId = uri.getLastPathSegment();
-            if (festivalId != null && !festivalId.isEmpty()) {
-                return openFestivalDetail(context, festivalId);
-            }
-        } else if ("template".equals(host)) {
-            // Handle template links (e.g., eventwish://template/abc123)
-            String templateId = uri.getLastPathSegment();
-            if (templateId != null && !templateId.isEmpty()) {
-                return openTemplateDetail(context, templateId);
-            }
-        }
-        
-        return false;
-    }
-    
-    /**
-     * Handle an EventWish web link
-     * @param context The context
-     * @param uri The URI to handle
-     * @return true if the deep link was handled, false otherwise
-     */
-    private static boolean handleEventWishWebLink(Context context, Uri uri) {
-        String path = uri.getPath();
-        
-        if (path == null) {
+        if (host == null || path == null) {
+            Log.d(TAG, "Invalid deep link format");
             return false;
         }
         
-        Log.d(TAG, "Handling web link with path: " + path);
+        // Log the deep link details
+        Log.d(TAG, "Deep link details - Scheme: " + uri.getScheme() + ", Host: " + host + ", Path: " + path);
         
-        if (path.startsWith("/wish/")) {
-            // Handle wish links (e.g., https://eventwish2.onrender.com/wish/abc123)
-            String shortCode = path.substring("/wish/".length());
-            if (!shortCode.isEmpty()) {
-                Log.d(TAG, "Extracted shortCode from web link: " + shortCode);
-                return openWishDetail(context, shortCode);
-            } else {
-                Log.e(TAG, "Empty shortCode extracted from path: " + path);
+        // Handle different paths
+        if (navController != null) {
+            // Handle wish links - route to ResourceFragment
+            if (host.equals("wish") || path.startsWith("/wish/")) {
+                String shortCode;
+                
+                // Extract short code from the path
+                if (path.startsWith("/wish/")) {
+                    shortCode = path.substring("/wish/".length());
+                    Log.d(TAG, "Extracted shortCode from path: " + shortCode);
+                } else if (path.isEmpty() && host.equals("wish")) {
+                    // If the path is empty but host is "wish", use the last path segment or query parameter
+                    shortCode = uri.getLastPathSegment();
+                    Log.d(TAG, "No path but host is 'wish', using last segment: " + shortCode);
+                    
+                    // If shortCode is still null, try to get from query parameters
+                    if (shortCode == null || shortCode.isEmpty()) {
+                        shortCode = uri.getQueryParameter("code");
+                        Log.d(TAG, "Trying to get shortCode from query parameter 'code': " + shortCode);
+                    }
+                } else {
+                    // If host is "wish", then the path might not start with "/wish/"
+                    shortCode = path.startsWith("/") ? path.substring(1) : path;
+                    Log.d(TAG, "Using entire path as shortCode: " + shortCode);
+                }
+                
+                if (shortCode != null && !shortCode.isEmpty()) {
+                    Log.d(TAG, "Navigating to ResourceFragment with shortCode: " + shortCode);
+                    
+                    // Create bundle with short code
+                    android.os.Bundle args = new android.os.Bundle();
+                    args.putString("shortCode", shortCode);
+                    
+                    // Navigate to ResourceFragment
+                    navController.navigate(R.id.resourceFragment, args);
+                    return true;
+                } else {
+                    Log.e(TAG, "Failed to extract valid shortCode from URI: " + uri);
+                }
             }
-        } else if (path.startsWith("/festival/")) {
-            // Handle festival links (e.g., https://eventwish2.onrender.com/festival/abc123)
-            String festivalId = path.substring("/festival/".length());
-            if (!festivalId.isEmpty()) {
-                return openFestivalDetail(context, festivalId);
-            }
-        } else if (path.startsWith("/template/")) {
-            // Handle template links (e.g., https://eventwish2.onrender.com/template/abc123)
-            String templateId = path.substring("/template/".length());
-            if (!templateId.isEmpty()) {
-                return openTemplateDetail(context, templateId);
+            // Handle template paths
+            else if (path.startsWith("/template/")) {
+                Log.d(TAG, "Navigating to template");
+                // navController.navigate(R.id.action_to_templateFragment);
+                return true;
+            } else if (path.startsWith("/event/")) {
+                Log.d(TAG, "Navigating to event");
+                // navController.navigate(R.id.action_to_eventFragment);
+                return true;
             }
         }
         
-        return false;
+        // Return true if we handled the deep link, false otherwise
+        return path.startsWith("/template/") || path.startsWith("/event/") || path.startsWith("/wish/") || host.equals("wish");
     }
-    
-    /**
-     * Open the wish detail screen
-     * @param context The context
-     * @param shortCode The wish short code
-     * @return true if the wish detail screen was opened, false otherwise
-     */
-    private static boolean openWishDetail(Context context, String shortCode) {
-        Log.d(TAG, "Opening wish detail for short code: " + shortCode);
-        
-        // Validate shortCode
-        if (shortCode == null || shortCode.isEmpty()) {
-            Log.e(TAG, "Invalid shortCode: " + shortCode);
-            return false;
-        }
-        
-        // Remove any "wish/" prefix if present
-        if (shortCode.startsWith("wish/")) {
-            shortCode = shortCode.substring(5);
-            Log.d(TAG, "Removed 'wish/' prefix, shortCode=" + shortCode);
-        }
-        
-        // Create an intent to open the MainActivity with the wish short code
-        Intent intent = new Intent(context, com.ds.eventwish.MainActivity.class);
-        intent.putExtra("SHORT_CODE", shortCode);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        
-        // Start the activity
-        context.startActivity(intent);
-        
-        return true;
-    }
-    
-    /**
-     * Open the festival detail screen
-     * @param context The context
-     * @param festivalId The festival ID
-     * @return true if the festival detail screen was opened, false otherwise
-     */
-    private static boolean openFestivalDetail(Context context, String festivalId) {
-        Log.d(TAG, "Opening festival detail for ID: " + festivalId);
-        
-        // Create an intent to open the MainActivity with the festival ID
-        Intent intent = new Intent(context, com.ds.eventwish.MainActivity.class);
-        intent.putExtra("FESTIVAL_ID", festivalId);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        
-        // Start the activity
-        context.startActivity(intent);
-        
-        return true;
-    }
-    
-    /**
-     * Open the template detail screen
-     * @param context The context
-     * @param templateId The template ID
-     * @return true if the template detail screen was opened, false otherwise
-     */
-    private static boolean openTemplateDetail(Context context, String templateId) {
-        Log.d(TAG, "Opening template detail for ID: " + templateId);
-        
-        // Create an intent to open the MainActivity with the template ID
-        Intent intent = new Intent(context, com.ds.eventwish.MainActivity.class);
-        intent.putExtra("TEMPLATE_ID", templateId);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        
-        // Start the activity
-        context.startActivity(intent);
-        
-        return true;
-    }
-} 
+}

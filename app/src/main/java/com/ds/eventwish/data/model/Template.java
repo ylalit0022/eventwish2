@@ -120,6 +120,9 @@ public class Template {
     public String getCreatedAt() { return createdAt; }
     public String getUpdatedAt() { return updatedAt; }
     
+    // Alias for getTitle() for compatibility with some fragments
+    public String getName() { return title; }
+    
     // Get createdAt as timestamp for comparison
     public long getCreatedAtTimestamp() {
         try {

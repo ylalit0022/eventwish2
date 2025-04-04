@@ -44,8 +44,11 @@ public class CategoryIconRepository {
     // Cache keys
     private static final String CACHE_KEY_CATEGORY_ICONS = "category_icons";
     
-    // Cache expiration times
-    private static final long CACHE_EXPIRATION_ICONS = TimeUnit.DAYS.toMillis(7); // 7 days
+    // Cache expiration times - increase from 7 days to 30 days
+    private static final long CACHE_EXPIRATION_ICONS = TimeUnit.DAYS.toMillis(30); // 30 days
+    
+    // Memory cache expiration - new field
+    private static final long MEMORY_CACHE_EXPIRATION = TimeUnit.HOURS.toMillis(24); // 24 hours
     
     // Singleton instance
     private static volatile CategoryIconRepository instance;
@@ -68,6 +71,7 @@ public class CategoryIconRepository {
     private final Map<String, CategoryIcon> categoryIconMap = new HashMap<>();
     private boolean isInitialized = false;
     private Call<CategoryIconResponse> currentCall;
+    private long lastMemoryCacheRefresh = 0; // Track when memory cache was last refreshed
 
     // Network retry constants
     private static final int MAX_RETRIES = 3;
@@ -82,7 +86,10 @@ public class CategoryIconRepository {
      */
     public static synchronized CategoryIconRepository getInstance() {
         if (instance == null) {
-            Context appContext = com.ds.eventwish.EventWishApplication.getInstance();
+            Context appContext = com.ds.eventwish.EventWishApplication.getAppContext();
+            if (appContext == null) {
+                throw new IllegalStateException("Cannot initialize CategoryIconRepository: Application context is null");
+            }
             instance = new CategoryIconRepository(appContext);
         }
         return instance;
@@ -95,7 +102,7 @@ public class CategoryIconRepository {
     private CategoryIconRepository(Context context) {
         this.context = context.getApplicationContext();
         this.resourceRepository = ResourceRepository.getInstance(context);
-        this.apiService = ApiClient.getInstance().getApiService();
+        this.apiService = ApiClient.getClient();
         this.executors = AppExecutors.getInstance();
         this.networkUtils = NetworkUtils.getInstance(context);
         this.gson = new Gson();
@@ -148,19 +155,25 @@ public class CategoryIconRepository {
         
         // Check if we have the icon in our map
         if (categoryIconMap.containsKey(lowerCategory)) {
-            Log.d(TAG, "Found icon for category: " + category);
-            return categoryIconMap.get(lowerCategory);
+            CategoryIcon icon = categoryIconMap.get(lowerCategory);
+            if (icon != null) {
+                Log.d(TAG, "Found icon for category: " + category);
+                return icon;
+            }
         }
         
         // If not found and we haven't loaded icons yet, load them
-        if (!isInitialized) {
+        if (!isInitialized || categoryIconMap.isEmpty()) {
             Log.d(TAG, "Icons not initialized yet, loading category icons");
             loadCategoryIcons();
             
             // Check again after loading
             if (categoryIconMap.containsKey(lowerCategory)) {
-                Log.d(TAG, "Found icon for category after loading: " + category);
-                return categoryIconMap.get(lowerCategory);
+                CategoryIcon icon = categoryIconMap.get(lowerCategory);
+                if (icon != null) {
+                    Log.d(TAG, "Found icon for category after loading: " + category);
+                    return icon;
+                }
             }
         }
         
@@ -195,30 +208,115 @@ public class CategoryIconRepository {
      * Load category icons with offline-first approach
      */
     public void loadCategoryIcons() {
-        loadCategoryIcons(0, INITIAL_BACKOFF_MS);
-    }
-
-    /**
-     * Load category icons with retry mechanism and exponential backoff
-     * @param retryCount Current retry count
-     * @param backoffMs Current backoff time in milliseconds
-     */
-    private void loadCategoryIcons(int retryCount, long backoffMs) {
+        // First check the cache, then load from network if needed
         if (loading.getValue() != null && loading.getValue()) {
+            Log.d(TAG, "Icons are already loading, skipping request");
             return;
         }
         
         loading.setValue(true);
-        Log.d(TAG, "Loading category icons" + (retryCount > 0 ? " (retry " + retryCount + ")" : ""));
         
-        // If we don't have network, load from cache immediately
+        // Check if we need to refresh memory cache
+        long currentTime = System.currentTimeMillis();
+        boolean shouldRefreshMemoryCache = (currentTime - lastMemoryCacheRefresh) > MEMORY_CACHE_EXPIRATION;
+        
+        if (isInitialized && !shouldRefreshMemoryCache && !categoryIconMap.isEmpty()) {
+            // If we already have icons in memory and don't need to refresh, use them directly
+            Log.d(TAG, "Using category icons from memory cache, map size: " + categoryIconMap.size());
+            List<CategoryIcon> iconList = new ArrayList<>(categoryIconMap.values());
+            categoryIcons.setValue(iconList);
+            loading.setValue(false);
+            return;
+        }
+        
+        // First try to load from cache
+        loadFromCache();
+    }
+
+    /**
+     * Load category icons from cache
+     */
+    private void loadFromCache() {
+        executors.diskIO().execute(() -> {
+            try {
+                // Use proper method to get resource from cache - use LiveData version but extract value synchronously
+                LiveData<Resource<JsonObject>> resourceLiveData = resourceRepository.getResource(
+                    ResourceType.CATEGORY_ICON.getKey(),
+                    CACHE_KEY_CATEGORY_ICONS,
+                    false  // Don't force refresh
+                );
+                
+                // Check in-memory cache first
+                JsonObject cachedData = resourceRepository.getResourceSync(
+                    ResourceType.CATEGORY_ICON.getKey(),
+                    CACHE_KEY_CATEGORY_ICONS
+                );
+
+                if (cachedData != null && cachedData.has("data") && cachedData.get("data").isJsonArray()) {
+                    try {
+                        Type listType = new TypeToken<List<CategoryIcon>>(){}.getType();
+                        List<CategoryIcon> icons = gson.fromJson(cachedData.getAsJsonArray("data"), listType);
+                        
+                        executors.mainThread().execute(() -> {
+                            processCategoryIcons(icons);
+                            
+                            // Check if cache is old and needs background refresh
+                            long cachedTimestamp = 0;
+                            if (cachedData.has("timestamp") && !cachedData.get("timestamp").isJsonNull()) {
+                                cachedTimestamp = cachedData.get("timestamp").getAsLong();
+                            }
+                            
+                            long currentTime = System.currentTimeMillis();
+                            boolean shouldRefreshCache = (currentTime - cachedTimestamp) > (CACHE_EXPIRATION_ICONS / 2);
+                            
+                            if (icons.isEmpty() || shouldRefreshCache) {
+                                // If cached data is empty or old, load from network in background
+                                Log.d(TAG, "Cache is empty or old, loading from network in background");
+                                loadFromNetwork(0, INITIAL_BACKOFF_MS);
+                            } else {
+                                loading.setValue(false);
+                            }
+                        });
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error parsing cached category icons JSON", e);
+                        executors.mainThread().execute(() -> {
+                            // Cache parse error - load from network
+                            loadFromNetwork(0, INITIAL_BACKOFF_MS);
+                        });
+                    }
+                } else {
+                    Log.d(TAG, "No valid cached data found for category icons");
+                    executors.mainThread().execute(() -> {
+                        // No cache - load from network
+                        loadFromNetwork(0, INITIAL_BACKOFF_MS);
+                    });
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error loading category icons from cache", e);
+                executors.mainThread().execute(() -> {
+                    // Cache error - load from network
+                    loadFromNetwork(0, INITIAL_BACKOFF_MS);
+                });
+            }
+        });
+    }
+
+    /**
+     * Load category icons from network
+     * @param retryCount Current retry count
+     * @param backoffMs Current backoff time in milliseconds
+     */
+    private void loadFromNetwork(int retryCount, long backoffMs) {
+        // If we don't have network, add fallback icons and return
         if (!networkUtils.isConnected()) {
-            Log.d(TAG, "No network connection, loading from cache");
-            loadFromCache();
+            Log.d(TAG, "No network connection, using fallback icons");
+            addFallbackIcons();
+            loading.setValue(false);
             return;
         }
         
         // Direct API call for faster response
+        Log.d(TAG, "Loading category icons from network" + (retryCount > 0 ? " (retry " + retryCount + ")" : ""));
         cancelCurrentCall();
         Call<CategoryIconResponse> call = apiService.getCategoryIcons();
         setCurrentCall(call);
@@ -229,9 +327,6 @@ public class CategoryIconRepository {
                 if (response.isSuccessful() && response.body() != null) {
                     try {
                         CategoryIconResponse data = response.body();
-                        
-                        // Log full response for debugging
-                        Log.d(TAG, "Got response: " + gson.toJson(response.body()));
                         
                         if (data != null && data.getData() != null && !data.getData().isEmpty()) {
                             // Process and cache the response
@@ -251,13 +346,11 @@ public class CategoryIconRepository {
                                     null,  // No etag
                                     new Date(System.currentTimeMillis() + CACHE_EXPIRATION_ICONS)
                                 );
+                                
+                                Log.d(TAG, "Category icons cached successfully");
                             } catch (Exception e) {
                                 Log.e(TAG, "Error caching category icons", e);
                             }
-                            
-                            // Reset retry counter on success
-                            currentRetryCount = 0;
-                            currentBackoffMs = INITIAL_BACKOFF_MS;
                             
                             loading.setValue(false);
                         } else {
@@ -308,104 +401,55 @@ public class CategoryIconRepository {
             executors.mainThread().execute(() -> {
                 // Schedule a retry with exponential backoff
                 new android.os.Handler().postDelayed(() -> {
-                    loadCategoryIcons(nextRetryCount, nextBackoffMs);
+                    loadFromNetwork(nextRetryCount, nextBackoffMs);
                 }, backoffMs);
             });
         } else {
             // Max retries reached, load from cache
-            Log.e(TAG, "Max retries reached, loading from cache", error);
-            loadFromCache();
+            Log.e(TAG, "Max retries reached, using fallback icons", error);
+            addFallbackIcons();
+            loading.setValue(false);
         }
     }
 
     /**
-     * Load category icons from cache
-     */
-    private void loadFromCache() {
-        executors.diskIO().execute(() -> {
-            try {
-                // Use proper method to get resource from cache - use LiveData version but extract value synchronously
-                LiveData<Resource<JsonObject>> resourceLiveData = resourceRepository.getResource(
-                    ResourceType.CATEGORY_ICON.getKey(),
-                    CACHE_KEY_CATEGORY_ICONS,
-                    false  // Don't force refresh
-                );
-                
-                // Since we need it synchronously, we need a workaround
-                // Check in-memory cache first
-                JsonObject cachedData = resourceRepository.getResourceSync(
-                    ResourceType.CATEGORY_ICON.getKey(),
-                    CACHE_KEY_CATEGORY_ICONS
-                );
-
-                if (cachedData != null) {
-                    try {
-                        if (cachedData.has("data") && cachedData.get("data").isJsonArray()) {
-                            Type listType = new TypeToken<List<CategoryIcon>>(){}.getType();
-                            List<CategoryIcon> icons = gson.fromJson(cachedData.getAsJsonArray("data"), listType);
-                            
-                            executors.mainThread().execute(() -> {
-                                processCategoryIcons(icons);
-                                loading.setValue(false);
-                            });
-                        } else {
-                            Log.e(TAG, "Cache data doesn't contain valid 'data' array");
-                            executors.mainThread().execute(() -> {
-                                addFallbackIcons();
-                                loading.setValue(false);
-                            });
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error parsing cached category icons JSON", e);
-                        executors.mainThread().execute(() -> {
-                            addFallbackIcons();
-                            loading.setValue(false);
-                        });
-                    }
-                } else {
-                    Log.d(TAG, "No valid cache data found for category icons");
-                    executors.mainThread().execute(() -> {
-                        // Add fallback icons since there is no cached data
-                        addFallbackIcons();
-                        loading.setValue(false);
-                    });
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Error loading category icons from cache", e);
-                executors.mainThread().execute(() -> {
-                    addFallbackIcons();
-                    loading.setValue(false);
-                });
-            }
-        });
-    }
-
-    /**
-     * Process category icons and update LiveData
-     * @param icons List of category icons to process
+     * Process retrieved category icons
+     * @param icons List of category icons
      */
     private void processCategoryIcons(List<CategoryIcon> icons) {
-        if (icons == null || icons.isEmpty()) {
-            Log.w(TAG, "Received empty category icons list or null");
-            return;
+        if (icons == null) {
+            icons = new ArrayList<>();
         }
         
-        categoryIcons.setValue(icons);
+        Log.d(TAG, "Processing " + icons.size() + " category icons");
         
-        // Update our map for quick lookup
+        // Clear existing map and rebuild it with new icons
         categoryIconMap.clear();
+        
+        // Add all icons to the map
         for (CategoryIcon icon : icons) {
-            if (icon != null && icon.getCategory() != null) {
-                categoryIconMap.put(icon.getCategory().toLowerCase(), icon);
-                Log.d(TAG, "Added category icon: " + icon.getCategory() + " -> " + icon.getCategoryIcon());
+            if (icon.getCategory() != null) {
+                String key = icon.getCategory().toLowerCase();
+                Log.d(TAG, "Adding icon for category: " + key);
+                categoryIconMap.put(key, icon);
             }
         }
         
-        // Add fallback icons for common categories
+        // Add some common fallback icons for categories that might be missing
+        // Only add if we don't already have these categories
         addFallbackIcons();
         
+        // Mark as initialized
         isInitialized = true;
-        Log.d(TAG, "Successfully loaded " + icons.size() + " category icons");
+        
+        // Update last refresh time
+        lastMemoryCacheRefresh = System.currentTimeMillis();
+        
+        // Update LiveData value
+        List<CategoryIcon> updatedList = new ArrayList<>(categoryIconMap.values());
+        categoryIcons.setValue(updatedList);
+        
+        Log.d(TAG, "Category icons processed, total: " + categoryIconMap.size());
     }
     
     /**

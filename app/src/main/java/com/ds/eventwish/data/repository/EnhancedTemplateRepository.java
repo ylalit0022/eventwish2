@@ -104,7 +104,7 @@ public class EnhancedTemplateRepository {
         this.context = context;
         this.resourceRepository = ResourceRepository.getInstance(context);
         this.resourceCache = ResourceCache.getInstance(context);
-        this.apiService = ApiClient.getInstance().getApiService();
+        this.apiService = ApiClient.getClient();
         this.executors = AppExecutors.getInstance();
         this.networkUtils = NetworkUtils.getInstance(context);
         this.gson = new Gson();

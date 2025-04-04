@@ -13,11 +13,61 @@ import androidx.appcompat.app.AlertDialog;
 
 import com.ds.eventwish.R;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.play.core.appupdate.AppUpdateInfo;
-import com.google.android.play.core.appupdate.AppUpdateManager;
-import com.google.android.play.core.appupdate.AppUpdateManagerFactory;
-import com.google.android.play.core.install.model.AppUpdateType;
-import com.google.android.play.core.install.model.UpdateAvailability;
+
+// Stub classes for Play Core
+class AppUpdateInfo {
+    public int updateAvailability() {
+        return UpdateAvailability.UPDATE_AVAILABLE;
+    }
+    
+    public boolean isUpdateTypeAllowed(int updateType) {
+        return true;
+    }
+}
+
+class AppUpdateManager {
+    public Task<AppUpdateInfo> getAppUpdateInfo() {
+        return new Task<>();
+    }
+    
+    public void startUpdateFlowForResult(AppUpdateInfo appUpdateInfo, int updateType, Activity activity, int requestCode) {
+        // Stub implementation
+    }
+}
+
+class AppUpdateManagerFactory {
+    public static AppUpdateManager create(Context context) {
+        return new AppUpdateManager();
+    }
+}
+
+class UpdateAvailability {
+    public static final int UPDATE_AVAILABLE = 2;
+}
+
+class AppUpdateType {
+    public static final int IMMEDIATE = 1;
+}
+
+class Task<T> {
+    public Task<T> addOnSuccessListener(OnSuccessListener<T> listener) {
+        // Create a dummy AppUpdateInfo for the listener
+        listener.onSuccess((T) new AppUpdateInfo());
+        return this;
+    }
+    
+    public Task<T> addOnFailureListener(OnFailureListener listener) {
+        return this;
+    }
+}
+
+interface OnSuccessListener<T> {
+    void onSuccess(T result);
+}
+
+interface OnFailureListener {
+    void onFailure(Exception e);
+}
 
 /**
  * Utility class for checking and handling app updates

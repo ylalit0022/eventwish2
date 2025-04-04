@@ -30,11 +30,6 @@ public class MainActivity extends AppCompatActivity {
         if (id == R.id.action_settings) {
             // Handle settings action
             return true;
-        } else if (id == R.id.action_test_ads) {
-            // Open the TestAdActivity
-            Intent intent = new Intent(this, com.ds.eventwish.ui.ads.TestAdActivity.class);
-            startActivity(intent);
-            return true;
         }
         
         return super.onOptionsItemSelected(item);

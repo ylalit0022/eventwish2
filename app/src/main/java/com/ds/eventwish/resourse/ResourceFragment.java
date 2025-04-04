@@ -21,7 +21,6 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavDirections;
 import androidx.navigation.Navigation;
-import androidx.palette.graphics.Palette;
 import com.ds.eventwish.MainActivity;
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.Template;
@@ -31,6 +30,67 @@ import com.ds.eventwish.utils.DeepLinkUtil;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.gson.Gson;
+
+// Stub Palette class
+class Palette {
+    private final Bitmap bitmap;
+
+    private Palette(Bitmap bitmap) {
+        this.bitmap = bitmap;
+    }
+
+    public static Builder from(Bitmap bitmap) {
+        return new Builder(bitmap);
+    }
+
+    public Swatch getDominantSwatch() {
+        return new Swatch(Color.WHITE, 1);
+    }
+    
+    public int getDominantColor(int defaultColor) {
+        Swatch swatch = getDominantSwatch();
+        return swatch != null ? swatch.getRgb() : defaultColor;
+    }
+
+    public static class Builder {
+        private final Bitmap bitmap;
+
+        public Builder(Bitmap bitmap) {
+            this.bitmap = bitmap;
+        }
+
+        public Builder generate(PaletteAsyncListener listener) {
+            listener.onGenerated(new Palette(bitmap));
+            return this;
+        }
+
+        public Palette generate() {
+            return new Palette(bitmap);
+        }
+    }
+
+    public static class Swatch {
+        private final int color;
+        private final int population;
+
+        public Swatch(int color, int population) {
+            this.color = color;
+            this.population = population;
+        }
+
+        public int getRgb() {
+            return color;
+        }
+
+        public int getPopulation() {
+            return population;
+        }
+    }
+
+    public interface PaletteAsyncListener {
+        void onGenerated(Palette palette);
+    }
+}
 
 public class ResourceFragment extends Fragment {
     private static final String TAG = "ResourceFragment";
@@ -79,15 +139,37 @@ public class ResourceFragment extends Fragment {
         // Get shortCode from deep link
         if (getArguments() != null) {
             shortCode = getArguments().getString("shortCode");
-            Log.d(TAG, "onViewCreated: Received shortCode=" + shortCode);
+            Log.d(TAG, "onViewCreated: Received shortCode from arguments: " + shortCode);
+            
             if (shortCode != null && !shortCode.isEmpty()) {
+                // Trim any whitespace that might be in the shortCode
+                shortCode = shortCode.trim();
+                
+                // Check if the shortCode is URL-encoded and decode if necessary
+                if (shortCode.contains("%")) {
+                    try {
+                        String decoded = java.net.URLDecoder.decode(shortCode, "UTF-8");
+                        Log.d(TAG, "onViewCreated: Decoded URL-encoded shortCode from " + shortCode + " to " + decoded);
+                        shortCode = decoded;
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error decoding shortCode", e);
+                    }
+                }
+                
                 // Ensure shortCode doesn't start with "wish/" which could happen with deep links
                 if (shortCode.startsWith("wish/")) {
                     shortCode = shortCode.substring(5); // Remove "wish/" prefix
                     Log.d(TAG, "onViewCreated: Removed 'wish/' prefix, shortCode=" + shortCode);
                 }
-                Log.d(TAG, "onViewCreated: Loading wish with shortCode=" + shortCode);
-                viewModel.loadWish(shortCode);
+                
+                // Remove any forward slashes that might be at the beginning
+                while (shortCode.startsWith("/")) {
+                    shortCode = shortCode.substring(1);
+                    Log.d(TAG, "onViewCreated: Removed leading slash, shortCode=" + shortCode);
+                }
+                
+                Log.d(TAG, "onViewCreated: Final shortCode to load=" + shortCode);
+                loadWish();
             } else {
                 Log.e(TAG, "onViewCreated: shortCode is null or empty in arguments");
                 showError("Invalid wish code");
@@ -279,7 +361,7 @@ public class ResourceFragment extends Fragment {
                 Palette.from(bitmap).generate(palette -> {
                     if (palette != null) {
                         // Get the dominant color
-                        int dominantColor = palette.getDominantColor(Color.WHITE);
+                        int dominantColor = palette.getDominantSwatch().getRgb();
                         
                         // Make it lighter for better readability
                         int lightColor = ColorUtils.blendARGB(dominantColor, Color.WHITE, 0.7f);
@@ -303,9 +385,13 @@ public class ResourceFragment extends Fragment {
         if (binding != null && binding.retryLayout != null) {
             binding.retryLayout.retryButton.setOnClickListener(v -> {
                 if (shortCode != null) {
+                    Log.d(TAG, "Retry button clicked, attempting to reload wish with shortCode=" + shortCode);
                     binding.retryLayout.getRoot().setVisibility(View.GONE);
                     binding.progressBar.setVisibility(View.VISIBLE);
-                    viewModel.loadWish(shortCode);
+                    loadWish();
+                } else {
+                    Log.e(TAG, "Cannot retry: shortCode is null");
+                    showError("Cannot retry: invalid wish code");
                 }
             });
         }
@@ -318,8 +404,11 @@ public class ResourceFragment extends Fragment {
             if (wishResponse != null) {
                 binding.progressBar.setVisibility(View.GONE);
                 binding.retryLayout.getRoot().setVisibility(View.GONE);
+                binding.contentLayout.setVisibility(View.VISIBLE);
+                
                 if (wishResponse.getTemplate() != null) {
-                    Log.d(TAG, "Setting up WebView content for wish");
+                    Log.d(TAG, "Setting up WebView content for wish with template id: " + 
+                          (wishResponse.getTemplate().getId() != null ? wishResponse.getTemplate().getId() : "null"));
                     setupWebViewContent(wishResponse);
                     
                     // Show fullscreen toggle
@@ -330,15 +419,18 @@ public class ResourceFragment extends Fragment {
                 } else {
                     Log.e(TAG, "Template is null in wish response");
                     showError("Invalid wish template");
+                    binding.retryLayout.getRoot().setVisibility(View.VISIBLE);
                 }
             }
         });
 
         viewModel.getError().observe(getViewLifecycleOwner(), error -> {
             if (error != null && isAdded()) {
+                Log.e(TAG, "Error observed: " + error);
                 binding.progressBar.setVisibility(View.GONE);
                 binding.retryLayout.getRoot().setVisibility(View.VISIBLE);
                 binding.retryLayout.errorText.setText(error);
+                binding.contentLayout.setVisibility(View.GONE);
                 showError(error);
             }
         });
@@ -428,6 +520,22 @@ public class ResourceFragment extends Fragment {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, String url) {
             return true; // Prevent navigation
+        }
+    }
+
+    /**
+     * Load the wish using the current shortCode
+     */
+    private void loadWish() {
+        if (shortCode != null && !shortCode.isEmpty()) {
+            binding.progressBar.setVisibility(View.VISIBLE);
+            binding.retryLayout.getRoot().setVisibility(View.GONE);
+            
+            Log.d(TAG, "loadWish: Loading wish with shortCode=" + shortCode);
+            viewModel.loadWish(shortCode);
+        } else {
+            Log.e(TAG, "loadWish: Cannot load wish with null or empty shortCode");
+            showError("Invalid wish code");
         }
     }
 }

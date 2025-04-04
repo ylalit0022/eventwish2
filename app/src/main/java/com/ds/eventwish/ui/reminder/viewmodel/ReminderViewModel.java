@@ -10,7 +10,6 @@ import com.ds.eventwish.data.model.Reminder;
 import com.ds.eventwish.data.local.ReminderDao;
 import com.ds.eventwish.utils.ReminderException;
 import com.ds.eventwish.utils.ReminderScheduler;
-import me.leolin.shortcutbadger.ShortcutBadger;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -20,6 +19,14 @@ import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
 
 import android.util.Log;
+
+// Create a stub for ShortcutBadger
+class ShortcutBadger {
+    public static boolean applyCount(Context context, int count) {
+        Log.d("ShortcutBadger", "Applying badge count: " + count + " (stub implementation)");
+        return true;
+    }
+}
 
 public class ReminderViewModel extends ViewModel {
     private final ReminderDao reminderDao;

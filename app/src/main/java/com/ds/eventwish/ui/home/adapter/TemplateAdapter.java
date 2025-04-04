@@ -148,7 +148,7 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
                 Glide.with(binding.getRoot().getContext())
                     .load(template.getThumbnailUrl())
                     .centerCrop()
-                    .into(binding.thumbnailImage);
+                    .into(binding.templateImage);
             }
 
             binding.getRoot().setOnClickListener(v -> {

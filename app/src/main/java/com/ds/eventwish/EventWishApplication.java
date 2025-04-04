@@ -3,6 +3,8 @@ package com.ds.eventwish;
 import android.app.Application;
 import android.content.Context;
 import android.util.Log;
+import android.os.Bundle;
+import android.app.Activity;
 
 import androidx.work.Configuration;
 import androidx.work.Constraints;
@@ -10,41 +12,58 @@ import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.NetworkType;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
-import com.ds.eventwish.ads.AdMobManager;
-import com.ds.eventwish.data.ads.AdManager;
 import com.ds.eventwish.data.local.AppDatabase;
 import com.ds.eventwish.data.local.ReminderDao;
 import com.ds.eventwish.data.model.Reminder;
 import com.ds.eventwish.data.repository.CategoryIconRepository;
 import com.ds.eventwish.data.repository.TokenRepository;
+import com.ds.eventwish.data.repository.UserRepository;
 import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.utils.AnalyticsUtils;
 import com.ds.eventwish.utils.CacheManager;
 import com.ds.eventwish.utils.ReminderScheduler;
 import com.ds.eventwish.workers.ReminderCheckWorker;
 import com.ds.eventwish.workers.TemplateUpdateWorker;
-import com.google.android.gms.ads.MobileAds;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import com.ds.eventwish.ui.ads.AppOpenAdHelper;
 import com.ds.eventwish.utils.EventWishNotificationManager;
 import com.ds.eventwish.utils.NotificationScheduler;
-import android.app.Activity;
-import com.google.android.gms.ads.RequestConfiguration;
-import com.ds.eventwish.config.AdConfig;
-import java.util.Arrays;
 import com.ds.eventwish.util.SecureTokenManager;
+import java.util.Map;
+import com.ds.eventwish.utils.TimeUtils;
+import com.ds.eventwish.utils.DeviceUtils;
+import com.ds.eventwish.data.repository.FestivalRepository;
+import com.ds.eventwish.data.repository.TemplateRepository;
+import com.ds.eventwish.data.repository.ResourceRepository;
+import com.ds.eventwish.utils.AppExecutors;
 
-public class EventWishApplication extends Application implements Configuration.Provider {
+public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
 
-    private AppOpenAdHelper appOpenAdHelper;
-    
     // Static instance of the application
     private static EventWishApplication instance;
 
     private static Context context;
+
+    private ApiClient apiClient;
+    private CategoryIconRepository categoryIconRepository;
+    private SecureTokenManager secureTokenManager;
+    private DeviceUtils deviceUtils;
+    private TimeUtils timeUtils;
+    private Activity currentActivity;
+
+    // Repositories
+    private FestivalRepository festivalRepository;
+    private TemplateRepository templateRepository;
+    private ResourceRepository resourceRepository;
+    private UserRepository userRepository;
+
+    // Services
+    private AppExecutors appExecutors;
+
+    // Activity tracking
+    private int runningActivities = 0;
 
     /**
      * Get the application instance
@@ -58,57 +77,42 @@ public class EventWishApplication extends Application implements Configuration.P
     public void onCreate() {
         super.onCreate();
         
-        // Set the instance
+        // Set application instance
         instance = this;
         
-        // Initialize SecureTokenManager
-        initializeSecureTokenManager();
+        // Set context
+        context = getApplicationContext();
         
-        // Initialize API client
-        initializeApiClient();
+        // Initialize services
+        initializeServices();
         
-        // Initialize Analytics
-        try {
-            AnalyticsUtils.init(this);
-            Log.d(TAG, "Analytics initialized successfully");
-        } catch (Exception e) {
-            Log.e(TAG, "Analytics initialization failed", e);
-        }
+        // Register activity lifecycle callbacks
+        registerActivityLifecycleCallbacks(this);
         
-        // Create notification channels
-        createNotificationChannels();
+        // Log app started for debugging
+        Log.d(TAG, "EventWish application started");
         
-        // Schedule periodic reminder check using the helper method
-        ReminderCheckWorker.schedule(this);
-        
-        // Schedule template update check
-        scheduleTemplateUpdateCheck();
-        
-        // Schedule festival notifications
-        scheduleNotifications();
-        
-        // Initialize cache manager
-        CacheManager.getInstance(this);
-        
-        // Clear database cache if needed
-        clearDatabaseCache();
-        
-        // Restore any pending reminders
-        restorePendingReminders();
-        
-        // Initialize AdMob
-        initializeAdMob();
-        
-        // Initialize CategoryIconRepository and preload icons
-        Log.d(TAG, "Initializing CategoryIconRepository");
-        try {
-            CategoryIconRepository.getInstance().loadCategoryIcons();
-        } catch (Exception e) {
-            Log.e(TAG, "Error initializing CategoryIconRepository: " + e.getMessage());
-            // Continue with app initialization even if category icons fail to load
-        }
+        // Register user in background
+        registerUserInBackground();
+    }
 
-        Log.d(TAG, "EventWish Application initialized");
+    /**
+     * Register user with server in background
+     */
+    private void registerUserInBackground() {
+        // Use a background thread to register the user
+        Executors.newSingleThreadExecutor().execute(() -> {
+            try {
+                if (userRepository != null) {
+                    userRepository.registerUserIfNeeded();
+                    Log.d(TAG, "Background user registration initiated");
+                } else {
+                    Log.e(TAG, "Cannot register user: UserRepository is null");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error during background user registration", e);
+            }
+        });
     }
 
     @Override
@@ -204,50 +208,29 @@ public class EventWishApplication extends Application implements Configuration.P
     }
     
     /**
-     * Initialize AdMob and AdMobManager
+     * Method to initialize components that depend on the EventWishApplication
      */
-    private void initializeAdMob() {
+    private void initializeComponents() {
         try {
-            // Initialize AdMobManager
-            AdMobManager.getInstance(this);
-            Log.d(TAG, "AdMobManager initialized successfully");
-
-            // Configure test devices if in test mode
-            if (AdConfig.USE_TEST_ADS) {
-                RequestConfiguration configuration = new RequestConfiguration.Builder()
-                    .setTestDeviceIds(Arrays.asList(
-                        "2077EF0E09001FB2DCA76B5415D53BFA", // Replace with your test device ID
-                        "B3EEABB8EE11C2BE770B684D95219ECB"  // Generic test device ID
-                    ))
-                    .build();
-                MobileAds.setRequestConfiguration(configuration);
-                Log.d(TAG, "AdMob test configuration set");
-            }
+            // Initialize Analytics
+            AnalyticsUtils.init(this);
+            
+            // Create notification channels
+            createNotificationChannels();
+            
+            // Schedule workers
+            scheduleWorkers();
+            
+            // Initialize cache manager
+            CacheManager.getInstance(this);
+            
+            // Clear database cache if needed
+            clearDatabaseCache();
+            
+            // Restore pending reminders
+            restorePendingReminders();
         } catch (Exception e) {
-            Log.e(TAG, "Error initializing AdMob: " + e.getMessage());
-        }
-    }
-
-    // Method to initialize AdMobManager from an Activity
-    public void initializeAdMobManager(Activity activity) {
-        AdMobManager.getInstance(this).setCurrentActivity(activity);
-    }
-
-    private void initializeSecureTokenManager() {
-        try {
-            SecureTokenManager.init(this);
-            Log.d(TAG, "SecureTokenManager initialized successfully");
-        } catch (Exception e) {
-            Log.e(TAG, "SecureTokenManager initialization failed", e);
-        }
-    }
-
-    private void initializeApiClient() {
-        try {
-            ApiClient.init(this);
-            Log.d(TAG, "ApiClient initialized successfully");
-        } catch (Exception e) {
-            Log.e(TAG, "ApiClient initialization failed", e);
+            Log.e(TAG, "Error initializing components", e);
         }
     }
 
@@ -259,5 +242,167 @@ public class EventWishApplication extends Application implements Configuration.P
     public void onTerminate() {
         super.onTerminate();
         // Clean up resources
+    }
+
+    private void scheduleWorkers() {
+        Log.d(TAG, "Scheduling workers");
+        
+        // Schedule template update check
+        scheduleTemplateUpdateCheck();
+        
+        // Schedule notifications
+        scheduleNotifications();
+        
+        // Schedule reminder check
+        scheduleReminderCheck();
+    }
+    
+    private void scheduleReminderCheck() {
+        Constraints constraints = new Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build();
+        
+        PeriodicWorkRequest workRequest = new PeriodicWorkRequest.Builder(
+            ReminderCheckWorker.class,
+            15, TimeUnit.MINUTES)
+            .setConstraints(constraints)
+            .build();
+        
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "reminder_check",
+            ExistingPeriodicWorkPolicy.KEEP,
+            workRequest
+        );
+        
+        Log.d(TAG, "Scheduled reminder check worker");
+    }
+
+    private void setupWorkManager() {
+        // Implementation of setupWorkManager method
+    }
+
+    private void initializeServices() {
+        try {
+            // First, initialize SecureTokenManager before anything else
+            SecureTokenManager.init(this);
+            secureTokenManager = SecureTokenManager.getInstance();
+            
+            // Then initialize ApiClient which uses SecureTokenManager
+            ApiClient.init(this);
+            apiClient = new ApiClient();
+            
+            // Initialize device utils
+            deviceUtils = DeviceUtils.getInstance();
+            
+            // Initialize time utils
+            timeUtils = new TimeUtils();
+            
+            // Initialize repositories using getInstance methods
+            festivalRepository = FestivalRepository.getInstance(this);
+            templateRepository = TemplateRepository.getInstance();
+            resourceRepository = ResourceRepository.getInstance(this);
+            categoryIconRepository = CategoryIconRepository.getInstance();
+            
+            // Initialize UserRepository
+            userRepository = UserRepository.getInstance(this);
+            
+            // Initialize app executors
+            appExecutors = AppExecutors.getInstance();
+            
+            // Initialize components that depend on the above
+            initializeComponents();
+            
+            Log.d(TAG, "Services initialized successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing services", e);
+        }
+    }
+
+    public FestivalRepository getFestivalRepository() {
+        return festivalRepository;
+    }
+    
+    public TemplateRepository getTemplateRepository() {
+        return templateRepository;
+    }
+    
+    public ResourceRepository getResourceRepository() {
+        return resourceRepository;
+    }
+    
+    public CategoryIconRepository getCategoryIconRepository() {
+        return categoryIconRepository;
+    }
+    
+    public ApiClient getApiClient() {
+        return apiClient;
+    }
+    
+    public TimeUtils getTimeUtils() {
+        return timeUtils;
+    }
+    
+    public AppExecutors getAppExecutors() {
+        return appExecutors;
+    }
+    
+    public boolean isAppInForeground() {
+        return runningActivities > 0;
+    }
+
+    // Activity lifecycle callbacks
+    
+    @Override
+    public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+        Log.d(TAG, "Activity created: " + activity.getClass().getSimpleName());
+    }
+
+    @Override
+    public void onActivityStarted(Activity activity) {
+        if (runningActivities == 0) {
+            Log.d(TAG, "App went to foreground");
+        }
+        runningActivities++;
+    }
+
+    @Override
+    public void onActivityResumed(Activity activity) {
+        this.currentActivity = activity;
+        
+        // Update user's last online status
+        if (userRepository != null) {
+            userRepository.updateUserActivity(null);
+        }
+    }
+
+    @Override
+    public void onActivityPaused(Activity activity) {
+        Log.d(TAG, "Activity paused: " + activity.getClass().getSimpleName());
+    }
+
+    @Override
+    public void onActivityStopped(Activity activity) {
+        runningActivities--;
+        if (runningActivities == 0) {
+            Log.d(TAG, "App went to background");
+        }
+    }
+
+    @Override
+    public void onActivitySaveInstanceState(Activity activity, Bundle outState) {
+        // Not used
+    }
+
+    @Override
+    public void onActivityDestroyed(Activity activity) {
+        Log.d(TAG, "Activity destroyed: " + activity.getClass().getSimpleName());
+    }
+
+    /**
+     * Get the UserRepository instance
+     * @return UserRepository instance
+     */
+    public UserRepository getUserRepository() {
+        return userRepository;
     }
 }

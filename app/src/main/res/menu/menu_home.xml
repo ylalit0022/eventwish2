@@ -2,8 +2,8 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
-        android:id="@+id/action_ads"
-        android:icon="@drawable/ic_coins"
-        android:title="@string/reward_dialog_title"
+        android:id="@+id/action_premium_features"
+        android:icon="@drawable/ic_premium"
+        android:title="@string/premium_features"
         app:showAsAction="always" />
 </menu> 
