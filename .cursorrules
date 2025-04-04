@@ -224,10 +224,147 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Modify UI fragments and activities to remove ad containers and references
   - Run clean builds frequently to catch missing files and dependencies
   - Fix possible dependency issues by downgrading to compatible versions like OkHttp 4.9.0 instead of 4.12.0
+- When implementing Express.js API routes in a Node.js backend:
+  - Always properly register route modules in the main server.js or app.js file
+  - Use app.use('/api/endpoint', require('./routes/endpoint')) pattern
+  - Check for 404 errors in API responses which often indicate missing route registration
+  - Ensure route paths in the router match the client-side API calls
+  - Add explicit route prefixes in app.use() that match client expectations
+  - Validate that middleware is properly imported and applied to routes
+  - Add error logging for failed API requests to quickly identify issues
+  - Use consistent error response formats across all API endpoints
 
 # Scratchpad
 
-## Current Task: Background User Registration Feature
+## Current Task: Personalized Template Recommendations
+
+### Problem Statement
+Now that we're tracking user interactions with categories (both direct category clicks and template selections), we need to implement a personalized recommendation system that prioritizes templates from categories the user interacts with most frequently. 
+
+### Data Foundation
+The enhanced `User` model now includes:
+- Category tracking of both direct category clicks and template selections
+- Visit counts for each category 
+- Source tracking to differentiate between direct category navigation and template-based interactions
+- Recency information through visitDate timestamps
+
+### Action Plan
+[X] 1. Create a recommendation scoring algorithm:
+   - Develop a weighted scoring system that prioritizes:
+     - Categories with higher visitCount
+     - Recent category interactions (newer visitDate)
+     - Categories visited through templates (potentially higher interest signal)
+   - Create API endpoint to fetch top categories for a user
+   - Implement sorting logic for template prioritization
+
+[X] 2. Backend implementation:
+   - Enhance the existing recommendations endpoint to include scoring
+   - Create a service that fetches templates based on top user categories
+   - Implement caching for recommendation results
+   - Add pagination for recommendation results
+   - Create a fallback recommendation strategy for new users
+
+[X] 3. Frontend implementation:
+   - Create a PersonalizedTemplatesFragment/adapter for the recommended templates
+   - Add a new section in HomeFragment for personalized recommendations
+   - Implement UI for displaying recommendations with section header
+   - Add visual indicators for recommended items
+   - Implement smooth loading states and transitions
+
+[ ] 4. Analytics and improvement:
+   - Track recommendation engagement metrics
+   - Implement A/B testing framework for algorithm improvements
+   - Add feedback mechanism for recommendations
+   - Create analytics dashboard for recommendation performance
+
+### Implementation Status
+
+#### 1. Backend Components (Complete)
+[X] Created recommendation service with the following features:
+   - Implemented category scoring algorithm that weighs:
+     - Visit count (50% weight)
+     - Recency (30% weight)
+     - Interaction type (20% for template views, 10% for direct category visits)
+   - Added caching with a 30-minute TTL for performance
+   - Implemented template diversity algorithm that interleaves results from different categories
+   - Created fallback recommendations for new users
+   - Added cache invalidation when users interact with categories or templates
+
+[X] Enhanced API endpoints:
+   - Updated `/api/users/:deviceId/recommendations` endpoint to use the recommendation service
+   - Added limit parameter for pagination
+   - Added cache invalidation in activity and template-view endpoints
+
+#### 2. Frontend Components (Complete)
+[X] Added HomeViewModel support for recommendations:
+   - Added methods to fetch personalized recommendations
+   - Created LiveData objects to hold recommendation results
+   - Added proper error handling and loading states
+
+[X] Updated HomeFragment UI:
+   - Added "Recommended For You" section
+   - Implemented RecyclerView adapter for recommendations
+   - Added loading states with shimmer effect
+   - Created smooth transitions between sections
+   - Fixed method naming for consistency
+
+[X] Enhanced template interaction tracking:
+   - Added onTemplateClick method to track template views
+   - Created recordTemplateView and trackTemplateView methods in UserRepository
+   - Added proper API endpoint for template view tracking
+   - Added refresh logic for recommendations when returning to HomeFragment
+
+#### 3. Client-Side Category Tracking (Complete)
+[X] Enhanced user tracking to include template interactions:
+   - Modified `UserRepository` to track template views with categories
+   - Updated `onTemplateClick` handlers to record template views
+   - Added rate limiting to prevent excessive API calls
+
+### Next Steps
+1. Test the recommendation flow with real user data
+2. Add analytics tracking to measure effectiveness
+3. Optimize the algorithm based on user feedback
+4. Implement A/B testing framework for continuous improvement
+
+### Recommendation Algorithm Details
+
+#### Category Score Calculation
+Each category receives a score based on:
+1. **Interaction Count**: The number of times a user has interacted with a category
+   ```
+   countScore = visitCount / maxVisitCount * 50
+   ```
+
+2. **Recency**: How recently the user interacted with the category
+   ```
+   recencyScore = (currentTime - visitDate) / maxTimeDiff * 30
+   ```
+
+3. **Interaction Type**: Direct category visits vs. template-based interactions
+   ```
+   sourceScore = (source == 'template') ? 20 : 10
+   ```
+
+4. **Total Score**: Sum of the above components
+   ```
+   totalScore = countScore + recencyScore + sourceScore
+   ```
+
+#### Template Selection Process (Implemented)
+1. Select top 2-3 categories based on score
+2. From each category, select newest and most popular templates
+3. Interleave results to ensure diversity
+4. Return up to requested limit (default 10)
+5. Cache results for 30 minutes for performance
+
+### Expected Outcomes
+1. Users will discover more relevant templates faster
+2. Engagement with the app will increase (longer sessions, more customizations)
+3. User satisfaction will improve with more personalized content
+4. App will feel more tailored to individual needs
+5. Analytics will provide insights for further improvements
+
+## Previous Task: Background User Registration Feature
 
 ### Problem Statement
 The app needs to implement automatic background user registration with the server when a user first opens the app. The key requirements are:
@@ -265,6 +402,12 @@ For the `users` collection/table:
    - Set up periodic last online updates
    - Handle network errors gracefully
 
+[X] 3. Fix implementation issues:
+   - Change LiveData's setValue() to postValue() in background threads
+   - Add better initialization checks and retry mechanism in EventWishApplication
+   - Register the user routes in server.js to make API endpoints accessible
+   - Improve error handling for network failures
+
 ### Implementation Details
 
 #### 1. Server-side (Backend):
@@ -288,6 +431,7 @@ For the `users` collection/table:
 [X] Update server.js:
    - Added the new user routes to app.js
    - Set up logger utility for proper logging
+   - Fixed missing route registration in server.js
 
 #### 2. Client-side (Android App):
 [X] Generate and store unique device ID:
@@ -301,6 +445,7 @@ For the `users` collection/table:
    - Implemented API endpoints in ApiService
    - Added error handling and retry logic
    - Created asynchronous registration using Executor
+   - Fixed LiveData threading issue by using postValue() instead of setValue()
 
 [X] Track category visits:
    - Updated HomeFragment to send category visit data
@@ -314,13 +459,14 @@ For the `users` collection/table:
    - Proper error handling for network failures
 
 ### Completion Notes
-The background user registration feature has been successfully implemented:
+The background user registration feature has been successfully implemented with all issues fixed:
 
 1. **Server-side components** provide a robust system for tracking user activity:
    - The `User` model with proper schema and validation
    - Complete API endpoints with proper error handling
    - Input validation middleware to ensure data integrity
    - Logging for debugging and monitoring
+   - Routes properly registered in server.js to make endpoints accessible
 
 2. **Client-side implementation** handles automatic registration and tracking:
    - Secure device ID generation with privacy protections
@@ -328,6 +474,15 @@ The background user registration feature has been successfully implemented:
    - Tracking of category visits when users browse different categories
    - Automatic updates of online status as users use the app
    - Rate limiting to prevent server overload
+   - Fixed LiveData threading issues by using postValue() instead of setValue()
+   - Added better initialization checks and retry mechanisms
+
+3. **Key fixes applied**:
+   - Fixed 404 error by registering the user routes in server.js
+   - Fixed IllegalStateException by using postValue() instead of setValue() on background threads
+   - Added proper initialization checks and error handling in EventWishApplication
+   - Implemented retries for critical operations
+   - Used AppExecutors for better thread management
 
 These changes enable valuable analytics capabilities while maintaining user privacy. The system is designed to be lightweight and unobtrusive, with minimal impact on app performance. The collected data can be used for future personalization features, allowing the app to recommend templates based on users' browsing patterns.
 

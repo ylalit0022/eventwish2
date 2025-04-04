@@ -11,6 +11,15 @@ const CategoryVisitSchema = new Schema({
     visitDate: {
         type: Date,
         default: Date.now
+    },
+    visitCount: {
+        type: Number,
+        default: 1
+    },
+    source: {
+        type: String,
+        enum: ['direct', 'template'],
+        default: 'direct'
     }
 });
 
@@ -43,20 +52,24 @@ UserSchema.methods.updateLastOnline = function() {
 };
 
 // Add a method to record a category visit
-UserSchema.methods.visitCategory = function(categoryName) {
+UserSchema.methods.visitCategory = function(categoryName, source = 'direct') {
     // Check if we already have this category in the list
     const existingCategory = this.categories.find(c => 
         c.category.toLowerCase() === categoryName.toLowerCase()
     );
     
     if (existingCategory) {
-        // Update the visit date for existing category
+        // Update the visit date and increment counter for existing category
         existingCategory.visitDate = Date.now();
+        existingCategory.visitCount += 1;
+        existingCategory.source = source; // Update the latest source
     } else {
         // Add new category visit
         this.categories.push({
             category: categoryName,
-            visitDate: Date.now()
+            visitDate: Date.now(),
+            visitCount: 1,
+            source: source
         });
     }
     
@@ -64,6 +77,11 @@ UserSchema.methods.visitCategory = function(categoryName) {
     this.lastOnline = Date.now();
     
     return this.save();
+};
+
+// Add a method to record a category visit from template interaction
+UserSchema.methods.visitCategoryFromTemplate = function(categoryName, templateId) {
+    return this.visitCategory(categoryName, 'template');
 };
 
 module.exports = mongoose.model('User', UserSchema); 

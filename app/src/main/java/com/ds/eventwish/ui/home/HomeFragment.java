@@ -65,6 +65,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.facebook.shimmer.ShimmerFrameLayout;
+
 public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemplateClickListener {
     private static final String TAG = "HomeFragment";
     private FragmentHomeBinding binding;
@@ -83,6 +85,11 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     private NetworkUtils networkUtils;
     private FeatureManager featureManager;
     private UserRepository userRepository;
+    private TemplateAdapter recommendationsAdapter;
+    private View recommendationsSection;
+    private ShimmerFrameLayout recommendationsShimmer;
+    private RecyclerView recommendationsRecyclerView;
+    private boolean doubleBackToExitPressedOnce = false;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -120,6 +127,14 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         
         setupObservers();
         setupMenuProvider();
+        
+        // Set up the swipe refresh layout
+        binding.swipeRefreshLayout.setOnRefreshListener(() -> {
+            refreshData();
+        });
+        
+        // Initialize recommendations section
+        initializeRecommendations();
     }
 
     private void setupRecyclerView() {
@@ -253,6 +268,55 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
 
         // Ensure categories are visible
         ensureCategoriesVisible();
+
+        // Initialize recommendations section views
+        recommendationsSection = binding.recommendationsSection;
+        recommendationsShimmer = binding.recommendationsShimmer;
+        recommendationsRecyclerView = binding.recommendationsRecyclerView;
+
+        // Set up recommendations adapter
+        recommendationsAdapter = new TemplateAdapter(this);
+
+        // Configure RecyclerView
+        recommendationsRecyclerView.setLayoutManager(
+                new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false));
+        recommendationsRecyclerView.setAdapter(recommendationsAdapter);
+
+        // Hide the recommendations section initially
+        recommendationsSection.setVisibility(View.GONE);
+
+        // Observe recommendations
+        viewModel.getRecommendedTemplates().observe(getViewLifecycleOwner(), templates -> {
+            Log.d(TAG, "Recommended templates updated, count: " + 
+                    (templates != null ? templates.size() : 0));
+            if (templates != null && !templates.isEmpty()) {
+                recommendationsAdapter.submitList(templates);
+                recommendationsSection.setVisibility(View.VISIBLE);
+                recommendationsShimmer.setVisibility(View.GONE);
+            } else {
+                recommendationsSection.setVisibility(View.GONE);
+            }
+        });
+
+        viewModel.isRecommendationsLoading().observe(getViewLifecycleOwner(), isLoading -> {
+            Log.d(TAG, "Recommendations loading state: " + isLoading);
+            if (isLoading) {
+                recommendationsShimmer.setVisibility(View.VISIBLE);
+                recommendationsShimmer.startShimmer();
+            } else {
+                recommendationsShimmer.stopShimmer();
+                recommendationsShimmer.setVisibility(View.GONE);
+            }
+        });
+
+        viewModel.getRecommendationsError().observe(getViewLifecycleOwner(), error -> {
+            if (error != null && !error.isEmpty()) {
+                Log.e(TAG, "Error loading recommendations: " + error);
+                Toast.makeText(requireContext(), 
+                    "Error loading recommendations: " + error, 
+                    Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void setupMenuProvider() {
@@ -359,6 +423,11 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
             if (layoutManager != null) {
                 binding.templatesRecyclerView.getLayoutManager().scrollToPosition(viewModel.getLastVisiblePosition());
             }
+        }
+        
+        // Check if we need to refresh recommendations
+        if (viewModel.shouldRefreshRecommendations()) {
+            viewModel.getPersonalizedRecommendations();
         }
         
         // DISABLE automatic periodic refresh to reduce server load
@@ -686,6 +755,14 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
 
     @Override
     public void onTemplateClick(Template template) {
+        // Record template view with category
+        try {
+            UserRepository userRepo = UserRepository.getInstance(requireContext());
+            userRepo.recordTemplateView(template.getId(), template.getCategory());
+        } catch (Exception e) {
+            Log.e(TAG, "Error recording template view", e);
+        }
+        
         navigateToTemplateDetail(template);
     }
     
@@ -1036,7 +1113,104 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         return super.onOptionsItemSelected(item);
     }
 
+    /**
+     * Update premium display to show premium status
+     */
     private void updatePremiumDisplay() {
         // Premium functionality is enabled by default, so this is now a no-op
+    }
+
+    /**
+     * Initialize recommendations UI and observers
+     */
+    private void initializeRecommendations() {
+        // Initialize recommendations section views
+        recommendationsSection = binding.recommendationsSection;
+        recommendationsShimmer = binding.recommendationsShimmer;
+        recommendationsRecyclerView = binding.recommendationsRecyclerView;
+
+        // Set up recommendations adapter
+        recommendationsAdapter = new TemplateAdapter(this);
+
+        // Configure RecyclerView
+        recommendationsRecyclerView.setLayoutManager(
+                new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false));
+        recommendationsRecyclerView.setAdapter(recommendationsAdapter);
+
+        // Hide the recommendations section initially
+        recommendationsSection.setVisibility(View.GONE);
+
+        // Observe recommendations
+        viewModel.getRecommendedTemplates().observe(getViewLifecycleOwner(), templates -> {
+            Log.d(TAG, "Recommended templates updated, count: " + 
+                    (templates != null ? templates.size() : 0));
+            if (templates != null && !templates.isEmpty()) {
+                recommendationsAdapter.submitList(templates);
+                recommendationsSection.setVisibility(View.VISIBLE);
+                recommendationsShimmer.setVisibility(View.GONE);
+            } else {
+                recommendationsSection.setVisibility(View.GONE);
+            }
+        });
+
+        viewModel.isRecommendationsLoading().observe(getViewLifecycleOwner(), isLoading -> {
+            Log.d(TAG, "Recommendations loading state: " + isLoading);
+            if (isLoading) {
+                recommendationsShimmer.setVisibility(View.VISIBLE);
+                recommendationsShimmer.startShimmer();
+            } else {
+                recommendationsShimmer.stopShimmer();
+                recommendationsShimmer.setVisibility(View.GONE);
+            }
+        });
+
+        viewModel.getRecommendationsError().observe(getViewLifecycleOwner(), error -> {
+            if (error != null && !error.isEmpty()) {
+                Log.e(TAG, "Error loading recommendations: " + error);
+                Toast.makeText(requireContext(), 
+                    "Error loading recommendations: " + error, 
+                    Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // Load recommendations
+        viewModel.getPersonalizedRecommendations();
+    }
+
+    /**
+     * Refresh all data in the home screen
+     */
+    private void refreshData() {
+        Log.d(TAG, "Manual refresh triggered by user");
+        
+        // Refresh templates
+        if (viewModel != null) {
+            viewModel.refreshTemplates();
+            
+            // Refresh recommendations
+            viewModel.getPersonalizedRecommendations();
+        }
+        
+        // Show the swipe refresh indicator
+        if (binding != null) {
+            binding.swipeRefreshLayout.setRefreshing(true);
+        }
+    }
+
+    /**
+     * Navigate to the template customize screen
+     * @param template The template to customize
+     */
+    private void navigateToCustomize(Template template) {
+        try {
+            NavController navController = Navigation.findNavController(requireActivity(), R.id.nav_host_fragment);
+            viewModel.setSelectedTemplate(template);
+            
+            Bundle args = new Bundle();
+            args.putString("templateId", template.getId());
+            navController.navigate(R.id.action_home_to_template_detail, args);
+        } catch (Exception e) {
+            Log.e(TAG, "Error navigating to customize template", e);
+        }
     }
 }

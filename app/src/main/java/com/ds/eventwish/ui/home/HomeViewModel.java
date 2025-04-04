@@ -19,6 +19,12 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import java.util.HashMap;
+import android.app.Application;
+import androidx.annotation.NonNull;
+import com.ds.eventwish.data.repository.UserRepository;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
+import com.ds.eventwish.EventWishApplication;
 
 public class HomeViewModel extends ViewModel {
     private static final String TAG = "HomeViewModel";
@@ -95,11 +101,19 @@ public class HomeViewModel extends ViewModel {
     // Observer reference to avoid creating multiple observers
     private androidx.lifecycle.Observer<Map<String, Integer>> categoriesObserver;
 
+    private final MutableLiveData<List<Template>> recommendedTemplates = new MutableLiveData<>();
+    private final MutableLiveData<Boolean> isLoadingRecommendations = new MutableLiveData<>(false);
+    private final MutableLiveData<String> recommendationsError = new MutableLiveData<>();
+    private UserRepository userRepository;
+
     /**
      * Constructor
      */
     public HomeViewModel() {
         repository = TemplateRepository.getInstance();
+        
+        // Initialize UserRepository
+        userRepository = UserRepository.getInstance(EventWishApplication.getInstance());
         
         // Setup the categories observer once
         categoriesObserver = categoriesMap -> {
@@ -739,5 +753,121 @@ public class HomeViewModel extends ViewModel {
             SharedPreferences prefs = appContext.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
             prefs.edit().remove(PREF_SELECTED_CATEGORY).apply();
         }
+    }
+
+    /**
+     * Get personalized template recommendations
+     */
+    public void getPersonalizedRecommendations() {
+        if (isLoadingRecommendations.getValue() != null && isLoadingRecommendations.getValue()) {
+            return; // Already loading
+        }
+        
+        isLoadingRecommendations.setValue(true);
+        recommendationsError.setValue(null);
+        
+        userRepository.getRecommendations(new UserRepository.RecommendationsCallback() {
+            @Override
+            public void onSuccess(JsonObject recommendations) {
+                try {
+                    List<Template> templates = new ArrayList<>();
+                    
+                    if (recommendations.has("recommendations") && 
+                        recommendations.getAsJsonObject("recommendations").has("templates")) {
+                        JsonArray templatesArray = recommendations
+                            .getAsJsonObject("recommendations")
+                            .getAsJsonArray("templates");
+                        
+                        for (int i = 0; i < templatesArray.size(); i++) {
+                            JsonObject templateObj = templatesArray.get(i).getAsJsonObject();
+                            Template template = new Template();
+                            
+                            // Map JSON fields to Template object
+                            if (templateObj.has("_id")) {
+                                template.setId(templateObj.get("_id").getAsString());
+                            }
+                            
+                            if (templateObj.has("title")) {
+                                template.setTitle(templateObj.get("title").getAsString());
+                            }
+                            
+                            if (templateObj.has("category")) {
+                                template.setCategory(templateObj.get("category").getAsString());
+                            }
+                            
+                            if (templateObj.has("previewUrl")) {
+                                template.setThumbnailUrl(templateObj.get("previewUrl").getAsString());
+                            }
+                            
+                            templates.add(template);
+                        }
+                    }
+                    
+                    recommendedTemplates.postValue(templates);
+                    isLoadingRecommendations.postValue(false);
+                    
+                } catch (Exception e) {
+                    Log.e(TAG, "Error parsing recommendations: " + e.getMessage());
+                    recommendationsError.postValue("Error parsing recommendations");
+                    isLoadingRecommendations.postValue(false);
+                }
+            }
+            
+            @Override
+            public void onFailure(String errorMessage) {
+                Log.e(TAG, "Error getting recommendations: " + errorMessage);
+                recommendationsError.postValue(errorMessage);
+                isLoadingRecommendations.postValue(false);
+            }
+        });
+    }
+    
+    /**
+     * Get recommended templates LiveData
+     */
+    public LiveData<List<Template>> getRecommendedTemplates() {
+        return recommendedTemplates;
+    }
+    
+    /**
+     * Get recommendations loading state
+     */
+    public LiveData<Boolean> isRecommendationsLoading() {
+        return isLoadingRecommendations;
+    }
+    
+    /**
+     * Get recommendations error state
+     */
+    public LiveData<String> getRecommendationsError() {
+        return recommendationsError;
+    }
+
+    /**
+     * Handle template click event, tracking the template view
+     * @param template The template that was clicked
+     */
+    public void onTemplateClick(Template template) {
+        if (template == null || userRepository == null) {
+            return;
+        }
+        
+        // Track template view with its category in user history
+        String category = template.getCategory();
+        if (category != null && !category.isEmpty()) {
+            userRepository.trackTemplateView(template.getId(), category);
+            Log.d(TAG, "Tracked template view: " + template.getId() + " in category: " + category);
+        }
+    }
+
+    /**
+     * Check if recommendations should be refreshed when returning to HomeFragment
+     * This is useful after a user has clicked on a template or visited another fragment
+     * @return true if recommendations should be refreshed
+     */
+    public boolean shouldRefreshRecommendations() {
+        // For now, use the same logic as general refresh
+        // In the future, this could have a separate threshold specific to recommendations
+        return isRefreshNeeded();
     }
 }

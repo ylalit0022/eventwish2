@@ -247,12 +247,24 @@ public interface ApiService {
     Call<JsonObject> registerDeviceUser(@Body Map<String, Object> requestBody);
 
     /**
-     * Update user activity (last online timestamp and optional category visit)
-     * @param requestBody Request body containing deviceId and optional category
-     * @return Response
+     * Update user activity (online status and category visit)
      */
-    @PUT("users/activity")
-    Call<JsonObject> updateUserActivity(@Body Map<String, Object> requestBody);
+    @PUT("/api/users/activity")
+    Call<JsonObject> updateUserActivity(@Body Map<String, Object> body);
+
+    /**
+     * Record a template view with category
+     */
+    @PUT("/api/users/template-view")
+    Call<JsonObject> recordTemplateView(@Body Map<String, Object> body);
+
+    /**
+     * Get personalized recommendations for a user
+     * @param deviceId Device ID
+     * @return Response with recommendations data
+     */
+    @GET("users/{deviceId}/recommendations")
+    Call<JsonObject> getUserRecommendations(@Path("deviceId") String deviceId);
 
     /**
      * Get user data by device ID

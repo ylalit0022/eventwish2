@@ -7,6 +7,7 @@ import android.provider.Settings;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
@@ -197,36 +198,43 @@ public class UserRepository {
      * Update user activity
      * @param category Optional category name (if a category was visited)
      */
-    public void updateUserActivity(String category) {
+    public void updateUserActivity(@Nullable String category) {
+        // Skip if not registered or currently updating
+        if (!isUserRegistered() || Boolean.TRUE.equals(isUpdatingActivity.getValue())) {
+            if (!isUserRegistered()) {
+                Log.d(TAG, "Cannot update activity: User not registered");
+            }
+            return;
+        }
+        
         final String deviceId = getDeviceId();
         if (deviceId == null || deviceId.isEmpty()) {
             Log.e(TAG, "Cannot update activity: Device ID is null or empty");
             return;
         }
         
-        // Skip if not registered
-        if (!isUserRegistered()) {
-            Log.d(TAG, "Cannot update activity: User not registered");
-            return;
-        }
+        // Check if sufficient time has passed since last update
+        long lastUpdate = prefs.getLong(PREF_LAST_ACTIVITY_UPDATE, 0);
+        long now = System.currentTimeMillis();
         
-        // Skip if already updating activity
-        if (Boolean.TRUE.equals(isUpdatingActivity.getValue())) {
-            return;
-        }
-        
-        // Check if we should throttle activity updates
-        long lastUpdateTime = prefs.getLong(PREF_LAST_ACTIVITY_UPDATE, 0);
-        long currentTime = System.currentTimeMillis();
-        
-        // Skip if we updated activity recently (unless it's a different category)
-        if (currentTime - lastUpdateTime < MIN_ACTIVITY_UPDATE_INTERVAL) {
+        // For category visits, also store the last visited category
+        if (category != null) {
             String lastCategory = prefs.getString(PREF_LAST_CATEGORY_VISIT, null);
+            long timeSinceLastUpdate = now - lastUpdate;
             
-            // If it's the same category or both are null, skip update
-            if ((category == null && lastCategory == null) || 
-                    (category != null && category.equals(lastCategory))) {
-                Log.d(TAG, "Skipping activity update: Too soon after last update");
+            // Rate limit category updates to prevent spam
+            if (lastCategory != null && lastCategory.equals(category) && 
+                    timeSinceLastUpdate < MIN_ACTIVITY_UPDATE_INTERVAL) {
+                Log.d(TAG, "Skipping category update (rate limited): " + category);
+                return;
+            }
+            
+            // Save this category as last visited
+            prefs.edit().putString(PREF_LAST_CATEGORY_VISIT, category).apply();
+        } else {
+            // For regular activity updates (no category), rate limit
+            if (now - lastUpdate < MIN_ACTIVITY_UPDATE_INTERVAL) {
+                Log.d(TAG, "Skipping activity update (rate limited)");
                 return;
             }
         }
@@ -236,13 +244,9 @@ public class UserRepository {
         
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("deviceId", deviceId);
-        
-        // Add category if provided
-        if (category != null && !category.isEmpty()) {
+        if (category != null) {
             requestBody.put("category", category);
-            
-            // Save last visited category
-            prefs.edit().putString(PREF_LAST_CATEGORY_VISIT, category).apply();
+            requestBody.put("source", "direct");
         }
         
         apiService.updateUserActivity(requestBody).enqueue(new Callback<JsonObject>() {
@@ -271,6 +275,114 @@ public class UserRepository {
                 isUpdatingActivity.postValue(false);
             }
         });
+    }
+    
+    /**
+     * Record a template view with its category
+     * @param templateId The ID of the template that was viewed
+     * @param category The category the template belongs to
+     */
+    public void recordTemplateView(String templateId, String category) {
+        // Skip if not registered or currently updating
+        if (!isUserRegistered()) {
+            Log.d(TAG, "Cannot record template view: User not registered");
+            return;
+        }
+        
+        final String deviceId = getDeviceId();
+        if (deviceId == null || deviceId.isEmpty() || templateId == null || category == null) {
+            Log.e(TAG, "Cannot record template view: Missing required data");
+            return;
+        }
+        
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("deviceId", deviceId);
+        requestBody.put("templateId", templateId);
+        requestBody.put("category", category);
+        
+        apiService.recordTemplateView(requestBody).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
+                if (response.isSuccessful()) {
+                    Log.d(TAG, "Template view recorded: " + templateId + " in category: " + category);
+                } else {
+                    Log.e(TAG, "Failed to record template view: " + response.code() + " " + 
+                            (response.errorBody() != null ? response.errorBody().toString() : ""));
+                }
+            }
+            
+            @Override
+            public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable t) {
+                Log.e(TAG, "Template view request failed", t);
+            }
+        });
+    }
+    
+    /**
+     * Track a template view - convenience method that calls recordTemplateView
+     * @param templateId The ID of the template that was viewed
+     * @param category The category the template belongs to
+     */
+    public void trackTemplateView(String templateId, String category) {
+        recordTemplateView(templateId, category);
+    }
+    
+    /**
+     * Get personalized recommendations for the user
+     * @param callback Callback to receive recommendations
+     */
+    public void getRecommendations(final RecommendationsCallback callback) {
+        // Skip if not registered
+        if (!isUserRegistered()) {
+            Log.d(TAG, "Cannot get recommendations: User not registered");
+            if (callback != null) {
+                callback.onFailure("User not registered");
+            }
+            return;
+        }
+        
+        final String deviceId = getDeviceId();
+        if (deviceId == null || deviceId.isEmpty()) {
+            Log.e(TAG, "Cannot get recommendations: Device ID is null or empty");
+            if (callback != null) {
+                callback.onFailure("Invalid device ID");
+            }
+            return;
+        }
+        
+        apiService.getUserRecommendations(deviceId).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    JsonObject data = response.body();
+                    Log.d(TAG, "Recommendations received: " + data);
+                    if (callback != null) {
+                        callback.onSuccess(data);
+                    }
+                } else {
+                    Log.e(TAG, "Failed to get recommendations: " + response.code());
+                    if (callback != null) {
+                        callback.onFailure("Failed to get recommendations: " + response.code());
+                    }
+                }
+            }
+            
+            @Override
+            public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable t) {
+                Log.e(TAG, "Recommendations request failed", t);
+                if (callback != null) {
+                    callback.onFailure("Request failed: " + t.getMessage());
+                }
+            }
+        });
+    }
+    
+    /**
+     * Callback interface for recommendations
+     */
+    public interface RecommendationsCallback {
+        void onSuccess(JsonObject recommendations);
+        void onFailure(String errorMessage);
     }
     
     /**
