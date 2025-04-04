@@ -5,6 +5,8 @@ import android.content.Context;
 import android.util.Log;
 import android.os.Bundle;
 import android.app.Activity;
+import android.os.Handler;
+import android.os.Looper;
 
 import androidx.work.Configuration;
 import androidx.work.Constraints;
@@ -100,10 +102,27 @@ public class EventWishApplication extends Application implements Configuration.P
      * Register user with server in background
      */
     private void registerUserInBackground() {
-        // Use a background thread to register the user
-        Executors.newSingleThreadExecutor().execute(() -> {
+        // Don't execute immediately, wait for services to be fully initialized
+        if (appExecutors == null) {
+            Log.e(TAG, "Cannot register user: AppExecutors not initialized");
+            // Schedule a delayed retry since this is critical functionality
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                Log.d(TAG, "Retrying user registration after delay");
+                registerUserInBackground();
+            }, 3000); // 3 second delay
+            return;
+        }
+        
+        // Use the appExecutors for better thread management
+        appExecutors.networkIO().execute(() -> {
             try {
                 if (userRepository != null) {
+                    // Check if SecureTokenManager is properly initialized
+                    if (secureTokenManager == null) {
+                        Log.e(TAG, "Cannot register user: SecureTokenManager not initialized");
+                        return;
+                    }
+                    
                     userRepository.registerUserIfNeeded();
                     Log.d(TAG, "Background user registration initiated");
                 } else {
@@ -111,6 +130,7 @@ public class EventWishApplication extends Application implements Configuration.P
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error during background user registration", e);
+                // Don't try to recover automatically as this might cause loops
             }
         });
     }

@@ -109,6 +109,22 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Implement thread-safe getInstance() method with synchronized keyword
   - Add initialization checks before returning instances
   - Use proper logging for debugging initialization issues
+- When managing dependencies between singleton classes in Android:
+  - Be aware of initialization order between singletons that depend on each other
+  - Always initialize security/authentication managers before network/API clients
+  - Use a hierarchical initialization approach, starting with core services first
+  - Add null checks and proper error handling for dependent services
+  - Make service fields non-final if initialization can fail or happen asynchronously
+  - Add fallback mechanisms in case dependent services fail to initialize
+  - Consider service registration patterns for complex dependency graphs
+- When working with LiveData in Android:
+  - Always use postValue() instead of setValue() when updating LiveData from background threads
+  - LiveData.setValue() can only be called from the main thread, otherwise it throws IllegalStateException
+  - Use proper threading practices: AppExecutors or Handlers for background operations
+  - Consider using observeForever() with proper cleanup for background workers that need LiveData updates
+  - Add thread safety checks before LiveData operations in repository classes
+  - Be cautious when initializing repositories with LiveData in Application.onCreate()
+  - Use SingleLiveEvent for one-time events to avoid LiveData redelivery on configuration changes
 - When working with Room database in Android:
   - Add @Ignore annotation to additional constructors to avoid Room warnings
   - Ensure field names in DAO queries match the actual entity field names

@@ -161,8 +161,8 @@ public class UserRepository {
             return;
         }
         
-        // Set registering state
-        isRegistering.setValue(true);
+        // Use postValue instead of setValue for background thread safety
+        isRegistering.postValue(true);
         
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("deviceId", deviceId);
@@ -231,8 +231,8 @@ public class UserRepository {
             }
         }
         
-        // Set updating state
-        isUpdatingActivity.setValue(true);
+        // Use postValue instead of setValue for background thread safety
+        isUpdatingActivity.postValue(true);
         
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("deviceId", deviceId);
