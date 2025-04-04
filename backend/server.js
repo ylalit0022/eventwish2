@@ -227,6 +227,7 @@ app.use('/api/categoryIcons', require('./routes/categoryIcons'));
 app.use('/api/test/time', require('./routes/timeRoutes'));
 app.use('/api/images', require('./routes/images'));
 app.use('/api/share', require('./routes/share'));
+app.use('/api/users', require('./routes/users'));
 
 // Time synchronization route for Android client
 app.get('/api/server/time', (req, res) => {
