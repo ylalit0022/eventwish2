@@ -329,54 +329,66 @@ public class FestivalNotificationFragment extends Fragment {
             ImageView categoryIcon = festivalView.findViewById(R.id.categoryIcon);
             RecyclerView templatesRecyclerView = festivalView.findViewById(R.id.templatesRecyclerView);
             
-            // Create countdown view programmatically
+            // Look for the info container to properly position the countdown
+            LinearLayout infoContainer = festivalView.findViewById(R.id.festivalInfoContainer);
+            
+            // Create countdown TextView with proper styling
             TextView countdownView = new TextView(requireContext());
             countdownView.setId(View.generateViewId());
             countdownView.setTextColor(getResources().getColor(android.R.color.holo_red_light));
             countdownView.setTextSize(14);
+            countdownView.setPadding(0, 4, 0, 8); // Add padding for better spacing
             
-            // Add it to the layout - find a suitable container
-            ViewGroup container = null;
+            // Set layout params for better positioning
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            countdownView.setLayoutParams(params);
             
-            // Try to find a container by type
-            if (festivalView instanceof ViewGroup) {
-                // Look for a LinearLayout that might be the info container
-                ViewGroup rootView = (ViewGroup) festivalView;
-                for (int i = 0; i < rootView.getChildCount(); i++) {
-                    View child = rootView.getChildAt(i);
-                    if (child instanceof LinearLayout) {
-                        container = (ViewGroup) child;
-                        break;
-                    }
-                }
+            // Add the countdown view to the proper container
+            if (infoContainer != null) {
+                // Add countdown right after festival date for better grouping
+                int insertIndex = -1;
                 
-                // If no LinearLayout found, use the root view
-                if (container == null) {
-                    container = rootView;
-                }
-            }
-            
-            if (container != null) {
-                // Add the countdown view after the festival name if possible
-                int insertIndex = 1; // Default to position 1
-                
-                // Try to find the festival name view to insert after it
-                for (int i = 0; i < container.getChildCount(); i++) {
-                    View child = container.getChildAt(i);
-                    if (child instanceof TextView && child.getId() == R.id.festivalName) {
+                // Find the festival date view to insert after it
+                for (int i = 0; i < infoContainer.getChildCount(); i++) {
+                    View child = infoContainer.getChildAt(i);
+                    if (child.getId() == R.id.festivalDate) {
                         insertIndex = i + 1;
                         break;
                     }
                 }
                 
-                // Add the countdown view
-                if (container instanceof LinearLayout) {
-                    ((LinearLayout) container).addView(countdownView, insertIndex);
+                // If festival date was found, insert after it, otherwise add to end
+                if (insertIndex != -1) {
+                    infoContainer.addView(countdownView, insertIndex);
                 } else {
-                    container.addView(countdownView);
+                    infoContainer.addView(countdownView);
                 }
+                
+                Log.d(TAG, "Added countdown view to info container");
             } else {
-                Log.e(TAG, "Could not find a suitable container for countdown view");
+                // Fallback: look for any LinearLayout to add the countdown
+                ViewGroup container = festivalView.findViewById(R.id.festivalContainer);
+                if (container instanceof LinearLayout) {
+                    // Add the countdown view after the festival name
+                    int insertIndex = 1; // Default position
+                    
+                    // Try to find a good insertion point
+                    for (int i = 0; i < container.getChildCount(); i++) {
+                        View child = container.getChildAt(i);
+                        if (child instanceof TextView && 
+                            (child.getId() == R.id.festivalName || child.getId() == R.id.festivalDate)) {
+                            insertIndex = i + 1;
+                            break;
+                        }
+                    }
+                    
+                    ((LinearLayout) container).addView(countdownView, insertIndex);
+                    Log.d(TAG, "Added countdown view to main container");
+                } else {
+                    Log.e(TAG, "Could not find a suitable container for countdown view");
+                }
             }
 
             // Set festival data
@@ -451,7 +463,8 @@ public class FestivalNotificationFragment extends Fragment {
         
         if (festivalCal.get(Calendar.YEAR) == nowCal.get(Calendar.YEAR) &&
             festivalCal.get(Calendar.DAY_OF_YEAR) == nowCal.get(Calendar.DAY_OF_YEAR)) {
-            countdownView.setText("Today!");
+            countdownView.setText("\u2022 Today! \u2022");
+            countdownView.setTextColor(getResources().getColor(R.color.purple_500));
             countdownView.setVisibility(View.VISIBLE);
             return;
         }
@@ -472,17 +485,20 @@ public class FestivalNotificationFragment extends Fragment {
                 
                 long seconds = TimeUnit.MILLISECONDS.toSeconds(millisUntilFinished);
                 
-                // Format countdown text
+                // Format countdown text with better readability
                 String countdownText;
                 if (days > 0) {
+                    // For longer time periods, show days and hours
                     countdownText = String.format(Locale.getDefault(), 
-                            "Coming in: %d days, %d hours", days, hours);
+                            "\u2022 Coming in %d days %dh \u2022", days, hours);
                 } else if (hours > 0) {
+                    // For medium time periods, show hours and minutes
                     countdownText = String.format(Locale.getDefault(), 
-                            "Coming in: %d hours, %d minutes", hours, minutes);
+                            "\u2022 Coming in %d hours %dm \u2022", hours, minutes);
                 } else {
+                    // For short time periods, show minutes and seconds
                     countdownText = String.format(Locale.getDefault(), 
-                            "Coming in: %d minutes, %d seconds", minutes, seconds);
+                            "\u2022 Coming soon: %dm %ds \u2022", minutes, seconds);
                 }
                 
                 // Update countdown view
@@ -492,7 +508,8 @@ public class FestivalNotificationFragment extends Fragment {
             
             @Override
             public void onFinish() {
-                countdownView.setText("Event is happening now!");
+                countdownView.setText("\u2022 Happening now! \u2022");
+                countdownView.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
                 countdownView.setVisibility(View.VISIBLE);
             }
         };

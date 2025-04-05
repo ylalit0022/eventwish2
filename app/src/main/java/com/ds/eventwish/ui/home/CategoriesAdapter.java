@@ -155,6 +155,8 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
             return;
         }
         
+        Log.d(TAG, "📋 updateCategories called with " + newCategories.size() + " categories: " + newCategories);
+        
         // Skip updates if we're preventing changes or a refresh is in progress
         if (preventCategoryChanges) {
             Log.d(TAG, "🔒 Category changes prevented, skipping update");
@@ -176,32 +178,36 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         refreshInProgress.set(true);
         
         try {
-            Log.d(TAG, "🔄 Updating categories: " + newCategories.size() + " categories");
+            Log.d(TAG, "🔄 Updating categories: " + newCategories.size() + " categories: " + newCategories);
             
             // Clear and update the categories list
             categories.clear();
             categories.addAll(newCategories);
+            
+            Log.d(TAG, "📋 Categories after update: " + categories.size() + " categories: " + categories);
             
             // Update visible categories based on mode
             if (moreClickListener == null) {
                 // Bottom sheet mode - show all categories
                 visibleCategories.clear();
                 visibleCategories.addAll(categories);
-                Log.d(TAG, "📋 Bottom sheet mode: showing all " + categories.size() + " categories");
+                Log.d(TAG, "📋 Bottom sheet mode: showing all " + categories.size() + " categories: " + visibleCategories);
             } else {
                 // Main adapter mode - apply visible categories logic
                 updateVisibleCategories();
-                Log.d(TAG, "📋 Main adapter mode: showing " + visibleCategories.size() + " of " + categories.size() + " categories");
+                Log.d(TAG, "📋 Main adapter mode: showing " + visibleCategories.size() + " of " + categories.size() + " categories: " + visibleCategories);
             }
             
             // Initialize category icons if not already done
             if (!categoryIconsInitialized.get()) {
                 categoryIconRepository.refreshCategoryIcons();
                 categoryIconsInitialized.set(true);
+                Log.d(TAG, "🔄 Initialized category icons");
             }
             
             // Notify to update the UI
             notifyDataSetChanged();
+            Log.d(TAG, "✅ Adapter notified of data change, item count: " + getItemCount());
         } finally {
             // Reset refresh flag
             refreshInProgress.set(false);
@@ -241,11 +247,21 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         String selectedCategory = selectedPosition < visibleCategories.size() ? 
                 visibleCategories.get(selectedPosition) : null;
                 
+        // Log the current state before update
+        Log.d(TAG, "📋 Updating visible categories. Original categories: " + categories.size() + 
+              ", Selected category: " + (selectedCategory != null ? selectedCategory : "All"));
+        
         visibleCategories.clear();
         
-        // Always include "All" category if it exists
+        // Always include "All" category if it exists or add it if it doesn't
         if (categories.contains("All")) {
             visibleCategories.add("All");
+        } else {
+            visibleCategories.add("All");
+            // Add "All" to the main categories list if not present
+            if (!categories.contains("All")) {
+                categories.add(0, "All");
+            }
         }
         
         // Add the selected category if not "All" and not already included
@@ -259,23 +275,46 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         // Important: preserve original order from 'categories' list
         List<String> remainingCategories = new ArrayList<>();
         for (String category : categories) {
-            if (!visibleCategories.contains(category)) {
+            if (!visibleCategories.contains(category) && !category.equals("All")) {
                 remainingCategories.add(category);
             }
         }
         
-        // Calculate remaining slots
-        int remainingSlots = MAX_VISIBLE_CATEGORIES - 1 - visibleCategories.size();
+        // In case of empty categories, add some defaults
+        if (remainingCategories.isEmpty() && categories.size() <= 1) {
+            Log.d(TAG, "📋 No additional categories found, adding defaults");
+            remainingCategories.add("Birthday");
+            remainingCategories.add("Wedding");
+            remainingCategories.add("Holiday");
+            remainingCategories.add("Anniversary");
+            
+            // Add these defaults to the main categories list too
+            for (String defaultCategory : remainingCategories) {
+                if (!categories.contains(defaultCategory)) {
+                    categories.add(defaultCategory);
+                }
+            }
+        }
+        
+        // Calculate remaining slots with a minimum of 3 visible categories plus All
+        int remainingSlots = MAX_VISIBLE_CATEGORIES - visibleCategories.size();
+        
+        // Always show at least 3 categories plus All if available
+        int minCategoriesToShow = Math.min(3, remainingCategories.size());
         
         // Add other categories (preserving original order)
-        for (int i = 0; i < Math.min(remainingSlots, remainingCategories.size()); i++) {
+        for (int i = 0; i < Math.max(minCategoriesToShow, Math.min(remainingSlots, remainingCategories.size())); i++) {
             visibleCategories.add(remainingCategories.get(i));
         }
         
-        // Add "More" if necessary
-        if (remainingCategories.size() > remainingSlots) {
+        // Add "More" if necessary and we have more categories to show
+        if (remainingCategories.size() > remainingSlots && remainingSlots > 0) {
             visibleCategories.add("More");
         }
+        
+        // Log the result
+        Log.d(TAG, "📋 Visible categories updated: " + visibleCategories.size() + 
+              " categories showing: " + visibleCategories);
     }
 
     /**
@@ -781,5 +820,32 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
      */
     public void setPreventCategoryChanges(boolean prevent) {
         preventCategoryChanges(prevent);
+    }
+
+    /**
+     * Check if category icons have been initialized
+     * @return true if categories have been initialized
+     */
+    public boolean isInitialized() {
+        return categoryIconsInitialized.get();
+    }
+
+    /**
+     * Get the currently selected position
+     * @return The selected position, or 0 if none selected (for "All" category)
+     */
+    public int getSelectedPosition() {
+        return selectedPosition;
+    }
+
+    /**
+     * Get the currently selected category 
+     * @return The selected category, or "All" if none selected
+     */
+    public String getSelectedCategory() {
+        if (selectedPosition >= 0 && selectedPosition < visibleCategories.size()) {
+            return visibleCategories.get(selectedPosition);
+        }
+        return "All";
     }
 }

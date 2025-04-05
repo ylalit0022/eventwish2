@@ -2,6 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/festivalContainer"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
@@ -23,7 +24,8 @@
             android:layout_height="32dp"
             android:padding="8dp"
             android:background="@drawable/icon_circle"
-            app:tint="@color/purple_700"/>
+            app:tint="@color/purple_700"
+            android:contentDescription="@string/category_icon"/>
 
         <TextView
             android:id="@+id/categoryTitle"
@@ -34,7 +36,6 @@
             android:textSize="18sp"
             android:text="Holi"
             android:textColor="@color/purple_700"
-            android:contentDescription="@string/category_icon"
             android:textStyle="bold"/>
 
         <TextView
@@ -45,40 +46,48 @@
             android:textSize="14sp"
             tools:text="Mar 5, 2025" />
     </LinearLayout>
+    
+    <!-- Adding a dedicated container for festival info including date and countdown -->
+    <LinearLayout
+        android:id="@+id/festivalInfoContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="4dp">
+        
+        <TextView
+            android:id="@+id/festivalName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            tools:text="Holi Festival" />
+    
+        <TextView
+            android:id="@+id/festivalDescription"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="#757575"
+            android:textSize="14sp"
+            tools:text="Festival of Colors" />
+            
+        <!-- The countdown TextView will be added here programmatically -->
+    </LinearLayout>
 
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:layout_marginTop="5dp"
-        android:background="@drawable/icon_circle" />
-
-
-    <TextView
-        android:id="@+id/festivalName"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:textColor="@android:color/black"
-        android:textSize="18sp"
-        android:visibility="gone"
-        android:textStyle="bold"
-        tools:text="Holi Festival" />
-
-    <TextView
-        android:id="@+id/festivalDescription"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:textColor="#757575"
-        android:textSize="14sp"
-        android:visibility="gone"
-        tools:text="Festival of Colors" />
+        android:layout_marginBottom="8dp"
+        android:background="#EEEEEE" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/templatesRecyclerView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="15dp"
+        android:layout_marginTop="8dp"
         android:clipToPadding="false"
         android:orientation="horizontal"
         android:paddingStart="0dp"
