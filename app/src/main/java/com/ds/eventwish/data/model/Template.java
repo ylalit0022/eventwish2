@@ -55,6 +55,17 @@ public class Template {
     // Add type field with a default getter
     private String type = "html";
     
+    // Add a recommended flag with default value false
+    private boolean recommended = false;
+    
+    public boolean isRecommended() {
+        return recommended;
+    }
+    
+    public void setRecommended(boolean recommended) {
+        this.recommended = recommended;
+    }
+    
     public String getType() {
         return type;
     }

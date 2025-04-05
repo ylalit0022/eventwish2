@@ -220,4 +220,169 @@ router.get('/:deviceId/recommendations', async (req, res) => {
     }
 });
 
+/**
+ * @route   POST /api/users/engagement
+ * @desc    Record detailed user engagement metrics
+ * @access  Public
+ */
+router.post('/engagement', validateDeviceId, async (req, res) => {
+    try {
+        const { deviceId, type, templateId, category, timestamp, durationMs, engagementScore, source } = req.body;
+        
+        // Validate required fields
+        if (!deviceId || !type) {
+            return res.status(400).json({
+                success: false,
+                message: 'Device ID and engagement type are required'
+            });
+        }
+        
+        // Find user by deviceId
+        let user = await User.findOne({ deviceId });
+        
+        if (!user) {
+            logger.warn(`Engagement tracking attempted for non-existent user: ${deviceId}`);
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Record engagement based on type
+        switch (type) {
+            case 1: // Category visit
+                if (category) {
+                    await user.visitCategory(category, source || 'direct');
+                    logger.info(`User ${deviceId} engagement: visited category ${category}`);
+                }
+                break;
+                
+            case 2: // Template view
+                if (templateId && category) {
+                    await user.visitCategoryFromTemplate(category, templateId);
+                    logger.info(`User ${deviceId} engagement: viewed template ${templateId} in ${category}`);
+                }
+                break;
+                
+            case 3: // Template use
+                if (templateId && category) {
+                    // Record as a stronger engagement
+                    await user.visitCategoryFromTemplate(category, templateId);
+                    // You could add additional tracking for template usage here
+                    logger.info(`User ${deviceId} engagement: used template ${templateId} in ${category}`);
+                }
+                break;
+                
+            case 4: // Explicit like
+            case 5: // Explicit dislike
+                if (templateId && category) {
+                    // Record feedback (like/dislike)
+                    const isLike = type === 4;
+                    // Add to user preferences (simplified implementation)
+                    if (isLike) {
+                        // Track as a positive preference
+                        await user.visitCategoryFromTemplate(category, templateId);
+                    }
+                    logger.info(`User ${deviceId} engagement: ${isLike ? 'liked' : 'disliked'} template ${templateId}`);
+                }
+                break;
+                
+            default:
+                logger.warn(`Unknown engagement type ${type} from user ${deviceId}`);
+        }
+        
+        // Update last online time
+        user.lastOnline = Date.now();
+        await user.save();
+        
+        // Invalidate recommendations cache
+        await recommendationService.invalidateUserRecommendations(deviceId);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Engagement recorded successfully'
+        });
+        
+    } catch (error) {
+        logger.error(`Engagement tracking error: ${error.message}`, { error });
+        res.status(500).json({
+            success: false,
+            message: 'Server error recording engagement',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   POST /api/users/engagement/sync
+ * @desc    Sync multiple engagement records in batch
+ * @access  Public
+ */
+router.post('/engagement/sync', validateDeviceId, async (req, res) => {
+    try {
+        const { deviceId, engagements } = req.body;
+        
+        if (!deviceId || !engagements || !Array.isArray(engagements)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Device ID and engagement array are required'
+            });
+        }
+        
+        // Find user by deviceId
+        let user = await User.findOne({ deviceId });
+        
+        if (!user) {
+            logger.warn(`Batch engagement sync attempted for non-existent user: ${deviceId}`);
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Process each engagement record
+        let processed = 0;
+        for (const engagement of engagements) {
+            try {
+                const { type, templateId, category, source } = engagement;
+                
+                // Process based on type (simplified implementation)
+                if (type === 1 && category) {
+                    // Category visit
+                    await user.visitCategory(category, source || 'direct');
+                    processed++;
+                } 
+                else if ((type === 2 || type === 3) && templateId && category) {
+                    // Template view or use
+                    await user.visitCategoryFromTemplate(category, templateId);
+                    processed++;
+                }
+            } catch (err) {
+                logger.warn(`Error processing engagement record: ${err.message}`);
+                // Continue with next record even if one fails
+            }
+        }
+        
+        // Update last online time
+        user.lastOnline = Date.now();
+        await user.save();
+        
+        // Invalidate recommendations cache
+        await recommendationService.invalidateUserRecommendations(deviceId);
+        
+        res.status(200).json({
+            success: true,
+            message: `Processed ${processed} of ${engagements.length} engagement records`
+        });
+        
+    } catch (error) {
+        logger.error(`Batch engagement sync error: ${error.message}`, { error });
+        res.status(500).json({
+            success: false,
+            message: 'Server error during batch engagement sync',
+            error: error.message
+        });
+    }
+});
+
 module.exports = router; 

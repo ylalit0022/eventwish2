@@ -367,11 +367,19 @@
 
     <!-- Template Selection -->
     <string name="all_templates">All Templates</string>
-    <string name="no_templates_found">No templates found</string>
-    <string name="retry">Retry</string>
+    <!-- <string name="no_templates_found">No templates found</string> -->
+    <!-- <string name="retry">Retry</string> -->
     <string name="template_image_description">Template image</string>
 
     <string name="profile_default_username">User</string>
     <string name="profile_default_email">user@example.com</string>
     <string name="profile_edit">Edit Profile</string>
+
+    <!-- Error messages -->
+    <string name="network_error">Network connection error. Please check your internet connection and try again.</string>
+    <string name="retry">Retry</string>
+    <string name="no_templates_found">No templates found</string>
+    <string name="no_internet_cached_data">No internet connection. Showing cached data.</string>
+    <string name="loading_error">Error loading data. Please try again later.</string>
+    <string name="server_error">Server error. Please try again later.</string>
 </resources>

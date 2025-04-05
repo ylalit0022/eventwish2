@@ -25,6 +25,10 @@ import com.ds.eventwish.data.repository.UserRepository;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.ds.eventwish.EventWishApplication;
+import com.ds.eventwish.data.repository.RecommendationEngine;
+import com.ds.eventwish.utils.AppExecutors;
+import com.ds.eventwish.utils.LogUtils;
+import com.ds.eventwish.BuildConfig;
 
 public class HomeViewModel extends ViewModel {
     private static final String TAG = "HomeViewModel";
@@ -61,22 +65,35 @@ public class HomeViewModel extends ViewModel {
 
     // Add a MutableLiveData for Category objects
     private final MutableLiveData<List<com.ds.eventwish.ui.home.Category>> categoryObjects = new MutableLiveData<>(new ArrayList<>());
+    
+    // Track if this is the first load (vs. pagination)
+    private boolean isFirstLoad = true;
+    
+    // Flag to check if more pages are available for pagination
+    private boolean hasMoreData = true;
 
     // Enum for sort options
     public enum SortOption {
-        TRENDING("Trending"),
-        NEWEST("Newest"),
-        OLDEST("Oldest"),
-        MOST_USED("Most Used");
+        TRENDING("trending"),
+        NEWEST("newest"),
+        OLDEST("oldest"),
+        MOST_USED("most_used"),           // Keep this for backward compatibility
+        POPULAR("popular"),
+        RECOMMENDED("recommended");
         
-        private final String displayName;
+        private final String value;
         
-        SortOption(String displayName) {
-            this.displayName = displayName;
+        SortOption(String value) {
+            this.value = value;
         }
         
+        public String getValue() {
+            return value;
+        }
+        
+        // For backward compatibility
         public String getDisplayName() {
-            return displayName;
+            return value;
         }
     }
     
@@ -105,6 +122,27 @@ public class HomeViewModel extends ViewModel {
     private final MutableLiveData<Boolean> isLoadingRecommendations = new MutableLiveData<>(false);
     private final MutableLiveData<String> recommendationsError = new MutableLiveData<>();
     private UserRepository userRepository;
+    private RecommendationEngine recommendationEngine;
+
+    // Add LiveData for pagination status
+    private final MutableLiveData<Boolean> paginationSuccess = new MutableLiveData<>();
+    
+    // Add tracking for pagination attempts
+    private int paginationFailureCount = 0;
+    private static final int MAX_PAGINATION_FAILURES = 3;
+
+    /**
+     * Variables needed for pagination
+     */
+    private final MutableLiveData<Boolean> loading = new MutableLiveData<>(false);
+    private boolean hasMore = true;
+    private int currentPage = 1;
+    private final TemplateRepository templateRepository;
+    private final MutableLiveData<List<Template>> templates = new MutableLiveData<>(new ArrayList<>());
+    private final MutableLiveData<String> error = new MutableLiveData<>();
+
+    // Add LiveData to track recommended template IDs
+    private final MutableLiveData<Set<String>> recommendedTemplateIds = new MutableLiveData<>(new HashSet<>());
 
     /**
      * Constructor
@@ -128,11 +166,16 @@ public class HomeViewModel extends ViewModel {
         
         // Load initial data
         loadTemplates(true);
+
+        templateRepository = repository;
     }
 
     public void init(Context context) {
         this.appContext = context.getApplicationContext();
         this.updateManager = TemplateUpdateManager.getInstance(context);
+        
+        // Initialize the RecommendationEngine
+        this.recommendationEngine = RecommendationEngine.getInstance(context);
         
         // Load saved preferences
         SharedPreferences prefs = context.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
@@ -289,6 +332,10 @@ public class HomeViewModel extends ViewModel {
         }
     }
 
+    /**
+     * Get loading state as LiveData
+     * @return LiveData with loading state
+     */
     public LiveData<Boolean> getLoading() {
         return repository.getLoading();
     }
@@ -298,56 +345,80 @@ public class HomeViewModel extends ViewModel {
     }
 
     /**
-     * Set the selected category by ID
-     * @param categoryId The category ID to filter by, or null for all categories
+     * Set the selected category
+     * @param category The category to filter by, or null for all categories
      */
-    public void setSelectedCategory(String categoryId) {
-        // Handle "all" category specially
-        if (categoryId != null && categoryId.equals("all")) {
-            setCategory(null);
-        } else {
-            // For other categories, use the original method
-            setCategory(categoryId);
+    public void setSelectedCategory(String category) {
+        if ((selectedCategory == null && category == null) ||
+                (selectedCategory != null && selectedCategory.equals(category))) {
+            Log.d(TAG, "Category unchanged, skipping: " + category);
+            return;
+        }
+        
+        Log.d(TAG, "Setting category: " + category);
+        selectedCategory = category;
+        
+        // Reset flags for new category selection
+        isFirstLoad = true;
+        hasMoreData = true;
+        
+        try {
+            if (appContext != null) {
+                // Save the selected category
+                SharedPreferences prefs = appContext.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
+                SharedPreferences.Editor editor = prefs.edit();
+                editor.putString(PREF_SELECTED_CATEGORY, category);
+                editor.apply();
+            }
+            
+            if (repository != null) {
+                // Post a small delay to avoid UI thread overload with rapid clicks
+                AppExecutors.getInstance().mainThread().execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Log.d(TAG, "Loading templates for category: " + category);
+                            // Set loading true for immediate UI feedback
+                            repository.setLoading(true);
+                            // Reset categories states
+                            repository.setCategory(category);
+                            // Reset page counter
+                            repository.setCurrentPage(1);
+                            // Load first page
+                            repository.loadTemplates(true);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error loading templates for category: " + e.getMessage(), e);
+                            // Set loading false to cancel loading indicator
+                            repository.setLoading(false);
+                            // Set error message for user
+                            repository.clearError(); // First clear any previous errors
+                            repository.setErrorMessage("Error changing category: " + e.getMessage());
+                        }
+                    }
+                });
+            } else {
+                Log.e(TAG, "Repository is null in setSelectedCategory");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Exception in setSelectedCategory: " + e.getMessage(), e);
+            
+            // Ensure loading indicator is hidden in case of error
+            if (repository != null) {
+                repository.setLoading(false);
+                repository.setErrorMessage("Error: " + e.getMessage());
+            }
         }
     }
 
     /**
-     * Set the category filter
-     * @param category The category to filter by, or null for all categories
+     * Clear templates list to prepare for new data
      */
-    public void setCategory(String category) {
-        if ((category == null && selectedCategory == null) ||
-            (category != null && category.equals(selectedCategory))) {
-            return; // No change
+    private void clearTemplates() {
+        // We should use the repository's clearTemplates method instead
+        if (repository != null) {
+            repository.clearTemplates();
+            Log.d(TAG, "Cleared templates list");
         }
-        
-        Log.d(TAG, "Setting category filter from " + 
-              (selectedCategory != null ? selectedCategory : "All") + " to " + 
-              (category != null ? category : "All"));
-        
-        selectedCategory = category;
-        
-        // Save the selected category
-        if (appContext != null) {
-            SharedPreferences prefs = appContext.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
-            SharedPreferences.Editor editor = prefs.edit();
-            if (category == null) {
-                editor.remove(PREF_SELECTED_CATEGORY);
-            } else {
-                editor.putString(PREF_SELECTED_CATEGORY, category);
-            }
-            editor.apply();
-        }
-        
-        // Explicitly set category in repository
-        if (category == null) {
-            repository.setCategory(null); // Ensure repository filter is cleared
-        } else {
-            repository.setCategory(category);
-        }
-        
-        // Reload templates with the new filter
-        loadTemplates(true);
     }
 
     /**
@@ -403,10 +474,13 @@ public class HomeViewModel extends ViewModel {
     public void loadTemplates(boolean refresh) {
         Log.d(TAG, "loadTemplates called with refresh=" + refresh);
         
-        // If forced refresh, clear the cache
+        // If forced refresh, clear the cache and reset pagination
         if (refresh) {
             Log.d(TAG, "Force refresh triggered for templates");
             repository.clearCache();
+            repository.setCurrentPage(1);
+            isFirstLoad = true;
+            hasMoreData = true;
         }
         
         // Remember when we last refreshed
@@ -432,6 +506,9 @@ public class HomeViewModel extends ViewModel {
         // Fetch templates
         Log.d(TAG, "Loading templates from repository");
         repository.loadTemplates(refresh);
+        
+        // After loading initial templates, set first load to false
+        isFirstLoad = false;
     }
 
     /**
@@ -756,67 +833,38 @@ public class HomeViewModel extends ViewModel {
     }
 
     /**
-     * Get personalized template recommendations
+     * Get personalized recommendations
      */
     public void getPersonalizedRecommendations() {
-        if (isLoadingRecommendations.getValue() != null && isLoadingRecommendations.getValue()) {
-            return; // Already loading
+        if (recommendationEngine == null) {
+            Log.e(TAG, "RecommendationEngine not initialized");
+            recommendationsError.setValue("Recommendation engine not initialized");
+            return;
         }
         
         isLoadingRecommendations.setValue(true);
-        recommendationsError.setValue(null);
         
-        userRepository.getRecommendations(new UserRepository.RecommendationsCallback() {
-            @Override
-            public void onSuccess(JsonObject recommendations) {
-                try {
-                    List<Template> templates = new ArrayList<>();
-                    
-                    if (recommendations.has("recommendations") && 
-                        recommendations.getAsJsonObject("recommendations").has("templates")) {
-                        JsonArray templatesArray = recommendations
-                            .getAsJsonObject("recommendations")
-                            .getAsJsonArray("templates");
-                        
-                        for (int i = 0; i < templatesArray.size(); i++) {
-                            JsonObject templateObj = templatesArray.get(i).getAsJsonObject();
-                            Template template = new Template();
-                            
-                            // Map JSON fields to Template object
-                            if (templateObj.has("_id")) {
-                                template.setId(templateObj.get("_id").getAsString());
-                            }
-                            
-                            if (templateObj.has("title")) {
-                                template.setTitle(templateObj.get("title").getAsString());
-                            }
-                            
-                            if (templateObj.has("category")) {
-                                template.setCategory(templateObj.get("category").getAsString());
-                            }
-                            
-                            if (templateObj.has("previewUrl")) {
-                                template.setThumbnailUrl(templateObj.get("previewUrl").getAsString());
-                            }
-                            
-                            templates.add(template);
-                        }
+        AppExecutors.getInstance().networkIO().execute(() -> {
+            try {
+                Log.d(TAG, "Fetching personalized recommendations");
+                List<Template> recommendations = recommendationEngine.getPersonalizedRecommendations();
+                
+                recommendedTemplates.postValue(recommendations);
+                
+                // Extract and store template IDs for recommendations
+                if (recommendations != null && !recommendations.isEmpty()) {
+                    Set<String> ids = new HashSet<>();
+                    for (Template template : recommendations) {
+                        ids.add(template.getId());
                     }
-                    
-                    recommendedTemplates.postValue(templates);
-                    isLoadingRecommendations.postValue(false);
-                    
-                } catch (Exception e) {
-                    Log.e(TAG, "Error parsing recommendations: " + e.getMessage());
-                    recommendationsError.postValue("Error parsing recommendations");
-                    isLoadingRecommendations.postValue(false);
+                    recommendedTemplateIds.postValue(ids);
+                    Log.d(TAG, "Extracted " + ids.size() + " recommended template IDs");
                 }
-            }
-            
-            @Override
-            public void onFailure(String errorMessage) {
-                Log.e(TAG, "Error getting recommendations: " + errorMessage);
-                recommendationsError.postValue(errorMessage);
+                
+                isLoadingRecommendations.postValue(false);
+            } catch (Exception e) {
+                Log.e(TAG, "Error getting recommendations", e);
+                recommendationsError.postValue("Error fetching recommendations: " + e.getMessage());
                 isLoadingRecommendations.postValue(false);
             }
         });
@@ -848,16 +896,24 @@ public class HomeViewModel extends ViewModel {
      * @param template The template that was clicked
      */
     public void onTemplateClick(Template template) {
-        if (template == null || userRepository == null) {
+        if (template == null) {
+            Log.w(TAG, "Cannot track template click: template is null");
             return;
         }
         
-        // Track template view with its category in user history
+        String templateId = template.getId();
         String category = template.getCategory();
-        if (category != null && !category.isEmpty()) {
-            userRepository.trackTemplateView(template.getId(), category);
-            Log.d(TAG, "Tracked template view: " + template.getId() + " in category: " + category);
+        
+        if (templateId == null || category == null) {
+            Log.w(TAG, "Cannot track template click: templateId or category is null");
+            return;
         }
+        
+        Log.d(TAG, "Template clicked: " + templateId + " - " + template.getTitle() + 
+              " (recommended: " + template.isRecommended() + ")");
+            
+        // Mark the template as viewed to remove NEW badge if needed
+        markTemplateAsViewed(templateId);
     }
 
     /**
@@ -869,5 +925,78 @@ public class HomeViewModel extends ViewModel {
         // For now, use the same logic as general refresh
         // In the future, this could have a separate threshold specific to recommendations
         return isRefreshNeeded();
+    }
+
+    /**
+     * Load more templates with better error handling and LiveData response
+     * Use this method for pagination to avoid resetting the list
+     */
+    public void loadMoreTemplates() {
+        Log.d(TAG, "loadMoreTemplates called");
+        
+        if (!hasMoreData || repository.isLoading()) {
+            Log.d(TAG, "Skipping loadMoreTemplates - hasMoreData=" + hasMoreData + 
+                  ", isLoading=" + repository.isLoading());
+            return;
+        }
+        
+        // This is not a first load
+        isFirstLoad = false;
+        
+        // Get the current page
+        int currentPage = repository.getCurrentPage();
+        
+        // Increment page and load
+        repository.setCurrentPage(currentPage + 1);
+        repository.loadTemplates(false);
+        
+        // Update pagination success status for UI feedback
+        paginationSuccess.setValue(true);
+        
+        Log.d(TAG, "Loading more templates - page " + (currentPage + 1));
+    }
+    
+    /**
+     * Check if this is the first load of templates
+     * @return true if this is the first load, false if it's pagination
+     */
+    public boolean isFirstLoad() {
+        return isFirstLoad;
+    }
+    
+    /**
+     * Check if there are more pages available for loading
+     * @return true if more pages are available for loading
+     */
+    public boolean hasMorePages() {
+        return hasMoreData && repository.hasMorePages();
+    }
+
+    /**
+     * Clear error message
+     */
+    public void clearError() {
+        repository.clearError();
+    }
+
+    /**
+     * Set the list of recommended template IDs
+     * @param ids Set of template IDs that are recommended
+     */
+    public void setRecommendedTemplateIds(Set<String> ids) {
+        if (ids == null) {
+            recommendedTemplateIds.setValue(new HashSet<>());
+        } else {
+            recommendedTemplateIds.setValue(new HashSet<>(ids));
+        }
+        Log.d(TAG, "Set recommended template IDs: " + (ids != null ? ids.size() : 0));
+    }
+    
+    /**
+     * Get the LiveData for recommended template IDs
+     * @return LiveData containing a set of recommended template IDs
+     */
+    public LiveData<Set<String>> getRecommendedTemplateIds() {
+        return recommendedTemplateIds;
     }
 }

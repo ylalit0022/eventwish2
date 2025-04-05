@@ -4,165 +4,200 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.TextView;
+import android.widget.LinearLayout;
+
 import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.DiffUtil;
-import androidx.recyclerview.widget.ListAdapter;
+import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.RecyclerView;
-import com.ds.eventwish.data.model.Template;
-import com.ds.eventwish.databinding.ItemTemplateBinding;
+
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
+import com.bumptech.glide.request.RequestOptions;
+import com.ds.eventwish.R;
+import com.ds.eventwish.data.model.Template;
+import com.ds.eventwish.data.repository.CategoryIconRepository;
+import com.ds.eventwish.data.repository.EngagementRepository;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.TemplateViewHolder> {
-    private static final String TAG = "TemplateAdapter";
-    private final OnTemplateClickListener listener;
-    private Set<String> newTemplates = new HashSet<>();
-    private List<Template> currentTemplates = new ArrayList<>();
-
+/**
+ * Simple adapter for horizontal template lists showing recommended templates
+ */
+public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.TemplateViewHolder> {
+    private static final String TAG = "HorizontalTemplateAdapter";
+    
+    private final List<Template> templates = new ArrayList<>();
+    private final Set<String> recommendedTemplateIds = new HashSet<>();
+    private OnTemplateClickListener listener;
+    private CategoryIconRepository categoryIconRepository;
+    private EngagementRepository engagementRepository;
+    
     public interface OnTemplateClickListener {
         void onTemplateClick(Template template);
     }
-
+    
     public TemplateAdapter(OnTemplateClickListener listener) {
-        super(new DiffUtil.ItemCallback<Template>() {
-            @Override
-            public boolean areItemsTheSame(@NonNull Template oldItem, @NonNull Template newItem) {
-                return oldItem.getId().equals(newItem.getId());
-            }
-
-            @Override
-            public boolean areContentsTheSame(@NonNull Template oldItem, @NonNull Template newItem) {
-                return oldItem.equals(newItem);
-            }
-        });
         this.listener = listener;
     }
-
+    
     @NonNull
     @Override
     public TemplateViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        ItemTemplateBinding binding = ItemTemplateBinding.inflate(
-            LayoutInflater.from(parent.getContext()), parent, false);
-        return new TemplateViewHolder(binding);
+        View view = LayoutInflater.from(parent.getContext())
+                .inflate(R.layout.item_template, parent, false);
+        return new TemplateViewHolder(view);
     }
-
+    
     @Override
     public void onBindViewHolder(@NonNull TemplateViewHolder holder, int position) {
-        try {
-            Template template = getItem(position);
-            if (template != null) {
-                holder.bind(template);
-            }
-        } catch (IndexOutOfBoundsException e) {
-            // Prevent crashes due to RecyclerView inconsistency
-            Log.e(TAG, "Error binding view holder at position " + position, e);
-        }
+        Template template = templates.get(position);
+        holder.bind(template);
     }
-
-    /**
-     * Update the list of templates
-     * This method ensures proper handling of list changes to prevent RecyclerView inconsistencies
-     * @param templates New list of templates
-     */
-    public void updateTemplates(List<Template> templates) {
-        if (templates == null) {
-            Log.w(TAG, "Attempted to update templates with null list");
-            return;
-        }
-        
-        // Make a copy of the list to avoid external modifications
-        currentTemplates = new ArrayList<>(templates);
-        
-        Log.d(TAG, "Updating templates with " + templates.size() + " items");
-        try {
-            // Use submitList to leverage DiffUtil for efficient updates
-            submitList(new ArrayList<>(templates));
-        } catch (Exception e) {
-            Log.e(TAG, "Error updating templates", e);
-            // Fallback to notifyDataSetChanged in case of errors
-            submitList(null);
-            submitList(new ArrayList<>(templates));
-        }
+    
+    @Override
+    public int getItemCount() {
+        return templates.size();
     }
-
-    /**
-     * Set the list of new templates to show the NEW badge
-     * @param newTemplateIds Set of template IDs that are new
-     */
-    public void setNewTemplates(Set<String> newTemplateIds) {
-        if (newTemplateIds == null) {
-            this.newTemplates = new HashSet<>();
-            Log.d(TAG, "Cleared new templates");
-        } else {
-            this.newTemplates = new HashSet<>(newTemplateIds);
-            Log.d(TAG, "Set new templates: " + newTemplates.size() + " items");
-        }
-        
-        // Notify data set changed to update the NEW badges visibility
-        notifyDataSetChanged();
+    
+    public void setCategoryIconRepository(CategoryIconRepository repository) {
+        this.categoryIconRepository = repository;
     }
-
+    
+    public void setEngagementRepository(EngagementRepository repository) {
+        this.engagementRepository = repository;
+    }
+    
     /**
-     * Mark a template as viewed (no longer new)
-     * @param templateId The ID of the template to mark as viewed
+     * Mark templates as viewed
      */
     public void markAsViewed(String templateId) {
-        if (newTemplates.contains(templateId)) {
-            newTemplates.remove(templateId);
-            Log.d(TAG, "Marked template as viewed: " + templateId);
-            
-            // Find the position of this template and update it
-            for (int i = 0; i < getItemCount(); i++) {
-                Template template = getItem(i);
-                if (template != null && template.getId().equals(templateId)) {
-                    notifyItemChanged(i);
-                    break;
-                }
-            }
-        }
+        // Nothing to do here - simplified implementation
     }
-
-    class TemplateViewHolder extends RecyclerView.ViewHolder {
-        private final ItemTemplateBinding binding;
-
-        TemplateViewHolder(ItemTemplateBinding binding) {
-            super(binding.getRoot());
-            this.binding = binding;
+    
+    /**
+     * Update the adapter with new templates
+     */
+    public void updateTemplates(List<Template> newTemplates) {
+        templates.clear();
+        if (newTemplates != null) {
+            templates.addAll(newTemplates);
         }
-
+        notifyDataSetChanged();
+    }
+    
+    /**
+     * Submit a list of templates with recommended IDs
+     */
+    public void submitListWithRecommendations(List<Template> newTemplates, Set<String> recommendedIds) {
+        recommendedTemplateIds.clear();
+        if (recommendedIds != null) {
+            recommendedTemplateIds.addAll(recommendedIds);
+        }
+        
+        updateTemplates(newTemplates);
+    }
+    
+    public class TemplateViewHolder extends RecyclerView.ViewHolder {
+        private final TextView titleText;
+        private final TextView categoryText;
+        private final ImageView templateImage;
+        private final ImageView categoryIcon;
+        private final LinearLayout recommendedBadge;
+        private final TextView newBadge;
+        private final CardView cardView;
+        
+        TemplateViewHolder(View itemView) {
+            super(itemView);
+            titleText = itemView.findViewById(R.id.titleText);
+            categoryText = itemView.findViewById(R.id.categoryText);
+            templateImage = itemView.findViewById(R.id.template_image);
+            categoryIcon = itemView.findViewById(R.id.categoryIcon);
+            recommendedBadge = itemView.findViewById(R.id.recommendedBadge);
+            newBadge = itemView.findViewById(R.id.newBadge);
+            cardView = (CardView) itemView;
+        }
+        
         void bind(Template template) {
-            binding.titleText.setText(template.getTitle());
-            binding.categoryText.setText(template.getCategory());
+            // Set template data
+            titleText.setText(template.getTitle());
+            categoryText.setText(template.getCategory());
             
-            // Show NEW badge if this template is in the newTemplates set
-            boolean isNew = newTemplates.contains(template.getId());
-            binding.newBadge.setVisibility(isNew ? View.VISIBLE : View.GONE);
-            Log.d(TAG, "Template " + template.getId() + " - " + template.getTitle() + " - isNew: " + isNew);
+            // Always show recommended badge in horizontal list
+            recommendedBadge.setVisibility(View.VISIBLE);
             
+            // Hide new badge
+            newBadge.setVisibility(View.GONE);
+            
+            // Set card elevation to highlight
+            cardView.setCardElevation(8);
+            
+            // Load thumbnail
             if (template.getThumbnailUrl() != null && !template.getThumbnailUrl().isEmpty()) {
-                Log.d(TAG, "Loading image from URL: " + template.getThumbnailUrl());
-                Glide.with(binding.getRoot().getContext())
+                Log.d(TAG, "Loading thumbnail: " + template.getThumbnailUrl());
+                
+                RequestOptions options = new RequestOptions()
+                    .placeholder(R.drawable.placeholder_image)
+                    .error(R.drawable.placeholder_image);
+                
+                Glide.with(itemView.getContext())
                     .load(template.getThumbnailUrl())
-                    .centerCrop()
-                    .into(binding.templateImage);
+                    .apply(options)
+                    .transition(DrawableTransitionOptions.withCrossFade())
+                    .into(templateImage);
+            } else {
+                templateImage.setImageResource(R.drawable.placeholder_image);
             }
-
-            binding.getRoot().setOnClickListener(v -> {
+            
+            // Load category icon
+            loadCategoryIcon(template);
+            
+            // Set click listener
+            itemView.setOnClickListener(v -> {
                 if (listener != null) {
-                    // Mark as viewed when clicked
-                    if (newTemplates.contains(template.getId())) {
-                        markAsViewed(template.getId());
+                    // Track engagement safely without disrupting user experience
+                    try {
+                        if (engagementRepository != null) {
+                            engagementRepository.trackTemplateView(
+                                template.getId(),
+                                template.getCategory(),
+                                "direct"
+                            );
+                            Log.d(TAG, "Horizontal template view tracked: " + template.getId());
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error tracking template engagement", e);
                     }
+                    
+                    // Notify listener of click event
                     listener.onTemplateClick(template);
                 }
             });
-            
-            // Debug log for successful binding
-            Log.d(TAG, "Image loaded successfully for: " + template.getTitle());
+        }
+        
+        /**
+         * Load the category icon for a template
+         */
+        private void loadCategoryIcon(Template template) {
+            if (categoryIconRepository != null && template.getCategory() != null) {
+                String iconUrl = categoryIconRepository.getCategoryIconUrl(template.getCategory());
+                
+                if (iconUrl != null && !iconUrl.isEmpty()) {
+                    Glide.with(itemView.getContext())
+                        .load(iconUrl)
+                        .placeholder(R.drawable.ic_category)
+                        .error(R.drawable.ic_category)
+                        .into(categoryIcon);
+                } else {
+                    categoryIcon.setImageResource(R.drawable.ic_category);
+                }
+            } else {
+                categoryIcon.setImageResource(R.drawable.ic_category);
+            }
         }
     }
 }

@@ -266,11 +266,32 @@ public interface ApiService {
     @GET("users/{deviceId}/recommendations")
     Call<JsonObject> getUserRecommendations(@Path("deviceId") String deviceId);
 
-    /**
-     * Get user data by device ID
-     * @param deviceId Device ID
-     * @return Response with user data
-     */
     @GET("users/{deviceId}")
     Call<JsonObject> getUserByDeviceId(@Path("deviceId") String deviceId);
+    
+    // User activity and engagement tracking
+    
+    /**
+     * Record user engagement with detailed metrics
+     * @param body Engagement data
+     * @return Response
+     */
+    @POST("users/engagement")
+    Call<JsonObject> recordEngagement(@Body Map<String, Object> body);
+    
+    /**
+     * Sync multiple engagement records in a batch
+     * @param body JSON object containing array of engagement data
+     * @return Response
+     */
+    @POST("users/engagement/sync")
+    Call<JsonObject> syncEngagementData(@Body JsonObject body);
+    
+    /**
+     * Get personalized recommendations with detailed parameters
+     * @param body Request containing deviceId and filtering options
+     * @return Response with recommended templates
+     */
+    @POST("users/recommendations/advanced")
+    Call<JsonObject> getAdvancedRecommendations(@Body Map<String, Object> body);
 }

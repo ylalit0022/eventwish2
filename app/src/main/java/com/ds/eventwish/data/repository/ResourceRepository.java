@@ -1115,4 +1115,55 @@ public class ResourceRepository {
         String cacheKey = getCacheKey(resourceType, resourceKey);
         return resourceCache.get(cacheKey);
     }
+    
+    /**
+     * Get a resource synchronously (simplified version)
+     * @param key Resource key
+     * @return Resource object or null if not found
+     */
+    @Nullable
+    public Resource<String> getResource(String key) {
+        try {
+            ResourceEntity entity = resourceDao.getResource(RESOURCE_TYPE_CATEGORY_ICON, key);
+            if (entity != null && entity.getData() != null) {
+                return Resource.success(entity.getData().toString());
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting resource with key: " + key, e);
+        }
+        return null;
+    }
+    
+    /**
+     * Save a resource with simplified parameters
+     * @param key Resource key
+     * @param data Resource data as string
+     */
+    public void saveResource(String key, String data) {
+        try {
+            JsonObject jsonData = JsonParser.parseString(data).getAsJsonObject();
+            saveResource(RESOURCE_TYPE_CATEGORY_ICON, key, jsonData, null, null, 
+                    new Date(System.currentTimeMillis() + DEFAULT_CACHE_EXPIRATION));
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving resource with key: " + key, e);
+        }
+    }
+    
+    /**
+     * Delete a resource by key
+     * @param key Resource key
+     */
+    public void deleteResourceByKey(String key) {
+        appExecutors.diskIO().execute(() -> {
+            try {
+                ResourceEntity resource = resourceDao.getResource(RESOURCE_TYPE_CATEGORY_ICON, key);
+                if (resource != null) {
+                    resourceDao.delete(resource);
+                    Log.d(TAG, "Deleted resource with key: " + key);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error deleting resource with key: " + key, e);
+            }
+        });
+    }
 } 

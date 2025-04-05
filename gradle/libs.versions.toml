@@ -19,6 +19,7 @@ play-services-ads-lite = "24.0.0"
 lifecycle-process = "2.8.7"
 lifecycle-viewmodel-android = "2.8.7"
 core = "1.48.0"
+volley = "1.2.1"
 
 [libraries]
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
@@ -42,6 +43,7 @@ play-services-ads-lite = { group = "com.google.android.gms", name = "play-servic
 androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycle-process" }
 androidx-lifecycle-viewmodel-android = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-android", version.ref = "lifecycle-viewmodel-android" }
 core = { group = "com.google.ar", name = "core", version.ref = "core" }
+volley = { group = "com.android.volley", name = "volley", version.ref = "volley" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

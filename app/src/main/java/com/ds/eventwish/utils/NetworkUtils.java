@@ -462,4 +462,65 @@ public class NetworkUtils {
         
         return map;
     }
+
+    /**
+     * Get human-readable network type name
+     * @return String representation of current network type (WIFI, MOBILE, etc.)
+     */
+    public String getNetworkTypeName() {
+        ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) {
+            return "UNKNOWN";
+        }
+
+        NetworkInfo activeNetwork = connectivityManager.getActiveNetworkInfo();
+        if (activeNetwork == null || !activeNetwork.isConnectedOrConnecting()) {
+            return "NONE";
+        }
+
+        int type = activeNetwork.getType();
+        switch (type) {
+            case ConnectivityManager.TYPE_WIFI:
+                return "WIFI";
+            case ConnectivityManager.TYPE_MOBILE:
+                // Get more detailed mobile network info
+                TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+                if (telephonyManager != null) {
+                    int networkType = telephonyManager.getNetworkType();
+                    switch (networkType) {
+                        case TelephonyManager.NETWORK_TYPE_GPRS:
+                        case TelephonyManager.NETWORK_TYPE_EDGE:
+                        case TelephonyManager.NETWORK_TYPE_CDMA:
+                        case TelephonyManager.NETWORK_TYPE_1xRTT:
+                        case TelephonyManager.NETWORK_TYPE_IDEN:
+                            return "MOBILE_2G";
+                        case TelephonyManager.NETWORK_TYPE_UMTS:
+                        case TelephonyManager.NETWORK_TYPE_EVDO_0:
+                        case TelephonyManager.NETWORK_TYPE_EVDO_A:
+                        case TelephonyManager.NETWORK_TYPE_HSDPA:
+                        case TelephonyManager.NETWORK_TYPE_HSUPA:
+                        case TelephonyManager.NETWORK_TYPE_HSPA:
+                        case TelephonyManager.NETWORK_TYPE_EVDO_B:
+                        case TelephonyManager.NETWORK_TYPE_EHRPD:
+                        case TelephonyManager.NETWORK_TYPE_HSPAP:
+                            return "MOBILE_3G";
+                        case TelephonyManager.NETWORK_TYPE_LTE:
+                            return "MOBILE_4G";
+                        case TelephonyManager.NETWORK_TYPE_NR:
+                            return "MOBILE_5G";
+                        default:
+                            return "MOBILE_UNKNOWN";
+                    }
+                }
+                return "MOBILE";
+            case ConnectivityManager.TYPE_ETHERNET:
+                return "ETHERNET";
+            case ConnectivityManager.TYPE_BLUETOOTH:
+                return "BLUETOOTH";
+            case ConnectivityManager.TYPE_VPN:
+                return "VPN";
+            default:
+                return "OTHER";
+        }
+    }
 }

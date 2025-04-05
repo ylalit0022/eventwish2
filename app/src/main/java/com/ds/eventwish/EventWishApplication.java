@@ -79,23 +79,27 @@ public class EventWishApplication extends Application implements Configuration.P
     public void onCreate() {
         super.onCreate();
         
-        // Set application instance
+        // Set application instance and context first, before any other initialization
         instance = this;
-        
-        // Set context
         context = getApplicationContext();
         
-        // Initialize services
-        initializeServices();
-        
-        // Register activity lifecycle callbacks
-        registerActivityLifecycleCallbacks(this);
-        
         // Log app started for debugging
-        Log.d(TAG, "EventWish application started");
+        Log.d(TAG, "EventWish application starting...");
         
-        // Register user in background
-        registerUserInBackground();
+        try {
+            // Initialize services
+            initializeServices();
+            
+            // Register activity lifecycle callbacks
+            registerActivityLifecycleCallbacks(this);
+            
+            // Register user in background
+            registerUserInBackground();
+            
+            Log.d(TAG, "EventWish application started successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Error during application startup", e);
+        }
     }
 
     /**
@@ -255,6 +259,16 @@ public class EventWishApplication extends Application implements Configuration.P
     }
 
     public static Context getAppContext() {
+        if (context == null) {
+            Log.w(TAG, "Application context requested before initialization");
+            if (instance != null) {
+                // Try to set context if instance exists but context wasn't set
+                context = instance.getApplicationContext();
+                Log.d(TAG, "Application context recovered from instance");
+            } else {
+                Log.e(TAG, "Cannot get application context: instance is null");
+            }
+        }
         return context;
     }
 
@@ -303,38 +317,90 @@ public class EventWishApplication extends Application implements Configuration.P
 
     private void initializeServices() {
         try {
-            // First, initialize SecureTokenManager before anything else
-            SecureTokenManager.init(this);
-            secureTokenManager = SecureTokenManager.getInstance();
+            Log.d(TAG, "Starting service initialization");
             
-            // Then initialize ApiClient which uses SecureTokenManager
-            ApiClient.init(this);
-            apiClient = new ApiClient();
+            // First, set application context to ensure it's available for static methods
+            context = getApplicationContext();
+            Log.d(TAG, "Application context set");
             
-            // Initialize device utils
-            deviceUtils = DeviceUtils.getInstance();
+            // Initialize essential services first with proper error handling
+            try {
+                Log.d(TAG, "Initializing SecureTokenManager");
+                SecureTokenManager.init(this);
+                secureTokenManager = SecureTokenManager.getInstance();
+                Log.d(TAG, "SecureTokenManager initialized successfully");
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to initialize SecureTokenManager", e);
+                // Continue initialization as other services might not depend on this
+            }
             
-            // Initialize time utils
-            timeUtils = new TimeUtils();
+            try {
+                Log.d(TAG, "Initializing ApiClient");
+                ApiClient.init(this);
+                apiClient = new ApiClient();
+                Log.d(TAG, "ApiClient initialized successfully");
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to initialize ApiClient", e);
+                // Continue initialization as other services might work offline
+            }
             
-            // Initialize repositories using getInstance methods
-            festivalRepository = FestivalRepository.getInstance(this);
-            templateRepository = TemplateRepository.getInstance();
-            resourceRepository = ResourceRepository.getInstance(this);
-            categoryIconRepository = CategoryIconRepository.getInstance();
+            try {
+                Log.d(TAG, "Initializing utility classes");
+                deviceUtils = DeviceUtils.getInstance();
+                timeUtils = new TimeUtils();
+                appExecutors = AppExecutors.getInstance();
+                Log.d(TAG, "Utility classes initialized successfully");
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to initialize utility classes", e);
+                // These are essential, but try to continue
+            }
             
-            // Initialize UserRepository
-            userRepository = UserRepository.getInstance(this);
+            try {
+                Log.d(TAG, "Initializing ResourceRepository");
+                resourceRepository = ResourceRepository.getInstance(this);
+                Log.d(TAG, "ResourceRepository initialized successfully");
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to initialize ResourceRepository", e);
+                // This is critical for other repositories, but try to continue
+            }
             
-            // Initialize app executors
-            appExecutors = AppExecutors.getInstance();
+            try {
+                Log.d(TAG, "Initializing CategoryIconRepository");
+                // Use getInstance with context to ensure proper initialization
+                categoryIconRepository = CategoryIconRepository.getInstance(this);
+                Log.d(TAG, "CategoryIconRepository initialized successfully");
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to initialize CategoryIconRepository", e);
+                // Continue as app can work without icons
+            }
+            
+            try {
+                Log.d(TAG, "Initializing remaining repositories");
+                // Initialize remaining repositories
+                festivalRepository = FestivalRepository.getInstance(this);
+                templateRepository = TemplateRepository.init(this);
+                userRepository = UserRepository.getInstance(this);
+                Log.d(TAG, "Repositories initialized successfully");
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to initialize some repositories", e);
+                // Continue with available repositories
+            }
             
             // Initialize components that depend on the above
-            initializeComponents();
+            try {
+                Log.d(TAG, "Initializing dependent components");
+                initializeComponents();
+                Log.d(TAG, "All dependent components initialized successfully");
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to initialize dependent components", e);
+                // These are less critical for app function
+            }
             
             Log.d(TAG, "Services initialized successfully");
         } catch (Exception e) {
-            Log.e(TAG, "Error initializing services", e);
+            Log.e(TAG, "Critical error during service initialization", e);
+            // At this point the app might be in an inconsistent state,
+            // but we'll try to continue rather than crashing
         }
     }
 

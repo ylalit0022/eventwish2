@@ -4,6 +4,7 @@ import android.content.Context;
 import android.util.Log;
 import android.content.SharedPreferences;
 
+import com.android.volley.Request;
 import com.ds.eventwish.BuildConfig;
 import com.ds.eventwish.config.ApiConfig;
 import com.ds.eventwish.utils.NetworkUtils;
@@ -17,11 +18,14 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.internal.LinkedTreeMap;
 import com.ds.eventwish.util.SecureTokenManager;
+import com.ds.eventwish.utils.SecurityUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.Cache;
@@ -31,7 +35,6 @@ import okhttp3.Dispatcher;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Protocol;
-import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
@@ -108,30 +111,60 @@ public class ApiClient {
         String apiKey = getApiKey();
         Log.d(TAG, "Creating API service with API key: " + (apiKey != null ? "valid key" : "null key"));
 
+        // Create Gson converter that properly handles empty arrays
+        Gson gson = new GsonBuilder()
+            .registerTypeAdapter(List.class, new EmptyListDeserializer())
+            .create();
+
         // Create OkHttp client with interceptors
         OkHttpClient okHttpClient = new OkHttpClient.Builder()
-            .connectTimeout(60, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
+            .connectionPool(new ConnectionPool(5, 30, TimeUnit.SECONDS))
             .addInterceptor(chain -> {
-                Request original = chain.request();
+                okhttp3.Request original = chain.request();
                 
-                // Add API key header to every request
-                Request.Builder requestBuilder = original.newBuilder()
-                    .header("x-api-key", apiKey) // Using lowercase header name for consistency
+                // Build new request with API key
+                okhttp3.Request.Builder requestBuilder = original.newBuilder()
+                    .header("Content-Type", "application/json")
                     .method(original.method(), original.body());
-                
-                // Add auth token if available
-                SecureTokenManager tokenManager = SecureTokenManager.getInstance();
-                if (tokenManager != null && tokenManager.hasTokens()) {
-                    String token = tokenManager.getAccessToken();
-                    if (token != null && !token.isEmpty()) {
-                        requestBuilder.header("Authorization", "Bearer " + token);
-                    }
+
+                // Add API key and device ID if available
+                if (apiKey != null && !apiKey.isEmpty()) {
+                    requestBuilder.header("x-api-key", apiKey);
                 }
                 
-                Request request = requestBuilder.build();
+                // Add device ID for tracking and authentication
+                String deviceId = DeviceUtils.getDeviceId(context);
+                if (deviceId != null && !deviceId.isEmpty()) {
+                    requestBuilder.header("x-device-id", deviceId);
+                }
+                
+                // Add authentication token if available
+                String authToken = (SecureTokenManager.getInstance() != null) 
+                    ? SecureTokenManager.getInstance().getAccessToken() 
+                    : null;
+                if (authToken != null && !authToken.isEmpty()) {
+                    requestBuilder.header("Authorization", "Bearer " + authToken);
+                }
+                
+                okhttp3.Request request = requestBuilder.build();
+                
+                // Offline mode handling - serve cached responses if available
+                if (!NetworkUtils.isNetworkAvailable(context)) {
+                    Log.d(TAG, "Device is offline, trying to serve from cache: " + request.url());
+                    CacheControl cacheControl = new CacheControl.Builder()
+                        .maxStale(7, TimeUnit.DAYS)
+                        .build();
+                    
+                    okhttp3.Request cachedRequest = request.newBuilder()
+                        .cacheControl(cacheControl)
+                        .build();
+                        
+                    return chain.proceed(cachedRequest);
+                }
                 
                 // Log request details in debug mode
                 if (BuildConfig.DEBUG) {
@@ -140,7 +173,142 @@ public class ApiClient {
                           "\nHeaders: " + request.headers());
                 }
                 
-                return chain.proceed(request);
+                try {
+                    // Attempt the request
+                    okhttp3.Response response = chain.proceed(request);
+                    
+                    // Handle rate limiting or server errors
+                    if (response.code() == 429) {
+                        Log.w(TAG, "Rate limited by API, waiting before retry");
+                        try {
+                            Thread.sleep(2000); // Wait 2 seconds
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            // Don't throw exception on interruption - just continue
+                            Log.w(TAG, "Thread interrupted during rate limit wait", ie);
+                        }
+                        return chain.proceed(request); // Retry once
+                    } else if (response.code() >= 500) {
+                        Log.w(TAG, "Server error " + response.code() + ", attempting retry");
+                        response.close();
+                        try {
+                            Thread.sleep(1000); // Wait 1 second
+                        } catch (InterruptedException ie2) {
+                            Thread.currentThread().interrupt();
+                            // Don't throw exception on interruption - just continue
+                            Log.w(TAG, "Thread interrupted during server error wait", ie2);
+                        }
+                        return chain.proceed(request); // Retry once
+                    }
+                    
+                    // Check for empty responses
+                    if (response.code() == 200 && response.body() != null) {
+                        String contentType = response.header("Content-Type");
+                        if (contentType != null && contentType.contains("application/json")) {
+                            // If this is a GET request for templates, check if it's empty
+                            if (request.url().toString().contains("/templates") && "GET".equals(request.method())) {
+                                try {
+                                    // Peek at the response body without consuming it
+                                    String responseBody = response.peekBody(Long.MAX_VALUE).string();
+                                    if (responseBody.contains("\"data\":[]") || responseBody.contains("\"templates\":[]")) {
+                                        Log.d(TAG, "Empty templates response detected: " + responseBody);
+                                        // This is a valid empty response, not an error
+                                    }
+                                } catch (Exception e) {
+                                    Log.w(TAG, "Error peeking at response body", e);
+                                }
+                            }
+                        }
+                    }
+                    
+                    return response;
+                } catch (IOException e) {
+                    // Handle canceled requests gracefully
+                    if (e.getMessage() != null && (e.getMessage().contains("Canceled") || 
+                        e.getMessage().contains("Socket closed") || 
+                        e.getMessage().contains("Connection reset") ||
+                        "canceled".equalsIgnoreCase(e.getMessage()))) {
+                        
+                        Log.d(TAG, "Request was intentionally canceled: " + request.url());
+                        
+                        // For canceled GET requests, try to return cached data
+                        if (request.method().equals("GET")) {
+                            try {
+                                okhttp3.Request cachedRequest = request.newBuilder()
+                                    .cacheControl(CacheControl.FORCE_CACHE)
+                                    .build();
+                                return chain.proceed(cachedRequest);
+                            } catch (Exception cacheEx) {
+                                Log.w(TAG, "Failed to get cached data after cancellation: " + cacheEx.getMessage());
+                                // Fall through to throw the original exception
+                            }
+                        }
+                        
+                        // Rethrow with a more descriptive message
+                        throw new IOException("Request canceled: " + request.url(), e);
+                    }
+                    
+                    if (NetworkUtils.isNetworkAvailable(context)) {
+                        Log.e(TAG, "Network error despite having connection: " + e.getMessage(), e);
+                        // Try once more after a short delay
+                        try {
+                            Thread.sleep(1000);
+                            return chain.proceed(request);
+                        } catch (InterruptedException ie3) {
+                            Thread.currentThread().interrupt();
+                            // Don't throw exception on interruption - just continue
+                            Log.w(TAG, "Thread interrupted during retry", ie3);
+                            
+                            // Try to proceed anyway
+                            try {
+                                return chain.proceed(request);
+                            } catch (Exception proceedEx) {
+                                // If that fails, try cached data for GET requests
+                                if (request.method().equals("GET")) {
+                                    try {
+                                        okhttp3.Request cachedRequest = request.newBuilder()
+                                            .cacheControl(CacheControl.FORCE_CACHE)
+                                            .build();
+                                        return chain.proceed(cachedRequest);
+                                    } catch (Exception cacheEx) {
+                                        Log.w(TAG, "Failed to get cached data: " + cacheEx.getMessage());
+                                    }
+                                }
+                                throw new IOException("Failed to proceed with request after interruption", proceedEx);
+                            }
+                        } catch (Exception retryException) {
+                            Log.e(TAG, "Retry failed: " + retryException.getMessage(), retryException);
+                            
+                            // If retry fails, try cached data for GET requests
+                            if (request.method().equals("GET")) {
+                                try {
+                                    okhttp3.Request cachedRequest = request.newBuilder()
+                                        .cacheControl(CacheControl.FORCE_CACHE)
+                                        .build();
+                                    return chain.proceed(cachedRequest);
+                                } catch (Exception cacheEx) {
+                                    Log.w(TAG, "Failed to get cached data after retry failure: " + cacheEx.getMessage());
+                                }
+                            }
+                            
+                            throw new IOException("Retry failed", retryException);
+                        }
+                    } else {
+                        Log.w(TAG, "Network unavailable, using cached data if available");
+                        okhttp3.Request offlineRequest = request.newBuilder()
+                            .header("Cache-Control", "public, only-if-cached, max-stale=86400")
+                            .build();
+                        try {
+                            return chain.proceed(offlineRequest);
+                        } catch (Exception cacheException) {
+                            // If cache retrieval fails, throw the original exception
+                            throw new IOException("Cache retrieval failed", e);
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error during API request: " + e.getMessage(), e);
+                    throw new IOException("Error during API request", e);
+                }
             })
             .addInterceptor(getLoggingInterceptor())
             .build();
@@ -149,7 +317,7 @@ public class ApiClient {
         retrofit = new Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(GsonConverterFactory.create(gson))
             .build();
 
         return retrofit.create(ApiService.class);
@@ -254,68 +422,329 @@ public class ApiClient {
      * Get the HTTP client
      * @return OkHttp client
      */
-    private static OkHttpClient getHttpClient() {
-        OkHttpClient.Builder builder = new OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .retryOnConnectionFailure(true)
-            .connectionPool(new ConnectionPool(5, 30, TimeUnit.SECONDS));
+    private OkHttpClient getHttpClient() {
+        // Cache configuration
+        File cacheDir = new File(context.getCacheDir(), "http_cache");
+        int cacheSize = 10 * 1024 * 1024; // 10 MB
+        Cache cache = new Cache(cacheDir, cacheSize);
 
-        // Add API key header interceptor
-        builder.addInterceptor(chain -> {
-            Request original = chain.request();
-            Request.Builder requestBuilder = original.newBuilder()
-                .header("x-api-key", BuildConfig.API_KEY);
-                
-            Request request = requestBuilder.build();
-            Log.d(TAG, "Sending request with API key: " + request.url());
-            
-            return chain.proceed(request);
-        });
-
-        // Add cache if application context is available
-        if (context != null) {
-            File httpCacheDirectory = new File(context.getCacheDir(), "http-cache");
-            int cacheSize = 10 * 1024 * 1024; // 10 MB
-            Cache cache = new Cache(httpCacheDirectory, cacheSize);
-            builder.cache(cache);
-            
-            // Add network cache interceptor
-            builder.addNetworkInterceptor(chain -> {
-                Request request = chain.request();
-                Response response = chain.proceed(request);
-                
-                // Cache for 5 minutes
-                return response.newBuilder()
-                    .header("Cache-Control", "public, max-age=300")
-                    .build();
-            });
+        // Debug interceptor for logging request/response times
+        HttpLoggingInterceptor loggingInterceptor = new HttpLoggingInterceptor();
+        if (BuildConfig.DEBUG) {
+            loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
+        } else {
+            loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.BASIC);
         }
 
-        if (BuildConfig.DEBUG) {
-            HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
-            logging.setLevel(HttpLoggingInterceptor.Level.BODY);
-            builder.addInterceptor(logging);
-            
-            // Add debug interceptor to log connection issues
-            builder.addInterceptor(chain -> {
-                Request request = chain.request();
-                long startTime = System.currentTimeMillis();
-                Log.d(TAG, "Sending request: " + request.url());
+        // Create OkHttpClient with API key and logging interceptors
+        OkHttpClient.Builder httpClient = new OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .connectionPool(new ConnectionPool(5, 30, TimeUnit.SECONDS))
+                .cache(cache);
+        
+        // Add retry mechanism for server errors and rate limiting
+        addRetryInterceptor(httpClient);
+                
+        httpClient.addInterceptor(new Interceptor() {
+            @Override
+            public okhttp3.Response intercept(Chain chain) throws IOException {
+                long requestStartTime = System.currentTimeMillis();
+                okhttp3.Request original = chain.request();
+                
+                // Build new request with API key
+                okhttp3.Request.Builder requestBuilder = original.newBuilder()
+                    .header("Content-Type", "application/json")
+                    .method(original.method(), original.body());
+
+                // Add API key and device ID if available
+                String apiKey = getApiKey();
+                if (apiKey != null && !apiKey.isEmpty()) {
+                    requestBuilder.header("x-api-key", apiKey);
+                }
+                
+                // Add device ID for tracking and authentication
+                String deviceId = DeviceUtils.getDeviceId(context);
+                if (deviceId != null && !deviceId.isEmpty()) {
+                    requestBuilder.header("x-device-id", deviceId);
+                }
+                
+                // Add authentication token if available
+                String authToken = (SecureTokenManager.getInstance() != null) 
+                    ? SecureTokenManager.getInstance().getAccessToken() 
+                    : null;
+                if (authToken != null && !authToken.isEmpty()) {
+                    requestBuilder.header("Authorization", "Bearer " + authToken);
+                }
+                
+                okhttp3.Request request = requestBuilder.build();
+                
+                // Offline mode handling - serve cached responses if available
+                if (!NetworkUtils.isNetworkAvailable(context)) {
+                    Log.d(TAG, "Device is offline, trying to serve from cache: " + request.url());
+                    CacheControl cacheControl = new CacheControl.Builder()
+                        .maxStale(7, TimeUnit.DAYS)
+                        .build();
+                    
+                    okhttp3.Request cachedRequest = request.newBuilder()
+                        .cacheControl(cacheControl)
+                        .build();
+                        
+                    return chain.proceed(cachedRequest);
+                }
+                
+                // Log request details
+                Log.d(TAG, String.format("Sending request to: %s (%s)", 
+                        request.url(), request.method()));
                 
                 try {
-                    Response response = chain.proceed(request);
-                    long endTime = System.currentTimeMillis();
-                    Log.d(TAG, "Received response for " + request.url() + " in " + (endTime - startTime) + "ms");
+                    okhttp3.Response response = chain.proceed(request);
+                    long requestEndTime = System.currentTimeMillis();
+                    long duration = requestEndTime - requestStartTime;
+                    
+                    // Log response details
+                    int code = response.code();
+                    String message = response.message();
+                    Log.d(TAG, String.format("Received response from %s: %d %s in %dms", 
+                            request.url(), code, message, duration));
+                    
+                    // Debug headers
+                    if (BuildConfig.DEBUG) {
+                        Log.v(TAG, "Response headers: " + response.headers());
+                    }
+                    
                     return response;
                 } catch (IOException e) {
-                    Log.e(TAG, "Error during API call to " + request.url() + ": " + e.getMessage(), e);
+                    long requestEndTime = System.currentTimeMillis();
+                    long duration = requestEndTime - requestStartTime;
+                    Log.e(TAG, String.format("Network error requesting %s after %dms: %s", 
+                            request.url(), duration, e.getMessage()), e);
                     throw e;
                 }
-            });
-        }
+            }
+        })
+        .addNetworkInterceptor(new Interceptor() {
+            @Override
+            public okhttp3.Response intercept(Chain chain) throws IOException {
+                okhttp3.Request request = chain.request();
+                NetworkUtils networkUtils = NetworkUtils.getInstance(context);
+                
+                // Add cache control based on network state
+                if (request.method().equalsIgnoreCase("GET")) {
+                    okhttp3.Request.Builder builder = request.newBuilder();
+                    
+                    if (networkUtils.isNetworkAvailable()) {
+                        // Online - use network but cache for a short period
+                        builder.header("Cache-Control", "public, max-age=60"); // 1 minute
+                    } else {
+                        // Offline - use cache if available, for a longer time
+                        builder.header("Cache-Control", "public, only-if-cached, max-stale=86400"); // 1 day
+                        Log.d(TAG, "Offline mode: using cached response for: " + request.url());
+                    }
+                    
+                    request = builder.build();
+                }
+                
+                return chain.proceed(request);
+            }
+        })
+        .addInterceptor(loggingInterceptor);
 
-        return builder.build();
+        return httpClient.build();
+    }
+
+    /**
+     * Add a retry interceptor to handle rate limiting and server errors
+     * @param builder OkHttpClient builder to add the interceptor to
+     */
+    private void addRetryInterceptor(OkHttpClient.Builder builder) {
+        builder.addInterceptor(new Interceptor() {
+            @Override
+            public okhttp3.Response intercept(Chain chain) throws IOException {
+                okhttp3.Request request = chain.request();
+                int maxRetries = 3;
+                int retryCount = 0;
+                                
+                okhttp3.Response response = null;
+                IOException exception = null;
+                
+                while (retryCount < maxRetries) {
+                    try {
+                        if (retryCount > 0) {
+                            // Exponential backoff - wait longer between each retry
+                            long waitTime = (long) Math.pow(2, retryCount) * 1000;
+                            Log.d(TAG, String.format("Retry attempt %d for %s, waiting %dms", 
+                                    retryCount, request.url(), waitTime));
+                            try {
+                                Thread.sleep(waitTime);
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                                throw new IOException("Retry interrupted", ie);
+                            }
+                        }
+                        
+                        // Make the request
+                        response = chain.proceed(request);
+                        
+                        // Check if we should retry based on response code
+                        int responseCode = response.code();
+                        if (responseCode == 429) { // Too Many Requests
+                            Log.w(TAG, "Rate limited (429) by API for " + request.url());
+                            
+                            // Extract retry-after header if available
+                            String retryAfter = response.header("Retry-After");
+                            if (retryAfter != null) {
+                                try {
+                                    long retryAfterSeconds = Long.parseLong(retryAfter);
+                                    long waitTime = retryAfterSeconds * 1000;
+                                    Log.d(TAG, "Waiting " + waitTime + "ms as specified by Retry-After header");
+                                    try {
+                                        Thread.sleep(waitTime);
+                                    } catch (InterruptedException ie) {
+                                        Thread.currentThread().interrupt();
+                                        throw new IOException("Retry interrupted", ie);
+                                    }
+                                } catch (NumberFormatException e) {
+                                    Log.w(TAG, "Invalid Retry-After header: " + retryAfter);
+                                }
+                            }
+                            
+                            // Close response and retry
+                            response.close();
+                            retryCount++;
+                            continue;
+                        } else if (responseCode >= 500) { // Server errors
+                            Log.w(TAG, "Server error (" + responseCode + ") for " + request.url());
+                            // Close response and retry
+                            response.close();
+                            retryCount++;
+                            continue;
+                        }
+                        
+                        // No need to retry for 2xx, 3xx, or 4xx (except 429)
+                        return response;
+                        
+                    } catch (IOException e) {
+                        // Network issue occurred
+                        exception = e;
+                        Log.w(TAG, "Network error during API call to " + request.url() + 
+                                ": " + e.getMessage() + ", retry: " + retryCount);
+                        retryCount++;
+                        
+                        // If it's the last retry, throw the exception
+                        if (retryCount >= maxRetries) {
+                            throw exception;
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error during API request: " + e.getMessage(), e);
+                        throw new IOException("Error during API request", e);
+                    }
+                }
+                
+                // This should only happen if we've exhausted retries on a response with status 429 or 5xx
+                if (response != null) {
+                    return response;
+                }
+                
+                // This should only happen if we've exhausted retries with an IOException
+                throw exception != null ? exception : new IOException("Unknown error after retries");
+            }
+        });
+    }
+
+    /**
+     * Custom deserializer for handling empty array responses
+     * This avoids "Expected BEGIN_ARRAY but was BEGIN_OBJECT" errors
+     */
+    private static class EmptyListDeserializer implements JsonDeserializer<List<?>> {
+        @Override
+        public List<?> deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
+            // Log the typeOfT for debugging
+            Log.d(TAG, "Deserializing List with type: " + typeOfT.toString());
+            
+            // Handle arrays directly
+            if (json.isJsonArray()) {
+                List<Object> list = new ArrayList<>();
+                for (JsonElement element : json.getAsJsonArray()) {
+                    if (element.isJsonPrimitive()) {
+                        list.add(element.getAsString());
+                    } else if (element.isJsonObject()) {
+                        // Use context to properly deserialize objects
+                        // Extract the type parameter from the List type
+                        Type elementType = ((java.lang.reflect.ParameterizedType) typeOfT).getActualTypeArguments()[0];
+                        try {
+                            list.add(context.deserialize(element, elementType));
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error deserializing object: " + e.getMessage(), e);
+                            // Fallback to JsonObject if deserialization fails
+                            list.add(element.getAsJsonObject());
+                        }
+                    } else if (element.isJsonArray()) {
+                        list.add(element.getAsJsonArray());
+                    } else if (element.isJsonNull()) {
+                        list.add(null);
+                    }
+                }
+                return list;
+            } else if (json.isJsonObject()) {
+                // If we got an object when expecting an array, check for empty data field
+                JsonObject jsonObject = json.getAsJsonObject();
+                
+                // Extract the element type from the List type parameter
+                Type elementType = null;
+                try {
+                    elementType = ((java.lang.reflect.ParameterizedType) typeOfT).getActualTypeArguments()[0];
+                    Log.d(TAG, "Element type: " + elementType.toString());
+                } catch (Exception e) {
+                    Log.e(TAG, "Error getting element type: " + e.getMessage(), e);
+                }
+                
+                if (jsonObject.has("data") && jsonObject.get("data").isJsonArray()) {
+                    Log.d(TAG, "Found data array in object, returning properly deserialized objects");
+                    List<Object> dataList = new ArrayList<>();
+                    for (JsonElement element : jsonObject.getAsJsonArray("data")) {
+                        if (element.isJsonObject()) {
+                            if (elementType != null) {
+                                try {
+                                    dataList.add(context.deserialize(element, elementType));
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error deserializing data element: " + e.getMessage(), e);
+                                    dataList.add(element.getAsJsonObject());
+                                }
+                            } else {
+                                dataList.add(element.getAsJsonObject());
+                            }
+                        }
+                    }
+                    return dataList;
+                } else if (jsonObject.has("templates") && jsonObject.get("templates").isJsonArray()) {
+                    Log.d(TAG, "Found templates array in object, returning properly deserialized objects");
+                    List<Object> templatesList = new ArrayList<>();
+                    for (JsonElement element : jsonObject.getAsJsonArray("templates")) {
+                        if (element.isJsonObject()) {
+                            if (elementType != null) {
+                                try {
+                                    templatesList.add(context.deserialize(element, elementType));
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error deserializing template element: " + e.getMessage(), e);
+                                    templatesList.add(element.getAsJsonObject());
+                                }
+                            } else {
+                                templatesList.add(element.getAsJsonObject());
+                            }
+                        }
+                    }
+                    return templatesList;
+                }
+                // Return empty list for other object types
+                Log.d(TAG, "Object doesn't contain expected array field, returning empty list");
+                return new ArrayList<>();
+            }
+            
+            // For other cases, return empty list
+            Log.d(TAG, "Unexpected JSON type, returning empty list");
+            return new ArrayList<>();
+        }
     }
 }
