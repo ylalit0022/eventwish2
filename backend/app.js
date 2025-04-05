@@ -4,7 +4,7 @@ const errorHandler = require('./middleware/errorMiddleware');
 const seedDatabase = require('./scripts/seedDatabase');
 
 // Import routes
-const coinsRoute = require('./routes/coinsRoute');
+const coinsRoutes = require('./routes/coinsRoutes');
 const authRoute = require('./routes/auth');
 const admobRoute = require('./routes/admob');
 const usersRoute = require('./routes/users');
@@ -14,7 +14,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Use routes
-app.use('/api/coins', coinsRoute);
+app.use('/api/coins', coinsRoutes);
 app.use('/api/auth', authRoute);
 app.use('/api/admob', admobRoute);
 app.use('/api/users', usersRoute);
