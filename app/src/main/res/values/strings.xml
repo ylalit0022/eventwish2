@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">EventWish</string>
+    <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
+
+    <!-- Bottom Navigation -->
+    <string name="title_home">Home</string>
+    <string name="title_history">History</string>
+    <string name="title_reminder">Reminder</string>
+    <string name="title_more">More</string>
+    <string name="title_profile">Profile</string>
+    <string name="title_settings">Settings</string>
+
+    <!-- App Navigation -->
+    <string name="press_back_again_to_exit">Press back again to exit</string>
+
+    <string name="reply">Reply</string>
+
+    <!-- Settings -->
+    <string name="settings">Settings</string>
+    <string name="settings_about">About</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_enable_notifications">Enable Notifications</string>
+    <string name="settings_notifications_description">Get notified about upcoming events and reminders</string>
+    <string name="settings_version">App Version</string>
+    <string name="settings_privacy_policy">Privacy Policy</string>
+    <string name="cancel">Cancel</string>
+    <string name="category_icon">Category Icon</string>
+    <string name="update">Update</string>
+
+    <string name="coins_earned">Feature Unlocked</string>
+
+<!--    Chooser diologe-->
+    <string name="open_with">Open With</string>
+    <string name="no_app_to_handle_url">No App To Handle URL</string>
+    <string name="no_app_to_handle_file">No App To Handle File</string>
+    <string name="no_app_to_handle_share">No App To Handle Share</string>
+
+
+    <!-- About -->
+    <string name="about">About</string>
+    <string name="version">Version %s</string>
+    <string name="app_description">EventWish helps you create and share beautiful greetings for all occasions. Never miss a special moment with our reminder feature.</string>
+    <string name="privacy_policy">Privacy Policy</string>
+    <string name="terms_of_service">Terms of Service</string>
+
+    <string name="date_unknown">Date unknown</string>
+    <!--    <string name="template_image">Template Image</string>-->
+    <!--    <string name="view_wish">View</string>-->
+    <!--    <string name="share_wish">Share</string>-->
+    <!--    <string name="sent_to">Sent to %1$s</string>-->
+    <!--    <string name="sent_on">Sent on %1$s</string>-->
+
+    <!-- Shared Wish -->
+    <string name="share_wish_text">I sent you a special wish! Check it out here: %s</string>
+    <string name="share_wish_text_whatsapp">Hey! I created a special wish for you using EventWish. Check it out here: %s</string>
+    <string name="share_wish_text_facebook">I just created a special wish with EventWish! Check it out here: %s</string>
+    <string name="share_wish_text_twitter">I created a special wish with @EventWish! Check it out here: %s</string>
+    <string name="share_wish_text_instagram">I created a special wish with #EventWish! Check it out here: %s</string>
+    <string name="share_wish_text_email">Hello,\n\nI created a special wish for you using EventWish.\n\nCheck it out here: %s\n\nEnjoy!\n</string>
+    <string name="share_wish_text_sms">I created a special wish for you! Check it out here: %s</string>
+    <string name="share_via">Share via</string>
+    <string name="share_via_whatsapp">Share via WhatsApp</string>
+    <string name="share_via_other">Share via Other</string>
+    <string name="copy_link">Copy Link</string>
+    <string name="link_copied">Link copied to clipboard</string>
+    <string name="reply_to_wish">Reply with a Wish</string>
+    <string name="loading_wish">Loading wish…</string>
+    <string name="error_loading_wish">Error loading wish</string>
+    <string name="share_wish_title">EventWish Greeting</string>
+    <string name="share_wish_description">A special wish from %1$s to %2$s</string>
+    <string name="share_app_prompt">Download EventWish to create your own special wishes!</string>
+
+    <!-- History -->
+    <!--    <string name="title_history">History</string>-->
+    <string name="empty_history_title">No shared wishes yet</string>
+    <string name="empty_history_message">When you share wishes with others,\nthey\'ll appear here</string>
+    <string name="empty_history_icon">Empty history icon</string>
+    <string name="view_wish">View</string>
+    <string name="share_wish">Share</string>
+    <string name="sent_to">Sent to %1$s</string>
+    <string name="sent_on">Sent on %1$s</string>
+<!--    <string name="template_image">Template Image</string>-->
+    <string name="share_button">Share Button</string>
+    <string name="view_button">View Button</string>
+
+    <string name="error_image">Error Image</string>
+
+    <!-- History Screen -->
+    <string name="clear_history">Clear History</string>
+    <string name="clear_history_title">Clear History?</string>
+    <string name="clear_history_message">Are you sure you want to clear all history items? This action cannot be undone.</string>
+    <string name="clear">Clear</string>
+    <string name="history_cleared">History cleared successfully</string>
+    <string name="offline_mode">You\'re offline. Showing cached data.</string>
+    <string name="to_format">To: %s</string>
+    <string name="from_format">From: %s</string>
+    <string name="created_format">Created: %s</string>
+    <string name="code_format">Code: %s</string>
+    <string name="share_url_format">https://eventwish2.onrender.com/wish/%s</string>
+    <string name="online">Online</string>
+    <string name="offline">Offline</string>
+    <string name="share">Share</string>
+
+    <!-- Common -->
+    <string name="error_generic">Something went wrong. Please try again.</string>
+<!--    <string name="error_network">Network error. Please check your connection.</string>-->
+    <string name="filter_icon">Filter Icon</string>
+    <string name="empty_list">No reminders found</string>
+    <string name="add_reminder">Add Reminder</string>
+
+
+
+    <!-- Help -->
+    <string name="help_and_support">Help &amp; Support</string>
+    <string name="faq">Frequently Asked Questions</string>
+    <string name="faq_create_greeting">How do I create a new greeting?</string>
+    <string name="faq_create_greeting_answer">Go to the Home tab and tap the + button. Choose a category and customize your greeting with our templates.</string>
+    <string name="faq_set_reminder">How do I set a reminder?</string>
+    <string name="faq_set_reminder_answer">Go to the Reminders tab and tap the + button. Enter the event details and set the date. We\'ll notify you when it\'s time!</string>
+    <string name="need_more_help">Need More Help?</string>
+    <string name="contact_support">Contact Support</string>
+    <string name="contact_support_desc">We\'re here to help! Send us an email and we\'ll get back to you within 24 hours.</string>
+
+    <!-- Reminders -->
+<!--    <string name="empty_list">No reminders found</string>-->
+<!--    <string name="add_reminder">Add Reminder</string>-->
+<!--    <string name="filter_icon">Filter Icon</string>-->
+    <string name="priority_high">High Priority</string>
+    <string name="priority_medium">Medium Priority</string>
+    <string name="priority_low">Low Priority</string>
+    <string name="repeats_every_n_days">Repeats every %d days</string>
+    <string name="reminder_deleted">Reminder deleted</string>
+    <string name="reminder_count">%d Reminders</string>
+    <string name="reminder_count_single">1 Reminder</string>
+    <string name="clear_all">Clear All</string>
+    <string name="clear_all_title">Clear All Reminders</string>
+    <string name="clear_all_message">Are you sure you want to delete all reminders? This action cannot be undone.</string>
+    <string name="cleared_all_reminders">All reminders cleared</string>
+    <string name="no_reminders_to_clear">No reminders to clear</string>
+
+    <!-- Reminder Dialog -->
+    <string name="edit_reminder">Edit Reminder</string>
+    <string name="save">Save</string>
+    <string name="error_title_required">Title is required</string>
+    <string name="error_invalid_interval">Please enter a valid interval greater than 0</string>
+    
+
+    <!-- Empty States -->
+    <string name="no_history">No history</string>
+    <string name="no_reminders">No reminders</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+
+    <string name="all_reminders_cleared">All reminders have been cleared</string>
+
+    <!-- App Updates -->
+    <string name="update_available">Update Available</string>
+    <string name="update_message">A new version of EventWish is available. Please update to the latest version to enjoy new features and improvements.</string>
+    <string name="update_now">Update Now</string>
+    <string name="later">Later</string>
+
+    <string name="action_settings">Settings</string>
+    <string name="action_test_ads">Test Ads</string>
+
+    <!-- Error handling -->
+    <string name="error_title_default">Error</string>
+    <string name="error_title_offline">No Internet Connection</string>
+    <string name="error_title_network">Network Error</string>
+    <string name="error_title_server">Server Error</string>
+    <string name="error_title_resource">Resource Error</string>
+    <string name="error_title_permission">Permission Required</string>
+    <string name="error_title_auth">Authentication Required</string>
+    
+    <string name="error_message_default">An unexpected error occurred. Please try again later.</string>
+    <string name="error_offline">You are currently offline. Please check your internet connection and try again.</string>
+    <string name="error_network">Unable to connect to the server. Please check your internet connection and try again.</string>
+    <string name="error_client">There was a problem with your request. Please try again.</string>
+    <string name="error_resource_not_found">The requested resource could not be found.</string>
+    <string name="error_resource_expired">The resource has expired and needs to be refreshed.</string>
+    <string name="error_resource_invalid">The resource data is invalid or corrupted.</string>
+    <string name="error_permission_denied">You don\'t have permission to access this resource.</string>
+    <string name="error_authentication_required">Please log in to access this feature.</string>
+    
+    <string name="error_resource_details">%1$s: %2$s</string>
+    <string name="error_resource_type">%1$s</string>
+    
+    <string name="error_button_settings">Settings</string>
+    <string name="error_button_login">Log In</string>
+    
+    <string name="error_icon_description">Error icon</string>
+
+    <!-- Error Handling -->
+    <string name="error_title">Error</string>
+    <string name="error_message">An error occurred. Please try again later.</string>
+    <string name="error_button_ok">OK</string>
+    <string name="error_button_retry">Retry</string>
+    <string name="error_button_dismiss">Dismiss</string>
+    
+    <!-- Network Errors -->
+    <string name="error_no_connection">No internet connection</string>
+    <string name="error_timeout">Connection timed out</string>
+    <string name="error_server">Server error</string>
+    <string name="error_unauthorized">Unauthorized access</string>
+    <string name="error_not_found">Resource not found</string>
+    <string name="error_forbidden">Access forbidden</string>
+    <string name="error_http">HTTP error: %1$d</string>
+    <string name="error_io">Network error</string>
+    <string name="error_ssl">SSL error</string>
+    <string name="error_unknown">Unknown error</string>
+    
+    <!-- Offline Indicator -->
+    <string name="offline_message">You\'re offline. Some features may be unavailable.</string>
+    <string name="offline_icon_description">Offline indicator icon</string>
+    <string name="retry_button">Retry</string>
+    
+    <!-- Stale Data Indicator -->
+    <string name="stale_data_message">Showing cached data that may be outdated.</string>
+    <string name="stale_data_icon_description">Stale data indicator icon</string>
+    <string name="refresh">Refresh</string>
+
+    <string name="error_offline_mode">Offline Mode</string>
+    <string name="error_stale_data">You\'re viewing cached data that may be outdated.</string>
+    <string name="error_refresh">Refresh</string>
+    <string name="error_details">Details</string>
+    <string name="error_report">Report</string>
+
+    <!-- Notification Permission -->
+    <string name="notification_permission_title">Notification Permission</string>
+    <string name="notification_permission_message">EventWish needs notification permission to send you updates about upcoming festivals and events.</string>
+    <string name="notification_permission_settings_message">EventWish needs notification permission to send you updates. Please enable notifications in app settings.</string>
+
+    <!-- Notification Channels -->
+    <string name="notification_group_events">Events</string>
+    <string name="notification_group_system">System</string>
+    <string name="notification_channel_festivals">Festivals</string>
+    <string name="notification_channel_festivals_desc">Notifications about upcoming festivals and events</string>
+    <string name="notification_channel_reminders">Reminders</string>
+    <string name="notification_channel_reminders_desc">Reminders about festivals and events</string>
+    <string name="notification_channel_updates">Updates</string>
+    <string name="notification_channel_updates_desc">App updates and general information</string>
+    
+    <!-- Notification Content -->
+    <string name="notification_festival_today_title">%1$s is today!</string>
+    <string name="notification_festival_today_content">Don\'t miss %1$s today!</string>
+    <string name="notification_festival_tomorrow_title">%1$s is tomorrow!</string>
+    <string name="notification_festival_tomorrow_content">Get ready for %1$s tomorrow!</string>
+    <string name="notification_festival_upcoming_title">%1$s is coming up!</string>
+    <string name="notification_festival_upcoming_content">%1$d days until %2$s</string>
+    <string name="notification_reminder_title">Reminder: %1$s</string>
+    <string name="notification_reminder_content">%1$d days until %2$s</string>
+
+    <!-- API URLs -->
+    <string name="base_url">https://eventwish2.onrender.com/api/</string>
+
+    <!-- Ad Reward Dialog -->
+    <string name="ad_reward_title">Unlock Features</string>
+    <string name="reward_dialog_title">Rewards</string>
+    <string name="coins_count">Premium Features</string>
+    <string name="coins_format">Premium</string>
+    <string name="remaining_time">Feature unlocked for %d more days</string>
+    <string name="remaining_time_format" formatted="false">%d days, %d hours remaining</string>
+    <string name="watch_ad">Unlock Premium</string>
+    <string name="loading">Loading...</string>
+    <string name="unlock_feature">Unlock Feature</string>
+    <string name="unlock_feature_format">Unlock Feature</string>
+    <string name="insufficient_coins">Feature Locked</string>
+    <string name="not_enough_coins">This feature is currently locked.</string>
+    <string name="coins_icon_description">Premium icon</string>
+    <string name="reward_earned_message">Feature unlocked successfully!</string>
+    <string name="reward_success">Congratulations! Feature unlocked!</string>
+    <string name="reward_error">Failed to show ad. Please try again.</string>
+    <string name="ad_failed">Ad failed to load. Please try again.</string>
+    <string name="ad_error">Error showing ad. Please try again later.</string>
+    <string name="ok">OK</string>
+    
+    <!-- HTML Editor -->
+    <string name="edit_html">Edit HTML</string>
+    <string name="unlock_html_editing">Unlock HTML Editing</string>
+    <string name="html_editor_title">HTML Editor</string>
+    <string name="html_editing_locked">HTML editing is a premium feature.</string>
+    <string name="html_editing_unlocked">HTML editing is now available for %d days!</string>
+    <string name="html_editing_days_remaining">HTML editing: %d days remaining</string>
+    
+    <!-- Premium Features -->
+    <string name="feature_unlocked">Feature unlocked for %d days!</string>
+    <string name="ad_not_ready">Ad not ready. Please try again later.</string>
+    <string name="ad_loading_timeout">Ad loading timed out. Please try again.</string>
+    <string name="premium_feature_locked">This is a premium feature.</string>
+    <string name="template_download_locked">Template download is a premium feature.</string>
+    <string name="custom_fonts_locked">Custom fonts are a premium feature.</string>
+    <string name="priority_support_locked">Priority support is a premium feature.</string>
+    <string name="premium_features">Premium Features</string>
+    <string name="template_unlocked">Template unlocked successfully!</string>
+    <string name="template_unlocked_message">Template unlocked successfully!</string>
+    <string name="ads_removed_from_app">Ads have been removed from this application.</string>
+    <string name="feature_requires_points">This feature requires points to unlock.</string>
+    <string name="template_requires_points">This template requires points to unlock.</string>
+    <string name="html_editing_description">Edit HTML code directly for complete customization</string>
+    <string name="premium_templates_description">Access premium templates with unique designs</string>
+    <string name="remove_ads_description">Remove all advertisements from the app</string>
+    <string name="advanced_colors_description">Use advanced color customization options</string>
+    <string name="unlock">Unlock</string>
+    <string name="feature_locked">This feature is locked</string>
+    <string name="premium_templates_locked">Premium templates are locked</string>
+    <string name="remove_ads_locked">Ad removal feature is locked</string>
+    <string name="advanced_colors_locked">Advanced colors feature is locked</string>
+    <string name="close">Close</string>
+    <string name="customization_saved">Customization saved successfully</string>
+    <string name="share_subject">Check out my EventWish creation!</string>
+    <string name="share_using">Share using</string>
+    <string name="sharing_error">Error creating sharing link</string>
+    <string name="feature_unlocked_message">Feature unlocked successfully!</string>
+    <string name="feature_unlock_failed">Failed to unlock feature</string>
+
+    <!-- Auth strings -->
+    <string name="app_logo">App Logo</string>
+    <string name="phone_auth_title">Login with Phone</string>
+    <string name="phone_auth_subtitle">Enter your phone number to continue</string>
+    <string name="phone_number">Phone Number</string>
+    <string name="continue_text">Continue</string>
+    <string name="forgot_password">Forgot Password?</string>
+    
+    <string name="verify_phone_number">Verify Your Phone Number</string>
+    <string name="otp_subtitle">Enter the verification code sent to your phone</string>
+    <string name="verification_code">Verification Code</string>
+    <string name="verify_code">Verify</string>
+    <string name="resend_code">Resend Code</string>
+    <string name="change_number">Change Number</string>
+    <string name="bullet_separator">•</string>
+    <string name="otp_verification">OTP Verification</string>
+    
+    <string name="create_password">Create Password</string>
+    <string name="create_password_subtitle">Create a strong password for your account</string>
+    <string name="enter_password">Enter Password</string>
+    <string name="enter_password_subtitle">Enter your password to continue</string>
+    <string name="password">Password</string>
+    <string name="confirm_password">Confirm Password</string>
+    <string name="register">Register</string>
+    <string name="login">Login</string>
+    <string name="back">Back</string>
+    
+    <string name="forgot_password_title">Reset Password</string>
+    <string name="forgot_password_subtitle">Enter your phone number to receive a verification code</string>
+    <string name="send_reset_code">Send Code</string>
+    
+    <string name="verify_code_title">Enter Verification Code</string>
+    <string name="verify_code_subtitle">Enter the verification code sent to your phone</string>
+    
+    <string name="new_password_title">Create New Password</string>
+    <string name="new_password_subtitle">Create a strong, secure password for your account</string>
+    <string name="new_password">New Password</string>
+    <string name="reset_password">Reset Password</string>
+
+    <!-- Auth Error Messages -->
+    <string name="error_invalid_phone">Invalid phone number</string>
+    <string name="error_invalid_password">Password must be at least 6 characters</string>
+    <string name="error_passwords_dont_match">Passwords don\'t match</string>
+    <string name="error_verification_code">Invalid verification code</string>
+    <string name="error_auth_failed">Authentication failed</string>
+    <string name="password_reset_success">Password reset successful</string>
+    <string name="password_reset_failed">Password reset failed</string>
+    <string name="code_sent">Verification code sent</string>
+    <string name="code_sent_failed">Failed to send verification code</string>
+
+    <string name="premium">Premium</string>
+
+    <!-- Template Selection -->
+    <string name="all_templates">All Templates</string>
+    <!-- <string name="no_templates_found">No templates found</string> -->
+    <!-- <string name="retry">Retry</string> -->
+    <string name="template_image_description">Template image</string>
+
+    <string name="profile_default_username">User</string>
+    <string name="profile_default_email">user@example.com</string>
+    <string name="profile_edit">Edit Profile</string>
+
+    <!-- Error messages -->
+    <string name="network_error">Network connection error. Please check your internet connection and try again.</string>
+    <string name="retry">Retry</string>
+    <string name="no_templates_found">No templates found</string>
+    <string name="no_internet_cached_data">No internet connection. Showing cached data.</string>
+    <string name="loading_error">Error loading data. Please try again later.</string>
+    <string name="server_error">Server error. Please try again later.</string>
+
+    <!-- Some common actions -->
+    <string name="view">View</string>
+    <string name="done">Done</string>
+    <string name="delete">Delete</string>
+    <string name="export">Export</string>
+</resources>

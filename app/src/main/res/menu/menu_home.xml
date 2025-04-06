@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/action_premium_features"
+        android:icon="@drawable/ic_premium"
+        android:title="@string/premium_features"
+        app:showAsAction="always" />
+</menu> 

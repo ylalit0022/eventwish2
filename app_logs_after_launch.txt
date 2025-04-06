@@ -1,0 +1,961 @@
+--------- beginning of system
+03-13 14:40:46.172  1533  4946 W BatteryStatsService: Unknown sensor handle 0 received in noteWakeupSensorEvent
+--------- beginning of main
+03-13 14:40:48.074  7831  7874 I bbdx    : (REDACTED) getHotwordActive::active query: %s, watch: %s, devices connected: %s
+03-13 14:40:53.910 14871 14871 W getprop : type=1400 audit(0.0:2832327): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:40:56.316  1533  4946 W BatteryStatsService: Unknown sensor handle 0 received in noteWakeupSensorEvent
+03-13 14:41:16.652 25578 14616 I AlarmManager: setExactAndAllowWhileIdle [name: GCM_HB_ALARM type: 2 triggerAtMillis: 1135708378]
+03-13 14:41:16.672 25578 13475 I AlarmManager: setExactAndAllowWhileIdle [name: FcmRetry type: 2 triggerAtMillis: 1134148394]
+03-13 14:41:16.711 25578 25578 W GCM     : broadcast intent callback: result=CANCELLED forIntent { act=com.google.android.c2dm.intent.RECEIVE flg=0x10000000 pkg=com.google.android.youtube (has extras) }
+03-13 14:41:17.060  7119 14889 E YouTube : YTN: The custom payload could not be unpacked.
+03-13 14:41:17.418  7119  7129 I android.youtube: Background young concurrent copying GC freed 8039KB AllocSpace bytes, 19(752KB) LOS objects, 40% free, 12MB/20MB, paused 601us,105us total 167.003ms
+03-13 14:41:17.419  7119  7129 W android.youtube: Reducing the number of considered missed Gc histogram windows from 139 to 100
+03-13 14:41:17.524  7119  7376 E YouTube : VolleyDiskCache.put
+03-13 14:41:17.524  7119  7376 E YouTube : java.io.IOException: failed to delete /data/user/0/com.google.android.youtube/cache/glide_disk_cache/volleyCache/-774901390.0
+03-13 14:41:17.524  7119  7376 E YouTube : 	at yxx.o(PG:66)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at yxx.k(PG:31)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at yxx.i(PG:5)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at yxx.f(PG:193)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at yxu.b(PG:24)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at yha.run(PG:368)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at amvv.run(PG:21)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at qxs.run(PG:7)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at anzd.run(PG:50)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at qzi.run(PG:561)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at qxk.run(PG:620)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at java.lang.Thread.run(Thread.java:1012)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at qyo.run(PG:63)
+03-13 14:41:17.539  7119 14892 D skia    : onGetGainmapInfo: false.
+03-13 14:41:17.583  7119  7376 E YouTube : VolleyDiskCache.put
+03-13 14:41:17.583  7119  7376 E YouTube : java.io.IOException: failed to delete /data/user/0/com.google.android.youtube/cache/glide_disk_cache/volleyCache/-1450074601.0
+03-13 14:41:17.583  7119  7376 E YouTube : 	at yxx.o(PG:66)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at yxx.k(PG:31)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at yxx.i(PG:5)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at yxx.f(PG:193)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at yxu.b(PG:24)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at yha.run(PG:368)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at amvv.run(PG:21)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at qxs.run(PG:7)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at anzd.run(PG:50)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at qzi.run(PG:561)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at qxk.run(PG:620)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at java.lang.Thread.run(Thread.java:1012)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at qyo.run(PG:63)
+03-13 14:41:17.586  7119 14893 D skia    : onGetGainmapInfo: false.
+03-13 14:41:17.987  7119 14889 W YouTube : Unknown command not resolved# arlp@f3490a2e
+03-13 14:41:18.142  8528  8681 I WM-WorkerWrapper: Worker result SUCCESS for Work [ id=e261972a-e68d-4de8-88b6-36b277d0b2b4, tags={ smt_background_tag, com.netcore.android.workmgr.BackgroundSyncWorker } ]
+03-13 14:41:18.157  8528  8710 I WM-WorkerWrapper: Worker result SUCCESS for Work [ id=6f90eab7-2b43-4fde-9037-bbc55e5bbe9c, tags={ smt_eventsync_tag, com.netcore.android.workmgr.EventSyncWorker } ]
+03-13 14:41:18.608  1533  4946 D BatteryStatsService: notePemString  noteWhich: 49,arg1: 1080, arg2: 2408, arg3: 30202, arg4: 511, name: com.android.systemui
+03-13 14:41:18.609  1533  4946 D BatteryStatsService: notePemString  noteWhich: 49,arg1: 1080, arg2: 2408, arg3: 30202, arg4: 320, name: com.android.systemui
+03-13 14:41:18.614  1533  4946 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 511, name: com.android.systemui
+03-13 14:41:18.615  1533  4962 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 320, name: com.android.systemui
+03-13 14:41:18.620  1533  4934 D BatteryStatsService: notePemString  noteWhich: 49,arg1: 1080, arg2: 2408, arg3: 30202, arg4: 511, name: com.android.systemui
+03-13 14:41:18.620  1533  4934 D BatteryStatsService: notePemString  noteWhich: 49,arg1: 1080, arg2: 2408, arg3: 30202, arg4: 320, name: com.android.systemui
+03-13 14:41:18.657  1533  4946 D BatteryStatsService: notePemString  noteWhich: 49,arg1: 1080, arg2: 2408, arg3: 30202, arg4: 511, name: com.android.systemui
+03-13 14:41:18.657  1533  4946 D BatteryStatsService: notePemString  noteWhich: 49,arg1: 1080, arg2: 2408, arg3: 30202, arg4: 320, name: com.android.systemui
+03-13 14:41:24.367  1533  4961 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 511, name: com.android.systemui
+03-13 14:41:24.368  1533  4961 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 320, name: com.android.systemui
+03-13 14:41:24.404  1533  4961 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 511, name: com.android.systemui
+03-13 14:41:24.405  1533  4961 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 320, name: com.android.systemui
+03-13 14:41:48.074  7831  7874 I bbdx    : (REDACTED) getHotwordActive::active query: %s, watch: %s, devices connected: %s
+03-13 14:41:55.711  7831  7831 I facx    : (REDACTED) O received %s
+03-13 14:41:55.735  7831  7831 I AmbBrdcstRcvrServClient: (REDACTED) handleRefreshAction(): not handling %s
+03-13 14:41:55.737  7831  7871 I BrdcstRcvrMsgr: (REDACTED) sendMessage(): received broadcast id:%d with action:%s
+03-13 14:41:55.856  7831  7871 I BrdcstRcvrMsgr: disconnect()
+03-13 14:41:55.856  7831  7871 E BrdcstRcvrMsgr: SvcConn: binder null, could not send broadcast of action
+03-13 14:41:56.904  1533  4961 W BatteryStatsService: Unknown sensor handle 0 received in noteWakeupSensorEvent
+03-13 14:41:58.297  7831  7831 I facx    : (REDACTED) O received %s
+03-13 14:41:58.354  7831  7871 I BrdcstRcvrMsgr: (REDACTED) sendMessage(): received broadcast id:%d with action:%s
+03-13 14:41:58.355  7831  7831 I AmbBrdcstRcvrServClient: (REDACTED) handleRefreshAction(): not handling %s
+03-13 14:41:58.415  7831  7871 I BrdcstRcvrMsgr: disconnect()
+03-13 14:41:58.415  7831  7871 E BrdcstRcvrMsgr: SvcConn: binder null, could not send broadcast of action
+03-13 14:41:58.457 25578 13287 I FusedLocation: (REDACTED) stationary throttling engaged @%s
+03-13 14:41:58.468 25578 10573 I FusedLocation: (REDACTED) stationary throttling engaged @%s
+03-13 14:42:02.538  6793 14864 W HttpCallTransport: Fail read Http response and forward to Cello
+03-13 14:42:02.539  6793 14864 W HttpCallTransport: Fail read Http response and forward to Cello
+03-13 14:42:02.539  6793  7071 E Cello   : [7071:NonCelloThread] drive_v2_cloud_store.cc:6657:DumpToLog Request 0xb400007beccd9850: 0 https://play.googleapis.com/log transport: drive::ds::Status::UNAVAILABLE_WHILE_OFFLINE reader: drive::ds::Status::SUCCESS
+03-13 14:42:02.539  6793  7071 E Cello   : [7071:NonCelloThread] drive_v2_cloud_store.cc:6657:DumpToLog req.hdr 0xb400007beccd9850: Content-Type=
+03-13 14:42:02.539  6793  7071 E Cello   : [7071:NonCelloThread] drive_v2_cloud_store.cc:6657:DumpToLog Response body 0xb400007beccd9850: (no response body)
+03-13 14:42:02.540  6793  7090 E Cello   : [7090:MetricsTransportThread-CELLO] metrics_transport.cc:242:SendRequest Request failed: drive::ds::Status::UNAVAILABLE_WHILE_OFFLINE
+03-13 14:42:02.540  6793  7090 I Cello   : [7090:MetricsTransportThread-CELLO] metrics_transport.cc:468:ProcessRequestsOnBackgroundThread Metrics failed to send, drive::ds::Status::UNAVAILABLE_WHILE_OFFLINE
+03-13 14:42:04.820  1533  4687 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 511, name: com.android.systemui
+03-13 14:42:04.821  1533  4687 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 320, name: com.android.systemui
+03-13 14:42:04.849  1533  4687 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 511, name: com.android.systemui
+03-13 14:42:04.851  1533  4687 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 320, name: com.android.systemui
+03-13 14:42:06.969  1533  4946 W BatteryStatsService: Unknown sensor handle 0 received in noteWakeupSensorEvent
+03-13 14:42:15.802 15150 15150 W getprop : type=1400 audit(0.0:2832378): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:42:16.230 15154 15154 W getprop : type=1400 audit(0.0:2832379): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+--------- beginning of crash
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: FATAL EXCEPTION: main
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: Process: com.ds.eventwish, PID: 13823
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: java.lang.RuntimeException: Unable to create application com.ds.eventwish.EventWishApplication: java.lang.ClassCastException: com.google.gson.internal.LinkedTreeMap cannot be cast to com.google.gson.JsonObject
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7919)
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: 	at android.app.ActivityThread.-$$Nest$mhandleBindApplication(Unknown Source:0)
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2639)
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:108)
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: 	at android.os.Looper.loopOnce(Looper.java:226)
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:328)
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:9213)
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:594)
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1099)
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: Caused by: java.lang.ClassCastException: com.google.gson.internal.LinkedTreeMap cannot be cast to com.google.gson.JsonObject
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: 	at com.ds.eventwish.data.repository.ResourceRepository.getResource(ResourceRepository.java:406)
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: 	at com.ds.eventwish.data.repository.CategoryIconRepository.loadCategoryIcons(CategoryIconRepository.java:198)
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: 	at com.ds.eventwish.EventWishApplication.onCreate(EventWishApplication.java:105)
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1316)
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7906)
+03-13 14:42:17.013 13823 13823 E AndroidRuntime: 	... 9 more
+03-13 14:42:17.278 10090 10090 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():2090 
+03-13 14:42:17.292 10090 10090 I Module  : DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():100 repeatCheckTimes = 0, locked = false
+03-13 14:42:17.299 10090 10090 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1357 onStartInput(EditorInfo{EditorInfo{packageName=com.android.launcher3, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+03-13 14:42:17.302 10090 10090 I Module  : DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():100 repeatCheckTimes = 1, locked = false
+03-13 14:42:17.796  7119  7343 W YouTube : Empty persistent device token received from InnerTube.
+03-13 14:42:17.821  7119  7326 W YouTube : Empty persistent device token received from InnerTube.
+03-13 14:42:31.115  7831  7831 D AudioManager: dispatching onPlaybackConfigChanged()
+03-13 14:42:48.078  7831  7875 I bbdx    : (REDACTED) getHotwordActive::active query: %s, watch: %s, devices connected: %s
+03-13 14:42:54.741 25578 13475 I AlarmManager: setExactAndAllowWhileIdle [name: GCM_HB_ALARM type: 2 triggerAtMillis: 1135806468]
+03-13 14:42:54.780 25578 14916 W ChimeraUtils: Module com.google.android.gms.gcm missing resource null(0)
+03-13 14:42:54.792 25578 13475 I AlarmManager: setExactAndAllowWhileIdle [name: GCM_HB_ALARM type: 2 triggerAtMillis: 1135806518]
+03-13 14:42:54.795 25578 14916 I AlarmManager: setExactAndAllowWhileIdle [name: FcmRetry type: 2 triggerAtMillis: 1134246518]
+03-13 14:42:54.805 25578 25578 W GCM     : broadcast intent callback: result=CANCELLED forIntent { act=com.google.android.c2dm.intent.RECEIVE flg=0x10000000 pkg=org.telegram.messenger (has extras) }
+03-13 14:42:55.033  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.035  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.046  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.048  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.051  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.053  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.054  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.056  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.057  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.059  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.060  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.061  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.063  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.065  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.066  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.067  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.069  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.071  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.085  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.096  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.100  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.103  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.107  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.110  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.119  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.128  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.202  2244  9733 D skia    : SkJpegCodec::onGetPixels + (598, 1280)
+03-13 14:42:55.228  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.229  2244  9733 D skia    : SkJpegCodec::onGetPixels -
+03-13 14:42:55.229  2244  9733 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.229  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.230  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.231  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.232  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.233  2244  9733 W Bitmap  : Called getWidth() on a recycle()'d bitmap! This is undefined behavior!
+03-13 14:42:55.233  2244  9733 W Bitmap  : Called getHeight() on a recycle()'d bitmap! This is undefined behavior!
+03-13 14:42:55.233  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.233  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.234  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.235  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.266  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.267  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.272  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.275  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.277  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.279  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.281  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.283  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.285  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.289  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.291  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.294  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.295  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.299  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.307  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.445  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.450  2244  9733 D OpenGLRenderer: Bitmap::compress format:Jpeg w:598 h:1280 quality:100 app_apk:org.telegram.messenger 
+03-13 14:42:55.450  2244  9733 W libc    : Access denied finding property "vendor.vivo.imageencoder.dump"
+03-13 14:42:55.462  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.463  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.464  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.482  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.483  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.509  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.510  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.511  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.606  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.797  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.798  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.800  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.803  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.804  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.806  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.808  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.809  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.811  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.812  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.814  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.815  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.816  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.817  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.818  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.819  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.820  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.821  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.823  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.824  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.826  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.827  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.828  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.829  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.830  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.831  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.833  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.834  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.836  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.837  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.839  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.840  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.841  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.842  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.844  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.845  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.847  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.848  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.849  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.851  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.852  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.853  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.854  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.855  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.856  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.858  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.859  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.860  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.860  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.862  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.863  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.864  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.865  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.866  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.867  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.868  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.869  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.870  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.871  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.871  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.872  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.873  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.873  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.875  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.875  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.878  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.879  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.881  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.883  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.884  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.885  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.886  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.887  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.888  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.889  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:55.892  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:42:57.917 29163 29351 I AiAiStatsd: No op: the most recent atoms from the date 2025-03-12 have been uploaded.
+03-13 14:43:01.269 15242 15242 I om.ds.eventwish: Late-enabling -Xcheck:jni
+03-13 14:43:01.333 15242 15242 I om.ds.eventwish: Using CollectorTypeCC GC.
+03-13 14:43:01.350 15242 15242 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+03-13 14:43:01.367 10404 15241 D TrafficStats: tagSocket(111) with statsTag=0xffffffff, statsUid=-1
+03-13 14:43:01.382 15242 15242 W re-initialized>: type=1400 audit(0.0:2832554): avc:  granted  { execute } for  path="/data/data/com.ds.eventwish/code_cache/startup_agents/c811a9f9-agent.so" dev="dm-47" ino=740435 scontext=u:r:untrusted_app:s0:c165,c257,c512,c768 tcontext=u:object_r:app_data_file:s0:c165,c257,c512,c768 tclass=file
+03-13 14:43:01.387 15242 15242 D nativeloader: Load /data/user/0/com.ds.eventwish/code_cache/startup_agents/c811a9f9-agent.so using system ns (caller=<unknown>): ok
+03-13 14:43:01.387 15242 15242 V studio.deploy: Startup agent attached to VM
+03-13 14:43:01.388 15242 15242 V studio.deploy: No existing instrumentation found. Loading instrumentation from instruments-252e729b.jar
+03-13 14:43:01.404 15242 15242 W om.ds.eventwish: DexFile /data/data/com.ds.eventwish/code_cache/.studio/instruments-252e729b.jar is in boot class path but is not in a known location
+03-13 14:43:01.408 15242 15242 V studio.deploy: Applying transforms with cached classes
+03-13 14:43:01.478 15265 15265 W getprop : type=1400 audit(0.0:2832555): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:43:01.730 15270 15270 W getprop : type=1400 audit(0.0:2832556): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:43:01.798 15242 15242 W om.ds.eventwish: Redefining intrinsic method java.lang.Thread java.lang.Thread.currentThread(). This may cause the unexpected use of the original definition of java.lang.Thread java.lang.Thread.currentThread()in methods that have already been compiled.
+03-13 14:43:01.799 15242 15242 W om.ds.eventwish: Redefining intrinsic method boolean java.lang.Thread.interrupted(). This may cause the unexpected use of the original definition of boolean java.lang.Thread.interrupted()in methods that have already been compiled.
+03-13 14:43:01.805 15242 15242 I studio.deploy: Registering DispatchJNI
+03-13 14:43:01.806 15242 15242 I studio.deploy: Found com/android/tools/deploy/interpreter/JNI
+03-13 14:43:01.834 15242 15242 D CompatibilityChangeReporter: Compat change id reported: 171979766; UID 10421; state: ENABLED
+03-13 14:43:01.836 15242 15242 D CompatibilityChangeReporter: Compat change id reported: 242716250; UID 10421; state: ENABLED
+03-13 14:43:01.888 15242 15242 W ziparchive: Unable to open '/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.dm': No such file or directory
+03-13 14:43:01.889 15242 15242 W ziparchive: Unable to open '/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.dm': No such file or directory
+03-13 14:43:01.958 15272 15272 W getprop : type=1400 audit(0.0:2832557): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:43:02.324 15242 15242 D nativeloader: Configuring clns-4 for other apk /data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.apk. target_sdk_version=34, uses_libraries=, library_path=/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/lib/arm64:/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.ds.eventwish
+03-13 14:43:02.347 15242 15242 D nativeloader: Load libframework-connectivity-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity.jar: ok
+03-13 14:43:02.353 15242 15242 V GraphicsEnvironment: Currently set values for:
+03-13 14:43:02.353 15242 15242 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+03-13 14:43:02.353 15242 15242 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+03-13 14:43:02.353 15242 15242 V GraphicsEnvironment: ANGLE GameManagerService for com.ds.eventwish: false
+03-13 14:43:02.354 15242 15242 V GraphicsEnvironment: com.ds.eventwish is not listed in per-application setting
+03-13 14:43:02.354 15242 15242 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+03-13 14:43:02.408 15242 15242 D CompatibilityChangeReporter: Compat change id reported: 183155436; UID 10421; state: ENABLED
+03-13 14:43:02.462 15242 15242 I FirebaseApp: Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+03-13 14:43:02.487 15242 15242 D CompatibilityChangeReporter: Compat change id reported: 3400644; UID 10421; state: ENABLED
+03-13 14:43:02.535 15242 15277 W om.ds.eventwish: ClassLoaderContext classpath size mismatch. expected=1, found=0 (DLC[];PCL[base.apk*2558597794]{PCL[/system/framework/org.apache.http.legacy.jar*1157712065]#PCL[/system/framework/com.android.media.remotedisplay.jar*2114713712]#PCL[/system/framework/com.android.location.provider.jar*3994156537]#PCL[/system/framework/org.apache.http.legacy.jar*1157712065]} | DLC[];PCL[])
+03-13 14:43:02.540 15242 15277 I DynamiteModule: Considering local module com.google.android.gms.measurement.dynamite:97 and remote module com.google.android.gms.measurement.dynamite:140
+03-13 14:43:02.541 15242 15277 I DynamiteModule: Selected remote version of com.google.android.gms.measurement.dynamite, version >= 140
+03-13 14:43:02.541 15242 15277 V DynamiteModule: Dynamite loader version >= 2, using loadModule2NoCrashUtils
+03-13 14:43:02.579 15242 15277 W System  : ClassLoader referenced unknown path: 
+03-13 14:43:02.581 15242 15277 D nativeloader: Configuring clns-5 for other apk . target_sdk_version=34, uses_libraries=, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:43:02.612 15242 15277 W om.ds.eventwish: ClassLoaderContext classpath element checksum mismatch. expected=2558597794, found=3283865686 (DLC[];PCL[base.apk*2558597794]{PCL[/system/framework/org.apache.http.legacy.jar*1157712065]#PCL[/system/framework/com.android.media.remotedisplay.jar*2114713712]#PCL[/system/framework/com.android.location.provider.jar*3994156537]#PCL[/system/framework/org.apache.http.legacy.jar*1157712065]} | DLC[];PCL[/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.apk*3283865686])
+03-13 14:43:02.632 15242 15289 I FIAM.Headless: Starting InAppMessaging runtime with Installation ID c1pVizjERDKxMHeV9vWBtn
+03-13 14:43:02.654 15242 15242 W Glide   : Failed to find GeneratedAppGlideModule. You should include an annotationProcessor compile dependency on com.github.bumptech.glide:compiler in your application and a @GlideModule annotated AppGlideModule implementation or LibraryGlideModules will be silently ignored
+03-13 14:43:02.709 15242 15242 I FirebaseInitProvider: FirebaseApp initialization successful
+03-13 14:43:02.754 15242 15302 D nativeloader: Configuring clns-6 for other apk /system/framework/org.apache.http.legacy.jar. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:43:02.754 15242 15302 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libmcv_runtime_usdk.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libmvpu_config.mtk.so:libteeservice_client.trustonic.so
+03-13 14:43:02.756 15242 15242 D EventWishApplication: Firebase initialized successfully
+03-13 14:43:02.756 15242 15242 D EventWishApplication: Firebase project ID: neweventwish
+03-13 14:43:02.756 15242 15242 D EventWishApplication: Firebase application ID: 1:381021411563:android:3fae237c5ecc58610906ae
+03-13 14:43:02.760 15242 15242 I FIAM.Headless: Setting display event component
+03-13 14:43:02.760 15242 15242 D FirebaseInAppMsgHandler: Firebase In-App Messaging handler initialized
+03-13 14:43:02.761 15242 15293 E om.ds.eventwish: No package ID 76 found for resource ID 0x760b000f.
+03-13 14:43:02.762 15242 15293 E om.ds.eventwish: No package ID 76 found for resource ID 0x760b000f.
+03-13 14:43:02.764 15242 15242 D ApiClient: ApiClient initialized with application context
+03-13 14:43:02.765 15242 15302 D nativeloader: Configuring clns-7 for other apk /system/framework/com.android.media.remotedisplay.jar. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:43:02.765 15242 15302 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libmcv_runtime_usdk.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libmvpu_config.mtk.so:libteeservice_client.trustonic.so
+03-13 14:43:02.765 15242 15293 I FA      : App measurement initialized, version: 118001
+03-13 14:43:02.765 15242 15293 I FA      : To enable debug logging run: adb shell setprop log.tag.FA VERBOSE
+03-13 14:43:02.766 15242 15293 I FA      : To enable faster debug mode event logging run:
+03-13 14:43:02.766 15242 15293 I FA      :   adb shell setprop debug.firebase.analytics.app com.ds.eventwish
+03-13 14:43:02.770 15242 15302 W om.ds.eventwish: Loading /data/misc/apexdata/com.android.art/dalvik-cache/arm64/system@framework@com.android.location.provider.jar@classes.odex non-executable as it requires an image which we failed to load
+03-13 14:43:02.774 15242 15302 D nativeloader: Configuring clns-8 for other apk /system/framework/com.android.location.provider.jar. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:43:02.775 15242 15302 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libmcv_runtime_usdk.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libmvpu_config.mtk.so:libteeservice_client.trustonic.so
+03-13 14:43:02.784 15242 15302 W om.ds.eventwish: Loading /data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/oat/arm64/base.odex non-executable as it requires an image which we failed to load
+03-13 14:43:02.792 15242 15302 D nativeloader: Configuring clns-9 for other apk /data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk. target_sdk_version=34, uses_libraries=, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:43:02.871 15242 15242 D ApiClient: OkHttpClient created with cache at: /data/user/0/com.ds.eventwish/cache/http_cache
+03-13 14:43:02.906 15242 15242 W om.ds.eventwish: Accessing hidden method Ljava/lang/invoke/MethodHandles$Lookup;-><init>(Ljava/lang/Class;I)V (unsupported, reflection, allowed)
+03-13 14:43:02.923 15242 15242 D ApiClient: ApiService created
+03-13 14:43:03.017 15242 15311 I okhttp.OkHttpClient: --> POST https://eventwishes.onrender.com/api/tokens/register
+03-13 14:43:03.018 15242 15311 I okhttp.OkHttpClient: Content-Type: application/json; charset=UTF-8
+03-13 14:43:03.019 15242 15311 I okhttp.OkHttpClient: Content-Length: 154
+03-13 14:43:03.025 15242 15311 I okhttp.OkHttpClient: {"token":"c1pVizjERDKxMHeV9vWBtn:APA91bG4-zlAW2wOTQzvLZ8rW40qTI9Om9PlodyJ0v7RJm7akUMGNgKpKRx1ULnF1WGlM3K1EhGZI57C-RwE4zS67JyjuIEbq0ySvwChLmKdhDkdSmilPgg"}
+03-13 14:43:03.026 15242 15311 I okhttp.OkHttpClient: --> END POST (154-byte body)
+03-13 14:43:03.036 15242 15311 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+03-13 14:43:03.039 15242 15311 D NetworkUtils: NetworkUtils initialized
+03-13 14:43:03.045 15242 15295 D NetworkUtils: Network available
+03-13 14:43:03.048 15242 15295 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+03-13 14:43:03.048 15242 15295 D NetworkUtils: Network capabilities changed
+03-13 14:43:03.051 15242 15295 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+03-13 14:43:03.067 15242 15242 D WM-PackageManagerHelper: Skipping component enablement for androidx.work.impl.background.systemjob.SystemJobService
+03-13 14:43:03.067 15242 15242 D WM-Schedulers: Created SystemJobScheduler and enabled SystemJobService
+03-13 14:43:03.073 15242 15242 D ReminderCheckWorker: Scheduled periodic reminder check
+03-13 14:43:03.074 15242 15242 D EventWishApplication: Scheduled template update check worker
+03-13 14:43:03.075 15242 15242 D EventWishApplication: Clearing database cache on app start
+03-13 14:43:03.098 15242 15311 D TrafficStats: tagSocket(124) with statsTag=0xffffffff, statsUid=-1
+03-13 14:43:03.100 15242 15242 D EventWishApplication: Initializing CategoryIconRepository
+03-13 14:43:03.113 15242 15242 D ResourceDatabase: ResourceDatabase instance created
+03-13 14:43:03.114 15242 15315 D EventWishApplication: Festival database cache cleared successfully
+03-13 14:43:03.135 15242 15312 D CompatibilityChangeReporter: Compat change id reported: 160794467; UID 10421; state: ENABLED
+03-13 14:43:03.137 15242 15242 D ResourceCache: ResourceCache initialized
+03-13 14:43:03.141 15242 15242 D ErrorHandler: ErrorHandler initialized
+03-13 14:43:03.142 15242 15242 D ResourceRepository: ResourceRepository initialized
+03-13 14:43:03.143 15242 15242 D CategoryIconRepository: CategoryIconRepository initialized with enhanced caching and offline support
+03-13 14:43:03.143 15242 15242 D CategoryIconRepository: Loading category icons with offline-first approach
+03-13 14:43:03.163 15242 15322 D ResourceDatabase: Database opened
+03-13 14:43:03.166 15242 15322 D ResourceRepository: Cleaned up 0 expired resources
+03-13 14:43:03.170 15242 15242 D ResourceCache: Cache hit (disk): category_icon_category_icons
+03-13 14:43:03.170 15242 15242 D ResourceCache: Cache hit (memory): category_icon_category_icons
+03-13 14:43:03.170 15242 15242 D AndroidRuntime: Shutting down VM
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: FATAL EXCEPTION: main
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: Process: com.ds.eventwish, PID: 15242
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: java.lang.RuntimeException: Unable to create application com.ds.eventwish.EventWishApplication: java.lang.ClassCastException: com.google.gson.internal.LinkedTreeMap cannot be cast to com.google.gson.JsonObject
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7919)
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: 	at android.app.ActivityThread.-$$Nest$mhandleBindApplication(Unknown Source:0)
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2639)
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:108)
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: 	at android.os.Looper.loopOnce(Looper.java:226)
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:328)
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:9213)
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:594)
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1099)
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: Caused by: java.lang.ClassCastException: com.google.gson.internal.LinkedTreeMap cannot be cast to com.google.gson.JsonObject
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: 	at com.ds.eventwish.data.repository.ResourceRepository.getResource(ResourceRepository.java:406)
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: 	at com.ds.eventwish.data.repository.CategoryIconRepository.loadCategoryIcons(CategoryIconRepository.java:198)
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: 	at com.ds.eventwish.EventWishApplication.onCreate(EventWishApplication.java:105)
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1316)
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7906)
+03-13 14:43:03.174 15242 15242 E AndroidRuntime: 	... 9 more
+03-13 14:43:03.290 15327 15327 W getprop : type=1400 audit(0.0:2832558): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:43:03.354 15329 15329 W getprop : type=1400 audit(0.0:2832559): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:43:15.109 25650 13488 I gle.android.gms: Explicit concurrent copying GC freed 1358KB AllocSpace bytes, 3(496KB) LOS objects, 49% free, 20MB/40MB, paused 1.305ms,110us total 664.306ms
+03-13 14:43:17.800  1533  4687 W BatteryStatsService: Unknown sensor handle 0 received in noteWakeupSensorEvent
+03-13 14:43:27.928  1533  4959 W BatteryStatsService: Unknown sensor handle 0 received in noteWakeupSensorEvent
+03-13 14:43:32.558  6793 15091 W HttpCallTransport: Fail read Http response and forward to Cello
+03-13 14:43:32.558  6793 15091 W HttpCallTransport: Fail read Http response and forward to Cello
+03-13 14:43:32.561  6793  7071 E Cello   : [7071:NonCelloThread] drive_v2_cloud_store.cc:6657:DumpToLog Request 0xb400007beccc95d0: 0 https://play.googleapis.com/log transport: drive::ds::Status::UNAVAILABLE_WHILE_OFFLINE reader: drive::ds::Status::SUCCESS
+03-13 14:43:32.562  6793  7071 E Cello   : [7071:NonCelloThread] drive_v2_cloud_store.cc:6657:DumpToLog req.hdr 0xb400007beccc95d0: Content-Type=
+03-13 14:43:32.562  6793  7071 E Cello   : [7071:NonCelloThread] drive_v2_cloud_store.cc:6657:DumpToLog Response body 0xb400007beccc95d0: (no response body)
+03-13 14:43:32.563  6793  7090 E Cello   : [7090:MetricsTransportThread-CELLO] metrics_transport.cc:242:SendRequest Request failed: drive::ds::Status::UNAVAILABLE_WHILE_OFFLINE
+03-13 14:43:32.563  6793  7090 I Cello   : [7090:MetricsTransportThread-CELLO] metrics_transport.cc:468:ProcessRequestsOnBackgroundThread Metrics failed to send, drive::ds::Status::UNAVAILABLE_WHILE_OFFLINE
+03-13 14:43:48.074  7831  7861 I bbdx    : (REDACTED) getHotwordActive::active query: %s, watch: %s, devices connected: %s
+03-13 14:43:58.158  1533  2621 W BatteryStatsService: Unknown sensor handle 0 received in noteWakeupSensorEvent
+03-13 14:44:02.516 25578 15228 I AlarmManager: setExactAndAllowWhileIdle [name: GCM_HB_ALARM type: 2 triggerAtMillis: 1135874243]
+03-13 14:44:02.531 25578 14916 W ChimeraUtils: Module com.google.android.gms.gcm missing resource null(0)
+03-13 14:44:02.542 25578 14916 I AlarmManager: setExactAndAllowWhileIdle [name: FcmRetry type: 2 triggerAtMillis: 1134314266]
+03-13 14:44:02.555 25578 25578 W GCM     : broadcast intent callback: result=CANCELLED forIntent { act=com.google.android.c2dm.intent.RECEIVE flg=0x10000000 pkg=org.telegram.messenger (has extras) }
+03-13 14:44:03.048  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.050  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.057  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.059  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.065  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.068  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.071  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.074  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.078  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.082  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.086  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.089  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.093  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.096  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.099  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.099  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.100  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.101  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.101  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.103  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.104  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.106  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.106  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.107  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.108  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.109  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.111  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.112  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.113  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.114  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.116  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.117  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.119  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.120  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.121  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.122  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.122  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.124  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.126  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.126  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.128  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.128  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.132  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.134  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.138  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.141  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.145  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.147  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.149  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.151  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.151  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.152  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.154  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.154  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.155  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.155  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.157  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.158  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.158  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.159  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.159  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.160  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.162  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.162  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.163  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.163  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.164  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.165  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.166  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.167  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.167  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.168  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.169  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.170  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.171  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.171  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.172  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.173  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.173  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.175  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.175  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.176  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.178  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.178  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.179  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.180  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.181  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.182  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.183  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.184  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.184  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.185  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.187  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.187  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.188  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.188  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.189  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.190  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.191  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.191  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.192  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.192  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.194  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.194  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.195  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.196  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.198  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.199  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.200  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.201  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.203  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.204  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.205  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.206  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.207  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.208  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.209  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.210  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.229  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.231  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.234  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.236  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.238  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.241  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.243  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.245  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.247  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.248  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.251  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.252  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.254  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.256  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.258  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.259  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.261  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.262  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.265  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.266  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.268  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.269  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.271  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.272  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.274  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.276  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.278  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.279  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.283  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.284  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:03.430 15343 15343 W getprop : type=1400 audit(0.0:2832900): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:44:05.509  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:05.512  2244  9722 D skia    : onGetGainmapInfo: false.
+03-13 14:44:05.714  2244  9706 D skia    : onGetGainmapInfo: false.
+03-13 14:44:06.119  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6300930865814947016_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6300930865814947016_120.jpg
+03-13 14:44:06.122  2244  2244 W writeFileQueue: type=1400 audit(0.0:2832901): avc:  denied  { relabelfrom } for  name="-6300930865814947016_120.jpg" dev="dm-47" ino=744047 scontext=u:r:untrusted_app:s0:c14,c257,c512,c768 tcontext=u:object_r:media_rw_data_file:s0:c14,c257,c512,c768 tclass=file permissive=0 app=org.telegram.messenger
+03-13 14:44:06.410  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6298442439073055895_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6298442439073055895_120.jpg
+03-13 14:44:06.410  2244  2244 W writeFileQueue: type=1400 audit(0.0:2832902): avc:  denied  { relabelfrom } for  name="-6298442439073055895_120.jpg" dev="dm-47" ino=759801 scontext=u:r:untrusted_app:s0:c14,c257,c512,c768 tcontext=u:object_r:media_rw_data_file:s0:c14,c257,c512,c768 tclass=file permissive=0 app=org.telegram.messenger
+03-13 14:44:06.415  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6298442439073055896_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6298442439073055896_120.jpg
+03-13 14:44:06.418  2244  2244 W writeFileQueue: type=1400 audit(0.0:2832903): avc:  denied  { relabelfrom } for  name="-6298442439073055896_120.jpg" dev="dm-47" ino=743993 scontext=u:r:untrusted_app:s0:c14,c257,c512,c768 tcontext=u:object_r:media_rw_data_file:s0:c14,c257,c512,c768 tclass=file permissive=0 app=org.telegram.messenger
+03-13 14:44:06.421  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6296190639259368519_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6296190639259368519_120.jpg
+03-13 14:44:06.422  2244  2244 W writeFileQueue: type=1400 audit(0.0:2832904): avc:  denied  { relabelfrom } for  name="-6296190639259368519_120.jpg" dev="dm-47" ino=744112 scontext=u:r:untrusted_app:s0:c14,c257,c512,c768 tcontext=u:object_r:media_rw_data_file:s0:c14,c257,c512,c768 tclass=file permissive=0 app=org.telegram.messenger
+03-13 14:44:06.637  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6296190639259368517_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6296190639259368517_120.jpg
+03-13 14:44:06.638  2244  2244 W writeFileQueue: type=1400 audit(0.0:2832905): avc:  denied  { relabelfrom } for  name="-6296190639259368517_120.jpg" dev="dm-47" ino=744180 scontext=u:r:untrusted_app:s0:c14,c257,c512,c768 tcontext=u:object_r:media_rw_data_file:s0:c14,c257,c512,c768 tclass=file permissive=0 app=org.telegram.messenger
+03-13 14:44:06.642  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6283073078992943677_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6283073078992943677_120.jpg
+03-13 14:44:06.642  2244  2244 W writeFileQueue: type=1400 audit(0.0:2832906): avc:  denied  { relabelfrom } for  name="-6283073078992943677_120.jpg" dev="dm-47" ino=744153 scontext=u:r:untrusted_app:s0:c14,c257,c512,c768 tcontext=u:object_r:media_rw_data_file:s0:c14,c257,c512,c768 tclass=file permissive=0 app=org.telegram.messenger
+03-13 14:44:06.716  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6296190639259368518_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6296190639259368518_120.jpg
+03-13 14:44:06.718  2244  2244 W writeFileQueue: type=1400 audit(0.0:2832907): avc:  denied  { relabelfrom } for  name="-6296190639259368518_120.jpg" dev="dm-47" ino=744250 scontext=u:r:untrusted_app:s0:c14,c257,c512,c768 tcontext=u:object_r:media_rw_data_file:s0:c14,c257,c512,c768 tclass=file permissive=0 app=org.telegram.messenger
+03-13 14:44:06.903  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6138890747693348144_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6138890747693348144_120.jpg
+03-13 14:44:06.915  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6283073078992943678_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6283073078992943678_120.jpg
+03-13 14:44:06.921  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6239788913979930533_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6239788913979930533_120.jpg
+03-13 14:44:07.131  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6283073078992944247_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6283073078992944247_120.jpg
+03-13 14:44:07.136  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6239788913979930339_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6239788913979930339_120.jpg
+03-13 14:44:07.142  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6296266084654890422_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6296266084654890422_120.jpg
+03-13 14:44:07.334  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6192973285122226872_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6192973285122226872_120.jpg
+03-13 14:44:07.343  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6336702067875363623_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6336702067875363623_120.jpg
+03-13 14:44:07.350  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6336702067875363622_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6336702067875363622_120.jpg
+03-13 14:44:07.567  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6305131326650563402_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6305131326650563402_120.jpg
+03-13 14:44:07.570  2244  2244 W writeFileQueue: type=1400 audit(0.0:2832917): avc:  denied  { relabelfrom } for  name="-6305131326650563402_120.jpg" dev="dm-47" ino=744735 scontext=u:r:untrusted_app:s0:c14,c257,c512,c768 tcontext=u:object_r:media_rw_data_file:s0:c14,c257,c512,c768 tclass=file permissive=0 app=org.telegram.messenger
+03-13 14:44:07.576  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6305131326650563401_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6305131326650563401_120.jpg
+03-13 14:44:07.578  2244  2244 W writeFileQueue: type=1400 audit(0.0:2832918): avc:  denied  { relabelfrom } for  name="-6305131326650563401_120.jpg" dev="dm-47" ino=744393 scontext=u:r:untrusted_app:s0:c14,c257,c512,c768 tcontext=u:object_r:media_rw_data_file:s0:c14,c257,c512,c768 tclass=file permissive=0 app=org.telegram.messenger
+03-13 14:44:07.584  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6192973285122226871_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6192973285122226871_120.jpg
+03-13 14:44:07.586  2244  2244 W writeFileQueue: type=1400 audit(0.0:2832919): avc:  denied  { relabelfrom } for  name="-6192973285122226871_120.jpg" dev="dm-47" ino=744673 scontext=u:r:untrusted_app:s0:c14,c257,c512,c768 tcontext=u:object_r:media_rw_data_file:s0:c14,c257,c512,c768 tclass=file permissive=0 app=org.telegram.messenger
+03-13 14:44:07.788 14343 14343 I zygote  : usapPoolSocket.accept() end:null,getFileDescriptor():java.io.FileDescriptor@79db9c6,fd:27
+03-13 14:44:07.794  2244  2244 W writeFileQueue: type=1400 audit(0.0:2832920): avc:  denied  { relabelfrom } for  name="-6305131326650563386_120.jpg" dev="dm-47" ino=744709 scontext=u:r:untrusted_app:s0:c14,c257,c512,c768 tcontext=u:object_r:media_rw_data_file:s0:c14,c257,c512,c768 tclass=file permissive=0 app=org.telegram.messenger
+03-13 14:44:07.795  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6305131326650563386_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6305131326650563386_120.jpg
+03-13 14:44:07.800 14343 14343 I om.ds.eventwish: Late-enabling -Xcheck:jni
+03-13 14:44:07.803  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6305131326650563400_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6305131326650563400_120.jpg
+03-13 14:44:07.802  2244  2244 W writeFileQueue: type=1400 audit(0.0:2832921): avc:  denied  { relabelfrom } for  name="-6305131326650563400_120.jpg" dev="dm-47" ino=742955 scontext=u:r:untrusted_app:s0:c14,c257,c512,c768 tcontext=u:object_r:media_rw_data_file:s0:c14,c257,c512,c768 tclass=file permissive=0 app=org.telegram.messenger
+03-13 14:44:07.807  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6305131326650563384_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6305131326650563384_120.jpg
+03-13 14:44:07.828 14343 14343 I om.ds.eventwish: Using CollectorTypeCC GC.
+03-13 14:44:07.841 14343 14343 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+03-13 14:44:07.869 14343 14343 D nativeloader: Load /data/user/0/com.ds.eventwish/code_cache/startup_agents/c811a9f9-agent.so using system ns (caller=<unknown>): ok
+03-13 14:44:07.870 14343 14343 V studio.deploy: Startup agent attached to VM
+03-13 14:44:07.870 14343 14343 V studio.deploy: No existing instrumentation found. Loading instrumentation from instruments-252e729b.jar
+03-13 14:44:07.877 14343 14343 W om.ds.eventwish: DexFile /data/data/com.ds.eventwish/code_cache/.studio/instruments-252e729b.jar is in boot class path but is not in a known location
+03-13 14:44:07.880 14343 14343 V studio.deploy: Applying transforms with cached classes
+03-13 14:44:08.128 14343 14343 W om.ds.eventwish: Redefining intrinsic method java.lang.Thread java.lang.Thread.currentThread(). This may cause the unexpected use of the original definition of java.lang.Thread java.lang.Thread.currentThread()in methods that have already been compiled.
+03-13 14:44:08.128 14343 14343 W om.ds.eventwish: Redefining intrinsic method boolean java.lang.Thread.interrupted(). This may cause the unexpected use of the original definition of boolean java.lang.Thread.interrupted()in methods that have already been compiled.
+03-13 14:44:08.132 14343 14343 I studio.deploy: Registering DispatchJNI
+03-13 14:44:08.132 14343 14343 I studio.deploy: Found com/android/tools/deploy/interpreter/JNI
+03-13 14:44:08.153 14343 14343 D CompatibilityChangeReporter: Compat change id reported: 171979766; UID 10421; state: ENABLED
+03-13 14:44:08.153 14343 14343 D CompatibilityChangeReporter: Compat change id reported: 242716250; UID 10421; state: ENABLED
+03-13 14:44:08.176 14343 14343 W ziparchive: Unable to open '/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.dm': No such file or directory
+03-13 14:44:08.176 14343 14343 W ziparchive: Unable to open '/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.dm': No such file or directory
+03-13 14:44:08.233  1533  4945 W BatteryStatsService: Unknown sensor handle 0 received in noteWakeupSensorEvent
+03-13 14:44:08.570 14343 14343 D nativeloader: Configuring clns-4 for other apk /data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.apk. target_sdk_version=34, uses_libraries=, library_path=/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/lib/arm64:/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.ds.eventwish
+03-13 14:44:08.583 14343 14343 D nativeloader: Load libframework-connectivity-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity.jar: ok
+03-13 14:44:08.585 14343 14343 V GraphicsEnvironment: Currently set values for:
+03-13 14:44:08.585 14343 14343 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+03-13 14:44:08.585 14343 14343 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+03-13 14:44:08.586 14343 14343 V GraphicsEnvironment: ANGLE GameManagerService for com.ds.eventwish: false
+03-13 14:44:08.586 14343 14343 V GraphicsEnvironment: com.ds.eventwish is not listed in per-application setting
+03-13 14:44:08.586 14343 14343 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+03-13 14:44:08.610 14343 14343 D CompatibilityChangeReporter: Compat change id reported: 183155436; UID 10421; state: ENABLED
+03-13 14:44:08.636 14343 14343 I FirebaseApp: Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+03-13 14:44:08.659 14343 14343 D CompatibilityChangeReporter: Compat change id reported: 3400644; UID 10421; state: ENABLED
+03-13 14:44:08.697 14343 15381 W om.ds.eventwish: ClassLoaderContext classpath size mismatch. expected=1, found=0 (DLC[];PCL[base.apk*2558597794]{PCL[/system/framework/org.apache.http.legacy.jar*1157712065]#PCL[/system/framework/com.android.media.remotedisplay.jar*2114713712]#PCL[/system/framework/com.android.location.provider.jar*3994156537]#PCL[/system/framework/org.apache.http.legacy.jar*1157712065]} | DLC[];PCL[])
+03-13 14:44:08.700 14343 15381 I DynamiteModule: Considering local module com.google.android.gms.measurement.dynamite:97 and remote module com.google.android.gms.measurement.dynamite:140
+03-13 14:44:08.700 14343 15381 I DynamiteModule: Selected remote version of com.google.android.gms.measurement.dynamite, version >= 140
+03-13 14:44:08.700 14343 15381 V DynamiteModule: Dynamite loader version >= 2, using loadModule2NoCrashUtils
+03-13 14:44:08.742 14343 15381 W System  : ClassLoader referenced unknown path: 
+03-13 14:44:08.744 14343 15381 D nativeloader: Configuring clns-5 for other apk . target_sdk_version=34, uses_libraries=, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:44:08.771 14343 15381 W om.ds.eventwish: ClassLoaderContext classpath element checksum mismatch. expected=2558597794, found=3283865686 (DLC[];PCL[base.apk*2558597794]{PCL[/system/framework/org.apache.http.legacy.jar*1157712065]#PCL[/system/framework/com.android.media.remotedisplay.jar*2114713712]#PCL[/system/framework/com.android.location.provider.jar*3994156537]#PCL[/system/framework/org.apache.http.legacy.jar*1157712065]} | DLC[];PCL[/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.apk*3283865686])
+03-13 14:44:08.776 14343 15389 I FIAM.Headless: Starting InAppMessaging runtime with Installation ID c1pVizjERDKxMHeV9vWBtn
+03-13 14:44:08.781 14343 14343 W Glide   : Failed to find GeneratedAppGlideModule. You should include an annotationProcessor compile dependency on com.github.bumptech.glide:compiler in your application and a @GlideModule annotated AppGlideModule implementation or LibraryGlideModules will be silently ignored
+03-13 14:44:08.818 14343 14343 I FirebaseInitProvider: FirebaseApp initialization successful
+03-13 14:44:08.839 14343 14343 D EventWishApplication: Firebase initialized successfully
+03-13 14:44:08.839 14343 14343 D EventWishApplication: Firebase project ID: neweventwish
+03-13 14:44:08.839 14343 14343 D EventWishApplication: Firebase application ID: 1:381021411563:android:3fae237c5ecc58610906ae
+03-13 14:44:08.842 14343 14343 I FIAM.Headless: Setting display event component
+03-13 14:44:08.842 14343 14343 D FirebaseInAppMsgHandler: Firebase In-App Messaging handler initialized
+03-13 14:44:08.844 14343 14343 D ApiClient: ApiClient initialized with application context
+03-13 14:44:08.847 14343 15398 D nativeloader: Configuring clns-6 for other apk /system/framework/org.apache.http.legacy.jar. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:44:08.847 14343 15398 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libmcv_runtime_usdk.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libmvpu_config.mtk.so:libteeservice_client.trustonic.so
+03-13 14:44:08.856 14343 15398 D nativeloader: Configuring clns-7 for other apk /system/framework/com.android.media.remotedisplay.jar. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:44:08.856 14343 15398 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libmcv_runtime_usdk.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libmvpu_config.mtk.so:libteeservice_client.trustonic.so
+03-13 14:44:08.864 14343 15398 W om.ds.eventwish: Loading /data/misc/apexdata/com.android.art/dalvik-cache/arm64/system@framework@com.android.location.provider.jar@classes.odex non-executable as it requires an image which we failed to load
+03-13 14:44:08.866 14343 15398 D nativeloader: Configuring clns-8 for other apk /system/framework/com.android.location.provider.jar. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:44:08.866 14343 15398 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libmcv_runtime_usdk.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libmvpu_config.mtk.so:libteeservice_client.trustonic.so
+03-13 14:44:08.870 14343 15398 W om.ds.eventwish: Loading /data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/oat/arm64/base.odex non-executable as it requires an image which we failed to load
+03-13 14:44:08.873 14343 15398 D nativeloader: Configuring clns-9 for other apk /data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk. target_sdk_version=34, uses_libraries=, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:44:08.919 14343 15416 E om.ds.eventwish: No package ID 76 found for resource ID 0x760b000f.
+03-13 14:44:08.920 14343 15416 E om.ds.eventwish: No package ID 76 found for resource ID 0x760b000f.
+03-13 14:44:08.922 14343 15416 I FA      : App measurement initialized, version: 118001
+03-13 14:44:08.922 14343 15416 I FA      : To enable debug logging run: adb shell setprop log.tag.FA VERBOSE
+03-13 14:44:08.923 14343 15416 I FA      : To enable faster debug mode event logging run:
+03-13 14:44:08.923 14343 15416 I FA      :   adb shell setprop debug.firebase.analytics.app com.ds.eventwish
+03-13 14:44:08.925 14343 14343 D ApiClient: OkHttpClient created with cache at: /data/user/0/com.ds.eventwish/cache/http_cache
+03-13 14:44:08.938 14343 14343 W om.ds.eventwish: Accessing hidden method Ljava/lang/invoke/MethodHandles$Lookup;-><init>(Ljava/lang/Class;I)V (unsupported, reflection, allowed)
+03-13 14:44:08.946 14343 14343 D ApiClient: ApiService created
+03-13 14:44:08.987 14343 15431 I okhttp.OkHttpClient: --> POST https://eventwishes.onrender.com/api/tokens/register
+03-13 14:44:08.988 14343 15431 I okhttp.OkHttpClient: Content-Type: application/json; charset=UTF-8
+03-13 14:44:08.988 14343 15431 I okhttp.OkHttpClient: Content-Length: 154
+03-13 14:44:08.991 14343 15431 I okhttp.OkHttpClient: {"token":"c1pVizjERDKxMHeV9vWBtn:APA91bG4-zlAW2wOTQzvLZ8rW40qTI9Om9PlodyJ0v7RJm7akUMGNgKpKRx1ULnF1WGlM3K1EhGZI57C-RwE4zS67JyjuIEbq0ySvwChLmKdhDkdSmilPgg"}
+03-13 14:44:08.991 14343 15431 I okhttp.OkHttpClient: --> END POST (154-byte body)
+03-13 14:44:08.996 14343 15431 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+03-13 14:44:08.999 14343 15431 D NetworkUtils: NetworkUtils initialized
+03-13 14:44:09.003 14343 15392 D NetworkUtils: Network available
+03-13 14:44:09.006 14343 15392 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+03-13 14:44:09.006 14343 15392 D NetworkUtils: Network capabilities changed
+03-13 14:44:09.009 14343 15392 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+03-13 14:44:09.019 14343 14343 D WM-PackageManagerHelper: Skipping component enablement for androidx.work.impl.background.systemjob.SystemJobService
+03-13 14:44:09.019 14343 14343 D WM-Schedulers: Created SystemJobScheduler and enabled SystemJobService
+03-13 14:44:09.026 14343 14343 D ReminderCheckWorker: Scheduled periodic reminder check
+03-13 14:44:09.027 14343 14343 D EventWishApplication: Scheduled template update check worker
+03-13 14:44:09.028 14343 14343 D EventWishApplication: Clearing database cache on app start
+03-13 14:44:09.039 14343 15431 D TrafficStats: tagSocket(117) with statsTag=0xffffffff, statsUid=-1
+03-13 14:44:09.041 14343 14343 D EventWishApplication: Initializing CategoryIconRepository
+03-13 14:44:09.046 14343 14343 D ResourceDatabase: ResourceDatabase instance created
+03-13 14:44:09.057 14343 14343 D ResourceCache: ResourceCache initialized
+03-13 14:44:09.059 14343 14343 D ErrorHandler: ErrorHandler initialized
+03-13 14:44:09.060 14343 14343 D ResourceRepository: ResourceRepository initialized
+03-13 14:44:09.060 14343 14343 D CategoryIconRepository: CategoryIconRepository initialized with enhanced caching and offline support
+03-13 14:44:09.060 14343 14343 D CategoryIconRepository: Loading category icons with offline-first approach
+03-13 14:44:09.065 14343 15435 D EventWishApplication: Festival database cache cleared successfully
+03-13 14:44:09.077 14343 14343 D ResourceCache: Cache hit (disk): category_icon_category_icons
+03-13 14:44:09.077 14343 14343 D ResourceCache: Cache hit (memory): category_icon_category_icons
+03-13 14:44:09.077 14343 14343 D AndroidRuntime: Shutting down VM
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: FATAL EXCEPTION: main
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: Process: com.ds.eventwish, PID: 14343
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: java.lang.RuntimeException: Unable to create application com.ds.eventwish.EventWishApplication: java.lang.ClassCastException: com.google.gson.internal.LinkedTreeMap cannot be cast to com.google.gson.JsonObject
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7919)
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: 	at android.app.ActivityThread.-$$Nest$mhandleBindApplication(Unknown Source:0)
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2639)
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:108)
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: 	at android.os.Looper.loopOnce(Looper.java:226)
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:328)
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:9213)
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:594)
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1099)
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: Caused by: java.lang.ClassCastException: com.google.gson.internal.LinkedTreeMap cannot be cast to com.google.gson.JsonObject
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: 	at com.ds.eventwish.data.repository.ResourceRepository.getResource(ResourceRepository.java:406)
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: 	at com.ds.eventwish.data.repository.CategoryIconRepository.loadCategoryIcons(CategoryIconRepository.java:198)
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: 	at com.ds.eventwish.EventWishApplication.onCreate(EventWishApplication.java:105)
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1316)
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7906)
+03-13 14:44:09.082 14343 14343 E AndroidRuntime: 	... 9 more
+03-13 14:44:09.085 14343 15439 D ResourceDatabase: Database opened
+03-13 14:44:09.088 14343 15432 D CompatibilityChangeReporter: Compat change id reported: 160794467; UID 10421; state: ENABLED
+03-13 14:44:09.089 14343 15439 D ResourceRepository: Cleaned up 0 expired resources
+03-13 14:44:09.118 14343 14343 I Process : Sending signal. PID: 14343 SIG: 9
+03-13 14:44:09.174 15450 15450 W getprop : type=1400 audit(0.0:2832927): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:44:09.274 10090 10090 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():2090 
+03-13 14:44:09.282 10090 10090 I Module  : DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():100 repeatCheckTimes = 0, locked = false
+03-13 14:44:09.290 10090 10090 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1357 onStartInput(EditorInfo{EditorInfo{packageName=com.android.launcher3, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+03-13 14:44:09.291 10090 10090 I Module  : DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():100 repeatCheckTimes = 1, locked = false
+03-13 14:44:09.352  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6303271137659959502_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6303271137659959502_120.jpg
+03-13 14:44:09.350  2244  2244 W writeFileQueue: type=1400 audit(0.0:2832929): avc:  denied  { relabelfrom } for  name="-6303271137659959502_120.jpg" dev="dm-47" ino=743418 scontext=u:r:untrusted_app:s0:c14,c257,c512,c768 tcontext=u:object_r:media_rw_data_file:s0:c14,c257,c512,c768 tclass=file permissive=0 app=org.telegram.messenger
+03-13 14:44:09.463  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6302879526836877773_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6302879526836877773_120.jpg
+03-13 14:44:09.462  2244  2244 W writeFileQueue: type=1400 audit(0.0:2832930): avc:  denied  { relabelfrom } for  name="-6302879526836877773_120.jpg" dev="dm-47" ino=758482 scontext=u:r:untrusted_app:s0:c14,c257,c512,c768 tcontext=u:object_r:media_rw_data_file:s0:c14,c257,c512,c768 tclass=file permissive=0 app=org.telegram.messenger
+03-13 14:44:09.466  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6301019337846275546_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6301019337846275546_120.jpg
+03-13 14:44:09.466  2244  2244 W writeFileQueue: type=1400 audit(0.0:2832931): avc:  denied  { relabelfrom } for  name="-6301019337846275546_120.jpg" dev="dm-47" ino=757282 scontext=u:r:untrusted_app:s0:c14,c257,c512,c768 tcontext=u:object_r:media_rw_data_file:s0:c14,c257,c512,c768 tclass=file permissive=0 app=org.telegram.messenger
+03-13 14:44:09.615  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6301019337846275543_121.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6301019337846275543_121.jpg
+03-13 14:44:09.620  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6301019337846275545_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6301019337846275545_120.jpg
+03-13 14:44:09.623  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6283073078992944296_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6283073078992944296_120.jpg
+03-13 14:44:09.798  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6283073078992944294_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6283073078992944294_120.jpg
+03-13 14:44:09.882  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6283073078992944246_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6283073078992944246_120.jpg
+03-13 14:44:10.015  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6283073078992944295_121.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6283073078992944295_121.jpg
+03-13 14:44:10.198  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6239788913979930340_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6239788913979930340_120.jpg
+03-13 14:44:10.203  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6228546179952654170_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6228546179952654170_120.jpg
+03-13 14:44:10.202  2244  2244 W writeFileQueue: type=1400 audit(0.0:2832941): avc:  denied  { relabelfrom } for  name="-6228546179952654170_120.jpg" dev="dm-47" ino=744869 scontext=u:r:untrusted_app:s0:c14,c257,c512,c768 tcontext=u:object_r:media_rw_data_file:s0:c14,c257,c512,c768 tclass=file permissive=0 app=org.telegram.messenger
+03-13 14:44:10.205  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6283073078992944245_121.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6283073078992944245_121.jpg
+03-13 14:44:10.207 15470 15470 I om.ds.eventwish: Late-enabling -Xcheck:jni
+03-13 14:44:10.206  2244  2244 W writeFileQueue: type=1400 audit(0.0:2832942): avc:  denied  { relabelfrom } for  name="-6283073078992944245_121.jpg" dev="dm-47" ino=744868 scontext=u:r:untrusted_app:s0:c14,c257,c512,c768 tcontext=u:object_r:media_rw_data_file:s0:c14,c257,c512,c768 tclass=file permissive=0 app=org.telegram.messenger
+03-13 14:44:10.237 15470 15470 I om.ds.eventwish: Using CollectorTypeCC GC.
+03-13 14:44:10.248 15470 15470 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+03-13 14:44:10.274 15484 15484 W getprop : type=1400 audit(0.0:2832943): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:44:10.278 15470 15470 W re-initialized>: type=1400 audit(0.0:2832944): avc:  granted  { execute } for  path="/data/data/com.ds.eventwish/code_cache/startup_agents/c811a9f9-agent.so" dev="dm-47" ino=740435 scontext=u:r:untrusted_app:s0:c165,c257,c512,c768 tcontext=u:object_r:app_data_file:s0:c165,c257,c512,c768 tclass=file app=com.ds.eventwish
+03-13 14:44:10.284 15470 15470 D nativeloader: Load /data/user/0/com.ds.eventwish/code_cache/startup_agents/c811a9f9-agent.so using system ns (caller=<unknown>): ok
+03-13 14:44:10.285 15470 15470 V studio.deploy: Startup agent attached to VM
+03-13 14:44:10.285 15470 15470 V studio.deploy: No existing instrumentation found. Loading instrumentation from instruments-252e729b.jar
+03-13 14:44:10.296 15470 15470 W om.ds.eventwish: DexFile /data/data/com.ds.eventwish/code_cache/.studio/instruments-252e729b.jar is in boot class path but is not in a known location
+03-13 14:44:10.301 15470 15470 V studio.deploy: Applying transforms with cached classes
+03-13 14:44:10.353  2244 10180 V ActivityThread: Recovering failed rename /storage/emulated/0/Android/data/org.telegram.messenger/cache/-6228546179952654169_120.temp to /storage/emulated/0/Android/data/org.telegram.messenger/files/Telegram/Telegram Images/-6228546179952654169_120.jpg
+03-13 14:44:10.653 15470 15470 W om.ds.eventwish: Redefining intrinsic method java.lang.Thread java.lang.Thread.currentThread(). This may cause the unexpected use of the original definition of java.lang.Thread java.lang.Thread.currentThread()in methods that have already been compiled.
+03-13 14:44:10.653 15470 15470 W om.ds.eventwish: Redefining intrinsic method boolean java.lang.Thread.interrupted(). This may cause the unexpected use of the original definition of boolean java.lang.Thread.interrupted()in methods that have already been compiled.
+03-13 14:44:10.659 15470 15470 I studio.deploy: Registering DispatchJNI
+03-13 14:44:10.659 15470 15470 I studio.deploy: Found com/android/tools/deploy/interpreter/JNI
+03-13 14:44:10.695 15470 15470 D CompatibilityChangeReporter: Compat change id reported: 171979766; UID 10421; state: ENABLED
+03-13 14:44:10.697 15470 15470 D CompatibilityChangeReporter: Compat change id reported: 242716250; UID 10421; state: ENABLED
+03-13 14:44:10.745 15470 15470 W ziparchive: Unable to open '/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.dm': No such file or directory
+03-13 14:44:10.745 15470 15470 W ziparchive: Unable to open '/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.dm': No such file or directory
+03-13 14:44:11.445 15470 15470 D nativeloader: Configuring clns-4 for other apk /data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.apk. target_sdk_version=34, uses_libraries=, library_path=/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/lib/arm64:/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.ds.eventwish
+03-13 14:44:11.469 15470 15470 D nativeloader: Load libframework-connectivity-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity.jar: ok
+03-13 14:44:11.476 15470 15470 V GraphicsEnvironment: Currently set values for:
+03-13 14:44:11.476 15470 15470 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+03-13 14:44:11.476 15470 15470 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+03-13 14:44:11.477 15470 15470 V GraphicsEnvironment: ANGLE GameManagerService for com.ds.eventwish: false
+03-13 14:44:11.477 15470 15470 V GraphicsEnvironment: com.ds.eventwish is not listed in per-application setting
+03-13 14:44:11.478 15470 15470 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+03-13 14:44:11.525 15470 15470 D CompatibilityChangeReporter: Compat change id reported: 183155436; UID 10421; state: ENABLED
+03-13 14:44:11.584 15470 15470 I FirebaseApp: Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+03-13 14:44:11.628 15470 15470 D CompatibilityChangeReporter: Compat change id reported: 3400644; UID 10421; state: ENABLED
+03-13 14:44:11.673 15470 15505 W om.ds.eventwish: ClassLoaderContext classpath size mismatch. expected=1, found=0 (DLC[];PCL[base.apk*2558597794]{PCL[/system/framework/org.apache.http.legacy.jar*1157712065]#PCL[/system/framework/com.android.media.remotedisplay.jar*2114713712]#PCL[/system/framework/com.android.location.provider.jar*3994156537]#PCL[/system/framework/org.apache.http.legacy.jar*1157712065]} | DLC[];PCL[])
+03-13 14:44:11.678 15470 15505 I DynamiteModule: Considering local module com.google.android.gms.measurement.dynamite:97 and remote module com.google.android.gms.measurement.dynamite:140
+03-13 14:44:11.678 15470 15505 I DynamiteModule: Selected remote version of com.google.android.gms.measurement.dynamite, version >= 140
+03-13 14:44:11.678 15470 15505 V DynamiteModule: Dynamite loader version >= 2, using loadModule2NoCrashUtils
+03-13 14:44:11.719 15470 15505 W System  : ClassLoader referenced unknown path: 
+03-13 14:44:11.722 15470 15505 D nativeloader: Configuring clns-5 for other apk . target_sdk_version=34, uses_libraries=, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:44:11.752 15470 15505 W om.ds.eventwish: ClassLoaderContext classpath element checksum mismatch. expected=2558597794, found=3283865686 (DLC[];PCL[base.apk*2558597794]{PCL[/system/framework/org.apache.http.legacy.jar*1157712065]#PCL[/system/framework/com.android.media.remotedisplay.jar*2114713712]#PCL[/system/framework/com.android.location.provider.jar*3994156537]#PCL[/system/framework/org.apache.http.legacy.jar*1157712065]} | DLC[];PCL[/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.apk*3283865686])
+03-13 14:44:11.812 15470 15470 W FA      : Failed to register event listener on calling thread. Trying again on the dynamite thread.
+03-13 14:44:11.903 15470 15514 I FIAM.Headless: Starting InAppMessaging runtime with Installation ID c1pVizjERDKxMHeV9vWBtn
+03-13 14:44:11.921 15470 15509 E om.ds.eventwish: No package ID 76 found for resource ID 0x760b000f.
+03-13 14:44:11.922 15470 15509 E om.ds.eventwish: No package ID 76 found for resource ID 0x760b000f.
+03-13 14:44:11.925 15470 15509 I FA      : App measurement initialized, version: 118001
+03-13 14:44:11.926 15470 15509 I FA      : To enable debug logging run: adb shell setprop log.tag.FA VERBOSE
+03-13 14:44:11.927 15470 15509 I FA      : To enable faster debug mode event logging run:
+03-13 14:44:11.927 15470 15509 I FA      :   adb shell setprop debug.firebase.analytics.app com.ds.eventwish
+03-13 14:44:11.950 15470 15470 W Glide   : Failed to find GeneratedAppGlideModule. You should include an annotationProcessor compile dependency on com.github.bumptech.glide:compiler in your application and a @GlideModule annotated AppGlideModule implementation or LibraryGlideModules will be silently ignored
+03-13 14:44:12.011 15470 15470 I FirebaseInitProvider: FirebaseApp initialization successful
+03-13 14:44:12.056 15470 15470 D EventWishApplication: Firebase initialized successfully
+03-13 14:44:12.057 15470 15470 D EventWishApplication: Firebase project ID: neweventwish
+03-13 14:44:12.057 15470 15470 D EventWishApplication: Firebase application ID: 1:381021411563:android:3fae237c5ecc58610906ae
+03-13 14:44:12.061 15470 15470 I FIAM.Headless: Setting display event component
+03-13 14:44:12.062 15470 15470 D FirebaseInAppMsgHandler: Firebase In-App Messaging handler initialized
+03-13 14:44:12.066 15470 15532 D nativeloader: Configuring clns-6 for other apk /system/framework/org.apache.http.legacy.jar. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:44:12.066 15470 15532 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libmcv_runtime_usdk.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libmvpu_config.mtk.so:libteeservice_client.trustonic.so
+03-13 14:44:12.068 15470 15470 D ApiClient: ApiClient initialized with application context
+03-13 14:44:12.074 15470 15532 D nativeloader: Configuring clns-7 for other apk /system/framework/com.android.media.remotedisplay.jar. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:44:12.074 15470 15532 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libmcv_runtime_usdk.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libmvpu_config.mtk.so:libteeservice_client.trustonic.so
+03-13 14:44:12.085 15470 15532 W om.ds.eventwish: Loading /data/misc/apexdata/com.android.art/dalvik-cache/arm64/system@framework@com.android.location.provider.jar@classes.odex non-executable as it requires an image which we failed to load
+03-13 14:44:12.091 15470 15532 D nativeloader: Configuring clns-8 for other apk /system/framework/com.android.location.provider.jar. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:44:12.091 15470 15532 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libmcv_runtime_usdk.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libmvpu_config.mtk.so:libteeservice_client.trustonic.so
+03-13 14:44:12.100 15470 15532 W om.ds.eventwish: Loading /data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/oat/arm64/base.odex non-executable as it requires an image which we failed to load
+03-13 14:44:12.109 15470 15532 D nativeloader: Configuring clns-9 for other apk /data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk. target_sdk_version=34, uses_libraries=, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:44:12.270 15470 15470 D ApiClient: OkHttpClient created with cache at: /data/user/0/com.ds.eventwish/cache/http_cache
+03-13 14:44:12.306 15470 15470 W om.ds.eventwish: Accessing hidden method Ljava/lang/invoke/MethodHandles$Lookup;-><init>(Ljava/lang/Class;I)V (unsupported, reflection, allowed)
+03-13 14:44:12.325 15470 15470 D ApiClient: ApiService created
+03-13 14:44:12.397 15470 15535 I okhttp.OkHttpClient: --> POST https://eventwishes.onrender.com/api/tokens/register
+03-13 14:44:12.398 15470 15535 I okhttp.OkHttpClient: Content-Type: application/json; charset=UTF-8
+03-13 14:44:12.398 15470 15535 I okhttp.OkHttpClient: Content-Length: 154
+03-13 14:44:12.406 15470 15535 I okhttp.OkHttpClient: {"token":"c1pVizjERDKxMHeV9vWBtn:APA91bG4-zlAW2wOTQzvLZ8rW40qTI9Om9PlodyJ0v7RJm7akUMGNgKpKRx1ULnF1WGlM3K1EhGZI57C-RwE4zS67JyjuIEbq0ySvwChLmKdhDkdSmilPgg"}
+03-13 14:44:12.407 15470 15535 I okhttp.OkHttpClient: --> END POST (154-byte body)
+03-13 14:44:12.416 15470 15535 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+03-13 14:44:12.420 15470 15535 D NetworkUtils: NetworkUtils initialized
+03-13 14:44:12.426 15470 15527 D NetworkUtils: Network available
+03-13 14:44:12.433 15470 15527 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+03-13 14:44:12.433 15470 15527 D NetworkUtils: Network capabilities changed
+03-13 14:44:12.436 15470 15527 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+03-13 14:44:12.483 15470 15535 D TrafficStats: tagSocket(108) with statsTag=0xffffffff, statsUid=-1
+03-13 14:44:12.497 15470 15470 D WM-PackageManagerHelper: Skipping component enablement for androidx.work.impl.background.systemjob.SystemJobService
+03-13 14:44:12.498 15470 15470 D WM-Schedulers: Created SystemJobScheduler and enabled SystemJobService
+03-13 14:44:12.516 15470 15470 D ReminderCheckWorker: Scheduled periodic reminder check
+03-13 14:44:12.527 15470 15470 D EventWishApplication: Scheduled template update check worker
+03-13 14:44:12.529 15470 15470 D EventWishApplication: Clearing database cache on app start
+03-13 14:44:12.577 15470 15470 D EventWishApplication: Initializing CategoryIconRepository
+03-13 14:44:12.589 15470 15470 D ResourceDatabase: ResourceDatabase instance created
+03-13 14:44:12.598 15470 15541 D EventWishApplication: Festival database cache cleared successfully
+03-13 14:44:12.598 15470 15539 D CompatibilityChangeReporter: Compat change id reported: 160794467; UID 10421; state: ENABLED
+03-13 14:44:12.619 15470 15470 D ResourceCache: ResourceCache initialized
+03-13 14:44:12.625 15470 15470 D ErrorHandler: ErrorHandler initialized
+03-13 14:44:12.625 15470 15470 D ResourceRepository: ResourceRepository initialized
+03-13 14:44:12.626 15470 15470 D CategoryIconRepository: CategoryIconRepository initialized with enhanced caching and offline support
+03-13 14:44:12.628 15470 15470 D CategoryIconRepository: Loading category icons with offline-first approach
+03-13 14:44:12.653 15470 15470 D ResourceCache: Cache hit (disk): category_icon_category_icons
+03-13 14:44:12.653 15470 15470 D ResourceCache: Cache hit (memory): category_icon_category_icons
+03-13 14:44:12.654 15470 15470 D AndroidRuntime: Shutting down VM
+03-13 14:44:12.661 15470 15546 D ResourceDatabase: Database opened
+03-13 14:44:12.665 15470 15546 D ResourceRepository: Cleaned up 0 expired resources
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: FATAL EXCEPTION: main
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: Process: com.ds.eventwish, PID: 15470
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: java.lang.RuntimeException: Unable to create application com.ds.eventwish.EventWishApplication: java.lang.ClassCastException: com.google.gson.internal.LinkedTreeMap cannot be cast to com.google.gson.JsonObject
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7919)
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: 	at android.app.ActivityThread.-$$Nest$mhandleBindApplication(Unknown Source:0)
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2639)
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:108)
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: 	at android.os.Looper.loopOnce(Looper.java:226)
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:328)
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:9213)
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:594)
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1099)
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: Caused by: java.lang.ClassCastException: com.google.gson.internal.LinkedTreeMap cannot be cast to com.google.gson.JsonObject
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: 	at com.ds.eventwish.data.repository.ResourceRepository.getResource(ResourceRepository.java:406)
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: 	at com.ds.eventwish.data.repository.CategoryIconRepository.loadCategoryIcons(CategoryIconRepository.java:198)
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: 	at com.ds.eventwish.EventWishApplication.onCreate(EventWishApplication.java:105)
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1316)
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7906)
+03-13 14:44:12.666 15470 15470 E AndroidRuntime: 	... 9 more
+03-13 14:44:12.701 15470 15470 I Process : Sending signal. PID: 15470 SIG: 9
+03-13 14:44:12.798 15552 15552 W getprop : type=1400 audit(0.0:2832948): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:44:12.862 15554 15554 W getprop : type=1400 audit(0.0:2832949): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0 app=com.facebook.katana
+03-13 14:44:16.173 14574 14574 I zygote  : usapPoolSocket.accept() end:null,getFileDescriptor():java.io.FileDescriptor@9a64b4,fd:27
+03-13 14:44:16.183 14574 14574 I om.ds.eventwish: Late-enabling -Xcheck:jni
+03-13 14:44:16.210 14574 14574 I om.ds.eventwish: Using CollectorTypeCC GC.
+03-13 14:44:16.217 14574 14574 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+03-13 14:44:16.238 14574 14574 W re-initialized>: type=1400 audit(0.0:2833120): avc:  granted  { execute } for  path="/data/data/com.ds.eventwish/code_cache/startup_agents/c811a9f9-agent.so" dev="dm-47" ino=740435 scontext=u:r:untrusted_app:s0:c165,c257,c512,c768 tcontext=u:object_r:app_data_file:s0:c165,c257,c512,c768 tclass=file app=com.google.android.gm
+03-13 14:44:16.240 14574 14574 D nativeloader: Load /data/user/0/com.ds.eventwish/code_cache/startup_agents/c811a9f9-agent.so using system ns (caller=<unknown>): ok
+03-13 14:44:16.241 14574 14574 V studio.deploy: Startup agent attached to VM
+03-13 14:44:16.241 14574 14574 V studio.deploy: No existing instrumentation found. Loading instrumentation from instruments-252e729b.jar
+03-13 14:44:16.247 14574 14574 W om.ds.eventwish: DexFile /data/data/com.ds.eventwish/code_cache/.studio/instruments-252e729b.jar is in boot class path but is not in a known location
+03-13 14:44:16.250 14574 14574 V studio.deploy: Applying transforms with cached classes
+03-13 14:44:16.575 14574 14574 W om.ds.eventwish: Redefining intrinsic method java.lang.Thread java.lang.Thread.currentThread(). This may cause the unexpected use of the original definition of java.lang.Thread java.lang.Thread.currentThread()in methods that have already been compiled.
+03-13 14:44:16.575 14574 14574 W om.ds.eventwish: Redefining intrinsic method boolean java.lang.Thread.interrupted(). This may cause the unexpected use of the original definition of boolean java.lang.Thread.interrupted()in methods that have already been compiled.
+03-13 14:44:16.579 14574 14574 I studio.deploy: Registering DispatchJNI
+03-13 14:44:16.579 14574 14574 I studio.deploy: Found com/android/tools/deploy/interpreter/JNI
+03-13 14:44:16.596 14574 14574 D CompatibilityChangeReporter: Compat change id reported: 171979766; UID 10421; state: ENABLED
+03-13 14:44:16.596 14574 14574 D CompatibilityChangeReporter: Compat change id reported: 242716250; UID 10421; state: ENABLED
+03-13 14:44:16.623 14574 14574 W ziparchive: Unable to open '/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.dm': No such file or directory
+03-13 14:44:16.624 14574 14574 W ziparchive: Unable to open '/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.dm': No such file or directory
+03-13 14:44:17.023 14574 14574 D nativeloader: Configuring clns-4 for other apk /data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.apk. target_sdk_version=34, uses_libraries=, library_path=/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/lib/arm64:/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.ds.eventwish
+03-13 14:44:17.035 14574 14574 D nativeloader: Load libframework-connectivity-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity.jar: ok
+03-13 14:44:17.038 14574 14574 V GraphicsEnvironment: Currently set values for:
+03-13 14:44:17.038 14574 14574 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+03-13 14:44:17.038 14574 14574 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+03-13 14:44:17.038 14574 14574 V GraphicsEnvironment: ANGLE GameManagerService for com.ds.eventwish: false
+03-13 14:44:17.038 14574 14574 V GraphicsEnvironment: com.ds.eventwish is not listed in per-application setting
+03-13 14:44:17.039 14574 14574 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+03-13 14:44:17.062 14574 14574 D CompatibilityChangeReporter: Compat change id reported: 183155436; UID 10421; state: ENABLED
+03-13 14:44:17.087 14574 14574 I FirebaseApp: Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+03-13 14:44:17.108 14574 14574 D CompatibilityChangeReporter: Compat change id reported: 3400644; UID 10421; state: ENABLED
+03-13 14:44:17.147 14574 15593 W om.ds.eventwish: ClassLoaderContext classpath size mismatch. expected=1, found=0 (DLC[];PCL[base.apk*2558597794]{PCL[/system/framework/org.apache.http.legacy.jar*1157712065]#PCL[/system/framework/com.android.media.remotedisplay.jar*2114713712]#PCL[/system/framework/com.android.location.provider.jar*3994156537]#PCL[/system/framework/org.apache.http.legacy.jar*1157712065]} | DLC[];PCL[])
+03-13 14:44:17.150 14574 15593 I DynamiteModule: Considering local module com.google.android.gms.measurement.dynamite:97 and remote module com.google.android.gms.measurement.dynamite:140
+03-13 14:44:17.150 14574 15593 I DynamiteModule: Selected remote version of com.google.android.gms.measurement.dynamite, version >= 140
+03-13 14:44:17.150 14574 15593 V DynamiteModule: Dynamite loader version >= 2, using loadModule2NoCrashUtils
+03-13 14:44:17.189 14574 15593 W System  : ClassLoader referenced unknown path: 
+03-13 14:44:17.191 14574 15593 D nativeloader: Configuring clns-5 for other apk . target_sdk_version=34, uses_libraries=, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:44:17.212 14574 15593 W om.ds.eventwish: ClassLoaderContext classpath element checksum mismatch. expected=2558597794, found=3283865686 (DLC[];PCL[base.apk*2558597794]{PCL[/system/framework/org.apache.http.legacy.jar*1157712065]#PCL[/system/framework/com.android.media.remotedisplay.jar*2114713712]#PCL[/system/framework/com.android.location.provider.jar*3994156537]#PCL[/system/framework/org.apache.http.legacy.jar*1157712065]} | DLC[];PCL[/data/app/~~cWajB8RDxfLoF3bNp2j3Gw==/com.ds.eventwish-x77bNnQ0ZOlLdSeNln6NBg==/base.apk*3283865686])
+03-13 14:44:17.229 14574 15601 I FIAM.Headless: Starting InAppMessaging runtime with Installation ID c1pVizjERDKxMHeV9vWBtn
+03-13 14:44:17.246 14574 14574 W Glide   : Failed to find GeneratedAppGlideModule. You should include an annotationProcessor compile dependency on com.github.bumptech.glide:compiler in your application and a @GlideModule annotated AppGlideModule implementation or LibraryGlideModules will be silently ignored
+03-13 14:44:17.274 14574 14574 I FirebaseInitProvider: FirebaseApp initialization successful
+03-13 14:44:17.299 14574 14574 D EventWishApplication: Firebase initialized successfully
+03-13 14:44:17.299 14574 14574 D EventWishApplication: Firebase project ID: neweventwish
+03-13 14:44:17.299 14574 14574 D EventWishApplication: Firebase application ID: 1:381021411563:android:3fae237c5ecc58610906ae
+03-13 14:44:17.301 14574 14574 I FIAM.Headless: Setting display event component
+03-13 14:44:17.301 14574 14574 D FirebaseInAppMsgHandler: Firebase In-App Messaging handler initialized
+03-13 14:44:17.304 14574 14574 D ApiClient: ApiClient initialized with application context
+03-13 14:44:17.304 14574 15612 D nativeloader: Configuring clns-6 for other apk /system/framework/org.apache.http.legacy.jar. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:44:17.304 14574 15612 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libmcv_runtime_usdk.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libmvpu_config.mtk.so:libteeservice_client.trustonic.so
+03-13 14:44:17.309 14574 15612 D nativeloader: Configuring clns-7 for other apk /system/framework/com.android.media.remotedisplay.jar. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:44:17.309 14574 15612 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libmcv_runtime_usdk.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libmvpu_config.mtk.so:libteeservice_client.trustonic.so
+03-13 14:44:17.315 14574 15612 W om.ds.eventwish: Loading /data/misc/apexdata/com.android.art/dalvik-cache/arm64/system@framework@com.android.location.provider.jar@classes.odex non-executable as it requires an image which we failed to load
+03-13 14:44:17.319 14574 15608 E om.ds.eventwish: No package ID 76 found for resource ID 0x760b000f.
+03-13 14:44:17.320 14574 15608 E om.ds.eventwish: No package ID 76 found for resource ID 0x760b000f.
+03-13 14:44:17.321 14574 15612 D nativeloader: Configuring clns-8 for other apk /system/framework/com.android.location.provider.jar. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:44:17.321 14574 15612 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libmcv_runtime_usdk.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libmvpu_config.mtk.so:libteeservice_client.trustonic.so
+03-13 14:44:17.321 14574 15608 I FA      : App measurement initialized, version: 118001
+03-13 14:44:17.321 14574 15608 I FA      : To enable debug logging run: adb shell setprop log.tag.FA VERBOSE
+03-13 14:44:17.322 14574 15608 I FA      : To enable faster debug mode event logging run:
+03-13 14:44:17.322 14574 15608 I FA      :   adb shell setprop debug.firebase.analytics.app com.ds.eventwish
+03-13 14:44:17.329 14574 15612 W om.ds.eventwish: Loading /data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/oat/arm64/base.odex non-executable as it requires an image which we failed to load
+03-13 14:44:17.335 14574 15612 D nativeloader: Configuring clns-9 for other apk /data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk. target_sdk_version=34, uses_libraries=, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:44:17.380 14574 14574 D ApiClient: OkHttpClient created with cache at: /data/user/0/com.ds.eventwish/cache/http_cache
+03-13 14:44:17.394 14574 14574 W om.ds.eventwish: Accessing hidden method Ljava/lang/invoke/MethodHandles$Lookup;-><init>(Ljava/lang/Class;I)V (unsupported, reflection, allowed)
+03-13 14:44:17.401 14574 14574 D ApiClient: ApiService created
+03-13 14:44:17.437 14574 15623 I okhttp.OkHttpClient: --> POST https://eventwishes.onrender.com/api/tokens/register
+03-13 14:44:17.438 14574 15623 I okhttp.OkHttpClient: Content-Type: application/json; charset=UTF-8
+03-13 14:44:17.439 14574 15623 I okhttp.OkHttpClient: Content-Length: 154
+03-13 14:44:17.443 14574 15623 I okhttp.OkHttpClient: {"token":"c1pVizjERDKxMHeV9vWBtn:APA91bG4-zlAW2wOTQzvLZ8rW40qTI9Om9PlodyJ0v7RJm7akUMGNgKpKRx1ULnF1WGlM3K1EhGZI57C-RwE4zS67JyjuIEbq0ySvwChLmKdhDkdSmilPgg"}
+03-13 14:44:17.444 14574 15623 I okhttp.OkHttpClient: --> END POST (154-byte body)
+03-13 14:44:17.450 14574 15623 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+03-13 14:44:17.453 14574 15623 D NetworkUtils: NetworkUtils initialized
+03-13 14:44:17.460 14574 15610 D NetworkUtils: Network available
+03-13 14:44:17.464 14574 15610 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+03-13 14:44:17.464 14574 15610 D NetworkUtils: Network capabilities changed
+03-13 14:44:17.467 14574 15610 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+03-13 14:44:17.473 14574 14574 D WM-PackageManagerHelper: Skipping component enablement for androidx.work.impl.background.systemjob.SystemJobService
+03-13 14:44:17.473 14574 14574 D WM-Schedulers: Created SystemJobScheduler and enabled SystemJobService
+03-13 14:44:17.481 14574 14574 D ReminderCheckWorker: Scheduled periodic reminder check
+03-13 14:44:17.482 14574 14574 D EventWishApplication: Scheduled template update check worker
+03-13 14:44:17.484 14574 14574 D EventWishApplication: Clearing database cache on app start
+03-13 14:44:17.496 14574 14574 D EventWishApplication: Initializing CategoryIconRepository
+03-13 14:44:17.501 14574 14574 D ResourceDatabase: ResourceDatabase instance created
+03-13 14:44:17.511 14574 14574 D ResourceCache: ResourceCache initialized
+03-13 14:44:17.513 14574 14574 D ErrorHandler: ErrorHandler initialized
+03-13 14:44:17.513 14574 14574 D ResourceRepository: ResourceRepository initialized
+03-13 14:44:17.513 14574 14574 D CategoryIconRepository: CategoryIconRepository initialized with enhanced caching and offline support
+03-13 14:44:17.513 14574 14574 D CategoryIconRepository: Loading category icons with offline-first approach
+03-13 14:44:17.513 14574 15623 D TrafficStats: tagSocket(126) with statsTag=0xffffffff, statsUid=-1
+03-13 14:44:17.524 14574 15626 D EventWishApplication: Festival database cache cleared successfully
+03-13 14:44:17.530 14574 14574 D ResourceCache: Cache hit (disk): category_icon_category_icons
+03-13 14:44:17.530 14574 14574 D ResourceCache: Cache hit (memory): category_icon_category_icons
+03-13 14:44:17.531 14574 14574 D AndroidRuntime: Shutting down VM
+03-13 14:44:17.535 14574 15631 D ResourceDatabase: Database opened
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: FATAL EXCEPTION: main
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: Process: com.ds.eventwish, PID: 14574
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: java.lang.RuntimeException: Unable to create application com.ds.eventwish.EventWishApplication: java.lang.ClassCastException: com.google.gson.internal.LinkedTreeMap cannot be cast to com.google.gson.JsonObject
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7919)
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: 	at android.app.ActivityThread.-$$Nest$mhandleBindApplication(Unknown Source:0)
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2639)
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:108)
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: 	at android.os.Looper.loopOnce(Looper.java:226)
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:328)
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:9213)
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:594)
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1099)
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: Caused by: java.lang.ClassCastException: com.google.gson.internal.LinkedTreeMap cannot be cast to com.google.gson.JsonObject
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: 	at com.ds.eventwish.data.repository.ResourceRepository.getResource(ResourceRepository.java:406)
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: 	at com.ds.eventwish.data.repository.CategoryIconRepository.loadCategoryIcons(CategoryIconRepository.java:198)
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: 	at com.ds.eventwish.EventWishApplication.onCreate(EventWishApplication.java:105)
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1316)
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7906)
+03-13 14:44:17.535 14574 14574 E AndroidRuntime: 	... 9 more
+03-13 14:44:17.538 14574 15631 D ResourceRepository: Cleaned up 0 expired resources
+03-13 14:44:17.546 14574 15624 D CompatibilityChangeReporter: Compat change id reported: 160794467; UID 10421; state: ENABLED
+03-13 14:44:17.658 10090 10090 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():2090 
+03-13 14:44:17.661 10090 10090 I Module  : DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():100 repeatCheckTimes = 0, locked = false
+03-13 14:44:17.662 10090 10090 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1357 onStartInput(EditorInfo{EditorInfo{packageName=com.android.launcher3, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+03-13 14:44:17.664 10090 10090 I Module  : DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():100 repeatCheckTimes = 1, locked = false
+03-13 14:44:17.682 15646 15646 W getprop : type=1400 audit(0.0:2833125): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0

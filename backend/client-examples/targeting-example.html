@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EventWish AdMob Targeting Example</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+      color: #333;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    h1 {
+      color: #4a6ee0;
+      margin-bottom: 10px;
+    }
+    
+    .card {
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+      padding: 20px;
+    }
+    
+    .card h2 {
+      color: #4a6ee0;
+      margin-top: 0;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    
+    .button {
+      background-color: #4a6ee0;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.3s;
+    }
+    
+    .button:hover {
+      background-color: #3a5bc0;
+    }
+    
+    .debug-info {
+      background-color: #f8f8f8;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 15px;
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    
+    .debug-controls {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+    
+    .context-info {
+      margin-top: 20px;
+    }
+    
+    .context-info h3 {
+      margin-bottom: 10px;
+    }
+    
+    .context-info table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .context-info table th,
+    .context-info table td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    
+    .context-info table th {
+      background-color: #f2f2f2;
+    }
+    
+    .ad {
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 15px;
+      margin-top: 20px;
+    }
+    
+    .ad-loading {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>EventWish AdMob Targeting Example</h1>
+      <p>This example demonstrates how to use the AdMob service with targeting capabilities.</p>
+    </header>
+    
+    <div class="card">
+      <h2>Banner Ad Example</h2>
+      <p>This example shows how to load and display a banner ad with targeting.</p>
+      <div id="banner-ad-container"></div>
+      <button id="refresh-ad-button" class="button">Refresh Ad</button>
+    </div>
+    
+    <div class="card">
+      <h2>Interstitial Ad Example</h2>
+      <p>This example shows how to load and display an interstitial ad with targeting.</p>
+      <button id="show-interstitial-button" class="button">Show Interstitial Ad</button>
+    </div>
+    
+    <div class="card">
+      <h2>User Context</h2>
+      <p>This is the user context that will be sent to the server for targeting.</p>
+      <div class="context-info">
+        <h3>Device Information</h3>
+        <table id="device-info-table">
+          <tr>
+            <th>Property</th>
+            <th>Value</th>
+          </tr>
+        </table>
+        
+        <h3>User Information</h3>
+        <table id="user-info-table">
+          <tr>
+            <th>Property</th>
+            <th>Value</th>
+          </tr>
+        </table>
+        
+        <h3>Location Information</h3>
+        <table id="location-info-table">
+          <tr>
+            <th>Property</th>
+            <th>Value</th>
+          </tr>
+        </table>
+        
+        <h3>Recent Activity</h3>
+        <table id="activity-info-table">
+          <tr>
+            <th>Activity</th>
+            <th>Action</th>
+          </tr>
+        </table>
+      </div>
+      
+      <div class="debug-controls">
+        <button id="simulate-purchase-button" class="button">Simulate Purchase</button>
+        <button id="simulate-view-button" class="button">Simulate Ad View</button>
+        <button id="simulate-click-button" class="button">Simulate Ad Click</button>
+        <button id="clear-activity-button" class="button">Clear Activity</button>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>Debug Information</h2>
+      <div id="debug-info" class="debug-info"></div>
+      <div class="debug-controls">
+        <button id="clear-debug-button" class="button">Clear Debug Info</button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="targeting-example.js"></script>
+  <script>
+    // Override console.log to display in debug info
+    const originalConsoleLog = console.log;
+    const originalConsoleError = console.error;
+    
+    console.log = function() {
+      const args = Array.from(arguments);
+      const debugInfo = document.getElementById('debug-info');
+      
+      // Create log entry
+      const logEntry = document.createElement('div');
+      logEntry.style.borderBottom = '1px solid #eee';
+      logEntry.style.padding = '5px 0';
+      
+      // Add timestamp
+      const timestamp = new Date().toLocaleTimeString();
+      const timestampSpan = document.createElement('span');
+      timestampSpan.style.color = '#999';
+      timestampSpan.textContent = `[${timestamp}] `;
+      logEntry.appendChild(timestampSpan);
+      
+      // Add log message
+      const messageSpan = document.createElement('span');
+      messageSpan.textContent = args.map(arg => {
+        if (typeof arg === 'object') {
+          return JSON.stringify(arg);
+        }
+        return arg;
+      }).join(' ');
+      logEntry.appendChild(messageSpan);
+      
+      // Add to debug info
+      debugInfo.appendChild(logEntry);
+      
+      // Scroll to bottom
+      debugInfo.scrollTop = debugInfo.scrollHeight;
+      
+      // Call original console.log
+      originalConsoleLog.apply(console, arguments);
+    };
+    
+    console.error = function() {
+      const args = Array.from(arguments);
+      const debugInfo = document.getElementById('debug-info');
+      
+      // Create log entry
+      const logEntry = document.createElement('div');
+      logEntry.style.borderBottom = '1px solid #eee';
+      logEntry.style.padding = '5px 0';
+      logEntry.style.color = 'red';
+      
+      // Add timestamp
+      const timestamp = new Date().toLocaleTimeString();
+      const timestampSpan = document.createElement('span');
+      timestampSpan.style.color = '#999';
+      timestampSpan.textContent = `[${timestamp}] ERROR: `;
+      logEntry.appendChild(timestampSpan);
+      
+      // Add log message
+      const messageSpan = document.createElement('span');
+      messageSpan.textContent = args.map(arg => {
+        if (typeof arg === 'object') {
+          return JSON.stringify(arg);
+        }
+        return arg;
+      }).join(' ');
+      logEntry.appendChild(messageSpan);
+      
+      // Add to debug info
+      debugInfo.appendChild(logEntry);
+      
+      // Scroll to bottom
+      debugInfo.scrollTop = debugInfo.scrollHeight;
+      
+      // Call original console.error
+      originalConsoleError.apply(console, arguments);
+    };
+    
+    // Initialize when the page loads
+    window.addEventListener('DOMContentLoaded', () => {
+      // Update user context tables
+      function updateContextTables() {
+        const userContext = getUserContext();
+        
+        // Update device info table
+        const deviceInfoTable = document.getElementById('device-info-table');
+        deviceInfoTable.innerHTML = `
+          <tr>
+            <th>Property</th>
+            <th>Value</th>
+          </tr>
+          <tr>
+            <td>Device Type</td>
+            <td>${userContext.deviceType}</td>
+          </tr>
+          <tr>
+            <td>Platform</td>
+            <td>${userContext.platform}</td>
+          </tr>
+          <tr>
+            <td>Screen Size</td>
+            <td>${userContext.screenSize}</td>
+          </tr>
+          <tr>
+            <td>Connection Type</td>
+            <td>${userContext.connectionType}</td>
+          </tr>
+        `;
+        
+        // Update user info table
+        const userInfoTable = document.getElementById('user-info-table');
+        userInfoTable.innerHTML = `
+          <tr>
+            <th>Property</th>
+            <th>Value</th>
+          </tr>
+          <tr>
+            <td>User ID</td>
+            <td>${userContext.userId}</td>
+          </tr>
+          <tr>
+            <td>Device ID</td>
+            <td>${userContext.deviceId}</td>
+          </tr>
+          <tr>
+            <td>App Version</td>
+            <td>${userContext.appVersion}</td>
+          </tr>
+        `;
+        
+        // Update location info table
+        const locationInfoTable = document.getElementById('location-info-table');
+        locationInfoTable.innerHTML = `
+          <tr>
+            <th>Property</th>
+            <th>Value</th>
+          </tr>
+          <tr>
+            <td>Country</td>
+            <td>${userContext.country}</td>
+          </tr>
+          <tr>
+            <td>Language</td>
+            <td>${userContext.language}</td>
+          </tr>
+          <tr>
+            <td>Time Zone</td>
+            <td>${userContext.timeZone}</td>
+          </tr>
+        `;
+        
+        // Update activity info table
+        const activityInfoTable = document.getElementById('activity-info-table');
+        activityInfoTable.innerHTML = `
+          <tr>
+            <th>Activity</th>
+            <th>Action</th>
+          </tr>
+        `;
+        
+        if (userContext.recentActivity && userContext.recentActivity.length > 0) {
+          userContext.recentActivity.forEach((activity, index) => {
+            const row = document.createElement('tr');
+            
+            const activityCell = document.createElement('td');
+            activityCell.textContent = activity;
+            row.appendChild(activityCell);
+            
+            const actionCell = document.createElement('td');
+            const removeButton = document.createElement('button');
+            removeButton.textContent = 'Remove';
+            removeButton.className = 'button';
+            removeButton.style.padding = '5px 10px';
+            removeButton.style.fontSize = '12px';
+            removeButton.addEventListener('click', () => {
+              const recentActivity = JSON.parse(localStorage.getItem('recentActivity') || '[]');
+              recentActivity.splice(index, 1);
+              localStorage.setItem('recentActivity', JSON.stringify(recentActivity));
+              updateContextTables();
+            });
+            actionCell.appendChild(removeButton);
+            row.appendChild(actionCell);
+            
+            activityInfoTable.appendChild(row);
+          });
+        } else {
+          const row = document.createElement('tr');
+          const cell = document.createElement('td');
+          cell.colSpan = 2;
+          cell.textContent = 'No recent activity';
+          cell.style.textAlign = 'center';
+          row.appendChild(cell);
+          activityInfoTable.appendChild(row);
+        }
+      }
+      
+      // Update context tables initially
+      updateContextTables();
+      
+      // Add event listeners for debug controls
+      document.getElementById('clear-debug-button').addEventListener('click', () => {
+        document.getElementById('debug-info').innerHTML = '';
+      });
+      
+      // Add event listeners for activity simulation
+      document.getElementById('simulate-purchase-button').addEventListener('click', () => {
+        trackActivity('purchase');
+        console.log('Purchase activity simulated');
+        updateContextTables();
+      });
+      
+      document.getElementById('simulate-view-button').addEventListener('click', () => {
+        trackActivity('view_ad');
+        console.log('Ad view activity simulated');
+        updateContextTables();
+      });
+      
+      document.getElementById('simulate-click-button').addEventListener('click', () => {
+        trackActivity('click_ad');
+        console.log('Ad click activity simulated');
+        updateContextTables();
+      });
+      
+      document.getElementById('clear-activity-button').addEventListener('click', () => {
+        localStorage.setItem('recentActivity', '[]');
+        console.log('Activity cleared');
+        updateContextTables();
+      });
+      
+      // Log initialization
+      console.log('Targeting Example initialized');
+    });
+  </script>
+</body>
+</html> 

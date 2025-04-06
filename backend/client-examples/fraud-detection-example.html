@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EventWish AdMob Fraud Detection Example</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    
+    header {
+      background-color: #4a6fa5;
+      color: white;
+      padding: 20px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+    
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    
+    .card {
+      background-color: white;
+      border-radius: 5px;
+      padding: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      flex: 1;
+      min-width: 300px;
+    }
+    
+    .ad-container {
+      display: block;
+      background-color: #f0f8ff;
+      border: 1px solid #d0e0f0;
+      border-radius: 5px;
+      padding: 15px;
+      margin: 15px 0;
+      text-align: center;
+      text-decoration: none;
+      color: #333;
+      transition: all 0.3s ease;
+    }
+    
+    .ad-container:hover {
+      background-color: #e0f0ff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .ad-image {
+      max-width: 100%;
+      height: auto;
+      margin-bottom: 10px;
+      border-radius: 3px;
+    }
+    
+    .ad-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+      color: #4a6fa5;
+    }
+    
+    .ad-description {
+      font-size: 14px;
+      color: #666;
+    }
+    
+    button {
+      background-color: #4a6fa5;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.3s ease;
+    }
+    
+    button:hover {
+      background-color: #3a5a8a;
+    }
+    
+    .debug-info {
+      background-color: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 12px;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 15px;
+    }
+    
+    .debug-controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    .loading-indicator {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+    
+    .loading-indicator::after {
+      content: "";
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(74, 111, 165, 0.3);
+      border-radius: 50%;
+      border-top-color: #4a6fa5;
+      animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .fraud-warning {
+      display: none;
+      background-color: #fff0f0;
+      border: 1px solid #ffdddd;
+      color: #d8000c;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 5px;
+    }
+    
+    .fraud-warning h3 {
+      margin-top: 0;
+      color: #d8000c;
+    }
+    
+    .fraud-warning ul {
+      margin-bottom: 0;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>EventWish AdMob Fraud Detection Example</h1>
+    <p>This example demonstrates how to integrate with the fraud detection system to help prevent click fraud in your AdMob implementation.</p>
+  </header>
+  
+  <div class="container">
+    <div class="card">
+      <h2>Banner Ad Example</h2>
+      <p>Click on the ad below to see the fraud detection in action:</p>
+      
+      <a href="https://example.com/ad1" class="ad-container" 
+         data-ad-id="ad_banner_123" 
+         data-ad-type="banner" 
+         data-placement="homepage_top"
+         data-target-url="https://example.com/ad1">
+        <img src="https://via.placeholder.com/300x100?text=Example+Banner+Ad" alt="Banner Ad" class="ad-image">
+        <div class="ad-title">Premium Subscription</div>
+        <div class="ad-description">Get access to exclusive content and features!</div>
+      </a>
+      
+      <div class="loading-indicator" id="loading-indicator-1"></div>
+      <div class="fraud-warning" id="fraud-warning-1">
+        <h3>Security Alert</h3>
+        <p>This action was blocked for security reasons:</p>
+        <ul id="fraud-reasons-1"></ul>
+        <p>Please try again later or contact support if you believe this is an error.</p>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>Interstitial Ad Example</h2>
+      <p>Click the button below to show an interstitial ad:</p>
+      
+      <button id="show-interstitial">Show Interstitial Ad</button>
+      
+      <div class="loading-indicator" id="loading-indicator-2"></div>
+      <div class="fraud-warning" id="fraud-warning-2">
+        <h3>Security Alert</h3>
+        <p>This action was blocked for security reasons:</p>
+        <ul id="fraud-reasons-2"></ul>
+        <p>Please try again later or contact support if you believe this is an error.</p>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>Debug Information</h2>
+      <p>This section shows debug information about the fraud detection process:</p>
+      
+      <div class="debug-info" id="debug-info"></div>
+      
+      <div class="debug-controls">
+        <button id="clear-debug">Clear Debug Info</button>
+        <button id="simulate-fraud">Simulate Fraud</button>
+        <button id="generate-fingerprint">Generate Fingerprint</button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="fraud-detection-example.js"></script>
+  <script>
+    // Override console.log and console.error to display in debug info
+    const originalConsoleLog = console.log;
+    const originalConsoleError = console.error;
+    const originalConsoleWarn = console.warn;
+    
+    console.log = function() {
+      const args = Array.from(arguments);
+      const debugInfo = document.getElementById('debug-info');
+      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg).join(' ');
+      
+      debugInfo.innerHTML += `<div style="color: #333;">[LOG] ${message}</div>`;
+      debugInfo.scrollTop = debugInfo.scrollHeight;
+      
+      originalConsoleLog.apply(console, arguments);
+    };
+    
+    console.error = function() {
+      const args = Array.from(arguments);
+      const debugInfo = document.getElementById('debug-info');
+      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg).join(' ');
+      
+      debugInfo.innerHTML += `<div style="color: #d8000c;">[ERROR] ${message}</div>`;
+      debugInfo.scrollTop = debugInfo.scrollHeight;
+      
+      originalConsoleError.apply(console, arguments);
+    };
+    
+    console.warn = function() {
+      const args = Array.from(arguments);
+      const debugInfo = document.getElementById('debug-info');
+      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg).join(' ');
+      
+      debugInfo.innerHTML += `<div style="color: #9f6000;">[WARN] ${message}</div>`;
+      debugInfo.scrollTop = debugInfo.scrollHeight;
+      
+      originalConsoleWarn.apply(console, arguments);
+    };
+    
+    // Custom loading indicator and fraud warning functions
+    function showLoadingIndicator(id) {
+      document.getElementById(`loading-indicator-${id}`).style.display = 'block';
+    }
+    
+    function hideLoadingIndicator(id) {
+      document.getElementById(`loading-indicator-${id}`).style.display = 'none';
+    }
+    
+    function showFraudWarning(id, reasons) {
+      const reasonsList = document.getElementById(`fraud-reasons-${id}`);
+      reasonsList.innerHTML = '';
+      
+      reasons.forEach(reason => {
+        const li = document.createElement('li');
+        li.textContent = reason;
+        reasonsList.appendChild(li);
+      });
+      
+      document.getElementById(`fraud-warning-${id}`).style.display = 'block';
+    }
+    
+    function hideFraudWarning(id) {
+      document.getElementById(`fraud-warning-${id}`).style.display = 'none';
+    }
+    
+    // Set up event handlers
+    document.addEventListener('DOMContentLoaded', () => {
+      // Banner ad click handler
+      const bannerAd = document.querySelector('[data-ad-id="ad_banner_123"]');
+      bannerAd.addEventListener('click', async (event) => {
+        event.preventDefault();
+        
+        hideFraudWarning(1);
+        showLoadingIndicator(1);
+        
+        const adData = {
+          adId: bannerAd.dataset.adId,
+          adType: bannerAd.dataset.adType,
+          placement: bannerAd.dataset.placement
+        };
+        
+        const targetUrl = bannerAd.dataset.targetUrl;
+        
+        await handleAdClick(adData, () => {
+          console.log('Banner ad click validated, navigating to:', targetUrl);
+          // In a real implementation, you would navigate to the target URL
+          // window.location.href = targetUrl;
+        });
+        
+        hideLoadingIndicator(1);
+      });
+      
+      // Interstitial ad button handler
+      const interstitialButton = document.getElementById('show-interstitial');
+      interstitialButton.addEventListener('click', async () => {
+        hideFraudWarning(2);
+        showLoadingIndicator(2);
+        
+        const adData = {
+          adId: 'ad_interstitial_456',
+          adType: 'interstitial',
+          placement: 'between_levels'
+        };
+        
+        await handleAdClick(adData, () => {
+          console.log('Interstitial ad click validated, showing ad');
+          // In a real implementation, you would show the interstitial ad
+          alert('Interstitial ad would be shown here');
+        });
+        
+        hideLoadingIndicator(2);
+      });
+      
+      // Clear debug info button
+      const clearDebugButton = document.getElementById('clear-debug');
+      clearDebugButton.addEventListener('click', () => {
+        document.getElementById('debug-info').innerHTML = '';
+      });
+      
+      // Simulate fraud button
+      const simulateFraudButton = document.getElementById('simulate-fraud');
+      simulateFraudButton.addEventListener('click', async () => {
+        console.log('Simulating fraudulent click...');
+        
+        // Override checkFraud function temporarily
+        const originalCheckFraud = window.checkFraud;
+        
+        window.checkFraud = async () => {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
+          
+          return {
+            success: true,
+            allowed: false,
+            score: 85,
+            reasons: [
+              'Suspicious click frequency',
+              'Abnormal click pattern',
+              'Proxy detected'
+            ]
+          };
+        };
+        
+        // Trigger a click on the banner ad
+        hideFraudWarning(1);
+        showLoadingIndicator(1);
+        
+        const adData = {
+          adId: 'ad_banner_123',
+          adType: 'banner',
+          placement: 'homepage_top'
+        };
+        
+        await handleAdClick(adData, () => {
+          console.log('This should not be called for fraudulent clicks');
+        });
+        
+        hideLoadingIndicator(1);
+        
+        // Restore original function
+        window.checkFraud = originalCheckFraud;
+      });
+      
+      // Generate fingerprint button
+      const generateFingerprintButton = document.getElementById('generate-fingerprint');
+      generateFingerprintButton.addEventListener('click', async () => {
+        console.log('Generating device fingerprint...');
+        
+        const fingerprint = await generateDeviceFingerprint();
+        
+        console.log('Device fingerprint:', fingerprint);
+      });
+      
+      // Initialize
+      console.log('Fraud Detection Example initialized');
+    });
+  </script>
+</body>
+</html> 

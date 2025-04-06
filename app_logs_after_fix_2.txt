@@ -1,0 +1,225 @@
+--------- beginning of main
+03-13 14:54:53.031 25578 17538 I AlarmManager: setExactAndAllowWhileIdle [name: GCM_HB_ALARM type: 2 triggerAtMillis: 1136524757]
+03-13 14:54:53.047 25578 17472 I AlarmManager: setExactAndAllowWhileIdle [name: FcmRetry type: 2 triggerAtMillis: 1134964771]
+03-13 14:54:53.051 25578 25578 W GCM     : broadcast intent callback: result=CANCELLED forIntent { act=com.google.android.c2dm.intent.RECEIVE pkg=in.mohalla.sharechat (has extras) }
+03-13 14:54:53.052 25578 17538 I AlarmManager: setExactAndAllowWhileIdle [name: GCM_HB_ALARM type: 2 triggerAtMillis: 1136524779]
+03-13 14:54:53.172 25650 17846 D AdvertisingIdClient: AdvertisingIdClient already created.
+03-13 14:54:53.173 25650 17846 D AdvertisingIdClient: AdvertisingIdClient is not bounded. Starting to bind it...
+03-13 14:54:53.176 25650 17846 D AdvertisingIdClient: AdvertisingIdClient is bounded
+03-13 14:54:53.178 25650 17846 I AdvertisingIdClient: shouldSendLog 1134679601
+03-13 14:54:53.178 25650 17846 I AdvertisingIdClient: GetInfoInternal elapse 5ms
+03-13 14:54:53.207 15672 17825 D TrafficStats: tagSocket(152) with statsTag=0xffffffff, statsUid=-1
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: Error inserting flex_time=1375000 job_id=-1 period=2751000 source=16 requires_charging=0 preferred_network_type=1 target_class=com.google.android.gms.measurement.PackageMeasurementTaskService user_id=0 target_package=com.google.android.gms tag=Measurement.PackageMeasurementTaskService.UPLOAD_TASK_TAG task_type=0 required_idleness_state=0 service_kind=0 source_version=250832000 persistence_level=1 preferred_charging_state=1 required_network_type=0 runtime=1741857893201 retry_strategy={"maximum_backoff_seconds":{"3600":0},"initial_backoff_seconds":{"30":0},"retry_policy":{"0":0}} last_runtime=0 [CONTEXT service_id=218 ]
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: android.database.sqlite.SQLiteConstraintException: UNIQUE constraint failed: pending_ops.tag, pending_ops.target_class, pending_ops.target_package, pending_ops.user_id (code 2067 SQLITE_CONSTRAINT_UNIQUE)
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: 	at android.database.sqlite.SQLiteConnection.nativeExecuteForLastInsertedRowId(Native Method)
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: 	at android.database.sqlite.SQLiteConnection.executeForLastInsertedRowId(SQLiteConnection.java:1012)
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: 	at android.database.sqlite.SQLiteSession.executeForLastInsertedRowId(SQLiteSession.java:790)
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: 	at android.database.sqlite.SQLiteStatement.executeInsert(SQLiteStatement.java:89)
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: 	at android.database.sqlite.SQLiteDatabase.insertWithOnConflict(SQLiteDatabase.java:1870)
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: 	at android.database.sqlite.SQLiteDatabase.insertOrThrow(SQLiteDatabase.java:1765)
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: 	at drpi.d(:com.google.android.gms@250832029@25.08.32 (190400-731361394):727)
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: 	at drmz.n(:com.google.android.gms@250832029@25.08.32 (190400-731361394):29)
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: 	at drmz.u(:com.google.android.gms@250832029@25.08.32 (190400-731361394):364)
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: 	at drmz.h(:com.google.android.gms@250832029@25.08.32 (190400-731361394):51)
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: 	at drho.run(:com.google.android.gms@250832029@25.08.32 (190400-731361394):72)
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: 	at atru.c(:com.google.android.gms@250832029@25.08.32 (190400-731361394):50)
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: 	at atru.run(:com.google.android.gms@250832029@25.08.32 (190400-731361394):76)
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: 	at atxi.run(:com.google.android.gms@250832029@25.08.32 (190400-731361394):8)
+03-13 14:54:53.207 25578 17809 W NetworkScheduler: 	at java.lang.Thread.run(Thread.java:1012)
+03-13 14:54:53.207 15672 17812 D TrafficStats: tagSocket(155) with statsTag=0xffffffff, statsUid=-1
+03-13 14:54:53.524 15672 17861 D FirebasePerformance: Fetched value: 'true' for key: 'fpr_enabled' from Firebase Remote Config.
+03-13 14:54:53.524 15672 17861 D FirebasePerformance: Fetched value: '' for key: 'fpr_disabled_android_versions' from Firebase Remote Config.
+03-13 14:54:53.524 15672 17861 D FirebasePerformance: Fetched value: 'true' for key: 'fpr_enabled' from Firebase Remote Config.
+03-13 14:54:53.525 15672 17861 D FirebasePerformance: Fetched value: '' for key: 'fpr_disabled_android_versions' from Firebase Remote Config.
+03-13 14:54:53.528 15672 17861 D FirebasePerformance: Fetched value: '0.001929782897049255' for key: 'fpr_vc_network_request_sampling_rate' from Firebase Remote Config.
+03-13 14:54:53.529 15672 17861 I FirebasePerformance: Event dropped due to device sampling - network request trace: https://sc-events-apis.sharechat.com/requestType16 (responseCode: 200, responseTime: 373.249ms)
+03-13 14:54:53.564 15672 17861 D FirebasePerformance: Fetched value: 'true' for key: 'fpr_enabled' from Firebase Remote Config.
+03-13 14:54:53.564 15672 17861 D FirebasePerformance: Fetched value: '' for key: 'fpr_disabled_android_versions' from Firebase Remote Config.
+03-13 14:54:53.564 15672 17861 D FirebasePerformance: Fetched value: 'true' for key: 'fpr_enabled' from Firebase Remote Config.
+03-13 14:54:53.564 15672 17861 D FirebasePerformance: Fetched value: '' for key: 'fpr_disabled_android_versions' from Firebase Remote Config.
+03-13 14:54:53.569 15672 17861 D FirebasePerformance: Fetched value: '0.001929782897049255' for key: 'fpr_vc_network_request_sampling_rate' from Firebase Remote Config.
+03-13 14:54:53.570 15672 17861 I FirebasePerformance: Event dropped due to device sampling - network request trace: https://sc-events-apis.sharechat.com/a1s-service/v1/m7n/events/post (responseCode: 200, responseTime: 420.576ms)
+03-13 14:55:05.571 16193 16193 I om.ds.eventwish: Late-enabling -Xcheck:jni
+03-13 14:55:05.605 16193 16193 I om.ds.eventwish: Using CollectorTypeCC GC.
+03-13 14:55:05.614 16193 16193 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+03-13 14:55:05.651 16193 16193 D CompatibilityChangeReporter: Compat change id reported: 171979766; UID 10421; state: ENABLED
+03-13 14:55:05.651 16193 16193 D CompatibilityChangeReporter: Compat change id reported: 242716250; UID 10421; state: ENABLED
+03-13 14:55:05.675 16193 16193 W ziparchive: Unable to open '/data/app/~~xtzIcKC29TbvQ7qAkFSFFQ==/com.ds.eventwish-ZXNd-o2oAJ3fue0fuptBIg==/base.dm': No such file or directory
+03-13 14:55:05.675 16193 16193 W ziparchive: Unable to open '/data/app/~~xtzIcKC29TbvQ7qAkFSFFQ==/com.ds.eventwish-ZXNd-o2oAJ3fue0fuptBIg==/base.dm': No such file or directory
+03-13 14:55:05.798 17913 17913 W getprop : type=1400 audit(0.0:2835517): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:55:05.958 17915 17915 W getprop : type=1400 audit(0.0:2835518): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:55:06.112 16193 16193 D nativeloader: Configuring clns-4 for other apk /data/app/~~xtzIcKC29TbvQ7qAkFSFFQ==/com.ds.eventwish-ZXNd-o2oAJ3fue0fuptBIg==/base.apk. target_sdk_version=34, uses_libraries=, library_path=/data/app/~~xtzIcKC29TbvQ7qAkFSFFQ==/com.ds.eventwish-ZXNd-o2oAJ3fue0fuptBIg==/lib/arm64:/data/app/~~xtzIcKC29TbvQ7qAkFSFFQ==/com.ds.eventwish-ZXNd-o2oAJ3fue0fuptBIg==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.ds.eventwish
+03-13 14:55:06.122 16193 16193 D nativeloader: Load libframework-connectivity-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity.jar: ok
+03-13 14:55:06.126 16193 16193 V GraphicsEnvironment: Currently set values for:
+03-13 14:55:06.126 16193 16193 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+03-13 14:55:06.126 16193 16193 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+03-13 14:55:06.127 16193 16193 V GraphicsEnvironment: ANGLE GameManagerService for com.ds.eventwish: false
+03-13 14:55:06.127 16193 16193 V GraphicsEnvironment: com.ds.eventwish is not listed in per-application setting
+03-13 14:55:06.127 16193 16193 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+03-13 14:55:06.147 16193 16193 D CompatibilityChangeReporter: Compat change id reported: 183155436; UID 10421; state: ENABLED
+03-13 14:55:06.171 16193 16193 I FirebaseApp: Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+03-13 14:55:06.216 16193 16193 D CompatibilityChangeReporter: Compat change id reported: 3400644; UID 10421; state: ENABLED
+03-13 14:55:06.218 16193 17920 W om.ds.eventwish: ClassLoaderContext classpath size mismatch. expected=1, found=0 (DLC[];PCL[base.apk*2558597794]{PCL[/system/framework/org.apache.http.legacy.jar*1157712065]#PCL[/system/framework/com.android.media.remotedisplay.jar*2114713712]#PCL[/system/framework/com.android.location.provider.jar*3994156537]#PCL[/system/framework/org.apache.http.legacy.jar*1157712065]} | DLC[];PCL[])
+03-13 14:55:06.224 16193 17920 I DynamiteModule: Considering local module com.google.android.gms.measurement.dynamite:97 and remote module com.google.android.gms.measurement.dynamite:140
+03-13 14:55:06.225 16193 17920 I DynamiteModule: Selected remote version of com.google.android.gms.measurement.dynamite, version >= 140
+03-13 14:55:06.225 16193 17920 V DynamiteModule: Dynamite loader version >= 2, using loadModule2NoCrashUtils
+03-13 14:55:06.228 16193 17921 D CompatibilityChangeReporter: Compat change id reported: 194532703; UID 10421; state: ENABLED
+03-13 14:55:06.228 16193 17921 D CompatibilityChangeReporter: Compat change id reported: 253665015; UID 10421; state: ENABLED
+03-13 14:55:06.243 16193 17920 W System  : ClassLoader referenced unknown path: 
+03-13 14:55:06.244 16193 17920 D nativeloader: Configuring clns-5 for other apk . target_sdk_version=34, uses_libraries=, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:55:06.269 16193 17920 W om.ds.eventwish: ClassLoaderContext classpath element checksum mismatch. expected=2558597794, found=1087307291 (DLC[];PCL[base.apk*2558597794]{PCL[/system/framework/org.apache.http.legacy.jar*1157712065]#PCL[/system/framework/com.android.media.remotedisplay.jar*2114713712]#PCL[/system/framework/com.android.location.provider.jar*3994156537]#PCL[/system/framework/org.apache.http.legacy.jar*1157712065]} | DLC[];PCL[/data/app/~~xtzIcKC29TbvQ7qAkFSFFQ==/com.ds.eventwish-ZXNd-o2oAJ3fue0fuptBIg==/base.apk*1087307291])
+03-13 14:55:06.313 16193 17934 I FIAM.Headless: Starting InAppMessaging runtime with Installation ID c1pVizjERDKxMHeV9vWBtn
+03-13 14:55:06.314 17927 17927 W getprop : type=1400 audit(0.0:2835519): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:55:06.320 16193 16193 W Glide   : Failed to find GeneratedAppGlideModule. You should include an annotationProcessor compile dependency on com.github.bumptech.glide:compiler in your application and a @GlideModule annotated AppGlideModule implementation or LibraryGlideModules will be silently ignored
+03-13 14:55:06.349 16193 16193 I FirebaseInitProvider: FirebaseApp initialization successful
+03-13 14:55:06.375 16193 16193 D EventWishApplication: Firebase initialized successfully
+03-13 14:55:06.376 16193 16193 D EventWishApplication: Firebase project ID: neweventwish
+03-13 14:55:06.376 16193 16193 D EventWishApplication: Firebase application ID: 1:381021411563:android:3fae237c5ecc58610906ae
+03-13 14:55:06.376 16193 17942 D nativeloader: Configuring clns-6 for other apk /system/framework/org.apache.http.legacy.jar. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:55:06.376 16193 17942 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libmcv_runtime_usdk.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libmvpu_config.mtk.so:libteeservice_client.trustonic.so
+03-13 14:55:06.378 16193 16193 I FIAM.Headless: Setting display event component
+03-13 14:55:06.378 16193 16193 D FirebaseInAppMsgHandler: Firebase In-App Messaging handler initialized
+03-13 14:55:06.380 16193 16193 D ApiClient: ApiClient initialized with application context
+03-13 14:55:06.384 16193 17942 D nativeloader: Configuring clns-7 for other apk /system/framework/com.android.media.remotedisplay.jar. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:55:06.384 16193 17942 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libmcv_runtime_usdk.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libmvpu_config.mtk.so:libteeservice_client.trustonic.so
+03-13 14:55:06.388 16193 17936 E om.ds.eventwish: No package ID 76 found for resource ID 0x760b000f.
+03-13 14:55:06.388 16193 17942 W om.ds.eventwish: Loading /data/misc/apexdata/com.android.art/dalvik-cache/arm64/system@framework@com.android.location.provider.jar@classes.odex non-executable as it requires an image which we failed to load
+03-13 14:55:06.389 16193 17936 E om.ds.eventwish: No package ID 76 found for resource ID 0x760b000f.
+03-13 14:55:06.391 16193 17936 I FA      : App measurement initialized, version: 118001
+03-13 14:55:06.391 16193 17936 I FA      : To enable debug logging run: adb shell setprop log.tag.FA VERBOSE
+03-13 14:55:06.392 16193 17936 I FA      : To enable faster debug mode event logging run:
+03-13 14:55:06.392 16193 17936 I FA      :   adb shell setprop debug.firebase.analytics.app com.ds.eventwish
+03-13 14:55:06.394 16193 17942 D nativeloader: Configuring clns-8 for other apk /system/framework/com.android.location.provider.jar. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:55:06.394 16193 17942 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libmcv_runtime_usdk.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libmvpu_config.mtk.so:libteeservice_client.trustonic.so
+03-13 14:55:06.402 16193 17942 W om.ds.eventwish: Loading /data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/oat/arm64/base.odex non-executable as it requires an image which we failed to load
+03-13 14:55:06.410 16193 17942 D nativeloader: Configuring clns-9 for other apk /data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk. target_sdk_version=34, uses_libraries=, library_path=/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/lib/arm64:/data/app/~~wzQsY1FI40DU1TEt5lJaHQ==/com.google.android.gms-apY9ojRwpR2jszBZex8L-g==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+03-13 14:55:06.466 16193 16193 D ApiClient: OkHttpClient created with cache at: /data/user/0/com.ds.eventwish/cache/http_cache
+03-13 14:55:06.482 16193 16193 W om.ds.eventwish: Accessing hidden method Ljava/lang/invoke/MethodHandles$Lookup;-><init>(Ljava/lang/Class;I)V (unsupported, reflection, allowed)
+03-13 14:55:06.490 16193 16193 D ApiClient: ApiService created
+03-13 14:55:06.523 16193 17951 I okhttp.OkHttpClient: --> POST https://eventwishes.onrender.com/api/tokens/register
+03-13 14:55:06.526 16193 17951 I okhttp.OkHttpClient: Content-Type: application/json; charset=UTF-8
+03-13 14:55:06.527 16193 17951 I okhttp.OkHttpClient: Content-Length: 154
+03-13 14:55:06.529 16193 17951 I okhttp.OkHttpClient: {"token":"c1pVizjERDKxMHeV9vWBtn:APA91bG4-zlAW2wOTQzvLZ8rW40qTI9Om9PlodyJ0v7RJm7akUMGNgKpKRx1ULnF1WGlM3K1EhGZI57C-RwE4zS67JyjuIEbq0ySvwChLmKdhDkdSmilPgg"}
+03-13 14:55:06.530 16193 17951 I okhttp.OkHttpClient: --> END POST (154-byte body)
+03-13 14:55:06.535 16193 17951 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+03-13 14:55:06.539 16193 17951 D NetworkUtils: NetworkUtils initialized
+03-13 14:55:06.545 16193 17939 D NetworkUtils: Network available
+03-13 14:55:06.548 16193 17939 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+03-13 14:55:06.548 16193 17939 D NetworkUtils: Network capabilities changed
+03-13 14:55:06.551 16193 17939 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+03-13 14:55:06.560 16193 16193 D WM-PackageManagerHelper: Skipping component enablement for androidx.work.impl.background.systemjob.SystemJobService
+03-13 14:55:06.560 16193 16193 D WM-Schedulers: Created SystemJobScheduler and enabled SystemJobService
+03-13 14:55:06.567 16193 16193 D ReminderCheckWorker: Scheduled periodic reminder check
+03-13 14:55:06.568 16193 16193 D EventWishApplication: Scheduled template update check worker
+03-13 14:55:06.569 16193 16193 D EventWishApplication: Clearing database cache on app start
+03-13 14:55:06.580 16193 16193 D EventWishApplication: Initializing CategoryIconRepository
+03-13 14:55:06.584 16193 16193 D ResourceDatabase: ResourceDatabase instance created
+03-13 14:55:06.593 16193 16193 D ResourceCache: ResourceCache initialized
+03-13 14:55:06.596 16193 16193 D ErrorHandler: ErrorHandler initialized
+03-13 14:55:06.596 16193 16193 D ResourceRepository: ResourceRepository initialized
+03-13 14:55:06.596 16193 16193 D CategoryIconRepository: CategoryIconRepository initialized with enhanced caching and offline support
+03-13 14:55:06.596 16193 16193 D CategoryIconRepository: Loading category icons with offline-first approach
+03-13 14:55:06.605 16193 17956 D EventWishApplication: Festival database cache cleared successfully
+03-13 14:55:06.606 16193 16193 D ResourceCache: Cache hit (disk): category_icon_category_icons
+03-13 14:55:06.606 16193 16193 D ResourceCache: Cache hit (memory): category_icon_category_icons
+03-13 14:55:06.607 16193 16193 D AndroidRuntime: Shutting down VM
+--------- beginning of crash
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: FATAL EXCEPTION: main
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: Process: com.ds.eventwish, PID: 16193
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: java.lang.RuntimeException: Unable to create application com.ds.eventwish.EventWishApplication: java.lang.ClassCastException: com.google.gson.internal.LinkedTreeMap cannot be cast to com.google.gson.JsonObject
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7919)
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: 	at android.app.ActivityThread.-$$Nest$mhandleBindApplication(Unknown Source:0)
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2639)
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:108)
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: 	at android.os.Looper.loopOnce(Looper.java:226)
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:328)
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:9213)
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:594)
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1099)
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: Caused by: java.lang.ClassCastException: com.google.gson.internal.LinkedTreeMap cannot be cast to com.google.gson.JsonObject
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: 	at com.ds.eventwish.data.repository.ResourceRepository.getResource(ResourceRepository.java:406)
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: 	at com.ds.eventwish.data.repository.CategoryIconRepository.loadCategoryIcons(CategoryIconRepository.java:198)
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: 	at com.ds.eventwish.EventWishApplication.onCreate(EventWishApplication.java:105)
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1316)
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7906)
+03-13 14:55:06.611 16193 16193 E AndroidRuntime: 	... 9 more
+03-13 14:55:06.615 16193 17961 D ResourceDatabase: Database opened
+03-13 14:55:06.621 16193 17952 D CompatibilityChangeReporter: Compat change id reported: 160794467; UID 10421; state: ENABLED
+03-13 14:55:06.624 16193 17961 D ResourceRepository: Cleaned up 0 expired resources
+03-13 14:55:06.631 16193 16193 I Process : Sending signal. PID: 16193 SIG: 9
+03-13 14:55:06.738 17967 17967 W getprop : type=1400 audit(0.0:2835520): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:55:06.751 10090 10090 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():2090 
+03-13 14:55:06.753 10090 10090 I Module  : DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():100 repeatCheckTimes = 0, locked = false
+03-13 14:55:06.754 10090 10090 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1357 onStartInput(EditorInfo{EditorInfo{packageName=com.android.launcher3, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+03-13 14:55:06.755 10090 10090 I Module  : DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():100 repeatCheckTimes = 1, locked = false
+03-13 14:55:14.565 11944 12854 E msys    : E[N MQTT]readErr(150)=>TCPStreamTransport readErr
+03-13 14:55:14.566 11944 12854 E msys    : E[N MQTT]onReadError(652)=>Read Error: AsyncSocketException: recv() failed (peer=[2a03:2880:f0a6:7:face:b00c:0:8e]:443), type = Internal error, errno = 103 (Software caused connection abort)
+03-13 14:55:14.573 11944 12023 E MQTTBypassDGWStreamGroupCallbacks.cpp: onStreamGroupError Error Domain=MNSSecureTCP Code=0 UserInfo=0xb400007bbceb2170 {MCFErrorDirectLocalizedFailureReasonKey=mbedtls_ssl_read(): NET - Reading information from the socket failed (-0x004C), error = Software caused connection abort}
+03-13 14:55:14.574 11944 12122 W RealtimeClientManager: Channel state: MqttChannelState{mConnectionState=DISCONNECTED, mDisconnectionReason=null, mLastConnectionMs=1133676288, mLastDisconnectMs=1134866292}
+03-13 14:55:14.577 11944 12122 W RealtimeClientManager: Channel state: MqttChannelState{mConnectionState=DISCONNECTED, mDisconnectionReason=null, mLastConnectionMs=1133676288, mLastDisconnectMs=1134866303}
+03-13 14:55:14.588 11944 12115 W IgMetaConfig: Could not obtain MC: not_user_session session=X.2ww@d44b756
+03-13 14:55:14.588 11944 12115 W IgMetaConfig: java.lang.RuntimeException: Could not obtain MC, call-site will receive default values
+03-13 14:55:14.588 11944 12115 W IgMetaConfig: 	at X.4ln.A05(:4)
+03-13 14:55:14.588 11944 12115 W IgMetaConfig: 	at X.4ln.A04(:43)
+03-13 14:55:14.588 11944 12115 W IgMetaConfig: 	at X.4ln.A03(:2)
+03-13 14:55:14.588 11944 12115 W IgMetaConfig: 	at X.2gq.A00(:8)
+03-13 14:55:14.588 11944 12115 W IgMetaConfig: 	at X.2gq.A02(:8)
+03-13 14:55:14.588 11944 12115 W IgMetaConfig: 	at X.8fu.A02(:143)
+03-13 14:55:14.588 11944 12115 W IgMetaConfig: 	at X.8fu.A08(:0)
+03-13 14:55:14.588 11944 12115 W IgMetaConfig: 	at X.8ge.A01(:16)
+03-13 14:55:14.588 11944 12115 W IgMetaConfig: 	at X.8fn.handleMessage(:278)
+03-13 14:55:14.588 11944 12115 W IgMetaConfig: 	at android.os.Handler.dispatchMessage(Handler.java:108)
+03-13 14:55:14.588 11944 12115 W IgMetaConfig: 	at android.os.Looper.loopOnce(Looper.java:226)
+03-13 14:55:14.588 11944 12115 W IgMetaConfig: 	at android.os.Looper.loop(Looper.java:328)
+03-13 14:55:14.588 11944 12115 W IgMetaConfig: 	at android.os.HandlerThread.run(HandlerThread.java:67)
+03-13 14:55:14.589 11944 12115 W IgMetaConfig: Could not obtain MC: not_user_session session=X.2ww@d44b756
+03-13 14:55:14.589 11944 12115 W IgMetaConfig: java.lang.RuntimeException: Could not obtain MC, call-site will receive default values
+03-13 14:55:14.589 11944 12115 W IgMetaConfig: 	at X.4ln.A05(:4)
+03-13 14:55:14.589 11944 12115 W IgMetaConfig: 	at X.4ln.A04(:43)
+03-13 14:55:14.589 11944 12115 W IgMetaConfig: 	at X.4ln.A03(:2)
+03-13 14:55:14.589 11944 12115 W IgMetaConfig: 	at X.2gq.A00(:8)
+03-13 14:55:14.589 11944 12115 W IgMetaConfig: 	at X.2gq.A02(:8)
+03-13 14:55:14.589 11944 12115 W IgMetaConfig: 	at X.8fu.A02(:152)
+03-13 14:55:14.589 11944 12115 W IgMetaConfig: 	at X.8fu.A08(:0)
+03-13 14:55:14.589 11944 12115 W IgMetaConfig: 	at X.8ge.A01(:16)
+03-13 14:55:14.589 11944 12115 W IgMetaConfig: 	at X.8fn.handleMessage(:278)
+03-13 14:55:14.589 11944 12115 W IgMetaConfig: 	at android.os.Handler.dispatchMessage(Handler.java:108)
+03-13 14:55:14.589 11944 12115 W IgMetaConfig: 	at android.os.Looper.loopOnce(Looper.java:226)
+03-13 14:55:14.589 11944 12115 W IgMetaConfig: 	at android.os.Looper.loop(Looper.java:328)
+03-13 14:55:14.589 11944 12115 W IgMetaConfig: 	at android.os.HandlerThread.run(HandlerThread.java:67)
+03-13 14:55:14.593 11944 12085 W LibevQuicAsyncUDPSocket.h: setReuseAddr not implemented in LibevQuicAsyncUDPSocket
+03-13 14:55:14.594 11944 12085 W LibevQuicAsyncUDPSocket.h: setTosOrTrafficClass not implemented in LibevQuicAsyncUDPSocket
+03-13 14:55:14.631 11944 12085 W LibevQuicAsyncUDPSocket.h: setReuseAddr not implemented in LibevQuicAsyncUDPSocket
+03-13 14:55:14.631 11944 12085 W LibevQuicAsyncUDPSocket.h: setTosOrTrafficClass not implemented in LibevQuicAsyncUDPSocket
+03-13 14:55:17.990 18014 18014 W getprop : type=1400 audit(0.0:2835524): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:55:18.082 18017 18017 W getprop : type=1400 audit(0.0:2835526): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:55:18.430 18019 18019 W getprop : type=1400 audit(0.0:2835527): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: FATAL EXCEPTION: main
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: Process: com.ds.eventwish, PID: 17156
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: java.lang.RuntimeException: Unable to create application com.ds.eventwish.EventWishApplication: java.lang.ClassCastException: com.google.gson.internal.LinkedTreeMap cannot be cast to com.google.gson.JsonObject
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7919)
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: 	at android.app.ActivityThread.-$$Nest$mhandleBindApplication(Unknown Source:0)
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2639)
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:108)
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: 	at android.os.Looper.loopOnce(Looper.java:226)
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:328)
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:9213)
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:594)
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1099)
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: Caused by: java.lang.ClassCastException: com.google.gson.internal.LinkedTreeMap cannot be cast to com.google.gson.JsonObject
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: 	at com.ds.eventwish.data.repository.ResourceRepository.getResource(ResourceRepository.java:406)
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: 	at com.ds.eventwish.data.repository.CategoryIconRepository.loadCategoryIcons(CategoryIconRepository.java:198)
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: 	at com.ds.eventwish.EventWishApplication.onCreate(EventWishApplication.java:105)
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1316)
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7906)
+03-13 14:55:18.939 17156 17156 E AndroidRuntime: 	... 9 more
+03-13 14:55:19.082 18066 18066 W getprop : type=1400 audit(0.0:2835528): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:55:19.111 10090 10090 I GoogleInputMethodService: GoogleInputMethodService.onFinishInput():2090 
+03-13 14:55:19.113 10090 10090 I Module  : DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():100 repeatCheckTimes = 0, locked = false
+03-13 14:55:19.114 10090 10090 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1357 onStartInput(EditorInfo{EditorInfo{packageName=com.android.launcher3, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+03-13 14:55:19.117 10090 10090 I Module  : DeviceLockedStatusModuleProvider$Module.updateDeviceLockedStatus():100 repeatCheckTimes = 1, locked = false
+03-13 14:55:19.170 18071 18071 W getprop : type=1400 audit(0.0:2835529): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0

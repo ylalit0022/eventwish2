@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EventWish AdMob Suspicious Activity Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa;
+      color: #212529;
+    }
+    
+    .navbar-brand {
+      font-weight: 600;
+    }
+    
+    .card {
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+      border: none;
+    }
+    
+    .card-header {
+      background-color: #4a6fa5;
+      color: white;
+      border-radius: 10px 10px 0 0 !important;
+      font-weight: 600;
+    }
+    
+    .stat-card {
+      text-align: center;
+      padding: 15px;
+    }
+    
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      margin: 10px 0;
+    }
+    
+    .stat-label {
+      font-size: 0.9rem;
+      color: #6c757d;
+    }
+    
+    .severity-low {
+      color: #28a745;
+    }
+    
+    .severity-medium {
+      color: #ffc107;
+    }
+    
+    .severity-high {
+      color: #fd7e14;
+    }
+    
+    .severity-critical {
+      color: #dc3545;
+    }
+    
+    .activity-list {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .activity-item {
+      padding: 10px;
+      border-bottom: 1px solid #e9ecef;
+    }
+    
+    .activity-item:last-child {
+      border-bottom: none;
+    }
+    
+    .activity-time {
+      font-size: 0.8rem;
+      color: #6c757d;
+    }
+    
+    .activity-type {
+      font-weight: 600;
+    }
+    
+    .activity-details {
+      font-size: 0.9rem;
+      margin-top: 5px;
+    }
+    
+    .chart-container {
+      height: 300px;
+    }
+    
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 200px;
+    }
+    
+    .spinner-border {
+      width: 3rem;
+      height: 3rem;
+    }
+    
+    .top-list {
+      list-style-type: none;
+      padding: 0;
+    }
+    
+    .top-list-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #e9ecef;
+    }
+    
+    .top-list-item:last-child {
+      border-bottom: none;
+    }
+    
+    .badge {
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">
+        <i class="bi bi-shield-exclamation"></i>
+        EventWish AdMob Security Dashboard
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link active" href="#">Dashboard</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">Activities</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">Users</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">Devices</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">IPs</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">Settings</a>
+          </li>
+        </ul>
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="#" id="refreshButton">
+              <i class="bi bi-arrow-clockwise"></i> Refresh
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  
+  <div class="container-fluid mt-4">
+    <div class="row">
+      <div class="col-md-12 mb-4">
+        <div class="alert alert-info" role="alert">
+          <i class="bi bi-info-circle"></i>
+          This dashboard displays suspicious activities related to AdMob integration. Use it to monitor and investigate potential fraud or security issues.
+        </div>
+      </div>
+    </div>
+    
+    <div class="row">
+      <div class="col-md-3">
+        <div class="card stat-card">
+          <div class="stat-value" id="totalActivities">-</div>
+          <div class="stat-label">Total Suspicious Activities</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card stat-card">
+          <div class="stat-value severity-critical" id="criticalActivities">-</div>
+          <div class="stat-label">Critical Severity</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card stat-card">
+          <div class="stat-value severity-high" id="highActivities">-</div>
+          <div class="stat-label">High Severity</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card stat-card">
+          <div class="stat-value" id="fraudRate">-</div>
+          <div class="stat-label">Fraud Rate</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="row mt-4">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <i class="bi bi-graph-up"></i> Activity by Type
+          </div>
+          <div class="card-body">
+            <div class="chart-container" id="activityTypeChart">
+              <div class="loading">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <i class="bi bi-exclamation-triangle"></i> Activity by Severity
+          </div>
+          <div class="card-body">
+            <div class="chart-container" id="severityChart">
+              <div class="loading">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="row mt-4">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header">
+            <i class="bi bi-clock-history"></i> Recent Activities
+          </div>
+          <div class="card-body p-0">
+            <div class="activity-list" id="recentActivities">
+              <div class="loading">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="row">
+          <div class="col-md-12">
+            <div class="card">
+              <div class="card-header">
+                <i class="bi bi-person-x"></i> Top Suspicious Users
+              </div>
+              <div class="card-body">
+                <ul class="top-list" id="topUsers">
+                  <div class="loading">
+                    <div class="spinner-border text-primary" role="status">
+                      <span class="visually-hidden">Loading...</span>
+                    </div>
+                  </div>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-12 mt-4">
+            <div class="card">
+              <div class="card-header">
+                <i class="bi bi-globe"></i> Top Suspicious IPs
+              </div>
+              <div class="card-body">
+                <ul class="top-list" id="topIps">
+                  <div class="loading">
+                    <div class="spinner-border text-primary" role="status">
+                      <span class="visually-hidden">Loading...</span>
+                    </div>
+                  </div>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="/js/bootstrap.bundle.min.js"></script>
+  <script src="/js/chart.js"></script>
+  <script src="suspicious-activity-dashboard.js"></script>
+</body>
+</html> 

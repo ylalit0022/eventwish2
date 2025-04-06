@@ -1,0 +1,84 @@
+--------- beginning of system
+03-13 14:40:46.172  1533  4946 W BatteryStatsService: Unknown sensor handle 0 received in noteWakeupSensorEvent
+--------- beginning of main
+03-13 14:40:48.074  7831  7874 I bbdx    : (REDACTED) getHotwordActive::active query: %s, watch: %s, devices connected: %s
+03-13 14:40:53.910 14871 14871 W getprop : type=1400 audit(0.0:2832327): avc:  denied  { open } for  path="/dev/__properties__/u:object_r:vendor_camera_software_moonlight_prop:s0" dev="tmpfs" ino=8774 scontext=u:r:shell:s0 tcontext=u:object_r:vendor_camera_software_moonlight_prop:s0 tclass=file permissive=0
+03-13 14:40:56.316  1533  4946 W BatteryStatsService: Unknown sensor handle 0 received in noteWakeupSensorEvent
+03-13 14:41:16.652 25578 14616 I AlarmManager: setExactAndAllowWhileIdle [name: GCM_HB_ALARM type: 2 triggerAtMillis: 1135708378]
+03-13 14:41:16.672 25578 13475 I AlarmManager: setExactAndAllowWhileIdle [name: FcmRetry type: 2 triggerAtMillis: 1134148394]
+03-13 14:41:16.711 25578 25578 W GCM     : broadcast intent callback: result=CANCELLED forIntent { act=com.google.android.c2dm.intent.RECEIVE flg=0x10000000 pkg=com.google.android.youtube (has extras) }
+03-13 14:41:17.060  7119 14889 E YouTube : YTN: The custom payload could not be unpacked.
+03-13 14:41:17.418  7119  7129 I android.youtube: Background young concurrent copying GC freed 8039KB AllocSpace bytes, 19(752KB) LOS objects, 40% free, 12MB/20MB, paused 601us,105us total 167.003ms
+03-13 14:41:17.419  7119  7129 W android.youtube: Reducing the number of considered missed Gc histogram windows from 139 to 100
+03-13 14:41:17.524  7119  7376 E YouTube : VolleyDiskCache.put
+03-13 14:41:17.524  7119  7376 E YouTube : java.io.IOException: failed to delete /data/user/0/com.google.android.youtube/cache/glide_disk_cache/volleyCache/-774901390.0
+03-13 14:41:17.524  7119  7376 E YouTube : 	at yxx.o(PG:66)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at yxx.k(PG:31)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at yxx.i(PG:5)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at yxx.f(PG:193)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at yxu.b(PG:24)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at yha.run(PG:368)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at amvv.run(PG:21)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at qxs.run(PG:7)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at anzd.run(PG:50)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at qzi.run(PG:561)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at qxk.run(PG:620)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at java.lang.Thread.run(Thread.java:1012)
+03-13 14:41:17.524  7119  7376 E YouTube : 	at qyo.run(PG:63)
+03-13 14:41:17.539  7119 14892 D skia    : onGetGainmapInfo: false.
+03-13 14:41:17.583  7119  7376 E YouTube : VolleyDiskCache.put
+03-13 14:41:17.583  7119  7376 E YouTube : java.io.IOException: failed to delete /data/user/0/com.google.android.youtube/cache/glide_disk_cache/volleyCache/-1450074601.0
+03-13 14:41:17.583  7119  7376 E YouTube : 	at yxx.o(PG:66)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at yxx.k(PG:31)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at yxx.i(PG:5)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at yxx.f(PG:193)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at yxu.b(PG:24)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at yha.run(PG:368)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at amvv.run(PG:21)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at qxs.run(PG:7)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at anzd.run(PG:50)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at qzi.run(PG:561)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at qxk.run(PG:620)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at java.lang.Thread.run(Thread.java:1012)
+03-13 14:41:17.583  7119  7376 E YouTube : 	at qyo.run(PG:63)
+03-13 14:41:17.586  7119 14893 D skia    : onGetGainmapInfo: false.
+03-13 14:41:17.987  7119 14889 W YouTube : Unknown command not resolved# arlp@f3490a2e
+03-13 14:41:18.142  8528  8681 I WM-WorkerWrapper: Worker result SUCCESS for Work [ id=e261972a-e68d-4de8-88b6-36b277d0b2b4, tags={ smt_background_tag, com.netcore.android.workmgr.BackgroundSyncWorker } ]
+03-13 14:41:18.157  8528  8710 I WM-WorkerWrapper: Worker result SUCCESS for Work [ id=6f90eab7-2b43-4fde-9037-bbc55e5bbe9c, tags={ smt_eventsync_tag, com.netcore.android.workmgr.EventSyncWorker } ]
+03-13 14:41:18.608  1533  4946 D BatteryStatsService: notePemString  noteWhich: 49,arg1: 1080, arg2: 2408, arg3: 30202, arg4: 511, name: com.android.systemui
+03-13 14:41:18.609  1533  4946 D BatteryStatsService: notePemString  noteWhich: 49,arg1: 1080, arg2: 2408, arg3: 30202, arg4: 320, name: com.android.systemui
+03-13 14:41:18.614  1533  4946 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 511, name: com.android.systemui
+03-13 14:41:18.615  1533  4962 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 320, name: com.android.systemui
+03-13 14:41:18.620  1533  4934 D BatteryStatsService: notePemString  noteWhich: 49,arg1: 1080, arg2: 2408, arg3: 30202, arg4: 511, name: com.android.systemui
+03-13 14:41:18.620  1533  4934 D BatteryStatsService: notePemString  noteWhich: 49,arg1: 1080, arg2: 2408, arg3: 30202, arg4: 320, name: com.android.systemui
+03-13 14:41:18.657  1533  4946 D BatteryStatsService: notePemString  noteWhich: 49,arg1: 1080, arg2: 2408, arg3: 30202, arg4: 511, name: com.android.systemui
+03-13 14:41:18.657  1533  4946 D BatteryStatsService: notePemString  noteWhich: 49,arg1: 1080, arg2: 2408, arg3: 30202, arg4: 320, name: com.android.systemui
+03-13 14:41:24.367  1533  4961 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 511, name: com.android.systemui
+03-13 14:41:24.368  1533  4961 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 320, name: com.android.systemui
+03-13 14:41:24.404  1533  4961 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 511, name: com.android.systemui
+03-13 14:41:24.405  1533  4961 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 320, name: com.android.systemui
+03-13 14:41:48.074  7831  7874 I bbdx    : (REDACTED) getHotwordActive::active query: %s, watch: %s, devices connected: %s
+03-13 14:41:55.711  7831  7831 I facx    : (REDACTED) O received %s
+03-13 14:41:55.735  7831  7831 I AmbBrdcstRcvrServClient: (REDACTED) handleRefreshAction(): not handling %s
+03-13 14:41:55.737  7831  7871 I BrdcstRcvrMsgr: (REDACTED) sendMessage(): received broadcast id:%d with action:%s
+03-13 14:41:55.856  7831  7871 I BrdcstRcvrMsgr: disconnect()
+03-13 14:41:55.856  7831  7871 E BrdcstRcvrMsgr: SvcConn: binder null, could not send broadcast of action
+03-13 14:41:56.904  1533  4961 W BatteryStatsService: Unknown sensor handle 0 received in noteWakeupSensorEvent
+03-13 14:41:58.297  7831  7831 I facx    : (REDACTED) O received %s
+03-13 14:41:58.354  7831  7871 I BrdcstRcvrMsgr: (REDACTED) sendMessage(): received broadcast id:%d with action:%s
+03-13 14:41:58.355  7831  7831 I AmbBrdcstRcvrServClient: (REDACTED) handleRefreshAction(): not handling %s
+03-13 14:41:58.415  7831  7871 I BrdcstRcvrMsgr: disconnect()
+03-13 14:41:58.415  7831  7871 E BrdcstRcvrMsgr: SvcConn: binder null, could not send broadcast of action
+03-13 14:41:58.457 25578 13287 I FusedLocation: (REDACTED) stationary throttling engaged @%s
+03-13 14:41:58.468 25578 10573 I FusedLocation: (REDACTED) stationary throttling engaged @%s
+03-13 14:42:02.538  6793 14864 W HttpCallTransport: Fail read Http response and forward to Cello
+03-13 14:42:02.539  6793 14864 W HttpCallTransport: Fail read Http response and forward to Cello
+03-13 14:42:02.539  6793  7071 E Cello   : [7071:NonCelloThread] drive_v2_cloud_store.cc:6657:DumpToLog Request 0xb400007beccd9850: 0 https://play.googleapis.com/log transport: drive::ds::Status::UNAVAILABLE_WHILE_OFFLINE reader: drive::ds::Status::SUCCESS
+03-13 14:42:02.539  6793  7071 E Cello   : [7071:NonCelloThread] drive_v2_cloud_store.cc:6657:DumpToLog req.hdr 0xb400007beccd9850: Content-Type=
+03-13 14:42:02.539  6793  7071 E Cello   : [7071:NonCelloThread] drive_v2_cloud_store.cc:6657:DumpToLog Response body 0xb400007beccd9850: (no response body)
+03-13 14:42:02.540  6793  7090 E Cello   : [7090:MetricsTransportThread-CELLO] metrics_transport.cc:242:SendRequest Request failed: drive::ds::Status::UNAVAILABLE_WHILE_OFFLINE
+03-13 14:42:02.540  6793  7090 I Cello   : [7090:MetricsTransportThread-CELLO] metrics_transport.cc:468:ProcessRequestsOnBackgroundThread Metrics failed to send, drive::ds::Status::UNAVAILABLE_WHILE_OFFLINE
+03-13 14:42:04.820  1533  4687 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 511, name: com.android.systemui
+03-13 14:42:04.821  1533  4687 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 320, name: com.android.systemui
+03-13 14:42:04.849  1533  4687 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 511, name: com.android.systemui
+03-13 14:42:04.851  1533  4687 D BatteryStatsService: notePemString  noteWhich: 49,arg1: -2, arg2: -1, arg3: 30202, arg4: 320, name: com.android.systemui
