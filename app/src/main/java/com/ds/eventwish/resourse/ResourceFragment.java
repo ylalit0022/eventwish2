@@ -448,25 +448,159 @@ public class ResourceFragment extends Fragment {
     private void setupWebViewContent(WishResponse wishResponse) {
         if (binding != null && binding.webView != null && wishResponse != null) {
             binding.contentLayout.setVisibility(View.VISIBLE);
+            
+            // Get content with null checks
             String html = wishResponse.getCustomizedHtml();
-            String css = wishResponse.getTemplate().getCssContent();
-            String js = wishResponse.getTemplate().getJsContent();
-
+            String css = wishResponse.getCssContent(); // Try getting CSS directly first
+            String js = wishResponse.getJsContent();   // Try getting JS directly first
+            
+            // If CSS/JS is empty in WishResponse, try getting from template
+            if ((css == null || css.isEmpty()) && wishResponse.getTemplate() != null) {
+                css = wishResponse.getTemplate().getCssContent();
+                Log.d(TAG, "Using template CSS as fallback, length: " + (css != null ? css.length() : 0));
+            }
+            
+            if ((js == null || js.isEmpty()) && wishResponse.getTemplate() != null) {
+                js = wishResponse.getTemplate().getJsContent();
+                Log.d(TAG, "Using template JS as fallback, length: " + (js != null ? js.length() : 0));
+            }
+            
+            // Ensure content is not null
+            html = html != null ? html : "";
+            css = css != null ? css : "";
+            js = js != null ? js : "";
+            
+            // Create final copies for use in lambda expressions
+            final String finalHtml = html;
+            final String finalCss = css;
+            final String finalJs = js;
+            
+            // Log content lengths for debugging
+            Log.d(TAG, "HTML content length: " + finalHtml.length());
+            Log.d(TAG, "CSS content length: " + finalCss.length());
+            Log.d(TAG, "JS content length: " + finalJs.length());
+            
             // Add background color matching to the CSS
-            css += "\nbody { background-color: transparent !important; }\n";
-
-            String fullHtml = String.format(
-                "<html>" +
-                        "<head>" +
-                        "<meta charset=\"UTF-8\">" +
-                        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=2.0, minimum-scale=0.5\">" +
-                        "<style>%s</style>" +
-                        "</head>" +
-                        "<body>%s<script>%s</script></body>" +
-                "</html>",
-                css, html, js
+            final String finalCssWithBackground = finalCss + "\nbody { background-color: transparent !important; }\n";
+            
+            // Better HTML construction with StringBuilder
+            StringBuilder htmlBuilder = new StringBuilder();
+            htmlBuilder.append("<!DOCTYPE html>\n");
+            htmlBuilder.append("<html>\n");
+            htmlBuilder.append("<head>\n");
+            htmlBuilder.append("  <meta charset=\"UTF-8\">\n");
+            htmlBuilder.append("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=2.0, minimum-scale=0.5\">\n");
+            
+            // Add CSS with debug comment
+            htmlBuilder.append("  <style type='text/css'>\n");
+            htmlBuilder.append("    /* CSS Content Start */\n");
+            htmlBuilder.append(finalCssWithBackground);
+            htmlBuilder.append("\n    /* CSS Content End */\n");
+            htmlBuilder.append("  </style>\n");
+            
+            // Add CSS validation helper
+            htmlBuilder.append("  <script>\n");
+            htmlBuilder.append("    function checkCssLoaded() {\n");
+            htmlBuilder.append("      console.log('CSS Validation: Checking stylesheets...');\n");
+            htmlBuilder.append("      var sheets = document.styleSheets;\n");
+            htmlBuilder.append("      console.log('Found ' + sheets.length + ' stylesheets');\n");
+            htmlBuilder.append("      return sheets.length > 0;\n");
+            htmlBuilder.append("    }\n");
+            htmlBuilder.append("    function testJs() {\n");
+            htmlBuilder.append("      console.log('JavaScript is working!');\n");
+            htmlBuilder.append("      return true;\n");
+            htmlBuilder.append("    }\n");
+            htmlBuilder.append("  </script>\n");
+            htmlBuilder.append("</head>\n");
+            htmlBuilder.append("<body>\n");
+            
+            // Add HTML Content
+            htmlBuilder.append(finalHtml);
+            
+            // Add JavaScript with debug comment and validation
+            htmlBuilder.append("\n<script type='text/javascript'>\n");
+            htmlBuilder.append("// JavaScript Content Start\n");
+            htmlBuilder.append("console.log('Main JavaScript started executing');\n");
+            htmlBuilder.append("document.addEventListener('DOMContentLoaded', function() {\n");
+            htmlBuilder.append("  console.log('DOM fully loaded, running CSS check...');\n");
+            htmlBuilder.append("  checkCssLoaded();\n");
+            htmlBuilder.append("  testJs();\n");
+            htmlBuilder.append("});\n\n");
+            htmlBuilder.append(finalJs);
+            htmlBuilder.append("\n// JavaScript Content End\n");
+            htmlBuilder.append("</script>\n");
+            
+            htmlBuilder.append("</body>\n");
+            htmlBuilder.append("</html>");
+            
+            String fullHtml = htmlBuilder.toString();
+            
+            // Enable JavaScript and other necessary settings
+            WebSettings webSettings = binding.webView.getSettings();
+            webSettings.setJavaScriptEnabled(true);
+            webSettings.setDomStorageEnabled(true);
+            webSettings.setLoadWithOverviewMode(true);
+            webSettings.setUseWideViewPort(true);
+            
+            // Add console message handler to see JavaScript console logs
+            binding.webView.setWebChromeClient(new android.webkit.WebChromeClient() {
+                @Override
+                public boolean onConsoleMessage(android.webkit.ConsoleMessage consoleMessage) {
+                    Log.d("WebView Console", consoleMessage.message() + " -- From line " +
+                          consoleMessage.lineNumber() + " of " + consoleMessage.sourceId());
+                    return true;
+                }
+            });
+            
+            // Set up enhanced WebViewClient to handle page load events and inject fallbacks if needed
+            binding.webView.setWebViewClient(new SafeWebViewClient() {
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    super.onPageFinished(view, url);
+                    
+                    // Show fullscreen toggle once content is loaded
+                    binding.fullscreenToggle.setVisibility(View.VISIBLE);
+                    
+                    // Call test functions to verify CSS and JS are working
+                    binding.webView.evaluateJavascript("checkCssLoaded()", 
+                        value -> Log.d(TAG, "CSS loaded check: " + value));
+                    
+                    binding.webView.evaluateJavascript("testJs()", 
+                        value -> Log.d(TAG, "JS test result: " + value));
+                    
+                    // Inject CSS as a fallback if needed
+                    if (finalCss != null && !finalCss.isEmpty()) {
+                        String cssEscaped = finalCss.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\"", "\\\"");
+                        String injectCss = 
+                            "var style = document.createElement('style');" +
+                            "style.type = 'text/css';" +
+                            "style.innerHTML = \"" + cssEscaped + "\";" +
+                            "document.head.appendChild(style);" +
+                            "console.log('CSS manually injected, length: " + finalCss.length() + "');" +
+                            "true;";
+                        
+                        binding.webView.evaluateJavascript(injectCss, value -> 
+                            Log.d(TAG, "CSS injection result: " + value));
+                    }
+                    
+                    // Capture the WebView as a bitmap to extract dominant color
+                    binding.webView.setDrawingCacheEnabled(true);
+                    Bitmap bitmap = Bitmap.createBitmap(binding.webView.getDrawingCache());
+                    binding.webView.setDrawingCacheEnabled(false);
+                    
+                    // Extract dominant color using Palette API
+                    extractDominantColor(bitmap);
+                }
+            });
+            
+            // Load the HTML content into the WebView with a base URL
+            binding.webView.loadDataWithBaseURL(
+                "https://eventwish2.onrender.com/",
+                fullHtml,
+                "text/html",
+                "UTF-8",
+                null
             );
-            binding.webView.loadDataWithBaseURL(null, fullHtml, "text/html", "UTF-8", null);
             
             // Make WebView background transparent to match fragment background
             binding.webView.setBackgroundColor(Color.TRANSPARENT);
@@ -520,6 +654,11 @@ public class ResourceFragment extends Fragment {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, String url) {
             return true; // Prevent navigation
+        }
+        
+        @Override
+        public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+            Log.e(TAG, "WebView error: " + errorCode + " - " + description);
         }
     }
 
