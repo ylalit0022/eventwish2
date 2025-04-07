@@ -58,14 +58,13 @@ public class TemplateCustomizeViewModel extends ViewModel {
     public void loadTemplate(String templateId) {
         this.templateId = templateId;
         
-        // Use the Resource<Template> LiveData
-        templateRepository.getTemplateById(templateId, false).observeForever(resource -> {
-            if (resource.isSuccess() && resource.getData() != null) {
-                Template loadedTemplate = resource.getData();
-                this.template.setValue(loadedTemplate);
+        // Now getTemplateById returns LiveData<Template> directly
+        templateRepository.getTemplateById(templateId, false).observeForever(template -> {
+            if (template != null) {
+                this.template.setValue(template);
                 updatePreview();
-            } else if (resource.isError()) {
-                error.setValue(resource.getMessage());
+            } else {
+                error.setValue("Failed to load template");
             }
         });
     }

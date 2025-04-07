@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import android.content.Context;
 
 public class TemplateRepository {
     private static TemplateRepository instance;
@@ -32,6 +33,18 @@ public class TemplateRepository {
         templates.setValue(new ArrayList<>());
     }
 
+    /**
+     * Initialize the repository with a context
+     * @param context Application context
+     * @return The repository instance
+     */
+    public static synchronized TemplateRepository init(Context context) {
+        if (instance == null) {
+            instance = new TemplateRepository();
+        }
+        return instance;
+    }
+
     public static synchronized TemplateRepository getInstance() {
         if (instance == null) {
             instance = new TemplateRepository();
@@ -41,6 +54,15 @@ public class TemplateRepository {
 
     public LiveData<List<Template>> getTemplates() {
         return templates;
+    }
+
+    /**
+     * Get templates synchronously without LiveData
+     * @return A list of templates or empty list if none are loaded
+     */
+    public List<Template> getTemplatesSync() {
+        List<Template> templateList = templates.getValue();
+        return templateList != null ? new ArrayList<>(templateList) : new ArrayList<>();
     }
 
     public LiveData<Map<String, Integer>> getCategories() {
@@ -280,6 +302,45 @@ public class TemplateRepository {
             android.util.Log.d("TemplateRepository", "Restoring " + currentCategories.size() + " categories after cache clear");
             categories.setValue(currentCategories);
         }
+    }
+
+    /**
+     * Get a template by ID
+     * @param templateId The template ID to fetch
+     * @param forceRefresh Whether to force a refresh from network
+     * @return LiveData with the template resource
+     */
+    public LiveData<Template> getTemplateById(String templateId, boolean forceRefresh) {
+        MutableLiveData<Template> result = new MutableLiveData<>();
+        
+        // First check if we have it cached locally
+        if (!forceRefresh && templates.getValue() != null) {
+            for (Template template : templates.getValue()) {
+                if (template.getId().equals(templateId)) {
+                    result.setValue(template);
+                    return result;
+                }
+            }
+        }
+        
+        // Fetch from network
+        apiService.getTemplateById(templateId).enqueue(new Callback<Template>() {
+            @Override
+            public void onResponse(Call<Template> call, Response<Template> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    result.setValue(response.body());
+                } else {
+                    result.setValue(null);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Template> call, Throwable t) {
+                result.setValue(null);
+            }
+        });
+        
+        return result;
     }
 
     /**

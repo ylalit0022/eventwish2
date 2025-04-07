@@ -84,11 +84,15 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         setupClickListeners();
         
         // Load template data
-        templateId = TemplateDetailFragmentArgs.fromBundle(getArguments()).getTemplateId();
-        if (templateId != null) {
-            viewModel.loadTemplate(templateId);
+        if (getArguments() != null) {
+            templateId = getArguments().getString("templateId");
+            if (templateId != null) {
+                viewModel.loadTemplate(templateId);
+            } else {
+                showError("Invalid template ID");
+            }
         } else {
-            showError("Invalid template ID");
+            showError("No arguments provided");
         }
         isViewCreated = true;
     }

@@ -200,6 +200,14 @@ public class CategoryIconRepository {
     }
 
     /**
+     * Check if the repository has been initialized
+     * @return true if initialized, false otherwise
+     */
+    public boolean isInitialized() {
+        return isInitialized.get();
+    }
+
+    /**
      * Get error as LiveData
      * @return LiveData with error message
      */
