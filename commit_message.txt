@@ -1,1 +1,1 @@
-[Cursor] Remove AdMob integration and fix related code issues
+Fixed inner class variable references in ResourceFragment.java
