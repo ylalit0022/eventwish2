@@ -83,6 +83,9 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         setupObservers();
         setupClickListeners();
         
+        // Adjust WebView container layout parameters for better display
+        adjustWebViewLayout();
+        
         // Load template data
         if (getArguments() != null) {
             templateId = getArguments().getString("templateId");
@@ -132,22 +135,119 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
     private void setupWebView() {
         
         if (binding != null) {
-            // Disable caching completely
-            binding.webView.getSettings().setJavaScriptEnabled(true);
-            binding.webView.getSettings().setLoadWithOverviewMode(true);
-            binding.webView.getSettings().setUseWideViewPort(true);
-            binding.webView.getSettings().setDomStorageEnabled(true);
-            binding.webView.getSettings().setCacheMode(android.webkit.WebSettings.LOAD_NO_CACHE);
-            binding.webView.clearCache(true);
+            // Configure WebView for optimal rendering
+            android.webkit.WebSettings webSettings = binding.webView.getSettings();
+            webSettings.setJavaScriptEnabled(true);
+            webSettings.setLoadWithOverviewMode(true);
+            webSettings.setUseWideViewPort(true);
+            webSettings.setDomStorageEnabled(true);
+            webSettings.setLayoutAlgorithm(android.webkit.WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING);
+            webSettings.setDefaultTextEncodingName("UTF-8");
+            webSettings.setLoadsImagesAutomatically(true);
+            webSettings.setBuiltInZoomControls(false);
+            webSettings.setDisplayZoomControls(false);
+            webSettings.setAllowFileAccess(true);
+            webSettings.setAllowContentAccess(true);
+            webSettings.setMediaPlaybackRequiresUserGesture(false);
+            webSettings.setCacheMode(android.webkit.WebSettings.LOAD_NO_CACHE);
             
-            // AppCache is deprecated in API level 33 and removed in newer versions
-            // binding.webView.getSettings().setAppCacheEnabled(false);
+            // Clear any existing cache
+            binding.webView.clearCache(true);
+            binding.webView.clearHistory();
+            
+            // Add improved styling
+            binding.webView.setBackgroundColor(android.graphics.Color.WHITE);
+            binding.webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+            binding.webView.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
+            
+            // Fix rendering issues by setting content width
+            binding.webView.evaluateJavascript(
+                "document.getElementsByTagName('meta')['viewport'].content = " +
+                "'width=device-width, initial-scale=1.0, maximum-scale=1.0';", null);
+            
+            // Add a WebViewClient to handle page loading and fix rendering
+            binding.webView.setWebViewClient(new android.webkit.WebViewClient() {
+                @Override
+                public void onPageStarted(android.webkit.WebView view, String url, android.graphics.Bitmap favicon) {
+                    super.onPageStarted(view, url, favicon);
+                    if (binding != null) {
+                        binding.webViewProgress.setVisibility(View.VISIBLE);
+                    }
+                }
+                
+                @Override
+                public void onPageFinished(android.webkit.WebView view, String url) {
+                    super.onPageFinished(view, url);
+                    if (binding != null) {
+                        binding.webViewProgress.setVisibility(View.GONE);
+                        
+                        // Force proper rendering by injecting viewport scale fix
+                        String javascript = 
+                            "var meta = document.createElement('meta');" +
+                            "meta.name = 'viewport';" +
+                            "meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0';" +
+                            "document.getElementsByTagName('head')[0].appendChild(meta);" +
+                            "document.body.style.width = '100%';" +
+                            "document.body.style.margin = '0';" +
+                            "document.body.style.padding = '0';";
+                        view.evaluateJavascript(javascript, null);
+                    }
+                }
+                
+                @Override
+                public void onReceivedError(android.webkit.WebView view, android.webkit.WebResourceRequest request, 
+                                           android.webkit.WebResourceError error) {
+                    super.onReceivedError(view, request, error);
+                    if (binding != null) {
+                        binding.webViewProgress.setVisibility(View.GONE);
+                        showError("Error loading template: " + error.getDescription());
+                    }
+                }
+            });
+            
+            // Add border styling to WebView container
+            if (binding.templatePreview != null) {
+                binding.templatePreview.setElevation(8f);
+                binding.templatePreview.setBackgroundColor(android.graphics.Color.WHITE);
+                
+                // Add rounded corners to WebView container
+                binding.templatePreview.setClipToOutline(true);
+                try {
+                    binding.templatePreview.setOutlineProvider(new android.view.ViewOutlineProvider() {
+                        @Override
+                        public void getOutline(View view, android.graphics.Outline outline) {
+                            outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), 
+                                    getResources().getDimensionPixelSize(R.dimen.corner_radius));
+                        }
+                    });
+                } catch (Exception e) {
+                    Log.e(TAG, "Error setting outline provider", e);
+                }
+                
+                // Add subtle border for better definition
+                binding.templatePreview.setForeground(createBorderDrawable());
+            }
             
             // Disable local storage
             binding.webView.getSettings().setDatabaseEnabled(false);
             
             templateRenderer = new TemplateRenderer(binding.webView, this);
         }
+    }
+    
+    /**
+     * Create a border drawable for WebView container
+     */
+    private android.graphics.drawable.Drawable createBorderDrawable() {
+        float density = getResources().getDisplayMetrics().density;
+        float cornerRadius = getResources().getDimensionPixelSize(R.dimen.corner_radius);
+        
+        android.graphics.drawable.GradientDrawable drawable = new android.graphics.drawable.GradientDrawable();
+        drawable.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        drawable.setCornerRadius(cornerRadius);
+        drawable.setStroke((int)(1 * density), android.graphics.Color.parseColor("#E0E0E0"));
+        
+        return drawable;
     }
 
     private void setupInputListeners() {
@@ -166,8 +266,68 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
             }
         };
         
+        // Add visual styling for input fields
+        styleInputField(binding.recipientNameInput, "Recipient Name");
+        styleInputField(binding.senderNameInput, "Sender Name");
+        
         binding.recipientNameInput.addTextChangedListener(textWatcher);
         binding.senderNameInput.addTextChangedListener(textWatcher);
+    }
+    
+    /**
+     * Apply consistent styling to input fields
+     */
+    private void styleInputField(android.widget.EditText editText, String hintText) {
+        if (editText == null) return;
+        
+        // Set hint text
+        editText.setHint(hintText);
+        
+        // Apply text color and size
+        editText.setTextColor(android.graphics.Color.parseColor("#333333"));
+        editText.setHintTextColor(android.graphics.Color.parseColor("#9E9E9E"));
+        editText.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16);
+        
+        // Add padding
+        int paddingDp = 16;
+        float density = getResources().getDisplayMetrics().density;
+        int paddingPx = (int)(paddingDp * density);
+        editText.setPadding(paddingPx, paddingPx, paddingPx, paddingPx);
+        
+        // Add background with rounded corners programmatically
+        android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable();
+        shape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        shape.setCornerRadius(8 * density);
+        shape.setColor(android.graphics.Color.parseColor("#F5F5F5"));
+        shape.setStroke(2, android.graphics.Color.parseColor("#E0E0E0"));
+        editText.setBackground(shape);
+        
+        // Add animation effect for focus
+        editText.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                // When focused
+                android.graphics.drawable.GradientDrawable focusedShape = new android.graphics.drawable.GradientDrawable();
+                focusedShape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+                focusedShape.setCornerRadius(8 * density);
+                focusedShape.setColor(android.graphics.Color.parseColor("#F5F5F5"));
+                focusedShape.setStroke(2, android.graphics.Color.parseColor("#5C6BC0"));
+                editText.setBackground(focusedShape);
+                
+                // Add subtle animation
+                editText.animate().scaleX(1.02f).scaleY(1.02f).setDuration(200).start();
+            } else {
+                // When not focused
+                android.graphics.drawable.GradientDrawable unfocusedShape = new android.graphics.drawable.GradientDrawable();
+                unfocusedShape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+                unfocusedShape.setCornerRadius(8 * density);
+                unfocusedShape.setColor(android.graphics.Color.parseColor("#F5F5F5"));
+                unfocusedShape.setStroke(2, android.graphics.Color.parseColor("#E0E0E0"));
+                editText.setBackground(unfocusedShape);
+                
+                // Return to normal size
+                editText.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start();
+            }
+        });
     }
 
     private void scheduleNameUpdate() {
@@ -227,6 +387,9 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
     private void setupClickListeners() {
         if (binding == null) return;
 
+        // Style the share button
+        styleShareButton(binding.shareButton);
+
         binding.shareButton.setOnClickListener(v -> {
             Log.d(TAG, "Share button clicked");
             if (binding != null && binding.shareButton.isEnabled()) {
@@ -282,6 +445,9 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
                 binding.contentLayout.setVisibility(View.VISIBLE);
                 templateRenderer.renderTemplate(template);
                 
+                // Call our display refresh method after a short delay
+                mainHandler.postDelayed(this::refreshWebViewDisplay, 300);
+                
                 // Restore any previously entered names
                 String savedRecipient = viewModel.getRecipientName();
                 String savedSender = viewModel.getSenderName();
@@ -336,12 +502,57 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
     public void onRenderComplete() {
         mainHandler.post(() -> {
             if (isViewCreated && isAdded() && binding != null) {
-                scheduleNameUpdate();
-                
-                // Update the customized HTML in the ViewModel
-                if (templateRenderer != null) {
-                    String customizedHtml = templateRenderer.getCustomizedHtml();
-                    viewModel.setCustomizedHtml(customizedHtml);
+                try {
+                    // Inject additional CSS to fix potential display issues
+                    String fixCss = 
+                        "body{width:100% !important;margin:0 !important;padding:0 !important;}" +
+                        "img{max-width:100% !important;height:auto !important;}" +
+                        "table{width:100% !important;}" +
+                        "div{max-width:100% !important;}";
+                    
+                    // Apply the CSS fix
+                    String injectScript = 
+                        "var style = document.createElement('style');" +
+                        "style.type = 'text/css';" +
+                        "style.appendChild(document.createTextNode('" + fixCss + "'));" +
+                        "if (document.head) document.head.appendChild(style);";
+                    
+                    if (binding.webView != null) {
+                        binding.webView.evaluateJavascript(injectScript, null);
+                    }
+                    
+                    // Add subtle animation without flashing
+                    if (binding.templatePreview != null && binding.templatePreview.getAlpha() == 0f) {
+                        binding.templatePreview.animate()
+                            .alpha(1f)
+                            .setDuration(300)
+                            .start();
+                    }
+                    
+                    scheduleNameUpdate();
+                    
+                    // Update the customized HTML in the ViewModel
+                    if (templateRenderer != null) {
+                        String customizedHtml = templateRenderer.getCustomizedHtml();
+                        viewModel.setCustomizedHtml(customizedHtml);
+                    }
+                    
+                    // Add the template to recently viewed for analytics
+                    if (templateId != null) {
+                        try {
+                            android.content.SharedPreferences prefs = requireActivity()
+                                .getSharedPreferences("template_prefs", android.content.Context.MODE_PRIVATE);
+                            android.content.SharedPreferences.Editor editor = prefs.edit();
+                            
+                            // Store the current time as last viewed time
+                            editor.putLong("template_" + templateId + "_last_viewed", System.currentTimeMillis());
+                            editor.apply();
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error storing template view time", e);
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in onRenderComplete: " + e.getMessage(), e);
                 }
             }
         });
@@ -514,5 +725,231 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         // Clear handlers
         mainHandler.removeCallbacksAndMessages(null);
         backgroundHandler.removeCallbacksAndMessages(null);
+    }
+
+    /**
+     * Apply styling to the share button
+     */
+    private void styleShareButton(Button button) {
+        if (button == null) return;
+        
+        // Set text
+        button.setText("SHARE");
+        button.setAllCaps(true);
+        
+        // Set text appearance
+        button.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16);
+        button.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        
+        // Create gradient background
+        float density = getResources().getDisplayMetrics().density;
+        android.graphics.drawable.GradientDrawable enabledShape = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                new int[] {
+                        android.graphics.Color.parseColor("#3949AB"), 
+                        android.graphics.Color.parseColor("#5C6BC0")
+                });
+        enabledShape.setCornerRadius(8 * density);
+        
+        // Create disabled state
+        android.graphics.drawable.GradientDrawable disabledShape = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                new int[] {
+                        android.graphics.Color.parseColor("#BDBDBD"),
+                        android.graphics.Color.parseColor("#E0E0E0")
+                });
+        disabledShape.setCornerRadius(8 * density);
+        
+        // Create state list drawable
+        android.graphics.drawable.StateListDrawable stateListDrawable = new android.graphics.drawable.StateListDrawable();
+        stateListDrawable.addState(new int[] {-android.R.attr.state_enabled}, disabledShape);
+        stateListDrawable.addState(new int[] {}, enabledShape);
+        
+        // Apply background
+        button.setBackground(stateListDrawable);
+        
+        // Set text color
+        button.setTextColor(android.graphics.Color.WHITE);
+        
+        // Add padding
+        int paddingDp = 16;
+        int paddingPx = (int)(paddingDp * density);
+        button.setPadding(paddingPx, paddingPx/2, paddingPx, paddingPx/2);
+        
+        // Add elevation effect
+        button.setElevation(4 * density);
+        
+        // Add ripple effect
+        android.content.res.ColorStateList rippleColor = android.content.res.ColorStateList.valueOf(
+                android.graphics.Color.parseColor("#42A5F5"));
+        android.graphics.drawable.RippleDrawable rippleDrawable = new android.graphics.drawable.RippleDrawable(
+                rippleColor, stateListDrawable, null);
+        button.setBackground(rippleDrawable);
+        
+        // Add click animation
+        button.setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case android.view.MotionEvent.ACTION_DOWN:
+                    button.animate().scaleX(0.96f).scaleY(0.96f).setDuration(100).start();
+                    break;
+                case android.view.MotionEvent.ACTION_UP:
+                case android.view.MotionEvent.ACTION_CANCEL:
+                    button.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start();
+                    break;
+            }
+            // Return false to allow normal click processing
+            return false;
+        });
+    }
+
+    /**
+     * Adjust WebView layout to fix common display issues
+     */
+    private void adjustWebViewLayout() {
+        if (binding == null || binding.templatePreview == null) return;
+        
+        try {
+            // Set fixed aspect ratio for the template container
+            final float ASPECT_RATIO = 1.5f; // Height = width * 1.5 (adjust as needed)
+            
+            binding.templatePreview.post(() -> {
+                try {
+                    int width = binding.templatePreview.getWidth();
+                    if (width > 0) {
+                        // Apply padding inside the template preview container
+                        int padding = getResources().getDimensionPixelSize(R.dimen.small_padding);
+                        binding.templatePreview.setPadding(padding, padding, padding, padding);
+                        
+                        // Ensure the WebView fills its container
+                        ViewGroup.LayoutParams webViewParams = binding.webView.getLayoutParams();
+                        webViewParams.width = ViewGroup.LayoutParams.MATCH_PARENT;
+                        webViewParams.height = ViewGroup.LayoutParams.MATCH_PARENT;
+                        binding.webView.setLayoutParams(webViewParams);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error adjusting layout parameters", e);
+                }
+            });
+            
+            // Improve content scaling in WebView with better viewport settings
+            binding.webView.getSettings().setLoadWithOverviewMode(true);
+            binding.webView.getSettings().setUseWideViewPort(true);
+            binding.webView.getSettings().setBuiltInZoomControls(false);
+            binding.webView.getSettings().setSupportZoom(false);
+            
+            // Set background color to prevent white flash
+            binding.webView.setBackgroundColor(android.graphics.Color.parseColor("#FAFAFA"));
+            
+            // Make sure the WebView does not interfere with scroll behavior
+            binding.webView.setOnTouchListener((v, event) -> {
+                // Forward touch events to parent if we're at the edge
+                switch (event.getAction()) {
+                    case android.view.MotionEvent.ACTION_DOWN:
+                        // Disallow parent intercepting touch events
+                        v.getParent().requestDisallowInterceptTouchEvent(true);
+                        break;
+                    case android.view.MotionEvent.ACTION_UP:
+                    case android.view.MotionEvent.ACTION_CANCEL:
+                        // Allow parent to intercept touch events again
+                        v.getParent().requestDisallowInterceptTouchEvent(false);
+                        break;
+                }
+                
+                // Pass to WebView for handling
+                return false;
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error adjusting WebView layout", e);
+        }
+    }
+    
+    /**
+     * Fix and refresh WebView display
+     */
+    private void refreshWebViewDisplay() {
+        if (binding == null || binding.webView == null) return;
+        
+        try {
+            Log.d(TAG, "Refreshing WebView display");
+            mainHandler.post(() -> {
+                // Force re-layout without blinking
+                binding.webView.invalidate();
+                
+                // Apply comprehensive JavaScript fixes for content sizing and styling
+                String fixScript = 
+                    "javascript:(function() {" +
+                    "  var body = document.body;" +
+                    "  if (!body) return;" + // Check if body exists
+                    "  body.style.width = '100%';" +
+                    "  body.style.margin = '0';" +
+                    "  body.style.padding = '8px';" +
+                    "  body.style.boxSizing = 'border-box';" +
+                    "  body.style.overflowX = 'hidden';" +
+                    
+                    // Ensure images scale properly and maintain aspect ratio
+                    "  var imgs = document.getElementsByTagName('img');" +
+                    "  for(var i = 0; i < imgs.length; i++) {" +
+                    "    imgs[i].style.maxWidth = '100%';" +
+                    "    imgs[i].style.height = 'auto';" +
+                    "    imgs[i].style.display = 'block';" +
+                    "    if (imgs[i].width > document.body.clientWidth) {" +
+                    "      imgs[i].style.width = '100%';" +
+                    "    }" +
+                    "  }" +
+                    
+                    // Make tables responsive
+                    "  var tables = document.getElementsByTagName('table');" +
+                    "  for(var i = 0; i < tables.length; i++) {" +
+                    "    tables[i].style.width = '100%';" +
+                    "    tables[i].style.maxWidth = '100%';" +
+                    "    tables[i].style.tableLayout = 'fixed';" +
+                    "  }" +
+                    
+                    // Fix any div elements that might have fixed widths
+                    "  var divs = document.getElementsByTagName('div');" +
+                    "  for(var i = 0; i < divs.length; i++) {" +
+                    "    if (parseInt(divs[i].style.width) > document.body.clientWidth) {" +
+                    "      divs[i].style.width = '100%';" +
+                    "      divs[i].style.maxWidth = '100%';" +
+                    "    }" +
+                    "  }" +
+                    
+                    // Add meta viewport if missing - with safer check
+                    "  var head = document.head;" +
+                    "  if (head) {" +
+                    "    var found = false;" +
+                    "    var metas = head.getElementsByTagName('meta');" +
+                    "    for(var i = 0; i < metas.length; i++) {" +
+                    "      if (metas[i].name === 'viewport') {" +
+                    "        found = true;" +
+                    "        metas[i].content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0';" +
+                    "      }" +
+                    "    }" +
+                    "    if (!found) {" +
+                    "      var meta = document.createElement('meta');" +
+                    "      meta.name = 'viewport';" +
+                    "      meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0';" +
+                    "      head.appendChild(meta);" +
+                    "    }" +
+                    "  }" +
+                    
+                    // Force reflow/repaint after changes without blinking
+                    "  setTimeout(function() {" +
+                    "    document.documentElement.style.visibility = 'visible';" +
+                    "  }, 50);" +
+                    
+                    "  console.log('WebView display refresh complete');" +
+                    "})()";
+                
+                // First set visibility to hidden to prevent flash
+                binding.webView.evaluateJavascript(
+                    "document.documentElement.style.visibility = 'hidden';", null);
+                
+                // Then apply the fixes
+                binding.webView.evaluateJavascript(fixScript.replace("javascript:", ""), null);
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error refreshing WebView display: " + e.getMessage(), e);
+        }
     }
 }

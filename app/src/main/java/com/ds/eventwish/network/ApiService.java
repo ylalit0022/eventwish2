@@ -1,6 +1,7 @@
 package com.ds.eventwish.network;
 
 import com.ds.eventwish.data.model.ServerTimeResponse;
+import com.ds.eventwish.data.model.response.AdMobResponse;
 import com.ds.eventwish.data.model.response.BaseResponse;
 import com.ds.eventwish.data.model.response.CategoryIconResponse;
 import com.ds.eventwish.data.model.response.TemplateResponse;
@@ -85,4 +86,24 @@ public interface ApiService {
 
     @GET("festivals/category/{category}")
     Call<JsonObject> getFestivalsByCategory(@Path("category") String category);
+    
+    // AdMob endpoints
+    @GET("admob/units")
+    Call<AdMobResponse> getAdUnits(@HeaderMap Map<String, String> headers, @Query("type") String adType);
+    
+    @GET("admob/status")
+    Call<AdMobResponse> getAdStatus(@HeaderMap Map<String, String> headers, @Query("type") String adType);
+    
+    @POST("admob/reward")
+    Call<JsonObject> recordAdReward(@HeaderMap Map<String, String> headers, @Body Map<String, Object> rewardData);
+    
+    @POST("admob/impression")
+    Call<JsonObject> recordAdImpression(@HeaderMap Map<String, String> headers, @Body Map<String, Object> impressionData);
+    
+    @POST("admob/click")
+    Call<JsonObject> recordAdClick(@HeaderMap Map<String, String> headers, @Body Map<String, Object> clickData);
+    
+    // User engagement tracking
+    @POST("users/engagement")
+    Call<JsonObject> trackUserEngagement(@HeaderMap Map<String, String> headers, @Body Map<String, Object> engagementData);
 } 

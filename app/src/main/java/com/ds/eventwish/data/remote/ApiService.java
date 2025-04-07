@@ -9,6 +9,7 @@ import com.ds.eventwish.data.model.response.CategoryIconResponse;
 import com.ds.eventwish.data.model.response.TemplateResponse;
 import com.ds.eventwish.data.model.response.WishResponse;
 import com.ds.eventwish.data.model.ServerTimeResponse;
+import com.ds.eventwish.data.model.response.AdMobResponse;
 
 import java.util.List;
 import java.util.Map;
@@ -294,4 +295,53 @@ public interface ApiService {
      */
     @POST("users/recommendations/advanced")
     Call<JsonObject> getAdvancedRecommendations(@Body Map<String, Object> body);
+
+    // AdMob endpoints
+    /**
+     * Get ad units
+     * @param headers Headers with authentication data
+     * @param adType Type of ads to filter by (optional)
+     * @return AdMobResponse containing ad units
+     */
+    @GET("admob/units")
+    Call<AdMobResponse> getAdUnits(
+        @HeaderMap Map<String, String> headers,
+        @Query("type") String adType
+    );
+
+    /**
+     * Get ad status
+     * @param headers Headers with authentication data
+     * @param adType Type of ads to filter by (optional)
+     * @return AdMobResponse containing ad status
+     */
+    @GET("admob/status")
+    Call<AdMobResponse> getAdStatus(
+        @HeaderMap Map<String, String> headers,
+        @Query("type") String adType
+    );
+
+    /**
+     * Record impression for ad.
+     */
+    @POST("admob/impression")
+    Call<JsonObject> recordImpression(@HeaderMap Map<String, String> headers, @Body JsonObject body);
+
+    /**
+     * Record click for ad.
+     */
+    @POST("admob/click")
+    Call<JsonObject> recordClick(@HeaderMap Map<String, String> headers, @Body JsonObject body);
+
+    /**
+     * Process reward for rewarded ad.
+     */
+    @POST("admob/reward")
+    Call<JsonObject> processReward(@HeaderMap Map<String, String> headers, @Body JsonObject body);
+
+    /**
+     * Track user engagement with ad.
+     */
+    @POST("admob/engagement")
+    Call<JsonObject> trackEngagement(@HeaderMap Map<String, String> headers, @Body JsonObject body);
 }

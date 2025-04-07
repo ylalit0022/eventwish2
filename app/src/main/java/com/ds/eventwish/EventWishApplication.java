@@ -39,6 +39,7 @@ import com.ds.eventwish.data.repository.FestivalRepository;
 import com.ds.eventwish.data.repository.TemplateRepository;
 import com.ds.eventwish.data.repository.ResourceRepository;
 import com.ds.eventwish.utils.AppExecutors;
+import com.ds.eventwish.ads.AdMobManager;
 
 public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
@@ -63,6 +64,9 @@ public class EventWishApplication extends Application implements Configuration.P
 
     // Services
     private AppExecutors appExecutors;
+    
+    // AdMob manager
+    private AdMobManager adMobManager;
 
     // Activity tracking
     private int runningActivities = 0;
@@ -106,14 +110,20 @@ public class EventWishApplication extends Application implements Configuration.P
      * Register user with server in background
      */
     private void registerUserInBackground() {
-        // Don't execute immediately, wait for services to be fully initialized
-        if (appExecutors == null) {
-            Log.e(TAG, "Cannot register user: AppExecutors not initialized");
-            // Schedule a delayed retry since this is critical functionality
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                Log.d(TAG, "Retrying user registration after delay");
-                registerUserInBackground();
-            }, 3000); // 3 second delay
+        // Check that all required services are initialized first
+        if (!isServicesInitialized()) {
+            Log.w(TAG, "Cannot register user: Core services not fully initialized");
+            
+            // Only retry once at most to avoid loops
+            if (appExecutors != null) {
+                // Schedule a delayed retry if AppExecutors is available
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    Log.d(TAG, "Retrying user registration after delay");
+                    registerUserInBackground();
+                }, 5000); // 5 second delay
+            } else {
+                Log.e(TAG, "Cannot register user and cannot retry: AppExecutors not initialized");
+            }
             return;
         }
         
@@ -137,6 +147,28 @@ public class EventWishApplication extends Application implements Configuration.P
                 // Don't try to recover automatically as this might cause loops
             }
         });
+    }
+
+    /**
+     * Check if all required services are initialized
+     */
+    private boolean isServicesInitialized() {
+        if (appExecutors == null) {
+            Log.e(TAG, "AppExecutors not initialized");
+            return false;
+        }
+        
+        if (secureTokenManager == null) {
+            Log.e(TAG, "SecureTokenManager not initialized");
+            return false;
+        }
+        
+        if (userRepository == null) {
+            Log.e(TAG, "UserRepository not initialized");
+            return false;
+        }
+        
+        return true;
     }
 
     @Override
@@ -317,90 +349,81 @@ public class EventWishApplication extends Application implements Configuration.P
 
     private void initializeServices() {
         try {
-            Log.d(TAG, "Starting service initialization");
+            Log.d(TAG, "Initializing services...");
             
-            // First, set application context to ensure it's available for static methods
-            context = getApplicationContext();
-            Log.d(TAG, "Application context set");
-            
-            // Initialize essential services first with proper error handling
+            // Initialize SecureTokenManager first - other services may depend on it
             try {
                 Log.d(TAG, "Initializing SecureTokenManager");
                 SecureTokenManager.init(this);
                 secureTokenManager = SecureTokenManager.getInstance();
                 Log.d(TAG, "SecureTokenManager initialized successfully");
             } catch (Exception e) {
-                Log.e(TAG, "Failed to initialize SecureTokenManager", e);
-                // Continue initialization as other services might not depend on this
+                Log.e(TAG, "Error initializing SecureTokenManager", e);
+                // Continue without secure token manager - some features may be limited
             }
             
+            // Initialize DeviceUtils next - many services depend on it
             try {
-                Log.d(TAG, "Initializing ApiClient");
-                ApiClient.init(this);
-                apiClient = new ApiClient();
-                Log.d(TAG, "ApiClient initialized successfully");
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to initialize ApiClient", e);
-                // Continue initialization as other services might work offline
-            }
-            
-            try {
-                Log.d(TAG, "Initializing utility classes");
+                Log.d(TAG, "Initializing DeviceUtils");
+                DeviceUtils.init(this);
                 deviceUtils = DeviceUtils.getInstance();
-                timeUtils = new TimeUtils();
-                appExecutors = AppExecutors.getInstance();
-                Log.d(TAG, "Utility classes initialized successfully");
+                Log.d(TAG, "DeviceUtils initialized successfully");
             } catch (Exception e) {
-                Log.e(TAG, "Failed to initialize utility classes", e);
-                // These are essential, but try to continue
+                Log.e(TAG, "Error initializing DeviceUtils", e);
+                // Continue without device utils - some features may be limited
             }
             
-            try {
-                Log.d(TAG, "Initializing ResourceRepository");
-                resourceRepository = ResourceRepository.getInstance(this);
-                Log.d(TAG, "ResourceRepository initialized successfully");
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to initialize ResourceRepository", e);
-                // This is critical for other repositories, but try to continue
-            }
+            // Initialize API client - depends on SecureTokenManager
+            ApiClient.init(this);
+            // For backward compatibility
+            com.ds.eventwish.network.ApiClient.init(this);
             
-            try {
-                Log.d(TAG, "Initializing CategoryIconRepository");
-                // Use getInstance with context to ensure proper initialization
-                categoryIconRepository = CategoryIconRepository.getInstance(this);
-                Log.d(TAG, "CategoryIconRepository initialized successfully");
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to initialize CategoryIconRepository", e);
-                // Continue as app can work without icons
-            }
+            // Initialize AppExecutors
+            appExecutors = AppExecutors.getInstance();
             
-            try {
-                Log.d(TAG, "Initializing remaining repositories");
-                // Initialize remaining repositories
-                festivalRepository = FestivalRepository.getInstance(this);
-                templateRepository = TemplateRepository.init(this);
+            // Initialize repositories
+            Log.d(TAG, "Initializing repositories...");
+            
+            // Initialize repositories in background
+            categoryIconRepository = CategoryIconRepository.getInstance(this);
+            templateRepository = TemplateRepository.getInstance();
+            festivalRepository = FestivalRepository.getInstance(this);
+            resourceRepository = ResourceRepository.getInstance(this);
+            
+            // User repository (needs secure token manager)
+            if (secureTokenManager != null) {
                 userRepository = UserRepository.getInstance(this);
-                Log.d(TAG, "Repositories initialized successfully");
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to initialize some repositories", e);
-                // Continue with available repositories
+            } else {
+                Log.e(TAG, "Failed to initialize UserRepository: SecureTokenManager is null");
             }
             
-            // Initialize components that depend on the above
+            // Time utils needs to be initialized with server time
+            timeUtils = new TimeUtils();
+            
+            // Initialize AdMobManager
             try {
-                Log.d(TAG, "Initializing dependent components");
-                initializeComponents();
-                Log.d(TAG, "All dependent components initialized successfully");
+                AdMobManager.init(this);
+                adMobManager = AdMobManager.getInstance();
+                Log.d(TAG, "AdMobManager initialized successfully");
             } catch (Exception e) {
-                Log.e(TAG, "Failed to initialize dependent components", e);
-                // These are less critical for app function
+                Log.e(TAG, "Error initializing AdMobManager", e);
             }
+            
+            // Initialize components like analytics, notifications, etc.
+            initializeComponents();
+            
+            // Set up work manager
+            setupWorkManager();
+            
+            // Schedule workers
+            scheduleWorkers();
+            
+            // Restore pending reminders
+            restorePendingReminders();
             
             Log.d(TAG, "Services initialized successfully");
         } catch (Exception e) {
-            Log.e(TAG, "Critical error during service initialization", e);
-            // At this point the app might be in an inconsistent state,
-            // but we'll try to continue rather than crashing
+            Log.e(TAG, "Error initializing services", e);
         }
     }
 
@@ -490,5 +513,17 @@ public class EventWishApplication extends Application implements Configuration.P
      */
     public UserRepository getUserRepository() {
         return userRepository;
+    }
+
+    /**
+     * Get the AdMobManager instance
+     * @return AdMobManager instance or null if not initialized
+     */
+    public AdMobManager getAdMobManager() {
+        return adMobManager;
+    }
+
+    public SecureTokenManager getSecureTokenManager() {
+        return secureTokenManager;
     }
 }

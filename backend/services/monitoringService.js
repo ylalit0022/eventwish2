@@ -136,9 +136,53 @@ function trackError(error, context = {}) {
     });
 }
 
+/**
+ * Track an API request with metadata
+ * 
+ * @param {string} endpoint - The API endpoint path
+ * @param {Object} metadata - Request metadata (method, status, duration, etc.)
+ */
+function trackRequest(endpoint, metadata = {}) {
+    if (!endpoint) {
+        logger.warn('Attempted to track request with no endpoint');
+        return;
+    }
+
+    // Ensure metadata has required fields
+    const data = {
+        timestamp: new Date().toISOString(),
+        method: metadata.method || 'GET',
+        statusCode: metadata.statusCode || 200,
+        duration: metadata.duration || 0,
+        userAgent: metadata.userAgent || 'Unknown',
+        ip: metadata.ip || 'Unknown',
+        ...metadata
+    };
+
+    // Log the request
+    logger.info('API request tracked', {
+        endpoint,
+        ...data
+    });
+
+    // Track request count metric
+    trackMetric('api_requests_total', 1, { endpoint, method: data.method, status: data.statusCode });
+    
+    // Track response time metric
+    if (data.duration) {
+        trackMetric('api_response_time_ms', data.duration, { endpoint });
+    }
+
+    // Track error rate for non-2xx status codes
+    if (data.statusCode >= 400) {
+        trackMetric('api_error_rate', 1, { endpoint, statusCode: data.statusCode });
+    }
+}
+
 module.exports = {
     trackMetric,
     getMetrics,
     resetMetrics,
-    trackError
+    trackError,
+    trackRequest
 };

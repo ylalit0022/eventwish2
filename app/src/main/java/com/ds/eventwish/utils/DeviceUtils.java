@@ -30,19 +30,32 @@ import org.json.JSONObject;
 public class DeviceUtils {
     private static final String TAG = "DeviceUtils";
     private static DeviceUtils instance;
+    private Context context;
+    private String cachedDeviceId;
     
-    private DeviceUtils() {
-        // Private constructor to prevent instantiation
+    private DeviceUtils(Context ctx) {
+        this.context = ctx.getApplicationContext();
+        this.cachedDeviceId = getUniqueDeviceId(context);
     }
     
     /**
-     * Returns the singleton instance of DeviceUtils.
+     * Get the singleton instance
      */
-    public static DeviceUtils getInstance() {
+    public static synchronized DeviceUtils getInstance() {
         if (instance == null) {
-            instance = new DeviceUtils();
+            throw new IllegalStateException("DeviceUtils must be initialized first");
         }
         return instance;
+    }
+
+    /**
+     * Initialize with application context
+     */
+    public static synchronized void init(Context context) {
+        if (instance == null) {
+            instance = new DeviceUtils(context.getApplicationContext());
+            Log.d(TAG, "DeviceUtils initialized");
+        }
     }
 
     /**
@@ -91,7 +104,19 @@ public class DeviceUtils {
      */
     public static String regenerateDeviceId(Context context) {
         String newId = getUniqueDeviceId(context);
-        SecureTokenManager.getInstance().saveDeviceId(newId);
+        try {
+            SecureTokenManager tokenManager = SecureTokenManager.getInstance();
+            if (tokenManager != null) {
+                tokenManager.saveDeviceId(newId);
+                Log.d(TAG, "Device ID regenerated and saved to SecureTokenManager");
+            } else {
+                Log.w(TAG, "SecureTokenManager is null, cannot save regenerated device ID");
+            }
+        } catch (IllegalStateException e) {
+            Log.w(TAG, "SecureTokenManager not initialized yet, cannot save regenerated device ID: " + e.getMessage());
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving regenerated device ID", e);
+        }
         return newId;
     }
 
@@ -259,17 +284,28 @@ public class DeviceUtils {
             String currentDeviceId = getUniqueDeviceId(context);
             
             // Get the stored device ID from secure storage
-            SecureTokenManager tokenManager = SecureTokenManager.getInstance();
-            String storedDeviceId = tokenManager.getDeviceId();
-            
-            if (storedDeviceId == null || storedDeviceId.isEmpty()) {
-                // First run, store the current ID
-                tokenManager.saveDeviceId(currentDeviceId);
-                return true;
+            String storedDeviceId = null;
+            try {
+                SecureTokenManager tokenManager = SecureTokenManager.getInstance();
+                if (tokenManager != null) {
+                    storedDeviceId = tokenManager.getDeviceId();
+                    
+                    if (storedDeviceId == null || storedDeviceId.isEmpty()) {
+                        // First run, store the current ID
+                        tokenManager.saveDeviceId(currentDeviceId);
+                        return true;
+                    }
+                    
+                    // Compare the stored ID with the current one
+                    return storedDeviceId.equals(currentDeviceId);
+                } else {
+                    Log.w(TAG, "SecureTokenManager is null, cannot verify device ID integrity");
+                    return true; // Assume valid if we can't verify
+                }
+            } catch (IllegalStateException e) {
+                Log.w(TAG, "SecureTokenManager not initialized yet, cannot verify device ID integrity: " + e.getMessage());
+                return true; // Assume valid if SecureTokenManager is not initialized
             }
-            
-            // Compare the stored ID with the current one
-            return storedDeviceId.equals(currentDeviceId);
         } catch (Exception e) {
             Log.e(TAG, "Error verifying device ID integrity", e);
             return false;
@@ -289,5 +325,23 @@ public class DeviceUtils {
             Log.e(TAG, "Error converting map to JSON", e);
         }
         return json;
+    }
+
+    /**
+     * Get device ID without needing to pass context (for singleton instance)
+     */
+    public String getDeviceId() {
+        if (instance == null) {
+            Log.e(TAG, "DeviceUtils instance is null, cannot get device ID");
+            return null;
+        }
+        
+        // If we have a stored device ID, use it
+        if (cachedDeviceId != null && !cachedDeviceId.isEmpty()) {
+            return cachedDeviceId;
+        }
+        
+        // Otherwise, generate a new one
+        return getUniqueDeviceId(context);
     }
 } 

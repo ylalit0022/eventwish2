@@ -437,3 +437,148 @@ After implementing the enhanced recommended templates visibility, we encountered
    - Smooth transitions between category selections without jarring reordering
 
 The fixes maintain all the visual enhancements for recommended templates while ensuring a stable and consistent user experience when navigating categories and interacting with templates.
+
+## AdMob Integration Plan with Separate Entry Points
+
+### Overview and Requirements
+
+The task is to implement Google AdMob integration in the EventWish app while ensuring:
+1. The integration is separate and doesn't interfere with existing code
+2. We create clean entry points for the AdMob functionality
+3. We utilize the backend AdMob model and API endpoints
+4. We test with backend tokens and app signature verification
+5. We follow best practices for mobile ad integration
+
+### Current State Analysis
+
+[X] Analyzed backend AdMob model (`AdMob.js`) that provides:
+   - Ad unit management (Banner, Interstitial, Rewarded, Native, App Open, Video)
+   - Ad targeting criteria and segmentation
+   - Performance metrics tracking (impressions, clicks, CTR)
+   - User targeting and customization parameters
+   - Device-specific ad delivery rules and cooldowns
+
+[X] Identified existing backend route (`/api/admob`) with endpoints:
+   - GET `/units` - Get available ad units for a device
+   - GET `/status` - Get ad status and cooldowns for a device
+   - POST `/reward` - Handle reward redemption
+   - POST `/impression` - Record ad impression
+   - POST `/click` - Record ad click
+
+[X] Reviewed existing app architecture:
+   - Uses repository pattern and MVVM architecture
+   - Has SecureTokenManager for handling API keys and authentication
+   - Uses DeviceUtils for device identification and security
+   - Has centralized initialization in EventWishApplication
+
+### Implementation Plan
+
+#### 1. Create Core AdMob Classes
+
+[ ] Create AdMob Models
+   - Create `AdUnitModel.java` to represent ad units from backend
+   - Create `AdResponse.java` for API responses
+   - Create `AdStatus.java` for tracking ad status
+
+[ ] Implement AdMob Repository
+   - Create `AdMobRepository.java` with methods to interact with backend
+   - Add cache layer for offline operation
+   - Implement ad request throttling and error handling
+
+[ ] Create AdMob Service Interface
+   - Create `AdMobService.java` interface for ad-related operations
+   - Add methods for fetching, displaying, and tracking ads
+   - Define callback interfaces for ad events
+
+#### 2. Add Network and API Support
+
+[ ] Update ApiService with AdMob Endpoints
+   - Add endpoints for `/api/admob/units`, etc.
+   - Create request/response models
+   - Add proper error handling
+
+[ ] Implement Secure Token Handling for AdMob
+   - Use existing SecureTokenManager for storing ad-related tokens
+   - Implement device-ad association validation
+
+[ ] Add Proper Signature Verification
+   - Implement app signature verification for ad requests
+   - Add tamper detection for ad responses
+
+#### 3. Create AdMob Manager
+
+[ ] Implement AdMobManager as Singleton
+   - Create `AdMobManager.java` as the main entry point
+   - Add initialization in a way that doesn't affect current app flow
+   - Implement lazy loading of Google Mobile Ads SDK
+
+[ ] Add AdMob Configuration
+   - Create `AdConfig.java` for storing configuration
+   - Add test/production mode toggle
+   - Implement ad frequency capping
+
+[ ] Implement Specialized Ad Type Managers
+   - Create `BannerAdManager.java` for banner ads
+   - Create `InterstitialAdManager.java` for interstitial ads
+   - Create `RewardedAdManager.java` for rewarded ads
+
+#### 4. Create UI Components
+
+[ ] Add AdMob UI Components
+   - Create `AdBannerView.java` custom view for banner ads
+   - Create layout files for different ad formats
+   - Implement placeholder views for ad loading states
+
+[ ] Design Ad Integration Points
+   - Create adapter for RecyclerView with ad items
+   - Add fragment for displaying interstitial ads
+   - Implement dialog for rewarded ads
+
+#### 5. Testing Infrastructure
+
+[ ] Create Test Mode with Test Ads
+   - Implement test ad ID handling
+   - Add debug logging for ad operations
+   - Create mock responses for offline testing
+
+[ ] Add Analytics and Reporting
+   - Track ad performance metrics
+   - Log errors and user interactions
+   - Create dashboard for ad performance
+
+### Implementation Approach
+
+1. **Isolation Strategy**: All AdMob code will be in a separate `ads` package to maintain clean separation
+2. **Lazy Initialization**: AdMob SDK will only be initialized if ads are used
+3. **Feature Flags**: Add configuration to enable/disable ads completely
+4. **Graceful Degradation**: App will function normally even if ad services fail
+5. **Testing Support**: Include test ad IDs and mock responses for development
+
+### Integration Test Plan
+
+[ ] Test Backend API Integration
+   - Verify backend endpoints are accessible
+   - Test token and signature verification
+   - Validate response parsing
+
+[ ] Test Ad Display Functionality
+   - Verify ads load and display correctly
+   - Test ad lifecycle events (load, show, click, close)
+   - Validate error handling
+
+[ ] Performance Testing
+   - Measure impact on app startup time
+   - Monitor memory usage with ads
+   - Test battery consumption
+
+### First Milestone: Backend Communication
+
+Our first goal is to establish communication with the backend AdMob endpoints:
+
+1. Create the models and repository
+2. Add API endpoints to ApiService
+3. Implement test/dev mode
+4. Create minimal AdMobManager for verification
+5. Test with backend token validation
+
+This approach ensures we can build a robust AdMob integration without disrupting existing code, while maintaining clean architecture and separation of concerns.

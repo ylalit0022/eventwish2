@@ -20,6 +20,8 @@ import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 import java.lang.reflect.Field;
+import com.google.android.material.snackbar.Snackbar;
+import android.view.View;
 
 public class HomeViewModel extends ViewModel {
     private static final String TAG = "HomeViewModel";
@@ -28,6 +30,10 @@ public class HomeViewModel extends ViewModel {
     private TemplateUpdateManager updateManager;
     private final MutableLiveData<Set<String>> newTemplateIds = new MutableLiveData<>(new HashSet<>());
     private final Set<String> viewedTemplateIds = new HashSet<>();
+    
+    // Add LiveData to track recommended template IDs
+    private final MutableLiveData<Set<String>> recommendedTemplateIds = new MutableLiveData<>(new HashSet<>());
+    
     private static final String PREF_VIEWED_TEMPLATES = "viewed_template_ids";
     private static final String PREF_LAST_CHECK_TIME = "last_check_time";
     private static final String PREF_SELECTED_CATEGORY = "selected_category";
@@ -63,6 +69,13 @@ public class HomeViewModel extends ViewModel {
     // Add these with other state fields
     private final MutableLiveData<Boolean> categoriesPreloaded = new MutableLiveData<>(false);
     private String lastSelectedCategory = null;
+    
+    // Field to hold the current Snackbar
+    private Snackbar currentSnackbar = null;
+
+    // Add a field to track time of last category change
+    private long lastCategoryChangeTime = 0;
+    private static final long CATEGORY_CHANGE_THRESHOLD = 3000; // 3 seconds
 
     // Enum for sort options
     public enum SortOption {
@@ -253,6 +266,9 @@ public class HomeViewModel extends ViewModel {
         
         selectedCategory = category;
         
+        // Record the time of category change
+        lastCategoryChangeTime = System.currentTimeMillis();
+        
         // Save the selected category
         if (appContext != null) {
             SharedPreferences prefs = appContext.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
@@ -270,6 +286,14 @@ public class HomeViewModel extends ViewModel {
         
         // Mark categories as loaded
         categoriesPreloaded.setValue(true);
+    }
+
+    /**
+     * Check if the selected category has changed recently
+     * @return true if category changed within threshold time
+     */
+    public boolean hasSelectedCategoryChangedRecently() {
+        return System.currentTimeMillis() - lastCategoryChangeTime < CATEGORY_CHANGE_THRESHOLD;
     }
 
     /**
@@ -626,5 +650,86 @@ public class HomeViewModel extends ViewModel {
     protected void onCleared() {
         super.onCleared();
         repository.cancelCurrentCall();
+    }
+
+    /**
+     * Store a reference to the current Snackbar showing pagination loading status
+     * @param snackbar The Snackbar instance
+     */
+    public void setCurrentSnackbar(Snackbar snackbar) {
+        // Dismiss any existing Snackbar first
+        dismissCurrentSnackbar();
+        this.currentSnackbar = snackbar;
+    }
+    
+    /**
+     * Dismiss the current Snackbar if it exists
+     */
+    public void dismissCurrentSnackbar() {
+        if (currentSnackbar != null) {
+            try {
+                // Get the Snackbar view for animation
+                View snackbarView = currentSnackbar.getView();
+                
+                // Fade out animation before dismissing
+                snackbarView.animate()
+                    .alpha(0f)
+                    .setDuration(250)
+                    .withEndAction(() -> {
+                        try {
+                            currentSnackbar.dismiss();
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error dismissing Snackbar: " + e.getMessage());
+                        } finally {
+                            currentSnackbar = null;
+                        }
+                    })
+                    .start();
+            } catch (Exception e) {
+                Log.e(TAG, "Error animating Snackbar: " + e.getMessage());
+                // Fallback to direct dismissal without animation
+                try {
+                    currentSnackbar.dismiss();
+                } catch (Exception e2) {
+                    Log.e(TAG, "Error dismissing Snackbar: " + e2.getMessage());
+                } finally {
+                    currentSnackbar = null;
+                }
+            }
+        }
+    }
+
+    /**
+     * Get the LiveData for recommended template IDs
+     */
+    public LiveData<Set<String>> getRecommendedTemplateIds() {
+        return recommendedTemplateIds;
+    }
+    
+    /**
+     * Set recommended template IDs
+     */
+    public void setRecommendedTemplateIds(Set<String> ids) {
+        if (ids == null) {
+            ids = new HashSet<>();
+        }
+        recommendedTemplateIds.setValue(ids);
+    }
+    
+    /**
+     * Add a template ID to the recommended set
+     */
+    public void addRecommendedTemplateId(String id) {
+        if (id == null || id.isEmpty()) {
+            return;
+        }
+        
+        Set<String> currentIds = recommendedTemplateIds.getValue();
+        if (currentIds == null) {
+            currentIds = new HashSet<>();
+        }
+        
+        currentIds.add(id);
+        recommendedTemplateIds.setValue(currentIds);
     }
 }

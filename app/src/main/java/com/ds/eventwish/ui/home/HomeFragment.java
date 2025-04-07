@@ -12,6 +12,7 @@ import android.widget.Toast;
 import android.widget.ImageView;
 import android.widget.RadioButton;
 import android.widget.Button;
+import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -30,12 +31,14 @@ import com.ds.eventwish.R;
 import com.ds.eventwish.databinding.FragmentHomeBinding;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.ui.base.BaseFragment;
-import com.ds.eventwish.ui.home.adapter.TemplateAdapter;
+import com.ds.eventwish.ui.home.adapter.RecommendedTemplateAdapter;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 
 import com.google.android.flexbox.FlexboxLayoutManager;
 import com.google.android.flexbox.FlexDirection;
@@ -46,13 +49,16 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.ds.eventwish.ui.festival.FestivalViewModel;
 import com.ds.eventwish.data.repository.CategoryIconRepository;
+import com.ds.eventwish.ads.AdMobManager;
+import com.ds.eventwish.EventWishApplication;
+import com.ds.eventwish.ads.AdBannerView;
 
-public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemplateClickListener {
+public class HomeFragment extends BaseFragment implements RecommendedTemplateAdapter.TemplateClickListener {
     private static final String TAG = "HomeFragment";
     private FragmentHomeBinding binding;
     private HomeViewModel viewModel;
     private FestivalViewModel festivalViewModel;
-    private TemplateAdapter adapter;
+    private RecommendedTemplateAdapter adapter;
     private CategoriesAdapter categoriesAdapter;
     private GridLayoutManager layoutManager;
     private static final int VISIBLE_THRESHOLD = 5;
@@ -62,6 +68,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
     private CategoryIconRepository categoryIconRepository;
     private boolean wasInBackground = false;
     private boolean isResumed = false;
+    private AdMobManager adMobManager;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -101,6 +108,9 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
 
         // Set up bottom navigation
         setupBottomNavigation();
+
+        // Set up AdMob Banner
+        setupAdBanner();
 
         // Ensure filter chips are initially hidden
         binding.filterChipsScrollView.setVisibility(View.GONE);
@@ -401,6 +411,9 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                 viewModel.setCategory(null);
             } else {
                 viewModel.setCategory(category);
+                
+                // Show loading Snackbar when selecting a category
+                showCategoryLoadingSnackbar(category);
             }
             // Update the adapter's selected position
             categoriesAdapter.setSelectedPosition(position);
@@ -434,6 +447,68 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
             Log.d(TAG, "Forcing initial load of categories");
             viewModel.forceReloadCategories();
         }
+    }
+
+    /**
+     * Shows a loading Snackbar when a category is selected
+     */
+    private void showCategoryLoadingSnackbar(String category) {
+        if (getActivity() == null || bottomNav == null) return;
+        
+        // Dismiss any existing Snackbar
+        viewModel.dismissCurrentSnackbar();
+        
+        // Create a new Snackbar
+        Snackbar snackbar = Snackbar.make(binding.getRoot(), 
+            "Loading " + category + " templates...", 
+            Snackbar.LENGTH_SHORT);
+        
+        // Position the Snackbar above bottom navigation
+        View snackbarView = snackbar.getView();
+        androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams params = 
+            (androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams) 
+            snackbarView.getLayoutParams();
+        params.setMargins(0, 0, 0, bottomNav.getHeight());
+        snackbarView.setLayoutParams(params);
+        
+        // Apply gradient background
+        snackbarView.setBackgroundResource(R.drawable.gradient_snackbar_background);
+        
+        // Apply fade-in animation
+        snackbarView.setAlpha(0f);
+        snackbarView.animate()
+            .alpha(1f)
+            .setDuration(300)
+            .start();
+        
+        // Add loading icon
+        TextView textView = snackbarView.findViewById(com.google.android.material.R.id.snackbar_text);
+        if (textView != null) {
+            textView.setTextColor(android.graphics.Color.WHITE);
+            
+            // Add loading icon with animation
+            android.widget.ImageView loadingIcon = new android.widget.ImageView(requireContext());
+            loadingIcon.setImageResource(R.drawable.ic_loading);
+            
+            // Apply rotation animation
+            android.view.animation.Animation rotation = android.view.animation.AnimationUtils.loadAnimation(
+                    requireContext(), R.anim.rotate);
+            loadingIcon.startAnimation(rotation);
+            
+            // Set icon padding
+            loadingIcon.setPadding(0, 0, 16, 0);
+            
+            // Add the loading icon to the Snackbar layout
+            android.widget.LinearLayout snackbarLayout = (android.widget.LinearLayout) textView.getParent();
+            snackbarLayout.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            snackbarLayout.addView(loadingIcon, 0);
+        }
+        
+        // Store the Snackbar reference for later dismissal
+        viewModel.setCurrentSnackbar(snackbar);
+        
+        // Show the Snackbar
+        snackbar.show();
     }
 
     private void setupFilterChips() {
@@ -631,15 +706,28 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
 
 
     private void setupRecyclerView() {
-        adapter = new TemplateAdapter(this);
+        adapter = new RecommendedTemplateAdapter(this);
         layoutManager = new GridLayoutManager(requireContext(), 1);
+        
+        // Configure layout manager to handle full-width section headers
+        layoutManager.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
+            @Override
+            public int getSpanSize(int position) {
+                // Section headers should span the full width
+                return adapter.getItemViewType(position) == RecommendedTemplateAdapter.VIEW_TYPE_HEADER ? 
+                    layoutManager.getSpanCount() : 1;
+            }
+        });
+        
         binding.templatesRecyclerView.setLayoutManager(layoutManager);
-
         binding.templatesRecyclerView.setAdapter(adapter);
         
         // Set item animator to null to prevent animation glitches
         binding.templatesRecyclerView.setItemAnimator(null);
 
+        // Track if we've already shown the scrolling Snackbar
+        final boolean[] hasShownScrollSnackbar = {false};
+        
         binding.templatesRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             private int scrollThreshold = 20;  // Increased threshold for better detection
             private int totalDy = 0; // Track total scroll distance
@@ -651,7 +739,13 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                 super.onScrolled(recyclerView, dx, dy);
 
                 totalDy += dy; // Track total scroll distance
-
+                
+                // Show category scrolling Snackbar when user starts scrolling significantly
+                if (Math.abs(dy) > 10 && !hasShownScrollSnackbar[0] && viewModel.getSelectedCategory() != null) {
+                    showCategoryScrollingSnackbar(viewModel.getSelectedCategory());
+                    hasShownScrollSnackbar[0] = true;
+                }
+                
                 try {
                     if (totalDy > scrollThreshold && !isAppBarHidden) {
                         // Scrolling Down → Collapse AppBar
@@ -697,6 +791,14 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
             public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
                 super.onScrollStateChanged(recyclerView, newState);
                 
+                // When user starts scrolling, reset the Snackbar show flag for the next pause/resume cycle
+                if (newState == RecyclerView.SCROLL_STATE_DRAGGING) {
+                    // Reset flag only if we've been in a different category for a while
+                    if (viewModel.hasSelectedCategoryChangedRecently()) {
+                        hasShownScrollSnackbar[0] = false;
+                    }
+                }
+                
                 // When scrolling stops, check if we need to load more
                 if (newState == RecyclerView.SCROLL_STATE_IDLE) {
                     int lastVisibleItem = layoutManager.findLastCompletelyVisibleItemPosition();
@@ -715,6 +817,14 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
 
         // Set up impression tracking
         setupImpressionTracking();
+
+        // Observe recommended template IDs
+        viewModel.getRecommendedTemplateIds().observe(getViewLifecycleOwner(), recommendedIds -> {
+            if (recommendedIds != null && adapter != null) {
+                Log.d(TAG, "Recommended template IDs updated: " + recommendedIds.size());
+                adapter.setRecommendedTemplateIds(recommendedIds);
+            }
+        });
     }
 
     private void setupImpressionTracking() {
@@ -724,17 +834,26 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                 super.onScrolled(recyclerView, dx, dy);
                 
                 try {
-                    // Track visible templates for impression
+                    // Get visible items
                     int firstVisible = layoutManager.findFirstVisibleItemPosition();
                     int lastVisible = layoutManager.findLastVisibleItemPosition();
                     
                     if (firstVisible >= 0 && lastVisible >= 0) {
-                        List<Template> templates = viewModel.getTemplates().getValue();
-                        if (templates != null) {
-                            for (int i = firstVisible; i <= lastVisible && i < templates.size(); i++) {
-                                Template template = templates.get(i);
-                                if (template != null && template.getId() != null) {
-                                    viewModel.markTemplateAsViewed(template.getId());
+                        // For each visible position
+                        for (int i = firstVisible; i <= lastVisible; i++) {
+                            // Get the item at this position
+                            if (i >= 0 && i < adapter.getItemCount()) {
+                                int viewType = adapter.getItemViewType(i);
+                                
+                                // Only track templates, not headers
+                                if (viewType == RecommendedTemplateAdapter.VIEW_TYPE_TEMPLATE) {
+                                    Object item = adapter.getItem(i);
+                                    if (item instanceof Template) {
+                                        Template template = (Template) item;
+                                        if (template.getId() != null) {
+                                            viewModel.markTemplateAsViewed(template.getId());
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -758,6 +877,65 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
             Log.d(TAG, "Loading more items");
             binding.bottomLoadingView.setVisibility(View.VISIBLE);
             
+            // Disable SwipeRefreshLayout when loading more items
+            binding.swipeRefreshLayout.setEnabled(false);
+            
+            // Show Snackbar for pagination loading
+            if (getActivity() != null && bottomNav != null) {
+                Snackbar snackbar = Snackbar.make(binding.getRoot(), 
+                    "Loading more templates...", 
+                    Snackbar.LENGTH_INDEFINITE);
+                
+                // Position the Snackbar above bottom navigation
+                View snackbarView = snackbar.getView();
+                androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams params = 
+                    (androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams) 
+                    snackbarView.getLayoutParams();
+                params.setMargins(0, 0, 0, bottomNav.getHeight());
+                snackbarView.setLayoutParams(params);
+                
+                // Make Snackbar more colorful
+                snackbarView.setBackgroundResource(R.drawable.gradient_snackbar_background);
+                
+                // Apply animation to Snackbar
+                snackbarView.setAlpha(0f);
+                snackbarView.animate()
+                    .alpha(1f)
+                    .setDuration(500)
+                    .start();
+                
+                // Add loading animation
+                TextView textView = snackbarView.findViewById(com.google.android.material.R.id.snackbar_text);
+                if (textView != null) {
+                    textView.setTextColor(android.graphics.Color.WHITE);
+                    
+                    // Use our custom loading icon with animation
+                    android.widget.ImageView loadingIcon = new android.widget.ImageView(requireContext());
+                    loadingIcon.setImageResource(R.drawable.ic_loading);
+                    
+                    // Apply rotation animation
+                    android.view.animation.Animation rotation = android.view.animation.AnimationUtils.loadAnimation(
+                            requireContext(), R.anim.rotate);
+                    loadingIcon.startAnimation(rotation);
+                    
+                    // Set padding for the icon
+                    loadingIcon.setPadding(0, 0, 16, 0);
+                    
+                    // Add the loading icon to the Snackbar layout
+                    android.widget.LinearLayout snackbarLayout = (android.widget.LinearLayout) textView.getParent();
+                    snackbarLayout.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+                    snackbarLayout.addView(loadingIcon, 0);
+                    
+                    // Set text 
+                    textView.setText("Loading more templates...");
+                }
+                
+                // Store the snackbar reference to dismiss it later
+                viewModel.setCurrentSnackbar(snackbar);
+                
+                snackbar.show();
+            }
+            
             int lastPosition = layoutManager.findLastCompletelyVisibleItemPosition();
             int firstVisiblePosition = layoutManager.findFirstVisibleItemPosition();
             int totalItems = layoutManager.getItemCount();
@@ -776,13 +954,25 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                     viewModel.loadMoreIfNeeded(lastPosition, totalItems);
                 } else {
                     binding.bottomLoadingView.setVisibility(View.GONE);
+                    // Re-enable SwipeRefreshLayout
+                    binding.swipeRefreshLayout.setEnabled(true);
+                    // Dismiss snackbar if exists
+                    viewModel.dismissCurrentSnackbar();
                 }
             } else {
                 binding.bottomLoadingView.setVisibility(View.GONE);
+                // Re-enable SwipeRefreshLayout
+                binding.swipeRefreshLayout.setEnabled(true);
+                // Dismiss snackbar if exists
+                viewModel.dismissCurrentSnackbar();
             }
         } catch (Exception e) {
             Log.e(TAG, "Error loading more items", e);
             binding.bottomLoadingView.setVisibility(View.GONE);
+            // Re-enable SwipeRefreshLayout
+            binding.swipeRefreshLayout.setEnabled(true);
+            // Dismiss snackbar if exists
+            viewModel.dismissCurrentSnackbar();
             viewModel.setPaginationInProgress(false);
         }
     }
@@ -833,6 +1023,18 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                 // Check for new templates
                 viewModel.checkForNewTemplates(newList);
                 
+                // Mark some templates as recommended for testing (in a real app, this would come from the server)
+                // This is just for demonstration purposes
+                Set<String> recommendedIds = new HashSet<>();
+                for (int i = 0; i < Math.min(newList.size(), 5); i++) {
+                    Template template = newList.get(i);
+                    if (template != null && template.getId() != null) {
+                        recommendedIds.add(template.getId());
+                        template.setRecommended(true);
+                    }
+                }
+                viewModel.setRecommendedTemplateIds(recommendedIds);
+                
                 // Update the adapter with the new list
                 binding.templatesRecyclerView.post(() -> {
                     // Check if we're in pagination mode or regular update
@@ -862,6 +1064,12 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                     
                     // Hide loading indicator
                     binding.bottomLoadingView.setVisibility(View.GONE);
+                    
+                    // Re-enable SwipeRefreshLayout after loading
+                    binding.swipeRefreshLayout.setEnabled(true);
+                    
+                    // Dismiss any loading snackbar
+                    viewModel.dismissCurrentSnackbar();
                 });
             } else if (templates != null && templates.isEmpty()) {
                 // Handle empty state
@@ -869,6 +1077,12 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                     adapter.updateTemplates(new ArrayList<>());
                     binding.emptyView.setVisibility(View.VISIBLE);
                     binding.bottomLoadingView.setVisibility(View.GONE);
+                    
+                    // Re-enable SwipeRefreshLayout after loading
+                    binding.swipeRefreshLayout.setEnabled(true);
+                    
+                    // Dismiss any loading snackbar
+                    viewModel.dismissCurrentSnackbar();
                 });
             }
         });
@@ -877,14 +1091,18 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
         viewModel.getNewTemplateIds().observe(getViewLifecycleOwner(), newIds -> {
             if (newIds != null && adapter != null) {
                 Log.d(TAG, "New template IDs updated: " + newIds.size());
-                adapter.setNewTemplates(newIds);
+                adapter.setNewTemplateIds(newIds);
             }
         });
         
         // Observe loading state
         viewModel.getLoading().observe(getViewLifecycleOwner(), isLoading -> {
             Log.d(TAG, "Loading state updated: " + isLoading);
-            binding.swipeRefreshLayout.setRefreshing(isLoading);
+            
+            // Only update SwipeRefreshLayout if it's enabled and this is not pagination
+            if (!viewModel.isPaginationInProgress() && binding.swipeRefreshLayout.isEnabled()) {
+                binding.swipeRefreshLayout.setRefreshing(isLoading);
+            }
             
             // Show/hide shimmer based on loading state
             if (isLoading) {
@@ -896,6 +1114,14 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
 //                binding.shimmerLayout.stopShimmer();
 //                binding.shimmerLayout.setVisibility(View.GONE);
                 binding.templatesRecyclerView.setVisibility(View.VISIBLE);
+                
+                // If this was pagination, dismiss the snackbar
+                if (viewModel.isPaginationInProgress()) {
+                    viewModel.dismissCurrentSnackbar();
+                }
+                
+                // Re-enable SwipeRefreshLayout
+                binding.swipeRefreshLayout.setEnabled(true);
             }
         });
         
@@ -996,6 +1222,49 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
             bottomNav.setVisibility(View.VISIBLE);
             // Set the selected item to home
             bottomNav.setSelectedItemId(R.id.navigation_home);
+        }
+    }
+
+    /**
+     * Set up AdMob banner
+     */
+    private void setupAdBanner() {
+        try {
+            // Try to get AdMobManager
+            adMobManager = ((EventWishApplication) requireActivity().getApplication()).getAdMobManager();
+            
+            // Set up the AdBanner if AdMobManager is initialized
+            if (adMobManager != null && adMobManager.isInitialized()) {
+                Log.d(TAG, "Setting up ad banner with AdMobManager");
+                
+                // Observe ad enabled state
+                adMobManager.getEnabledState().observe(getViewLifecycleOwner(), isEnabled -> {
+                    if (binding != null && binding.adBannerView != null) {
+                        if (isEnabled) {
+                            binding.adBannerView.setVisibility(View.VISIBLE);
+                        } else {
+                            binding.adBannerView.setVisibility(View.GONE);
+                        }
+                    }
+                });
+                
+                // Set test mode based on AdMobManager
+                if (binding.adBannerView != null) {
+                    binding.adBannerView.setTestMode(adMobManager.isTestModeEnabled());
+                }
+            } else {
+                // Hide the banner if AdMobManager is not initialized
+                Log.d(TAG, "AdMobManager not initialized, hiding ad banner");
+                if (binding != null && binding.adBannerView != null) {
+                    binding.adBannerView.setVisibility(View.GONE);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error setting up ad banner: " + e.getMessage(), e);
+            // Hide the banner on error
+            if (binding != null && binding.adBannerView != null) {
+                binding.adBannerView.setVisibility(View.GONE);
+            }
         }
     }
 
@@ -1144,6 +1413,46 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnTemp
                 }
             }
         }
+    }
+
+    /**
+     * Shows a Snackbar when the user scrolls in a specific category
+     */
+    private void showCategoryScrollingSnackbar(String category) {
+        if (getActivity() == null || bottomNav == null || category == null) return;
+        
+        // Dismiss any existing Snackbar
+        viewModel.dismissCurrentSnackbar();
+        
+        // Create a new Snackbar with a browsing message
+        String displayCategory = category.equals("All") ? "all" : category;
+        Snackbar snackbar = Snackbar.make(binding.getRoot(), 
+            "Browsing " + displayCategory + " templates", 
+            Snackbar.LENGTH_SHORT);
+        
+        // Position the Snackbar above bottom navigation
+        View snackbarView = snackbar.getView();
+        androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams params = 
+            (androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams) 
+            snackbarView.getLayoutParams();
+        params.setMargins(0, 0, 0, bottomNav.getHeight());
+        snackbarView.setLayoutParams(params);
+        
+        // Apply gradient background
+        snackbarView.setBackgroundResource(R.drawable.gradient_snackbar_background);
+        
+        // Apply fade-in animation
+        snackbarView.setAlpha(0f);
+        snackbarView.animate()
+            .alpha(1f)
+            .setDuration(300)
+            .start();
+        
+        // Store the Snackbar reference for later dismissal
+        viewModel.setCurrentSnackbar(snackbar);
+        
+        // Show the Snackbar
+        snackbar.show();
     }
 }
 

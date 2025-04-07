@@ -448,6 +448,18 @@
         </FrameLayout>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
+    <!-- Ad Banner View -->
+    <com.ds.eventwish.ads.AdBannerView
+        android:id="@+id/adBannerView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginBottom="8dp"
+        app:testMode="true"
+        app:enabled="true"
+        app:adType="BANNER"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"/>
+
     <!-- Bottom loading indicator for pagination -->
     <FrameLayout
         android:id="@+id/bottomLoadingView"

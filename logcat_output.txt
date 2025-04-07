@@ -1,0 +1,418 @@
+--------- beginning of main
+04-07 08:12:31.016 20797 20797 D BufferQueueConsumer: [](id:513d00000023,api:0,p:-1,c:20797) connect: controlledByApp=false
+04-07 08:12:31.022 20797 20851 E OpenGLRenderer: Unable to match the desired swap behavior.
+04-07 08:12:31.041 20797 20851 D BLASTBufferQueue: [VRI[0 fl=}]#35](f:0,a:1) acquireNextBufferLocked size=1080x2408 mFrameNumber=1 applyTransaction=true mTimestamp=1274526940893889(auto) mPendingTransactions.size=0 graphicBufferId=89322434855053 transform=0
+04-07 08:12:31.044 20797 20797 I ckty    : onStart
+04-07 08:12:31.054 20797 20797 I cjdp    : (REDACTED) [%s] onStart()
+04-07 08:12:31.054 20797 20797 I cjfo    : Reloading theme data
+04-07 08:12:31.059 20797 20797 I ckty    : onResume
+04-07 08:12:31.122  6784 11511 D TrafficStats: tagSocket(120) with statsTag=0xffffffff, statsUid=-1
+04-07 08:12:31.416 10035 10035 I zygote  : usapPoolSocket.accept() end:null,getFileDescriptor():java.io.FileDescriptor@e47c86c,fd:27
+04-07 08:12:31.427 10035 10035 I om.ds.eventwish: Late-enabling -Xcheck:jni
+04-07 08:12:31.471 10035 10035 I om.ds.eventwish: Using CollectorTypeCC GC.
+04-07 08:12:31.483  1798  1807 I adbd    : jdwp connection from 10035
+04-07 08:12:31.493 10035 10035 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+04-07 08:12:31.502 20797 20797 I ckty    : onPause
+04-07 08:12:31.544 10035 10035 D CompatibilityChangeReporter: Compat change id reported: 171979766; UID 10488; state: ENABLED
+04-07 08:12:31.545 10035 10035 D CompatibilityChangeReporter: Compat change id reported: 242716250; UID 10488; state: ENABLED
+04-07 08:12:31.570 10035 10035 W ziparchive: Unable to open '/data/app/~~rtlj3GpjkHJBcD93MdfJlA==/com.ds.eventwish-tTQgt8-Ih4rDvlfwAigQQw==/base.dm': No such file or directory
+04-07 08:12:31.570 10035 10035 W ziparchive: Unable to open '/data/app/~~rtlj3GpjkHJBcD93MdfJlA==/com.ds.eventwish-tTQgt8-Ih4rDvlfwAigQQw==/base.dm': No such file or directory
+04-07 08:12:31.807 10035 10035 D nativeloader: Configuring clns-4 for other apk /data/app/~~rtlj3GpjkHJBcD93MdfJlA==/com.ds.eventwish-tTQgt8-Ih4rDvlfwAigQQw==/base.apk. target_sdk_version=34, uses_libraries=, library_path=/data/app/~~rtlj3GpjkHJBcD93MdfJlA==/com.ds.eventwish-tTQgt8-Ih4rDvlfwAigQQw==/lib/arm64, permitted_path=/data:/mnt/expand:/data/user/0/com.ds.eventwish
+04-07 08:12:31.818 10035 10035 D nativeloader: Load libframework-connectivity-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity.jar: ok
+04-07 08:12:31.823 10035 10035 V GraphicsEnvironment: Currently set values for:
+04-07 08:12:31.823 10035 10035 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+04-07 08:12:31.823 10035 10035 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+04-07 08:12:31.824 10035 10035 V GraphicsEnvironment: ANGLE GameManagerService for com.ds.eventwish: false
+04-07 08:12:31.824 10035 10035 V GraphicsEnvironment: com.ds.eventwish is not listed in per-application setting
+04-07 08:12:31.824 10035 10035 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+04-07 08:12:31.863 10035 10035 D EventWishApplication: EventWish application starting...
+04-07 08:12:31.863 10035 10035 D EventWishApplication: Initializing services...
+04-07 08:12:31.863 10035 10035 D EventWishApplication: Initializing SecureTokenManager
+04-07 08:12:31.875 10035 10035 D EventWishApplication: SecureTokenManager initialized successfully
+04-07 08:12:31.879 10035 10035 D ApiClient: SecureTokenManager initialized during ApiClient init
+04-07 08:12:31.879 10035 10035 D ApiClient: ApiClient initialized with API URL: https://eventwish2.onrender.com/api/
+04-07 08:12:31.879 10035 10035 W ApiClient_Deprecated: Using deprecated ApiClient.init(), please update to com.ds.eventwish.data.remote.ApiClient
+04-07 08:12:31.879 10035 10035 D ApiClient: SecureTokenManager initialized during ApiClient init
+04-07 08:12:31.879 10035 10035 D ApiClient: ApiClient initialized with API URL: https://eventwish2.onrender.com/api/
+04-07 08:12:31.882 10035 10035 D EventWishApplication: Initializing repositories...
+04-07 08:12:31.888 20797 20797 D BLASTBufferQueue: [VRI[0 fl=}]#35](f:0,a:1) destructor()
+04-07 08:12:31.888 20797 20797 D BufferQueueConsumer: [VRI[0 fl=}]#35(BLAST Consumer)35](id:513d00000023,api:0,p:-1,c:20797) disconnect
+04-07 08:12:31.907 10035 10035 D ResourceDatabase: ResourceDatabase instance created
+04-07 08:12:31.908 10035 10035 D ApiClient: Using API key from BuildConfig
+04-07 08:12:31.908 10035 10035 D ApiClient: Creating API service with API key: valid key
+04-07 08:12:31.986 10035 10035 W om.ds.eventwish: Accessing hidden method Ljava/lang/invoke/MethodHandles$Lookup;-><init>(Ljava/lang/Class;I)V (unsupported, reflection, allowed)
+04-07 08:12:31.992 10035 10035 D ApiClient: Created new ApiService instance
+04-07 08:12:31.995 10035 10035 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+04-07 08:12:31.998 10035 10035 D NetworkUtils: NetworkUtils initialized
+04-07 08:12:31.999 10035 10035 D ResourceCache: ResourceCache initialized
+04-07 08:12:32.004 10035 10035 D ErrorHandler: ErrorHandler initialized
+04-07 08:12:32.004 10035 10035 D ResourceRepository: ResourceRepository initialized
+04-07 08:12:32.004 10035 10035 D CategoryIconRepository: 🏗️ CategoryIconRepository fully initialized with context
+04-07 08:12:32.005 10035 10035 D CategoryIconRepository: ✅ Added fallback icon for 'All' category
+04-07 08:12:32.005 10035 10035 D CategoryIconRepository: ✅ Added fallback icon for 'Birthday' category
+04-07 08:12:32.005 10035 10035 D CategoryIconRepository: ✅ Added fallback icon for 'Wedding' category
+04-07 08:12:32.005 10035 11553 D NetworkUtils: Network available
+04-07 08:12:32.005 10035 10035 D CategoryIconRepository: ✅ Added additional fallback icon for 'Holiday' category
+04-07 08:12:32.005 10035 10035 D CategoryIconRepository: ✅ Added additional fallback icon for 'Christmas' category
+04-07 08:12:32.005 10035 10035 D CategoryIconRepository: ✅ Added additional fallback icon for 'Anniversary' category
+04-07 08:12:32.005 10035 10035 D CategoryIconRepository: ✅ Added additional fallback icon for 'Graduation' category
+04-07 08:12:32.005 10035 10035 D CategoryIconRepository: ✅ Added additional fallback icon for 'Baby' category
+04-07 08:12:32.005 10035 10035 D CategoryIconRepository: ✅ Added additional fallback icon for 'Invitation' category
+04-07 08:12:32.005 10035 10035 D CategoryIconRepository: ✅ Added additional fallback icon for 'Festival' category
+04-07 08:12:32.005 10035 10035 D CategoryIconRepository: ✅ Created new CategoryIconRepository instance with context
+04-07 08:12:32.008 10035 11553 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+04-07 08:12:32.008 10035 11553 D NetworkUtils: Network capabilities changed
+04-07 08:12:32.011 10035 11553 D NetworkUtils: Network state updated: connected=true, type=CELLULAR, metered=true
+04-07 08:12:32.014 10035 10035 D AppDatabase: Database instance created
+04-07 08:12:32.017 10035 10035 D ApiClient: SecureTokenManager initialized during ApiClient init
+04-07 08:12:32.017 10035 10035 D ApiClient: ApiClient initialized with API URL: https://eventwish2.onrender.com/api/
+04-07 08:12:32.024 10035 10035 D AdMobRepository: AdMobRepository initialized successfully
+04-07 08:12:32.024 10035 10035 D EventWishApplication: AdMobManager initialized successfully
+04-07 08:12:32.024 10035 10035 D AnalyticsUtils: Analytics initialized with session ID: 1743993752024-64163
+04-07 08:12:32.026 10035 10035 D EventWishNotifManager: Creating notification channels
+04-07 08:12:32.028 10035 10035 D EventWishNotifManager: Notification channels created
+04-07 08:12:32.028 10035 10035 D EventWishApplication: Scheduling workers
+04-07 08:12:32.048 10035 11554 D ResourceDatabase: Database opened
+04-07 08:12:32.048 10035 11556 D AppDatabase: Database opened
+04-07 08:12:32.052 10035 11554 D ResourceRepository: Cleaned up 0 expired resources
+04-07 08:12:32.057 10035 11556 D FestivalRepository: Updated unread count: 0
+04-07 08:12:32.064 10035 10035 D WM-PackageManagerHelper: Skipping component enablement for androidx.work.impl.background.systemjob.SystemJobService
+04-07 08:12:32.064 10035 10035 D WM-Schedulers: Created SystemJobScheduler and enabled SystemJobService
+04-07 08:12:32.073 10035 10035 D EventWishApplication: Scheduled template update check worker
+04-07 08:12:32.073 10035 10035 D EventWishApplication: Scheduling notification workers
+04-07 08:12:32.073 10035 10035 D NotificationScheduler: Scheduling festival notifications
+04-07 08:12:32.074 10035 10035 D NotificationScheduler: Festival notifications scheduled to run every 12 hours
+04-07 08:12:32.074 10035 10035 D EventWishApplication: Scheduled reminder check worker
+04-07 08:12:32.074 10035 10035 D EventWishApplication: Clearing database cache on app start
+04-07 08:12:32.080 10035 11562 D EventWishApplication: Festival database cache cleared successfully
+04-07 08:12:32.086 10035 10035 D EventWishApplication: Scheduling workers
+04-07 08:12:32.087 10035 10035 D EventWishApplication: Scheduled template update check worker
+04-07 08:12:32.087 10035 10035 D EventWishApplication: Scheduling notification workers
+04-07 08:12:32.087 10035 10035 D NotificationScheduler: Scheduling festival notifications
+04-07 08:12:32.087 10035 10035 D NotificationScheduler: Festival notifications scheduled to run every 12 hours
+04-07 08:12:32.088 10035 10035 D EventWishApplication: Scheduled reminder check worker
+04-07 08:12:32.090 10035 10035 D EventWishApplication: Services initialized successfully
+04-07 08:12:32.091 10035 10035 D EventWishApplication: EventWish application started successfully
+04-07 08:12:32.091 10035 11565 D EventWishApplication: Background user registration initiated
+04-07 08:12:32.099 10035 10035 I M-ProMotion: M-ProMotion is disabled
+04-07 08:12:32.130 10035 11561 D CompatibilityChangeReporter: Compat change id reported: 160794467; UID 10488; state: ENABLED
+04-07 08:12:32.146 10035 10035 D AppCompatDelegate: Checking for metadata for AppLocalesMetadataHolderService : Service not found
+04-07 08:12:32.156 10035 10035 D VivoConfigStore: init begin
+04-07 08:12:32.165 10035 11561 D CompatibilityChangeReporter: Compat change id reported: 194532703; UID 10488; state: ENABLED
+04-07 08:12:32.166 10035 11561 D CompatibilityChangeReporter: Compat change id reported: 253665015; UID 10488; state: ENABLED
+04-07 08:12:32.178 10035 10035 D VivoConfigStore: key:vivo.software.multilandscape isCached is true and value is true
+04-07 08:12:32.178 10035 10035 D VivoConfigStore: key:vivo.software.ml.freedrag isCached is false and normal value is false
+04-07 08:12:32.180 10035 10035 D VivoConfigStore: key:vivo.software.ml.unasso isCached is false and normal value is false
+04-07 08:12:32.180 10035 10035 D VivoConfigStore: key:vivo.software.virtualmultilands isCached is true and value is true
+04-07 08:12:32.181 10035 10035 D VivoConfigStore: key:vivo.software.hovermode isCached is false and normal value is false
+04-07 08:12:32.223 10035 10035 D EventWishApplication: Activity created: TestAdActivity
+04-07 08:12:32.232 10035 10035 D VivoConfigStore: key:vivo.software.freeform isCached is true and value is true
+04-07 08:12:32.260 10035 10035 W om.ds.eventwish: Accessing hidden method Landroid/view/View;->computeFitSystemWindows(Landroid/graphics/Rect;Landroid/graphics/Rect;)Z (unsupported, reflection, allowed)
+04-07 08:12:32.260 10035 10035 W om.ds.eventwish: Accessing hidden method Landroid/view/ViewGroup;->makeOptionalFitsSystemWindows()V (unsupported, reflection, allowed)
+04-07 08:12:32.290 10035 10035 D VivoConfigStore: key:vivo.software.nightmode isCached is true and value is true
+04-07 08:12:32.291 10035 10035 D CompatibilityChangeReporter: Compat change id reported: 210923482; UID 10488; state: ENABLED
+04-07 08:12:32.308 10035 10035 D CompatibilityChangeReporter: Compat change id reported: 171228096; UID 10488; state: ENABLED
+04-07 08:12:32.309 10035 10035 D VivoConfigStore: key:vivo.software.springeffect isCached is true and value is true
+04-07 08:12:32.472 10035 10035 D TestAdActivity: Initializing AdMob test environment
+04-07 08:12:32.472 10035 10035 D TestAdActivity: Initializing SecureTokenManager
+04-07 08:12:32.472 10035 10035 D TestAdActivity: SecureTokenManager initialized successfully
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: Error encrypting value
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: java.security.InvalidAlgorithmParameterException: Caller-provided IV not permitted
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at android.security.keystore2.KeyStoreCryptoOperationUtils.getExceptionForCipherInit(KeyStoreCryptoOperationUtils.java:148)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at android.security.keystore2.AndroidKeyStoreCipherSpiBase.ensureKeystoreOperationInitialized(AndroidKeyStoreCipherSpiBase.java:354)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at android.security.keystore2.AndroidKeyStoreCipherSpiBase.engineInit(AndroidKeyStoreCipherSpiBase.java:248)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at javax.crypto.Cipher.tryTransformWithProvider(Cipher.java:2999)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at javax.crypto.Cipher.tryCombinations(Cipher.java:2910)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at javax.crypto.Cipher$SpiAndProviderUpdater.updateAndGetSpiAndProvider(Cipher.java:2815)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at javax.crypto.Cipher.chooseProvider(Cipher.java:792)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at javax.crypto.Cipher.init(Cipher.java:1307)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at javax.crypto.Cipher.init(Cipher.java:1242)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at com.ds.eventwish.util.SecureTokenManager.encrypt(SecureTokenManager.java:98)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at com.ds.eventwish.util.SecureTokenManager.saveApiKey(SecureTokenManager.java:140)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at com.ds.eventwish.ui.ads.TestAdActivity.initializeAdMob(TestAdActivity.java:130)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at com.ds.eventwish.ui.ads.TestAdActivity.onCreate(TestAdActivity.java:95)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at android.app.Activity.performCreate(Activity.java:8947)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at android.app.Activity.performCreate(Activity.java:8911)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at android.app.Instrumentation.callActivityOnCreate(Instrumentation.java:1456)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at android.app.ActivityThread.performLaunchActivity(ActivityThread.java:4277)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at android.app.ActivityThread.handleLaunchActivity(ActivityThread.java:4449)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at android.app.servertransaction.LaunchActivityItem.execute(LaunchActivityItem.java:103)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at android.app.servertransaction.TransactionExecutor.executeCallbacks(TransactionExecutor.java:139)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at android.app.servertransaction.TransactionExecutor.execute(TransactionExecutor.java:96)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2846)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at android.os.Handler.dispatchMessage(Handler.java:108)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at android.os.Looper.loopOnce(Looper.java:226)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at android.os.Looper.loop(Looper.java:328)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at android.app.ActivityThread.main(ActivityThread.java:9213)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at java.lang.reflect.Method.invoke(Native Method)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:594)
+04-07 08:12:32.480 10035 10035 E SecureTokenManager: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1099)
+04-07 08:12:32.480 10035 10035 D TestAdActivity: Test API key saved to SecureTokenManager
+04-07 08:12:32.480 10035 10035 D TestAdActivity: Initializing AdMobManager directly
+04-07 08:12:32.480 10035 10035 D TestAdActivity: AdMobManager initialized successfully via direct init
+04-07 08:12:32.481 10035 10035 D TestAdActivity: AdMobManager test mode enabled
+04-07 08:12:32.481 10035 10035 D TestAdActivity: Status updated: AdMob initialized in test mode
+04-07 08:12:32.481 10035 10035 D TestAdActivity: Initializing AdMobRepository
+04-07 08:12:32.481 10035 10035 D TestAdActivity: AdMobRepository initialized successfully
+04-07 08:12:32.490 10035 10035 D AdMobManager: Initializing AdMob
+04-07 08:12:32.508 10035 10035 D AdMobManager: AdMob initialized successfully
+04-07 08:12:32.522 10035 11575 D ApiClient: API Request: https://eventwish2.onrender.com/api/admob/units
+04-07 08:12:32.522 10035 11575 D ApiClient: API Key: ew_dev_c1c...
+04-07 08:12:32.522 10035 11575 D ApiClient: Headers: x-app-signature: test_signature
+04-07 08:12:32.522 10035 11575 D ApiClient: Content-Type: application/json
+04-07 08:12:32.522 10035 11575 D ApiClient: x-api-key: ew_dev_c1ce47afeff9fa8b7b1aa165562cb915
+04-07 08:12:32.522 10035 11575 D ApiClient: x-device-id: 93e81b95f9f2c74a4b0124f784fe34327066c5c0f8a4c51c00a11a68c831b49e
+04-07 08:12:32.524 10035 11575 I okhttp.OkHttpClient: --> GET https://eventwish2.onrender.com/api/admob/units
+04-07 08:12:32.524 10035 11575 I okhttp.OkHttpClient: x-app-signature: test_signature
+04-07 08:12:32.524 10035 11575 I okhttp.OkHttpClient: Content-Type: application/json
+04-07 08:12:32.525 10035 11575 I okhttp.OkHttpClient: x-api-key: ew_dev_c1ce47afeff9fa8b7b1aa165562cb915
+04-07 08:12:32.525 10035 11575 I okhttp.OkHttpClient: x-device-id: 93e81b95f9f2c74a4b0124f784fe34327066c5c0f8a4c51c00a11a68c831b49e
+04-07 08:12:32.525 10035 11575 I okhttp.OkHttpClient: --> END GET
+04-07 08:12:32.534 10035 10035 D TestAdActivity: Performance metrics: Performance Metrics:
+04-07 08:12:32.534 10035 10035 D TestAdActivity: • Startup time: 328 ms
+04-07 08:12:32.534 10035 10035 D TestAdActivity: • Memory usage: 4.01 MB
+04-07 08:12:32.534 10035 10035 D TestAdActivity: • Battery usage: 0%
+04-07 08:12:32.542 10035 10035 D EventWishApplication: App went to foreground
+04-07 08:12:32.542 10035 10035 D TestAdActivity: Activity lifecycle: onStart()
+04-07 08:12:32.546 10035 10035 D UserRepository: Skipping activity update (rate limited)
+04-07 08:12:32.547 10035 10035 D TestAdActivity: Activity lifecycle: onResume()
+04-07 08:12:32.582 10035 11575 D TrafficStats: tagSocket(125) with statsTag=0xffffffff, statsUid=-1
+04-07 08:12:32.602 10035 10035 D TestAdActivity: Memory at onResume: Private=50.71 MB, Shared=6728KB, PSS=62.7 MB
+04-07 08:12:32.609 10035 10035 D CompatibilityChangeReporter: Compat change id reported: 237531167; UID 10488; state: DISABLED
+04-07 08:12:32.611 10035 11566 D nativeloader: Load libpowerhalwrap_jni.so using system ns (caller=/system_ext/framework/mediatek-framework.jar): ok
+04-07 08:12:32.611 10035 11566 I PowerHalWrapper: PowerHalWrapper.getInstance 
+04-07 08:12:32.629 10035 10035 W OpenGLRenderer: Unknown dataspace 0
+04-07 08:12:32.643 10035 10035 D InputTransport: Create ARC handle: 0xb400006f9af21250
+04-07 08:12:32.645 10035 10035 I Choreographer: Skipped 46 frames!  The application may be doing too much work on its main thread.
+04-07 08:12:32.703 10035 10035 D BufferQueueConsumer: [](id:273300000000,api:0,p:-1,c:10035) connect: controlledByApp=false
+04-07 08:12:32.737 10035 11567 E OpenGLRenderer: Unable to match the desired swap behavior.
+04-07 08:12:32.745 10035 11592 E ion     : ioctl c0044901 failed with code -1: Invalid argument
+04-07 08:12:32.778 10035 11567 W libc    : Access denied finding property "ro.vendor.magt.mtk_magt_support"
+04-07 08:12:32.778 10035 11567 D MAGT_SYNC_FRAME: MAGT Sync: MAGT is not supported. Disabling Sync.
+04-07 08:12:32.778 10035 11567 D hw-ProcessState: Binder ioctl to enable oneway spam detection failed: Invalid argument
+04-07 08:12:32.811 10035 11567 D BLASTBufferQueue: [VRI[TestAdActivity]#0](f:0,a:1) acquireNextBufferLocked size=1080x2408 mFrameNumber=1 applyTransaction=true mTimestamp=1274528711521505(auto) mPendingTransactions.size=0 graphicBufferId=43099996815363 transform=0
+04-07 08:12:32.820  1760  1868 I ActivityTaskManager: Displayed com.ds.eventwish/.ui.ads.TestAdActivity for user 0: +1s440ms
+04-07 08:12:32.822 10035 11542 I OpenGLRenderer: Davey! duration=950ms; Flags=1, FrameTimelineVsyncId=272364607, IntendedVsync=1274527764836416, Vsync=1274528530577394, InputEventId=0, HandleInputStart=1274528547015966, AnimationStart=1274528547060351, PerformTraversalsStart=1274528547567351, DrawStart=1274528642494505, FrameDeadline=1274527784836416, FrameInterval=1274528546129813, FrameStartTime=16646543, SyncQueued=1274528677408351, SyncStart=1274528677528889, IssueDrawCommandsStart=1274528678346505, SwapBuffers=1274528708758736, FrameCompleted=1274528715142505, DequeueBufferDuration=15692, QueueBufferDuration=494462, GpuCompleted=1274528715142505, SwapBuffersCompleted=1274528712828659, DisplayPresentTime=0, CommandSubmissionCompleted=1274528708758736, 
+04-07 08:12:32.856 10035 10035 V ImeFocusController: onWindowFocus: DecorView@57700af[TestAdActivity] softInputMode=STATE_UNSPECIFIED|ADJUST_RESIZE|IS_FORWARD_NAVIGATION
+04-07 08:12:32.870 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:32.873 20797 20797 I ckty    : onStop
+04-07 08:12:32.887 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:32.910 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:32.932 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:32.945 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:32.956 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:32.971 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:32.987 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.004 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.021 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.037 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.052 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.069 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.086 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.103 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.120 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.136 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.153 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.170 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.187 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.203 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.220 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.237 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.253 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.270 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.287 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.300 10035 11536 I om.ds.eventwish: Compiler allocated 4211KB to compile void android.widget.TextView.<init>(android.content.Context, android.util.AttributeSet, int, int)
+04-07 08:12:33.303 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.320 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.337 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.353 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.370 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.387 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.402 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.420 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.437 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.452 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.471 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.485 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.504 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.524 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.536 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.553 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.571 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.588 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.604 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.621 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.639 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.655 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.671 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.688 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.704 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.720 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.737 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.754 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.770 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.788 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.803 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.820 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.838 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.852 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.871 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.887 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.903 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.904 10035 11575 I okhttp.OkHttpClient: <-- 401 https://eventwish2.onrender.com/api/admob/units (1378ms)
+04-07 08:12:33.904 10035 11575 I okhttp.OkHttpClient: date: Mon, 07 Apr 2025 02:42:34 GMT
+04-07 08:12:33.904 10035 11575 I okhttp.OkHttpClient: content-type: application/json; charset=utf-8
+04-07 08:12:33.904 10035 11575 I okhttp.OkHttpClient: access-control-allow-origin: *
+04-07 08:12:33.904 10035 11575 I okhttp.OkHttpClient: content-security-policy: default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-hashes' https://cdn.jsdelivr.net;script-src-attr 'unsafe-inline';connect-src 'self' https://api.eventwish.com https://eventwish2.onrender.com;style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;img-src 'self' data: https://via.placeholder.com;font-src 'self' https://cdn.jsdelivr.net;base-uri 'self';form-action 'self';frame-ancestors 'self';object-src 'none';upgrade-insecure-requests
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: cross-origin-opener-policy: same-origin
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: cross-origin-resource-policy: same-origin
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: etag: W/"58-GGvPw5G3EW+ylh8zJiuQ8GFC7vc"
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: origin-agent-cluster: ?1
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: ratelimit-limit: 100
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: ratelimit-policy: 100;w=900
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: ratelimit-remaining: 94
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: ratelimit-reset: 852
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: referrer-policy: no-referrer
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: rndr-id: 248b3070-6796-4550
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: strict-transport-security: max-age=15552000; includeSubDomains
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: vary: Accept-Encoding
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: vary: Accept-Encoding
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: x-content-type-options: nosniff
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: x-dns-prefetch-control: off
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: x-download-options: noopen
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: x-frame-options: SAMEORIGIN
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: x-permitted-cross-domain-policies: none
+04-07 08:12:33.905 10035 11575 I okhttp.OkHttpClient: x-render-origin-server: Render
+04-07 08:12:33.906 10035 11575 I okhttp.OkHttpClient: x-xss-protection: 0
+04-07 08:12:33.906 10035 11575 I okhttp.OkHttpClient: cf-cache-status: DYNAMIC
+04-07 08:12:33.906 10035 11575 I okhttp.OkHttpClient: server: cloudflare
+04-07 08:12:33.906 10035 11575 I okhttp.OkHttpClient: cf-ray: 92c62c20a83833c6-DEL
+04-07 08:12:33.906 10035 11575 I okhttp.OkHttpClient: alt-svc: h3=":443"; ma=86400
+04-07 08:12:33.907 10035 11575 I okhttp.OkHttpClient: {"success":false,"message":"App signature is not valid","error":"APP_SIGNATURE_INVALID"}
+04-07 08:12:33.907 10035 11575 I okhttp.OkHttpClient: <-- END HTTP (88-byte body)
+04-07 08:12:33.910 10035 10035 E AdMobRepository: Failed to fetch ad units: 401 
+04-07 08:12:33.911 10035 10035 D AdMobRepository: Retrying in 2000ms (attempt 1 of 3)
+04-07 08:12:33.923 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.935 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:33.937 10035 11536 I om.ds.eventwish: Compiler allocated 6508KB to compile void android.view.ViewRootImpl.performTraversals()
+04-07 08:12:34.250 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.271 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.284 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.300 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.321 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.332 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.353 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.366 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.386 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.399 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.419 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.432 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.449 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.466 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.484 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.500 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.518 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.738 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.747 10035 10035 D TestAdActivity: Status updated: Testing token and signature verification...
+04-07 08:12:34.750 10035 10035 D TestAdActivity: Auth headers: {
+04-07 08:12:34.750 10035 10035 D TestAdActivity:   "x-device-id": "test_device_id",
+04-07 08:12:34.750 10035 10035 D TestAdActivity:   "x-api-key": "test_api_key",
+04-07 08:12:34.750 10035 10035 D TestAdActivity:   "x-app-signature": "test_signature"
+04-07 08:12:34.750 10035 10035 D TestAdActivity: }
+04-07 08:12:34.752 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.754 10035 11575 D ApiClient: API Request: https://eventwish2.onrender.com/api/admob/units
+04-07 08:12:34.754 10035 11575 D ApiClient: API Key: ew_dev_c1c...
+04-07 08:12:34.754 10035 11575 D ApiClient: Headers: x-app-signature: test_signature
+04-07 08:12:34.754 10035 11575 D ApiClient: Content-Type: application/json
+04-07 08:12:34.754 10035 11575 D ApiClient: x-api-key: ew_dev_c1ce47afeff9fa8b7b1aa165562cb915
+04-07 08:12:34.754 10035 11575 D ApiClient: x-device-id: 93e81b95f9f2c74a4b0124f784fe34327066c5c0f8a4c51c00a11a68c831b49e
+04-07 08:12:34.755 10035 11575 I okhttp.OkHttpClient: --> GET https://eventwish2.onrender.com/api/admob/units
+04-07 08:12:34.755 10035 11575 I okhttp.OkHttpClient: x-app-signature: test_signature
+04-07 08:12:34.755 10035 11575 I okhttp.OkHttpClient: Content-Type: application/json
+04-07 08:12:34.755 10035 11575 I okhttp.OkHttpClient: x-api-key: ew_dev_c1ce47afeff9fa8b7b1aa165562cb915
+04-07 08:12:34.755 10035 11575 I okhttp.OkHttpClient: x-device-id: 93e81b95f9f2c74a4b0124f784fe34327066c5c0f8a4c51c00a11a68c831b49e
+04-07 08:12:34.755 10035 11575 I okhttp.OkHttpClient: --> END GET
+04-07 08:12:34.770 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.781 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.799 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.816 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.833 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.854 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.868 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.886 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.903 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.921 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.937 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.955 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.971 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:34.987 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.003 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.019 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.037 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.053 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.068 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.087 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.094 10035 11575 I okhttp.OkHttpClient: <-- 401 https://eventwish2.onrender.com/api/admob/units (338ms)
+04-07 08:12:35.094 10035 11575 I okhttp.OkHttpClient: date: Mon, 07 Apr 2025 02:42:35 GMT
+04-07 08:12:35.094 10035 11575 I okhttp.OkHttpClient: content-type: application/json; charset=utf-8
+04-07 08:12:35.094 10035 11575 I okhttp.OkHttpClient: access-control-allow-origin: *
+04-07 08:12:35.094 10035 11575 I okhttp.OkHttpClient: content-security-policy: default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-hashes' https://cdn.jsdelivr.net;script-src-attr 'unsafe-inline';connect-src 'self' https://api.eventwish.com https://eventwish2.onrender.com;style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;img-src 'self' data: https://via.placeholder.com;font-src 'self' https://cdn.jsdelivr.net;base-uri 'self';form-action 'self';frame-ancestors 'self';object-src 'none';upgrade-insecure-requests
+04-07 08:12:35.094 10035 11575 I okhttp.OkHttpClient: cross-origin-opener-policy: same-origin
+04-07 08:12:35.095 10035 11575 I okhttp.OkHttpClient: cross-origin-resource-policy: same-origin
+04-07 08:12:35.095 10035 11575 I okhttp.OkHttpClient: etag: W/"58-GGvPw5G3EW+ylh8zJiuQ8GFC7vc"
+04-07 08:12:35.095 10035 11575 I okhttp.OkHttpClient: origin-agent-cluster: ?1
+04-07 08:12:35.095 10035 11575 I okhttp.OkHttpClient: ratelimit-limit: 100
+04-07 08:12:35.095 10035 11575 I okhttp.OkHttpClient: ratelimit-policy: 100;w=900
+04-07 08:12:35.095 10035 11575 I okhttp.OkHttpClient: ratelimit-remaining: 93
+04-07 08:12:35.096 10035 11575 I okhttp.OkHttpClient: ratelimit-reset: 677
+04-07 08:12:35.096 10035 11575 I okhttp.OkHttpClient: referrer-policy: no-referrer
+04-07 08:12:35.096 10035 11575 I okhttp.OkHttpClient: rndr-id: 2fa5e8bc-c38a-44c0
+04-07 08:12:35.096 10035 11575 I okhttp.OkHttpClient: strict-transport-security: max-age=15552000; includeSubDomains
+04-07 08:12:35.096 10035 11575 I okhttp.OkHttpClient: vary: Accept-Encoding
+04-07 08:12:35.096 10035 11575 I okhttp.OkHttpClient: vary: Accept-Encoding
+04-07 08:12:35.096 10035 11575 I okhttp.OkHttpClient: x-content-type-options: nosniff
+04-07 08:12:35.097 10035 11575 I okhttp.OkHttpClient: x-dns-prefetch-control: off
+04-07 08:12:35.097 10035 11575 I okhttp.OkHttpClient: x-download-options: noopen
+04-07 08:12:35.097 10035 11575 I okhttp.OkHttpClient: x-frame-options: SAMEORIGIN
+04-07 08:12:35.097 10035 11575 I okhttp.OkHttpClient: x-permitted-cross-domain-policies: none
+04-07 08:12:35.097 10035 11575 I okhttp.OkHttpClient: x-render-origin-server: Render
+04-07 08:12:35.097 10035 11575 I okhttp.OkHttpClient: x-xss-protection: 0
+04-07 08:12:35.097 10035 11575 I okhttp.OkHttpClient: cf-cache-status: DYNAMIC
+04-07 08:12:35.097 10035 11575 I okhttp.OkHttpClient: server: cloudflare
+04-07 08:12:35.099 10035 11575 I okhttp.OkHttpClient: cf-ray: 92c62c2cdbe133c6-DEL
+04-07 08:12:35.101 10035 11575 I okhttp.OkHttpClient: alt-svc: h3=":443"; ma=86400
+04-07 08:12:35.103 10035 11575 I okhttp.OkHttpClient: {"success":false,"message":"App signature is not valid","error":"APP_SIGNATURE_INVALID"}
+04-07 08:12:35.103 10035 11575 I okhttp.OkHttpClient: <-- END HTTP (88-byte body)
+04-07 08:12:35.105 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.114 10035 10035 E TestAdActivity: Auth test failed. HTTP code: 401, Error: {"success":false,"message":"App signature is not valid","error":"APP_SIGNATURE_INVALID"}
+04-07 08:12:35.116 10035 10035 D TestAdActivity: Status updated: Auth test: Failed (HTTP 401)
+04-07 08:12:35.119 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.138 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.152 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.169 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.187 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.201 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.218 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.236 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.253 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.271 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.287 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.304 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.320 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.337 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.353 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.370 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.387 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.403 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.420 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.436 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.454 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.471 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.486 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.503 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.519 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.535 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.553 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.571 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.585 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)
+04-07 08:12:35.600 10035 11567 I gralloc4: @set_metadata: update dataspace from GM (0x00000000 -> 0x08010000)

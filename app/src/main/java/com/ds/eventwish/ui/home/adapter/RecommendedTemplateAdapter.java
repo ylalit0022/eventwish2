@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.lang.reflect.Field;
 
 /**
  * Enhanced adapter for showing templates with section headers and visual enhancements for recommended templates
@@ -83,124 +84,123 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
      * ViewHolder for section headers
      */
     public static class HeaderViewHolder extends RecyclerView.ViewHolder {
-        private final TextView titleView;
-        private final TextView descriptionView;
+        private final TextView titleTextView;
+        private final TextView descriptionTextView;
         
         public HeaderViewHolder(@NonNull View itemView) {
             super(itemView);
-            titleView = itemView.findViewById(R.id.sectionTitle);
-            descriptionView = itemView.findViewById(R.id.sectionDescription);
+            titleTextView = itemView.findViewById(R.id.headerTitle);
+            descriptionTextView = itemView.findViewById(R.id.headerDescription);
         }
         
         public void bind(SectionHeader header) {
-            titleView.setText(header.getTitle());
-            descriptionView.setText(header.getDescription());
+            titleTextView.setText(header.getTitle());
+            if (header.getDescription() != null && !header.getDescription().isEmpty()) {
+                descriptionTextView.setVisibility(View.VISIBLE);
+                descriptionTextView.setText(header.getDescription());
+            } else {
+                descriptionTextView.setVisibility(View.GONE);
+            }
         }
     }
     
     /**
      * ViewHolder for template items
      */
-    public class TemplateViewHolder extends RecyclerView.ViewHolder {
-        private final TextView titleView;
-        private final TextView categoryView;
-        private final ImageView thumbnailView;
-        private final ImageView categoryIconView;
-        private final LinearLayout recommendedBadge;
+    public static class TemplateViewHolder extends RecyclerView.ViewHolder {
+        private final ImageView templateImage;
+        private final TextView titleText;
+        private final TextView categoryText;
+        private final ImageView categoryIcon;
         private final TextView newBadge;
+        private final LinearLayout recommendedBadge;
         private final CardView cardView;
         
         public TemplateViewHolder(@NonNull View itemView) {
             super(itemView);
-            cardView = (CardView) itemView;
-            titleView = itemView.findViewById(R.id.titleText);
-            categoryView = itemView.findViewById(R.id.categoryText);
-            thumbnailView = itemView.findViewById(R.id.template_image);
-            categoryIconView = itemView.findViewById(R.id.categoryIcon);
-            recommendedBadge = itemView.findViewById(R.id.recommendedBadge);
+            templateImage = itemView.findViewById(R.id.template_image);
+            titleText = itemView.findViewById(R.id.titleText);
+            categoryText = itemView.findViewById(R.id.categoryText);
+            categoryIcon = itemView.findViewById(R.id.categoryIcon);
             newBadge = itemView.findViewById(R.id.newBadge);
+            recommendedBadge = itemView.findViewById(R.id.recommendedBadge);
+            cardView = (CardView) itemView;
         }
         
-        public void bind(Template template) {
-            // Set text
-            titleView.setText(template.getTitle());
-            categoryView.setText(template.getCategory());
+        public void bind(Template template, Set<String> recommendedIds, Set<String> newIds, TemplateClickListener listener) {
+            // Set basic info
+            titleText.setText(template.getTitle());
+            if (template.getCategory() != null) {
+                categoryText.setText(template.getCategory());
+                categoryText.setVisibility(View.VISIBLE);
+                categoryIcon.setVisibility(View.VISIBLE);
+            } else {
+                categoryText.setVisibility(View.GONE);
+                categoryIcon.setVisibility(View.GONE);
+            }
             
-            // Check if template is recommended
-            boolean isRecommended = template.isRecommended() || 
-                                   recommendedTemplateIds.contains(template.getId());
-            recommendedBadge.setVisibility(isRecommended ? View.VISIBLE : View.GONE);
+            // Check if this template is recommended
+            boolean isRecommended = recommendedIds.contains(template.getId()) || template.isRecommended();
             
-            // Apply special styling for recommended templates
+            // Special styling for recommended templates
             if (isRecommended) {
-                cardView.setCardBackgroundColor(itemView.getContext().getResources().getColor(R.color.colorAccent, null));
-                cardView.setCardElevation(8); // Increased elevation
+                recommendedBadge.setVisibility(View.VISIBLE);
+                cardView.setCardBackgroundColor(0xFFFFF8E1); // Light amber background
+                cardView.setCardElevation(8f); // Increased elevation
             } else {
-                cardView.setCardBackgroundColor(itemView.getContext().getResources().getColor(android.R.color.white, null));
-                cardView.setCardElevation(4); // Default elevation
+                recommendedBadge.setVisibility(View.GONE);
+                cardView.setCardBackgroundColor(0xFFFFFFFF); // White background
+                cardView.setCardElevation(4f); // Normal elevation
             }
             
-            // Check if template is new
-            boolean isNew = newTemplateIds.contains(template.getId());
-            newBadge.setVisibility(isNew ? View.VISIBLE : View.GONE);
+            // Show NEW badge if needed
+            newBadge.setVisibility(newIds.contains(template.getId()) ? View.VISIBLE : View.GONE);
             
-            // Load thumbnail
-            if (template.getThumbnailUrl() != null && !template.getThumbnailUrl().isEmpty()) {
-                Glide.with(itemView.getContext())
-                    .load(template.getThumbnailUrl())
-                    .placeholder(R.drawable.placeholder_image)
-                    .error(R.drawable.placeholder_image)
-                    .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .into(thumbnailView);
+            // Load image
+            String imageUrl = template.getThumbnailUrl();
+            if (imageUrl != null && !imageUrl.isEmpty()) {
+                Glide.with(templateImage.getContext())
+                    .load(imageUrl)
+                    .apply(new RequestOptions()
+                        .placeholder(R.drawable.placeholder_image)
+                        .error(R.drawable.error_image)
+                        .diskCacheStrategy(DiskCacheStrategy.ALL))
+                    .listener(new RequestListener<Drawable>() {
+                        @Override
+                        public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
+                            Log.e(TAG, "Image load failed: " + imageUrl);
+                            return false;
+                        }
+                        
+                        @Override
+                        public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                            return false;
+                        }
+                    })
+                    .into(templateImage);
             } else {
-                thumbnailView.setImageResource(R.drawable.placeholder_image);
+                templateImage.setImageResource(R.drawable.placeholder_image);
             }
-            
-            // Load category icon
-            loadCategoryIcon(template, categoryIconView);
             
             // Set click listener
             itemView.setOnClickListener(v -> {
-                if (clickListener != null) {
-                    clickListener.onTemplateClick(template);
-                    
-                    // Mark as viewed
-                    if (isNew) {
-                        markAsViewed(template.getId());
-                    }
-                    
-                    // Track engagement
-                    try {
-                        if (engagementRepository != null) {
-                            String source = isRecommended ? 
-                                "recommendation" : "direct";
-                            engagementRepository.trackTemplateView(
-                                template.getId(),
-                                template.getCategory(),
-                                source
-                            );
-                            Log.d(TAG, "Tracked template view: " + template.getId() + 
-                                  " (recommended: " + isRecommended + ")");
-                        } else {
-                            Log.w(TAG, "EngagementRepository not initialized - tracking skipped");
-                        }
-                    } catch (Exception e) {
-                        // Prevent engagement tracking errors from disrupting the user experience
-                        Log.e(TAG, "Error tracking template engagement", e);
-                    }
+                if (listener != null) {
+                    listener.onTemplateClick(template);
                 }
             });
         }
     }
     
+    /**
+     * Constructor
+     */
     public RecommendedTemplateAdapter(TemplateClickListener listener) {
         this.clickListener = listener;
     }
     
     @Override
     public int getItemViewType(int position) {
-        return items.get(position) instanceof SectionHeader ? 
-            VIEW_TYPE_HEADER : VIEW_TYPE_TEMPLATE;
+        return items.get(position) instanceof SectionHeader ? VIEW_TYPE_HEADER : VIEW_TYPE_TEMPLATE;
     }
     
     @NonNull
@@ -222,13 +222,58 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
         if (holder instanceof HeaderViewHolder) {
             ((HeaderViewHolder) holder).bind((SectionHeader) items.get(position));
         } else if (holder instanceof TemplateViewHolder) {
-            ((TemplateViewHolder) holder).bind((Template) items.get(position));
+            ((TemplateViewHolder) holder).bind(
+                (Template) items.get(position),
+                recommendedTemplateIds,
+                newTemplateIds,
+                clickListener
+            );
         }
     }
     
     @Override
     public int getItemCount() {
         return items.size();
+    }
+    
+    /**
+     * Update the adapter with a new list of templates, automatically organizing them into sections
+     */
+    public void updateTemplates(List<Template> templates) {
+        items.clear();
+        
+        if (templates == null || templates.isEmpty()) {
+            notifyDataSetChanged();
+            return;
+        }
+        
+        // Split templates into recommended and regular
+        List<Template> recommendedTemplates = new ArrayList<>();
+        List<Template> regularTemplates = new ArrayList<>();
+        
+        for (Template template : templates) {
+            if (recommendedTemplateIds.contains(template.getId()) || template.isRecommended()) {
+                recommendedTemplates.add(template);
+            } else {
+                regularTemplates.add(template);
+            }
+        }
+        
+        // Add recommended section if we have recommended templates
+        if (!recommendedTemplates.isEmpty()) {
+            items.add(new SectionHeader("Recommended for You", 
+                "Personalized recommendations based on your preferences"));
+            items.addAll(recommendedTemplates);
+        }
+        
+        // Add regular templates
+        if (!regularTemplates.isEmpty()) {
+            items.add(new SectionHeader("All Templates", 
+                recommendedTemplates.isEmpty() ? "" : "Browse all available templates"));
+            items.addAll(regularTemplates);
+        }
+        
+        notifyDataSetChanged();
     }
     
     /**
@@ -246,11 +291,38 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
      * Set new template IDs for showing the NEW badge
      */
     public void setNewTemplateIds(Set<String> ids) {
-        newTemplateIds.clear();
-        if (ids != null) {
-            newTemplateIds.addAll(ids);
+        // Check if an update is in progress
+        if (newTemplateIds == null) {
+            Log.e(TAG, "setNewTemplateIds: newTemplateIds is null, ignoring update");
+            return;
         }
-        notifyDataSetChanged();
+        
+        try {
+            newTemplateIds.clear();
+            if (ids != null) {
+                newTemplateIds.addAll(ids);
+            }
+            // Only notify if adapter is still attached
+            RecyclerView recyclerView = null;
+            try {
+                Field field = RecyclerView.Adapter.class.getDeclaredField("mObservable");
+                field.setAccessible(true);
+                Object observable = field.get(this);
+                if (observable != null) {
+                    notifyDataSetChanged();
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error checking adapter state", e);
+                // Fallback - try to notify anyway
+                try {
+                    notifyDataSetChanged();
+                } catch (IllegalStateException ex) {
+                    Log.e(TAG, "Failed to notify adapter, it may be detached", ex);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "setNewTemplateIds error", e);
+        }
     }
     
     /**
@@ -260,7 +332,7 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
         if (newTemplateIds.contains(templateId)) {
             newTemplateIds.remove(templateId);
             
-            // Find and update the specific item
+            // Find the position of this template and update it
             for (int i = 0; i < items.size(); i++) {
                 if (items.get(i) instanceof Template) {
                     Template template = (Template) items.get(i);
@@ -271,65 +343,6 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
                 }
             }
         }
-    }
-    
-    /**
-     * Update templates with sections for recommended and regular templates
-     */
-    public void updateTemplates(List<Template> templates) {
-        if (templates == null) {
-            templates = new ArrayList<>();
-        }
-        
-        // Clear existing items
-        items.clear();
-        
-        // Separate recommended and regular templates
-        List<Template> recommendedTemplates = new ArrayList<>();
-        List<Template> regularTemplates = new ArrayList<>();
-        
-        for (Template template : templates) {
-            boolean isRecommended = template.isRecommended() || 
-                                   recommendedTemplateIds.contains(template.getId());
-            if (isRecommended) {
-                recommendedTemplates.add(template);
-            } else {
-                regularTemplates.add(template);
-            }
-        }
-        
-        // Add recommended section if we have any
-        if (!recommendedTemplates.isEmpty()) {
-            // Add section header
-            items.add(new SectionHeader(
-                "Recommended For You",
-                "Personalized templates based on your preferences"
-            ));
-            
-            // Add all recommended templates
-            items.addAll(recommendedTemplates);
-            
-            Log.d(TAG, "Added recommended section with " + recommendedTemplates.size() + " templates");
-        }
-        
-        // Add regular templates 
-        if (!regularTemplates.isEmpty()) {
-            // Add section header if we have both sections
-            if (!recommendedTemplates.isEmpty()) {
-                items.add(new SectionHeader(
-                    "More Templates",
-                    "Browse our full collection of templates"
-                ));
-            }
-            
-            // Add all regular templates
-            items.addAll(regularTemplates);
-            
-            Log.d(TAG, "Added regular section with " + regularTemplates.size() + " templates");
-        }
-        
-        // Notify adapter of changes
-        notifyDataSetChanged();
     }
     
     /**
@@ -374,5 +387,15 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
     public void submitListWithRecommendations(List<Template> templates, Set<String> recommendedIds) {
         setRecommendedTemplateIds(recommendedIds);
         updateTemplates(templates);
+    }
+    
+    /**
+     * Get item at position
+     */
+    public Object getItem(int position) {
+        if (position >= 0 && position < items.size()) {
+            return items.get(position);
+        }
+        return null;
     }
 } 

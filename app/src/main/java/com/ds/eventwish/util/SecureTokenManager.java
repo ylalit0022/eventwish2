@@ -8,13 +8,14 @@ import android.util.Base64;
 import android.util.Log;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
-import java.security.SecureRandom;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.IvParameterSpec;
 
 public class SecureTokenManager {
     private static final String TAG = "SecureTokenManager";
@@ -26,11 +27,16 @@ public class SecureTokenManager {
     private static final String AUTH_PREFS_NAME = "auth_prefs";
     private static final String ACCESS_TOKEN_PREF = "access_token";
     private static final String REFRESH_TOKEN_PREF = "refresh_token";
+    private static final String ALGORITHM = "AES";
+    private static final String TRANSFORMATION = "AES/GCM/NoPadding";
+    private static final int GCM_IV_LENGTH = 12;
+    private static final int GCM_TAG_LENGTH = 128; // in bits
     
     private static SecureTokenManager instance;
     private final SharedPreferences securePrefs;
     private final SharedPreferences authPrefs;
     private final Context context;
+    private KeyStore keyStore;
     
     private SecureTokenManager(Context context) {
         this.context = context.getApplicationContext();
@@ -57,7 +63,7 @@ public class SecureTokenManager {
     }
     
     private void createKeyIfNotExists() throws GeneralSecurityException {
-        KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
+        keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
         try {
             keyStore.load(null);
             if (!keyStore.containsAlias(KEY_ALIAS)) {
@@ -80,52 +86,120 @@ public class SecureTokenManager {
         }
     }
     
-    private SecretKey getSecretKey() throws GeneralSecurityException, IOException {
-        KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
-        keyStore.load(null);
-        return (SecretKey) keyStore.getKey(KEY_ALIAS, null);
+    /**
+     * Get or create the encryption key
+     * @return SecretKey object
+     * @throws GeneralSecurityException if key creation fails
+     */
+    private SecretKey getOrCreateKey() throws GeneralSecurityException {
+        try {
+            // Check if key exists
+            keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
+            keyStore.load(null);
+            
+            if (keyStore.containsAlias(KEY_ALIAS)) {
+                return (SecretKey) keyStore.getKey(KEY_ALIAS, null);
+            } else {
+                // Create key if it doesn't exist
+                KeyGenerator keyGenerator = KeyGenerator.getInstance(
+                        KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE);
+                
+                KeyGenParameterSpec keySpec = new KeyGenParameterSpec.Builder(
+                        KEY_ALIAS,
+                        KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                        .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                        .setRandomizedEncryptionRequired(true) // System will handle IV
+                        .build();
+                
+                keyGenerator.init(keySpec);
+                return keyGenerator.generateKey();
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Error accessing keystore", e);
+            throw new GeneralSecurityException("Error accessing keystore", e);
+        }
     }
     
-    private String encrypt(String value) {
-        if (value == null) return null;
-        
+    /**
+     * Encrypt data
+     * @param data Data to encrypt
+     * @return Encrypted data
+     */
+    private String encrypt(String data) {
         try {
-            SecretKey secretKey = getSecretKey();
-            byte[] iv = new byte[12];
-            new SecureRandom().nextBytes(iv);
+            if (keyStore == null || data == null || data.isEmpty()) {
+                Log.e(TAG, "KeyStore or data is null/empty");
+                return null;
+            }
+
+            SecretKey key = getOrCreateKey();
+            if (key == null) {
+                Log.e(TAG, "Failed to get encryption key");
+                return null;
+            }
+
+            // Let the system generate the IV instead of providing our own
+            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            cipher.init(Cipher.ENCRYPT_MODE, key);
             
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(128, iv));
+            // Get the IV that was automatically generated
+            byte[] iv = cipher.getIV();
             
-            byte[] encryptedBytes = cipher.doFinal(value.getBytes());
+            // Perform encryption
+            byte[] encryptedBytes = cipher.doFinal(data.getBytes(StandardCharsets.UTF_8));
+            
+            // Combine IV and encrypted data
             byte[] combined = new byte[iv.length + encryptedBytes.length];
             System.arraycopy(iv, 0, combined, 0, iv.length);
             System.arraycopy(encryptedBytes, 0, combined, iv.length, encryptedBytes.length);
             
-            return Base64.encodeToString(combined, Base64.NO_WRAP);
+            return Base64.encodeToString(combined, Base64.DEFAULT);
         } catch (Exception e) {
             Log.e(TAG, "Error encrypting value", e);
             return null;
         }
     }
     
-    private String decrypt(String encrypted) {
-        if (encrypted == null) return null;
-        
+    /**
+     * Decrypt data
+     * @param encryptedData Encrypted data
+     * @return Decrypted data
+     */
+    private String decrypt(String encryptedData) {
         try {
-            byte[] encryptedData = Base64.decode(encrypted, Base64.NO_WRAP);
-            if (encryptedData.length < 12) return null;
+            if (keyStore == null || encryptedData == null || encryptedData.isEmpty()) {
+                Log.e(TAG, "KeyStore or encrypted data is null/empty");
+                return null;
+            }
             
-            byte[] iv = new byte[12];
-            byte[] encryptedBytes = new byte[encryptedData.length - 12];
-            System.arraycopy(encryptedData, 0, iv, 0, 12);
-            System.arraycopy(encryptedData, 12, encryptedBytes, 0, encryptedBytes.length);
+            SecretKey key = getOrCreateKey();
+            if (key == null) {
+                Log.e(TAG, "Failed to get encryption key");
+                return null;
+            }
             
-            SecretKey secretKey = getSecretKey();
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(128, iv));
+            // Decode the base64 string
+            byte[] combined = Base64.decode(encryptedData, Base64.DEFAULT);
+            if (combined.length < GCM_IV_LENGTH) {
+                Log.e(TAG, "Invalid encrypted data format");
+                return null;
+            }
             
-            return new String(cipher.doFinal(encryptedBytes));
+            // Extract IV and encrypted data
+            byte[] iv = new byte[GCM_IV_LENGTH];
+            byte[] encryptedBytes = new byte[combined.length - GCM_IV_LENGTH];
+            System.arraycopy(combined, 0, iv, 0, GCM_IV_LENGTH);
+            System.arraycopy(combined, GCM_IV_LENGTH, encryptedBytes, 0, encryptedBytes.length);
+            
+            // Initialize cipher with extracted IV using GCMParameterSpec
+            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            GCMParameterSpec specs = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
+            cipher.init(Cipher.DECRYPT_MODE, key, specs);
+            
+            // Decrypt the data
+            byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
+            return new String(decryptedBytes, StandardCharsets.UTF_8);
         } catch (Exception e) {
             Log.e(TAG, "Error decrypting value", e);
             return null;

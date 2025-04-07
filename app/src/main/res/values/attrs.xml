@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Custom attributes for AdBannerView -->
+    <declare-styleable name="AdBannerView">
+        <attr name="testMode" format="boolean" />
+        <attr name="enabled" format="boolean" />
+        <attr name="adType" format="string" />
+    </declare-styleable>
+</resources> 

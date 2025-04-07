@@ -43,38 +43,142 @@ public class TemplateRenderer {
     }
 
     public void renderTemplate(Template template) {
+        if (template == null) {
+            if (listener != null) {
+                listener.onRenderError("Template is null");
+            }
+            return;
+        }
+        
+        // Get content from template
         String html = template.getHtmlContent();
         String css = template.getCssContent();
         String js = template.getJsContent();
+        
+        // Check if HTML content is available
+        if (html == null || html.isEmpty()) {
+            if (listener != null) {
+                listener.onRenderError("Template HTML content is empty");
+            }
+            return;
+        }
 
+        // Store content for future reference
         this.currentHtml = html;
         this.currentCss = css != null ? css : getDefaultCSS();
         this.currentJs = js != null ? js : getDefaultJS();
 
+        // Use default CSS if not provided
         if (css == null || css.isEmpty()) {
             css = getDefaultCSS();
         }
 
+        // Use default JS if not provided
         if (js == null || js.isEmpty()) {
             js = getDefaultJS();
         }
-
+        
+        // Create enhanced HTML with responsive meta tags and better DOM structure
         String fullHtml = String.format(
                 "<!DOCTYPE html>" +
-                        "<html>" +
-                        "<head>" +
-                        "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
-                        "<style>%s</style>" +
-                        "</head>" +
-                        "<body>" +
-                        "%s" +
-                        "<script>%s</script>" +
-                        "</body>" +
-                        "</html>",
+                "<html lang=\"en\">" +
+                "<head>" +
+                "  <meta charset=\"UTF-8\">" +
+                "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no\">" +
+                "  <style>" +
+                "    * { box-sizing: border-box; }" +
+                "    body { margin: 0; padding: 8px; font-family: Arial, sans-serif; line-height: 1.4; }" +
+                "    img { max-width: 100%%; height: auto; display: block; }" +
+                "    table { width: 100%%; max-width: 100%%; table-layout: fixed; }" +
+                "    div { max-width: 100%%; }" +
+                "    .recipient-name, .sender-name { font-weight: bold; }" +
+                "    %s" +
+                "  </style>" +
+                "</head>" +
+                "<body>" +
+                "  <div id=\"template-content\">%s</div>" +
+                "  <script>" +
+                "    // Safe DOMContentLoaded handler" +
+                "    function domReady(fn) {" +
+                "      if (document.readyState === 'complete' || document.readyState === 'interactive') {" +
+                "        setTimeout(fn, 1);" +
+                "      } else {" +
+                "        document.addEventListener('DOMContentLoaded', fn);" +
+                "      }" +
+                "    }" +
+                "    " +
+                "    domReady(function() {" +
+                "      // Notify that template is loaded" + 
+                "      if (window.Android) {" +
+                "        try {" +
+                "          window.Android.onRenderComplete();" +
+                "        } catch(e) {" +
+                "          console.error('Error notifying render complete:', e);" +
+                "        }" +
+                "      }" +
+                "    });" +
+                "    " +
+                "    // Setup error handling" +
+                "    window.onerror = function(message, source, lineno, colno, error) {" +
+                "      console.error('Template error:', message);" +
+                "      if (window.Android) {" +
+                "        try {" +
+                "          window.Android.onRenderError(message);" +
+                "        } catch(e) {" +
+                "          console.error('Error notifying error:', e);" +
+                "        }" +
+                "      }" +
+                "      return true;" +
+                "    };" +
+                "    " +
+                "    // Fix viewport tag if needed" +
+                "    function fixViewport() {" +
+                "      try {" +
+                "        var found = false;" +
+                "        var head = document.head;" +
+                "        if (!head) return;" +
+                "        var metas = head.getElementsByTagName('meta');" +
+                "        for (var i = 0; i < metas.length; i++) {" +
+                "          if (metas[i].name === 'viewport') {" +
+                "            found = true;" +
+                "            metas[i].content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0';" +
+                "          }" +
+                "        }" +
+                "        if (!found) {" +
+                "          var meta = document.createElement('meta');" +
+                "          meta.name = 'viewport';" +
+                "          meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0';" +
+                "          head.appendChild(meta);" +
+                "        }" +
+                "      } catch (e) {" +
+                "        console.error('Error fixing viewport:', e);" +
+                "      }" +
+                "    }" +
+                "    " +
+                "    domReady(fixViewport);" +
+                "    " +
+                "    // Wrap user JS in try/catch to prevent errors" +
+                "    try {" +
+                "      %s" +
+                "    } catch (e) {" +
+                "      console.error('Error in template JS:', e);" +
+                "    }" +
+                "  </script>" +
+                "</body>" +
+                "</html>",
                 css, html, js
         );
 
+        // Signal loading state
+        if (listener != null) {
+            listener.onLoadingStateChanged(true);
+        }
+        
+        // Load the content with proper encoding
         webView.loadDataWithBaseURL(null, fullHtml, "text/html", "UTF-8", null);
+        
+        // Update names after a short delay to ensure DOM is ready
+        webView.postDelayed(this::updateNames, 300);
     }
 
     public void setRecipientName(String name) {
@@ -90,16 +194,22 @@ public class TemplateRenderer {
     private void updateNames() {
         String js = String.format(
             "javascript:(function() {" +
-            "  console.log('Updating names: %s, %s');" +
-            "  var recipientEls = document.getElementsByClassName('recipient-name');" +
-            "  var senderEls = document.getElementsByClassName('sender-name');" +
-            "  console.log('Found elements:', recipientEls.length, senderEls.length);" +
-            "  Array.from(recipientEls).forEach(function(el) {" +
-            "    el.textContent = '%s';" +
-            "  });" +
-            "  Array.from(senderEls).forEach(function(el) {" +
-            "    el.textContent = '%s';" +
-            "  });" +
+            "  try {" +
+            "    console.log('Updating names: %s, %s');" +
+            "    var recipientEls = document.getElementsByClassName('recipient-name');" +
+            "    var senderEls = document.getElementsByClassName('sender-name');" +
+            "    console.log('Found elements:', recipientEls.length, senderEls.length);" +
+            "    " +
+            "    for (var i = 0; i < recipientEls.length; i++) {" +
+            "      recipientEls[i].textContent = '%s';" +
+            "    }" +
+            "    " +
+            "    for (var i = 0; i < senderEls.length; i++) {" +
+            "      senderEls[i].textContent = '%s';" +
+            "    }" +
+            "  } catch (e) {" +
+            "    console.error('Error updating names:', e);" +
+            "  }" +
             "})()",
             recipientName, senderName,
             recipientName.isEmpty() ? "[Recipient]" : recipientName,

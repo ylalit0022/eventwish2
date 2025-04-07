@@ -71,6 +71,15 @@ public class ApiClient {
         
         context = appContext.getApplicationContext();
         
+        // Try to ensure SecureTokenManager is initialized
+        try {
+            SecureTokenManager.init(context);
+            Log.d(TAG, "SecureTokenManager initialized during ApiClient init");
+        } catch (Exception e) {
+            Log.w(TAG, "Could not initialize SecureTokenManager during ApiClient init: " + e.getMessage());
+            // Continue without secure token manager - will use fallback methods
+        }
+        
         // Log for debugging
         Log.d(TAG, "ApiClient initialized with API URL: " + BASE_URL);
     }
@@ -143,9 +152,19 @@ public class ApiClient {
                 }
                 
                 // Add authentication token if available
-                String authToken = (SecureTokenManager.getInstance() != null) 
-                    ? SecureTokenManager.getInstance().getAccessToken() 
-                    : null;
+                // Safely check if SecureTokenManager is initialized
+                String authToken = null;
+                try {
+                    SecureTokenManager tokenManager = SecureTokenManager.getInstance();
+                    if (tokenManager != null) {
+                        authToken = tokenManager.getAccessToken();
+                    }
+                } catch (IllegalStateException e) {
+                    // SecureTokenManager not initialized yet
+                    Log.w(TAG, "SecureTokenManager not initialized yet: " + e.getMessage());
+                    // Continue without auth token
+                }
+                
                 if (authToken != null && !authToken.isEmpty()) {
                     requestBuilder.header("Authorization", "Bearer " + authToken);
                 }
@@ -340,6 +359,9 @@ public class ApiClient {
                     }
                 }
             }
+        } catch (IllegalStateException e) {
+            Log.w(TAG, "SecureTokenManager not initialized yet: " + e.getMessage());
+            // Continue with fallback
         } catch (Exception e) {
             Log.e(TAG, "Error getting API key from SecureTokenManager", e);
         }
@@ -374,6 +396,9 @@ public class ApiClient {
                     Log.d(TAG, "Saved new API key to SecureTokenManager");
                 }
             }
+        } catch (IllegalStateException e) {
+            Log.w(TAG, "SecureTokenManager not initialized yet: " + e.getMessage());
+            // Cannot save API key now, will be handled later when SecureTokenManager is initialized
         } catch (Exception e) {
             Log.e(TAG, "Error saving API key to SecureTokenManager", e);
         }
@@ -471,9 +496,18 @@ public class ApiClient {
                 }
                 
                 // Add authentication token if available
-                String authToken = (SecureTokenManager.getInstance() != null) 
-                    ? SecureTokenManager.getInstance().getAccessToken() 
-                    : null;
+                String authToken = null;
+                try {
+                    SecureTokenManager tokenManager = SecureTokenManager.getInstance();
+                    if (tokenManager != null) {
+                        authToken = tokenManager.getAccessToken();
+                    }
+                } catch (IllegalStateException e) {
+                    // SecureTokenManager not initialized yet
+                    Log.w(TAG, "SecureTokenManager not initialized yet: " + e.getMessage());
+                    // Continue without auth token
+                }
+                
                 if (authToken != null && !authToken.isEmpty()) {
                     requestBuilder.header("Authorization", "Bearer " + authToken);
                 }
