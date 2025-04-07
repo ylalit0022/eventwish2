@@ -24,6 +24,20 @@ router.use(apiLimiter);
 router.use(verifyClientApp);
 
 /**
+ * @route   GET /api/admob/units
+ * @desc    Get available ad units for the client
+ * @access  Public (with app verification)
+ */
+router.get('/units', adMobController.getAdUnits);
+
+/**
+ * @route   GET /api/admob/status
+ * @desc    Get ad status information
+ * @access  Public (with app verification)
+ */
+router.get('/status', adMobController.getAdStatus);
+
+/**
  * @route   GET /api/admob/config
  * @desc    Get ad configuration based on client context
  * @access  Public (with app verification)
@@ -50,5 +64,12 @@ router.post('/click/:adId', adMobController.trackClick);
  * @access  Public (with app verification)
  */
 router.get('/types', adMobController.getAdTypes);
+
+/**
+ * @route   POST /api/admob/engagement
+ * @desc    Record user engagement with ads
+ * @access  Public (with app verification)
+ */
+router.post('/engagement', adMobController.recordEngagement);
 
 module.exports = router; 

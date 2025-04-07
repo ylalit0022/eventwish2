@@ -290,10 +290,214 @@ const getAdTypes = async (req, res) => {
   }
 };
 
+/**
+ * Get ad units for client
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+const getAdUnits = async (req, res) => {
+  try {
+    const adType = req.query.type; // Optional filter by ad type
+    const deviceId = req.headers['x-device-id'];
+    
+    // Validate device ID
+    if (!deviceId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Device ID is required',
+        error: 'MISSING_DEVICE_ID'
+      });
+    }
+    
+    // Get all active ad units
+    const query = { status: true };
+    if (adType) {
+      query.adType = adType;
+    }
+    
+    const ads = await AdMob.find(query)
+      .sort({ targetingPriority: -1 })
+      .select('_id adName adType adUnitCode parameters status')
+      .lean();
+    
+    // Return the ad units
+    return res.status(200).json({
+      success: true,
+      data: {
+        adUnits: ads.map(ad => ({
+          id: ad._id,
+          adName: ad.adName,
+          adType: ad.adType,
+          adUnitCode: ad.adUnitCode,
+          parameters: ad.parameters || {},
+          status: ad.status
+        }))
+      }
+    });
+  } catch (error) {
+    logger.error(`Error getting ad units: ${error.message}`, { error });
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to get ad units',
+      error: 'SERVER_ERROR'
+    });
+  }
+};
+
+/**
+ * Get ad status
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+const getAdStatus = async (req, res) => {
+  try {
+    const adType = req.query.type; // Optional filter by ad type
+    const deviceId = req.headers['x-device-id'];
+    
+    // Validate device ID
+    if (!deviceId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Device ID is required',
+        error: 'MISSING_DEVICE_ID'
+      });
+    }
+    
+    // Get all active ad units
+    const query = { status: true };
+    if (adType) {
+      query.adType = adType;
+    }
+    
+    const ads = await AdMob.find(query)
+      .sort({ targetingPriority: -1 })
+      .select('_id adName adType adUnitCode parameters status')
+      .lean();
+    
+    // Create status map
+    const adStatus = {};
+    for (const ad of ads) {
+      adStatus[ad._id] = {
+        canShow: true,
+        cooldownUntil: null,
+        reason: null
+      };
+    }
+    
+    // Return the ad status
+    return res.status(200).json({
+      success: true,
+      data: {
+        adStatus
+      }
+    });
+  } catch (error) {
+    logger.error(`Error getting ad status: ${error.message}`, { error });
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to get ad status',
+      error: 'SERVER_ERROR'
+    });
+  }
+};
+
+/**
+ * Record user engagement with ads
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+const recordEngagement = async (req, res) => {
+  try {
+    // Check if this is a batch request
+    const isBatch = Array.isArray(req.body.records);
+    const records = isBatch ? req.body.records : [req.body];
+    
+    // Process all records
+    const results = [];
+    for (const record of records) {
+      const { adUnitId, actionType, duration, timestamp } = record;
+      
+      // Basic validation
+      if (!adUnitId) {
+        results.push({
+          success: false,
+          message: 'Ad unit ID is required',
+          error: 'MISSING_AD_UNIT_ID'
+        });
+        continue;
+      }
+      
+      // Create engagement record
+      const engagement = {
+        adUnitId,
+        actionType: actionType || 'view',
+        duration: duration || 0,
+        timestamp: timestamp || Date.now(),
+        deviceId: req.headers['x-device-id'] || 'unknown',
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      };
+      
+      // Store engagement data
+      try {
+        // We would normally save this to database, but for now just log it
+        logger.info('Ad engagement recorded', { engagement });
+        
+        results.push({
+          success: true,
+          message: 'Engagement recorded successfully',
+          adUnitId
+        });
+      } catch (error) {
+        results.push({
+          success: false,
+          message: 'Failed to record engagement',
+          error: error.message,
+          adUnitId
+        });
+      }
+    }
+    
+    // Return batch results or single result
+    if (isBatch) {
+      return res.json({
+        success: true,
+        data: {
+          results
+        }
+      });
+    } else {
+      const result = results[0];
+      if (result.success) {
+        return res.json({
+          success: true,
+          message: result.message
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: result.message,
+          error: result.error
+        });
+      }
+    }
+  } catch (error) {
+    logger.error(`Error recording engagement: ${error.message}`, { error });
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to record engagement',
+      error: 'SERVER_ERROR'
+    });
+  }
+};
+
 module.exports = {
   getAdConfig,
   trackImpression,
   trackClick,
   getActiveAds,
-  getAdTypes
+  getAdTypes,
+  getAdUnits,
+  getAdStatus,
+  recordEngagement
 }; 
