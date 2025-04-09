@@ -14,4 +14,5 @@
     <dimen name="nav_header_height">176dp</dimen>
     <dimen name="fab_margin">16dp</dimen>
     <dimen name="corner_radius">8dp</dimen>
+    <dimen name="snackbar_margin">5dp</dimen>
 </resources>

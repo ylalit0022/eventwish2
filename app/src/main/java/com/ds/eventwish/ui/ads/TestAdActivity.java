@@ -124,31 +124,31 @@ public class TestAdActivity extends AppCompatActivity {
         // Banner ad button
         findViewById(R.id.show_banner_ad_button).setOnClickListener(v -> {
             updateStatus("Loading banner ad...");
-            showBannerAd();
+            fetchAdUnits("banner");
         });
         
         // Interstitial ad button
         findViewById(R.id.show_interstitial_ad_button).setOnClickListener(v -> {
             updateStatus("Loading interstitial ad...");
-            showInterstitialAd();
+            fetchAdUnits("interstitial");
         });
         
         // Rewarded ad button
         findViewById(R.id.show_rewarded_ad_button).setOnClickListener(v -> {
             updateStatus("Loading rewarded ad...");
-            showRewardedAd();
+            fetchAdUnits("rewarded");
         });
         
         // Native ad button
         findViewById(R.id.show_native_ad_button).setOnClickListener(v -> {
             updateStatus("Loading native ad...");
-            showNativeAd();
+            fetchAdUnits("native");
         });
         
         // Native video ad button
         findViewById(R.id.show_native_video_ad_button).setOnClickListener(v -> {
             updateStatus("Loading native video ad...");
-            showNativeVideoAd();
+            fetchAdUnits("native_video");
         });
     }
     
@@ -382,48 +382,44 @@ public class TestAdActivity extends AppCompatActivity {
     }
     
     /**
-     * Show a banner ad
+     * Fetch ad units of a specific type from the server
      */
-    private void showBannerAd() {
-        Log.d(TAG, "Attempting to show banner ad");
-        updateStatus("Requesting banner ad units from server...");
+    private void fetchAdUnits(String adType) {
+        Log.d(TAG, "Fetching ad units for type: " + adType);
+        progressBar.setVisibility(View.VISIBLE);
         
         // Create headers for the request
         Map<String, String> headers = createRequestHeaders();
-        Log.d(TAG, "Banner ad request headers: " + gson.toJson(headers));
         
-        // First, get available ad units
+        // Call the API to get ad units
         adMobRepository.getApiService().getAdUnits(headers, null).enqueue(new Callback<com.ds.eventwish.data.model.response.AdMobResponse>() {
             @Override
             public void onResponse(Call<com.ds.eventwish.data.model.response.AdMobResponse> call, Response<com.ds.eventwish.data.model.response.AdMobResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     try {
-                        String responseBody = gson.toJson(response.body());
-                        Log.d(TAG, "Ad units response body: " + responseBody);
-                        
                         List<AdUnit> adUnits = response.body().getData().getAdUnits();
                         if (adUnits != null && !adUnits.isEmpty()) {
-                            // Filter for banner ads
-                            List<AdUnit> bannerAdUnits = new ArrayList<>();
+                            // Filter for the requested ad type
+                            List<AdUnit> filteredAdUnits = new ArrayList<>();
                             for (AdUnit unit : adUnits) {
-                                if ("banner".equalsIgnoreCase(unit.getAdType())) {
-                                    bannerAdUnits.add(unit);
-                                    Log.d(TAG, "Found banner ad unit: " + gson.toJson(unit));
+                                if (adType.equalsIgnoreCase(unit.getAdType())) {
+                                    filteredAdUnits.add(unit);
+                                    Log.d(TAG, "Found matching ad unit: " + gson.toJson(unit));
                                 }
                             }
                             
-                            if (bannerAdUnits.isEmpty()) {
-                                String error = "No banner ad units available";
+                            if (filteredAdUnits.isEmpty()) {
+                                String error = "No " + adType + " ad units available";
                                 Log.e(TAG, error);
                                 updateStatus(error);
                             } else {
-                                // Use the first banner ad unit
-                                AdUnit bannerAdUnit = bannerAdUnits.get(0);
-                                Log.d(TAG, "Using banner ad unit: " + gson.toJson(bannerAdUnit));
-                                updateStatus("Found banner ad unit: " + bannerAdUnit.getId() + "\nAttempting to load...");
+                                // Use the first matching ad unit
+                                AdUnit adUnit = filteredAdUnits.get(0);
+                                Log.d(TAG, "Using ad unit: " + gson.toJson(adUnit));
+                                updateStatus("Found " + adType + " ad unit: " + adUnit.getId());
                                 
                                 // Check ad status before showing
-                                checkAdStatus(bannerAdUnit);
+                                checkAdStatus(adUnit);
                             }
                         } else {
                             String error = "No ad units found in response";
@@ -446,6 +442,7 @@ public class TestAdActivity extends AppCompatActivity {
                         updateStatus("Failed to get ad units: " + response.code());
                     }
                 }
+                progressBar.setVisibility(View.GONE);
             }
             
             @Override
@@ -453,6 +450,7 @@ public class TestAdActivity extends AppCompatActivity {
                 String errorMsg = "Network error when getting ad units: " + t.getMessage();
                 Log.e(TAG, errorMsg, t);
                 updateStatus(errorMsg);
+                progressBar.setVisibility(View.GONE);
             }
         });
     }
@@ -462,6 +460,7 @@ public class TestAdActivity extends AppCompatActivity {
      */
     private void checkAdStatus(AdUnit adUnit) {
         Log.d(TAG, "Checking ad status for unit: " + adUnit.getId());
+        progressBar.setVisibility(View.VISIBLE);
         
         // Create headers for the request
         Map<String, String> headers = createRequestHeaders();
@@ -474,16 +473,14 @@ public class TestAdActivity extends AppCompatActivity {
                     try {
                         String responseBody = gson.toJson(response.body());
                         Log.d(TAG, "Ad status response: " + responseBody);
-                        updateStatus("Ad status check successful - Ready to show");
                         
                         // Update UI with the status
                         updateStatus("Ad unit " + adUnit.getId() + " is ready to show\n" +
                                 "Type: " + adUnit.getAdType() + "\n" +
-                                "Ad ID: " + adUnit.getAdUnitCode() + "\n" +
-                                "Check your logs for more details");
+                                "Ad ID: " + adUnit.getAdUnitCode());
                         
-                        // Show test banner directly
-                        displayBannerAd(adUnit);
+                        // Show the appropriate ad type
+                        showAdByType(adUnit);
                     } catch (Exception e) {
                         String error = "Error parsing ad status response: " + e.getMessage();
                         Log.e(TAG, error, e);
@@ -500,6 +497,7 @@ public class TestAdActivity extends AppCompatActivity {
                         updateStatus("Failed to get ad status: " + response.code());
                     }
                 }
+                progressBar.setVisibility(View.GONE);
             }
             
             @Override
@@ -507,8 +505,36 @@ public class TestAdActivity extends AppCompatActivity {
                 String errorMsg = "Network error when checking ad status: " + t.getMessage();
                 Log.e(TAG, errorMsg, t);
                 updateStatus(errorMsg);
+                progressBar.setVisibility(View.GONE);
             }
         });
+    }
+    
+    /**
+     * Show the appropriate ad type based on the ad unit
+     */
+    private void showAdByType(AdUnit adUnit) {
+        String adType = adUnit.getAdType().toLowerCase();
+        switch (adType) {
+            case "banner":
+                displayBannerAd(adUnit);
+                break;
+            case "interstitial":
+                showInterstitialAd(adUnit);
+                break;
+            case "rewarded":
+                showRewardedAd(adUnit);
+                break;
+            case "native":
+                showNativeAd(adUnit);
+                break;
+            case "native_video":
+                showNativeVideoAd(adUnit);
+                break;
+            default:
+                updateStatus("Unsupported ad type: " + adType);
+                break;
+        }
     }
     
     /**
@@ -517,25 +543,160 @@ public class TestAdActivity extends AppCompatActivity {
     private void displayBannerAd(AdUnit adUnit) {
         runOnUiThread(() -> {
             try {
-                Log.d(TAG, "Attempting to display banner ad for unit: " + adUnit.getId());
+                Log.d(TAG, "Displaying banner ad for unit: " + adUnit.getId());
                 
                 // Clear existing ads
                 bannerAdContainer.removeAllViews();
                 
-                // Show dummy test ad view
+                // Create and display test banner
                 TextView dummyAdView = new TextView(this);
-                dummyAdView.setText("TEST AD: " + adUnit.getAdUnitCode());
+                dummyAdView.setText("TEST BANNER AD\n" + adUnit.getAdUnitCode());
                 dummyAdView.setBackgroundColor(getResources().getColor(android.R.color.holo_blue_light));
                 dummyAdView.setPadding(16, 16, 16, 16);
                 dummyAdView.setTextColor(getResources().getColor(android.R.color.white));
+                dummyAdView.setGravity(android.view.Gravity.CENTER);
                 
                 bannerAdContainer.addView(dummyAdView);
                 bannerAdContainer.setVisibility(View.VISIBLE);
                 
-                Log.d(TAG, "Test banner ad displayed");
-                updateStatus("Test banner ad displayed for unit: " + adUnit.getId());
+                updateStatus("Banner ad displayed for unit: " + adUnit.getId());
             } catch (Exception e) {
                 String error = "Error displaying banner ad: " + e.getMessage();
+                Log.e(TAG, error, e);
+                updateStatus(error);
+            }
+        });
+    }
+    
+    /**
+     * Show an interstitial ad
+     */
+    private void showInterstitialAd(AdUnit adUnit) {
+        runOnUiThread(() -> {
+            try {
+                Log.d(TAG, "Displaying interstitial ad for unit: " + adUnit.getId());
+                
+                // Create and show test interstitial dialog
+                android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
+                builder.setTitle("TEST INTERSTITIAL AD");
+                builder.setMessage("Ad Unit: " + adUnit.getAdUnitCode());
+                builder.setPositiveButton("Close", (dialog, which) -> dialog.dismiss());
+                builder.setCancelable(false);
+                builder.show();
+                
+                updateStatus("Interstitial ad displayed for unit: " + adUnit.getId());
+            } catch (Exception e) {
+                String error = "Error displaying interstitial ad: " + e.getMessage();
+                Log.e(TAG, error, e);
+                updateStatus(error);
+            }
+        });
+    }
+    
+    /**
+     * Show a rewarded ad
+     */
+    private void showRewardedAd(AdUnit adUnit) {
+        runOnUiThread(() -> {
+            try {
+                Log.d(TAG, "Displaying rewarded ad for unit: " + adUnit.getId());
+                
+                // Create and show test rewarded dialog
+                android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
+                builder.setTitle("TEST REWARDED AD");
+                builder.setMessage("Ad Unit: " + adUnit.getAdUnitCode() + "\n\nWatch the ad to earn a reward!");
+                builder.setPositiveButton("Earn Reward", (dialog, which) -> {
+                    // Simulate reward earned
+                    updateStatus("Reward earned from ad unit: " + adUnit.getId());
+                    dialog.dismiss();
+                });
+                builder.setNegativeButton("Skip", (dialog, which) -> dialog.dismiss());
+                builder.setCancelable(false);
+                builder.show();
+                
+                updateStatus("Rewarded ad displayed for unit: " + adUnit.getId());
+            } catch (Exception e) {
+                String error = "Error displaying rewarded ad: " + e.getMessage();
+                Log.e(TAG, error, e);
+                updateStatus(error);
+            }
+        });
+    }
+    
+    /**
+     * Show a native ad
+     */
+    private void showNativeAd(AdUnit adUnit) {
+        runOnUiThread(() -> {
+            try {
+                Log.d(TAG, "Displaying native ad for unit: " + adUnit.getId());
+                
+                // Clear existing ads
+                nativeAdContainer.removeAllViews();
+                
+                // Create and display test native ad
+                android.widget.LinearLayout nativeAdLayout = new android.widget.LinearLayout(this);
+                nativeAdLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
+                nativeAdLayout.setBackgroundColor(getResources().getColor(android.R.color.holo_green_light));
+                nativeAdLayout.setPadding(16, 16, 16, 16);
+                
+                TextView titleView = new TextView(this);
+                titleView.setText("TEST NATIVE AD");
+                titleView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 18);
+                titleView.setTextColor(getResources().getColor(android.R.color.white));
+                
+                TextView descriptionView = new TextView(this);
+                descriptionView.setText("Ad Unit: " + adUnit.getAdUnitCode());
+                descriptionView.setTextColor(getResources().getColor(android.R.color.white));
+                
+                nativeAdLayout.addView(titleView);
+                nativeAdLayout.addView(descriptionView);
+                nativeAdContainer.addView(nativeAdLayout);
+                nativeAdContainer.setVisibility(View.VISIBLE);
+                
+                updateStatus("Native ad displayed for unit: " + adUnit.getId());
+            } catch (Exception e) {
+                String error = "Error displaying native ad: " + e.getMessage();
+                Log.e(TAG, error, e);
+                updateStatus(error);
+            }
+        });
+    }
+    
+    /**
+     * Show a native video ad
+     */
+    private void showNativeVideoAd(AdUnit adUnit) {
+        runOnUiThread(() -> {
+            try {
+                Log.d(TAG, "Displaying native video ad for unit: " + adUnit.getId());
+                
+                // Clear existing ads
+                nativeVideoAdContainer.removeAllViews();
+                
+                // Create and display test native video ad
+                android.widget.LinearLayout videoAdLayout = new android.widget.LinearLayout(this);
+                videoAdLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
+                videoAdLayout.setBackgroundColor(getResources().getColor(android.R.color.holo_purple));
+                videoAdLayout.setPadding(16, 16, 16, 16);
+                
+                TextView titleView = new TextView(this);
+                titleView.setText("TEST NATIVE VIDEO AD");
+                titleView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 18);
+                titleView.setTextColor(getResources().getColor(android.R.color.white));
+                
+                TextView descriptionView = new TextView(this);
+                descriptionView.setText("Ad Unit: " + adUnit.getAdUnitCode() + "\n\n[Video Player Placeholder]");
+                descriptionView.setTextColor(getResources().getColor(android.R.color.white));
+                
+                videoAdLayout.addView(titleView);
+                videoAdLayout.addView(descriptionView);
+                nativeVideoAdContainer.addView(videoAdLayout);
+                nativeVideoAdContainer.setVisibility(View.VISIBLE);
+                
+                updateStatus("Native video ad displayed for unit: " + adUnit.getId());
+            } catch (Exception e) {
+                String error = "Error displaying native video ad: " + e.getMessage();
                 Log.e(TAG, error, e);
                 updateStatus(error);
             }
@@ -574,37 +735,5 @@ public class TestAdActivity extends AppCompatActivity {
         Log.d(TAG, "Created request headers: " + gson.toJson(headers));
         
         return headers;
-    }
-    
-    /**
-     * Show an interstitial ad
-     */
-    private void showInterstitialAd() {
-        Log.d(TAG, "Interstitial ad implementation not yet ready");
-        updateStatus("Interstitial ad implementation not yet ready");
-    }
-    
-    /**
-     * Show a rewarded ad
-     */
-    private void showRewardedAd() {
-        Log.d(TAG, "Rewarded ad implementation not yet ready");
-        updateStatus("Rewarded ad implementation not yet ready");
-    }
-    
-    /**
-     * Show a native ad
-     */
-    private void showNativeAd() {
-        Log.d(TAG, "Native ad implementation not yet ready");
-        updateStatus("Native ad implementation not yet ready");
-    }
-    
-    /**
-     * Show a native video ad
-     */
-    private void showNativeVideoAd() {
-        Log.d(TAG, "Native video ad implementation not yet ready");
-        updateStatus("Native video ad implementation not yet ready");
     }
 } 

@@ -12,6 +12,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -78,6 +79,12 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
             setupKeyboardVisibilityListener(view);
         }
         
+        // Setup touch interceptor for the entire layout
+        binding.getRoot().setOnTouchListener((v, event) -> {
+            hideKeyboard();
+            return false; // Allow the event to be processed further
+        });
+        
         setupWebView();
         setupInputListeners();
         setupObservers();
@@ -117,6 +124,12 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
                 if (shareButton != null) {
                     shareButton.setVisibility(View.GONE);
                 }
+                // Reduce WebView width when keyboard is shown
+                if (binding.templatePreview != null) {
+                    ViewGroup.LayoutParams params = binding.templatePreview.getLayoutParams();
+                    params.width = (int) (view.getWidth() * 0.8f); // 80% of screen width
+                    binding.templatePreview.setLayoutParams(params);
+                }
             } else { // Keyboard is hidden
                 if (bottomNav != null) {
                     bottomNav.setVisibility(View.VISIBLE);
@@ -124,8 +137,109 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
                 if (shareButton != null) {
                     shareButton.setVisibility(View.VISIBLE);
                 }
+                // Restore WebView width when keyboard is hidden
+                if (binding.templatePreview != null) {
+                    ViewGroup.LayoutParams params = binding.templatePreview.getLayoutParams();
+                    params.width = ViewGroup.LayoutParams.MATCH_PARENT;
+                    binding.templatePreview.setLayoutParams(params);
+                }
             }
         });
+
+        // Add touch listener to the root view
+        binding.getRoot().setOnTouchListener((v, event) -> {
+            // Check if the touch is on an input field
+            View focusedView = requireActivity().getCurrentFocus();
+            if (focusedView instanceof EditText) {
+                // If touch is on an input field, don't hide keyboard
+                return false;
+            }
+            
+            // If touch is not on an input field, hide keyboard
+            hideKeyboard();
+            return false;
+        });
+        
+        // Add touch listener to the WebView container
+        binding.templatePreview.setOnTouchListener((v, event) -> {
+            // Check if the touch is on an input field
+            View focusedView = requireActivity().getCurrentFocus();
+            if (focusedView instanceof EditText) {
+                // If touch is on an input field, don't hide keyboard
+                return false;
+            }
+            
+            // If touch is not on an input field, hide keyboard
+            hideKeyboard();
+            return false;
+        });
+        
+        // Add touch listener to the WebView
+        binding.webView.setOnTouchListener((v, event) -> {
+            // Check if the touch is on an input field
+            View focusedView = requireActivity().getCurrentFocus();
+            if (focusedView instanceof EditText) {
+                // If touch is on an input field, don't hide keyboard
+                return false;
+            }
+            
+            // If touch is not on an input field, hide keyboard
+            hideKeyboard();
+            return false;
+        });
+        
+        // Add focus change listeners to input fields to prevent keyboard hiding
+        binding.recipientNameInput.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                // When input field gets focus, don't hide keyboard
+                return;
+            }
+        });
+        
+        binding.senderNameInput.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                // When input field gets focus, don't hide keyboard
+                return;
+            }
+        });
+    }
+
+    private void hideKeyboard() {
+        try {
+            android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager)
+                    requireActivity().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+            View currentFocus = requireActivity().getCurrentFocus();
+            
+            // Clear focus from any EditText
+            if (binding.recipientNameInput != null) {
+                binding.recipientNameInput.clearFocus();
+            }
+            if (binding.senderNameInput != null) {
+                binding.senderNameInput.clearFocus();
+            }
+            
+            // Hide keyboard
+            if (currentFocus != null) {
+                imm.hideSoftInputFromWindow(currentFocus.getWindowToken(), 0);
+            } else {
+                // If no focus, try hiding using the root view
+                View rootView = binding.getRoot();
+                imm.hideSoftInputFromWindow(rootView.getWindowToken(), 0);
+            }
+            
+            // Ensure WebView width is restored to full width
+            if (binding.templatePreview != null) {
+                binding.templatePreview.post(() -> {
+                    ViewGroup.LayoutParams params = binding.templatePreview.getLayoutParams();
+                    params.width = ViewGroup.LayoutParams.MATCH_PARENT;
+                    binding.templatePreview.setLayoutParams(params);
+                });
+            }
+            
+            Log.d(TAG, "Keyboard hidden and WebView width adjusted");
+        } catch (Exception e) {
+            Log.e(TAG, "Error hiding keyboard: " + e.getMessage());
+        }
     }
 
     private void setupViewModel() {
@@ -426,16 +540,6 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
             hideKeyboard();
             return false;
         });
-    }
-
-    private void hideKeyboard() {
-        View view = requireActivity().getCurrentFocus();
-        if (view != null) {
-            android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager)
-                    requireActivity().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
-            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
-            view.clearFocus();
-        }
     }
 
     private void setupObservers() {
@@ -809,22 +913,40 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         if (binding == null || binding.templatePreview == null) return;
         
         try {
-            // Set fixed aspect ratio for the template container
-            final float ASPECT_RATIO = 1.5f; // Height = width * 1.5 (adjust as needed)
+            // Get screen dimensions
+            android.util.DisplayMetrics displayMetrics = new android.util.DisplayMetrics();
+            requireActivity().getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+            int screenHeight = displayMetrics.heightPixels;
             
             binding.templatePreview.post(() -> {
                 try {
                     int width = binding.templatePreview.getWidth();
                     if (width > 0) {
+                        // Calculate desired height (70% of screen height)
+                        int desiredHeight = (int) (screenHeight * 0.7);
+                        
                         // Apply padding inside the template preview container
                         int padding = getResources().getDimensionPixelSize(R.dimen.small_padding);
                         binding.templatePreview.setPadding(padding, padding, padding, padding);
                         
-                        // Ensure the WebView fills its container
+                        // Set the CardView height
+                        ViewGroup.LayoutParams cardParams = binding.templatePreview.getLayoutParams();
+                        cardParams.height = desiredHeight;
+                        binding.templatePreview.setLayoutParams(cardParams);
+                        
+                        // Ensure the WebView fills its container while maintaining padding
                         ViewGroup.LayoutParams webViewParams = binding.webView.getLayoutParams();
                         webViewParams.width = ViewGroup.LayoutParams.MATCH_PARENT;
                         webViewParams.height = ViewGroup.LayoutParams.MATCH_PARENT;
                         binding.webView.setLayoutParams(webViewParams);
+                        
+                        // Add margin to the CardView for better spacing
+                        ViewGroup.MarginLayoutParams marginParams = (ViewGroup.MarginLayoutParams) binding.templatePreview.getLayoutParams();
+                        int margin = getResources().getDimensionPixelSize(R.dimen.activity_horizontal_margin);
+                        marginParams.setMargins(margin, margin, margin, margin);
+                        binding.templatePreview.setLayoutParams(marginParams);
+                        
+                        Log.d(TAG, "Adjusted template preview height to: " + desiredHeight);
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "Error adjusting layout parameters", e);

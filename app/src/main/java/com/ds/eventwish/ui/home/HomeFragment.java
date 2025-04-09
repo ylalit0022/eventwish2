@@ -886,16 +886,19 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                     "Loading more templates...", 
                     Snackbar.LENGTH_INDEFINITE);
                 
-                // Position the Snackbar above bottom navigation
+                // Position the Snackbar exactly at the top of bottom navigation
                 View snackbarView = snackbar.getView();
                 androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams params = 
                     (androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams) 
                     snackbarView.getLayoutParams();
+                
+                // Set margin to exactly match bottom navigation height
                 params.setMargins(0, 0, 0, bottomNav.getHeight());
                 snackbarView.setLayoutParams(params);
                 
-                // Make Snackbar more colorful
+                // Make Snackbar more visible
                 snackbarView.setBackgroundResource(R.drawable.gradient_snackbar_background);
+                snackbarView.setElevation(8f);
                 
                 // Apply animation to Snackbar
                 snackbarView.setAlpha(0f);
@@ -908,6 +911,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 TextView textView = snackbarView.findViewById(com.google.android.material.R.id.snackbar_text);
                 if (textView != null) {
                     textView.setTextColor(android.graphics.Color.WHITE);
+                    textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14);
                     
                     // Use our custom loading icon with animation
                     android.widget.ImageView loadingIcon = new android.widget.ImageView(requireContext());
