@@ -7,9 +7,13 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MediatorLiveData;
 import androidx.lifecycle.MutableLiveData;
 
 import com.ds.eventwish.EventWishApplication;
+import com.ds.eventwish.data.local.AppDatabase;
+import com.ds.eventwish.data.local.dao.AdUnitDao;
+import com.ds.eventwish.data.local.entity.AdUnitEntity;
 import com.ds.eventwish.data.model.ads.AdConstants;
 import com.ds.eventwish.data.model.ads.AdUnit;
 import com.ds.eventwish.data.model.response.AdMobResponse;
@@ -30,6 +34,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -48,6 +54,8 @@ public class AdMobRepository {
     private Gson gson;
     private SecureTokenManager secureTokenManager;
     private DeviceUtils deviceUtils;
+    private AdUnitDao adUnitDao;
+    private Executor executor;
     
     private final MutableLiveData<List<AdUnit>> adUnitsLiveData = new MutableLiveData<>();
     private final MutableLiveData<Map<String, AdMobResponse.AdStatus>> adStatusLiveData = new MutableLiveData<>();
@@ -92,7 +100,6 @@ public class AdMobRepository {
                 secureTokenManager = SecureTokenManager.getInstance();
             } catch (IllegalStateException e) {
                 Log.w(TAG, "SecureTokenManager not initialized yet: " + e.getMessage());
-                // Initialize with default values, will be updated when SecureTokenManager is ready
                 secureTokenManager = null;
             }
             
@@ -103,6 +110,13 @@ public class AdMobRepository {
                 Log.w(TAG, "DeviceUtils not initialized yet: " + e.getMessage());
                 deviceUtils = null;
             }
+            
+            // Initialize database
+            AppDatabase db = AppDatabase.getInstance(context);
+            adUnitDao = db.adUnitDao();
+            
+            // Initialize executor for background operations
+            executor = Executors.newSingleThreadExecutor();
             
             // Initialize cache
             initializeCache();
@@ -165,7 +179,7 @@ public class AdMobRepository {
     }
 
     /**
-     * Fetch ad units from the API
+     * Fetch ad units from the API and store in database
      * @param adType Ad type to filter by, or null for all types
      */
     public void fetchAdUnits(String adType) {
@@ -190,39 +204,162 @@ public class AdMobRepository {
                     if (data != null) {
                         List<AdUnit> adUnits = data.getAdUnits();
                         if (adUnits != null) {
+                            // Convert to entities and save to database
+                            List<AdUnitEntity> entities = new ArrayList<>();
+                            for (AdUnit unit : adUnits) {
+                                entities.add(AdUnitEntity.fromAdUnit(unit));
+                            }
+                            
+                            executor.execute(() -> {
+                                if (adType != null) {
+                                    adUnitDao.refreshAdUnitsByType(adType, entities);
+                                } else {
+                                    adUnitDao.refreshAdUnits(entities);
+                                }
+                            });
+                            
                             adUnitsLiveData.setValue(adUnits);
-                            // Cache the ad units
-                            cacheAdUnits(adUnits);
-                            Log.d(TAG, "Successfully fetched " + adUnits.size() + " ad units");
+                            Log.d(TAG, "Successfully fetched and saved " + adUnits.size() + " ad units");
                         } else {
                             adUnitsLiveData.setValue(Collections.emptyList());
                             Log.d(TAG, "Successfully fetched ad units, but list is null");
                         }
                     } else {
-                        adUnitsLiveData.setValue(Collections.emptyList());
-                        Log.d(TAG, "Successfully fetched ad units, but data is null");
+                        String error = "Response successful but data is null";
+                        Log.e(TAG, error);
+                        errorLiveData.setValue(error);
                     }
-                    
-                    // Reset retry count on success
-                    retryCount = 0;
                 } else {
-                    errorLiveData.setValue("Failed to fetch ad units: " + response.message());
-                    Log.e(TAG, "Failed to fetch ad units: " + response.code() + " " + response.message());
-                    
-                    // Handle retry if needed
-                    handleRetry(adType);
+                    try {
+                        String errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
+                        String error = "Failed to fetch ad units: " + response.code() + " - " + errorBody;
+                        Log.e(TAG, error);
+                        errorLiveData.setValue(error);
+                        
+                        // Load from database as fallback
+                        loadFromDatabase(adType);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error reading error body", e);
+                    }
                 }
             }
-
+            
             @Override
             public void onFailure(@NonNull Call<AdMobResponse> call, @NonNull Throwable t) {
                 isLoadingLiveData.setValue(false);
-                errorLiveData.setValue("Network error: " + t.getMessage());
-                Log.e(TAG, "Network error fetching ad units", t);
+                String error = "Network error when fetching ad units: " + t.getMessage();
+                Log.e(TAG, error, t);
+                errorLiveData.setValue(error);
                 
-                // Handle retry if needed
-                handleRetry(adType);
+                // Load from database as fallback
+                loadFromDatabase(adType);
             }
+        });
+    }
+
+    /**
+     * Load ad units from database
+     * @param adType Ad type to filter by, or null for all types
+     */
+    private void loadFromDatabase(String adType) {
+        Log.d(TAG, "Loading ad units from database for type: " + adType);
+        
+        LiveData<List<AdUnitEntity>> source = adType != null ? 
+            adUnitDao.getAdUnitsByType(adType) : 
+            adUnitDao.getAllAdUnits();
+            
+        // Convert entities to models
+        source.observeForever(entities -> {
+            if (entities != null) {
+                List<AdUnit> adUnits = new ArrayList<>();
+                for (AdUnitEntity entity : entities) {
+                    adUnits.add(entity.toAdUnit());
+                }
+                adUnitsLiveData.setValue(adUnits);
+                Log.d(TAG, "Loaded " + adUnits.size() + " ad units from database");
+            } else {
+                adUnitsLiveData.setValue(Collections.emptyList());
+                Log.d(TAG, "No ad units found in database");
+            }
+        });
+    }
+
+    /**
+     * Get ad units by type from database
+     * @param adType Ad type to filter by
+     * @return LiveData containing ad units
+     */
+    public LiveData<List<AdUnit>> getAdUnitsByType(String adType) {
+        MediatorLiveData<List<AdUnit>> result = new MediatorLiveData<>();
+        
+        result.addSource(adUnitDao.getAdUnitsByType(adType), entities -> {
+            if (entities != null) {
+                List<AdUnit> adUnits = new ArrayList<>();
+                for (AdUnitEntity entity : entities) {
+                    adUnits.add(entity.toAdUnit());
+                }
+                result.setValue(adUnits);
+            } else {
+                result.setValue(Collections.emptyList());
+            }
+        });
+        
+        return result;
+    }
+
+    /**
+     * Get available ad units by type from database
+     * @param adType Ad type to filter by
+     * @return LiveData containing available ad units
+     */
+    public LiveData<List<AdUnit>> getAvailableAdUnitsByType(String adType) {
+        MediatorLiveData<List<AdUnit>> result = new MediatorLiveData<>();
+        
+        result.addSource(adUnitDao.getAvailableAdUnitsByType(adType), entities -> {
+            if (entities != null) {
+                List<AdUnit> adUnits = new ArrayList<>();
+                for (AdUnitEntity entity : entities) {
+                    adUnits.add(entity.toAdUnit());
+                }
+                result.setValue(adUnits);
+            } else {
+                result.setValue(Collections.emptyList());
+            }
+        });
+        
+        return result;
+    }
+
+    /**
+     * Get highest priority ad unit by type
+     * @param adType Ad type to filter by
+     * @return Highest priority ad unit or null if none found
+     */
+    public AdUnit getHighestPriorityAdUnit(String adType) {
+        AdUnitEntity entity = adUnitDao.getHighestPriorityAdUnit(adType);
+        return entity != null ? entity.toAdUnit() : null;
+    }
+
+    /**
+     * Update ad unit status in database
+     * @param id Ad unit ID
+     * @param canShow Whether the ad can be shown
+     * @param reason Reason why the ad cannot be shown (if applicable)
+     */
+    public void updateAdUnitStatus(String id, boolean canShow, String reason) {
+        executor.execute(() -> {
+            adUnitDao.updateAdUnitStatus(id, canShow, reason);
+        });
+    }
+
+    /**
+     * Update next available time for ad unit
+     * @param id Ad unit ID
+     * @param nextAvailable Next available time (ISO 8601 format)
+     */
+    public void updateNextAvailable(String id, String nextAvailable) {
+        executor.execute(() -> {
+            adUnitDao.updateNextAvailable(id, nextAvailable);
         });
     }
 
@@ -514,38 +651,6 @@ public class AdMobRepository {
     }
 
     /**
-     * Load cached ad units from SharedPreferences
-     */
-    private void loadCachedAdUnits() {
-        String cachedJson = preferences.getString(AdConstants.Preferences.CACHED_AD_UNITS, null);
-        if (cachedJson != null) {
-            try {
-                Type listType = new TypeToken<ArrayList<AdUnit>>(){}.getType();
-                List<AdUnit> cachedAdUnits = gson.fromJson(cachedJson, listType);
-                if (cachedAdUnits != null && !cachedAdUnits.isEmpty()) {
-                    adUnitsLiveData.setValue(cachedAdUnits);
-                    Log.d(TAG, "Loaded " + cachedAdUnits.size() + " cached ad units");
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Error loading cached ad units", e);
-            }
-        }
-    }
-
-    /**
-     * Cache ad units in SharedPreferences
-     * @param adUnits Ad units to cache
-     */
-    private void cacheAdUnits(List<AdUnit> adUnits) {
-        if (adUnits != null && !adUnits.isEmpty()) {
-            String json = gson.toJson(adUnits);
-            preferences.edit().putString(AdConstants.Preferences.CACHED_AD_UNITS, json).apply();
-            preferences.edit().putLong(AdConstants.Preferences.LAST_AD_FETCH_TIME, System.currentTimeMillis()).apply();
-            Log.d(TAG, "Cached " + adUnits.size() + " ad units");
-        }
-    }
-
-    /**
      * Handle retry logic for API calls
      * @param adType Ad type for the retry
      */
@@ -604,6 +709,38 @@ public class AdMobRepository {
             Log.d(TAG, "Cache initialized successfully");
         } catch (Exception e) {
             Log.e(TAG, "Error initializing cache", e);
+        }
+    }
+
+    /**
+     * Load cached ad units from SharedPreferences
+     */
+    private void loadCachedAdUnits() {
+        String cachedJson = preferences.getString(AdConstants.Preferences.CACHED_AD_UNITS, null);
+        if (cachedJson != null) {
+            try {
+                Type listType = new TypeToken<ArrayList<AdUnit>>(){}.getType();
+                List<AdUnit> cachedAdUnits = gson.fromJson(cachedJson, listType);
+                if (cachedAdUnits != null && !cachedAdUnits.isEmpty()) {
+                    adUnitsLiveData.setValue(cachedAdUnits);
+                    Log.d(TAG, "Loaded " + cachedAdUnits.size() + " cached ad units");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error loading cached ad units", e);
+            }
+        }
+    }
+
+    /**
+     * Cache ad units in SharedPreferences
+     * @param adUnits Ad units to cache
+     */
+    private void cacheAdUnits(List<AdUnit> adUnits) {
+        if (adUnits != null && !adUnits.isEmpty()) {
+            String json = gson.toJson(adUnits);
+            preferences.edit().putString(AdConstants.Preferences.CACHED_AD_UNITS, json).apply();
+            preferences.edit().putLong(AdConstants.Preferences.LAST_AD_FETCH_TIME, System.currentTimeMillis()).apply();
+            Log.d(TAG, "Cached " + adUnits.size() + " ad units");
         }
     }
 

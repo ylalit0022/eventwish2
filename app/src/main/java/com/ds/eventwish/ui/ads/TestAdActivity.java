@@ -387,6 +387,7 @@ public class TestAdActivity extends AppCompatActivity {
     private void fetchAdUnits(String adType) {
         Log.d(TAG, "Fetching ad units for type: " + adType);
         progressBar.setVisibility(View.VISIBLE);
+        updateStatus("Fetching " + adType + " ad units from server...");
         
         // Create headers for the request
         Map<String, String> headers = createRequestHeaders();
@@ -397,49 +398,74 @@ public class TestAdActivity extends AppCompatActivity {
             public void onResponse(Call<com.ds.eventwish.data.model.response.AdMobResponse> call, Response<com.ds.eventwish.data.model.response.AdMobResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     try {
+                        // Log full response for debugging
+                        String rawResponse = gson.toJson(response.body());
+                        Log.d(TAG, "Raw server response: " + rawResponse);
+                        
                         List<AdUnit> adUnits = response.body().getData().getAdUnits();
                         if (adUnits != null && !adUnits.isEmpty()) {
+                            // Log all received ad units
+                            Log.d(TAG, "Received " + adUnits.size() + " ad units from server");
+                            StringBuilder serverDataLog = new StringBuilder();
+                            serverDataLog.append("Server Response:\n");
+                            serverDataLog.append("Total ad units received: ").append(adUnits.size()).append("\n\n");
+                            
                             // Filter for the requested ad type
                             List<AdUnit> filteredAdUnits = new ArrayList<>();
                             for (AdUnit unit : adUnits) {
+                                // Log each ad unit
+                                Log.d(TAG, "Ad Unit: " + gson.toJson(unit));
+                                serverDataLog.append("Ad Unit ID: ").append(unit.getId())
+                                    .append("\nType: ").append(unit.getAdType())
+                                    .append("\nCode: ").append(unit.getAdUnitCode())
+                                    .append("\n\n");
+                                
                                 if (adType.equalsIgnoreCase(unit.getAdType())) {
                                     filteredAdUnits.add(unit);
-                                    Log.d(TAG, "Found matching ad unit: " + gson.toJson(unit));
                                 }
                             }
                             
+                            // Update UI with server data
+                            updateStatus(serverDataLog.toString());
+                            
                             if (filteredAdUnits.isEmpty()) {
-                                String error = "No " + adType + " ad units available";
+                                String error = "No " + adType + " ad units available on server";
                                 Log.e(TAG, error);
-                                updateStatus(error);
+                                appendStatus("\n" + error);
                             } else {
                                 // Use the first matching ad unit
                                 AdUnit adUnit = filteredAdUnits.get(0);
-                                Log.d(TAG, "Using ad unit: " + gson.toJson(adUnit));
-                                updateStatus("Found " + adType + " ad unit: " + adUnit.getId());
+                                Log.d(TAG, "Selected ad unit for display: " + gson.toJson(adUnit));
+                                appendStatus("\nSelected Ad Unit:\n" +
+                                    "ID: " + adUnit.getId() + "\n" +
+                                    "Type: " + adUnit.getAdType() + "\n" +
+                                    "Code: " + adUnit.getAdUnitCode());
                                 
                                 // Check ad status before showing
                                 checkAdStatus(adUnit);
                             }
                         } else {
-                            String error = "No ad units found in response";
+                            String error = "No ad units found in server response";
                             Log.e(TAG, error);
-                            updateStatus(error);
+                            updateStatus(error + "\n\nRaw response: " + rawResponse);
                         }
                     } catch (Exception e) {
-                        String error = "Error parsing ad units response: " + e.getMessage();
+                        String error = "Error parsing server response: " + e.getMessage();
                         Log.e(TAG, error, e);
-                        updateStatus(error);
+                        updateStatus(error + "\n\nRaw response: " + gson.toJson(response.body()));
                     }
                 } else {
                     try {
                         String errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
-                        String error = "Failed to get ad units: " + response.code();
+                        String error = "Server returned error code: " + response.code();
                         Log.e(TAG, error + " - " + errorBody);
-                        updateStatus(error + "\n\nError: " + errorBody);
+                        updateStatus(error + "\n\nServer Error: " + errorBody + 
+                            "\n\nRequest URL: " + call.request().url() +
+                            "\nHeaders: " + gson.toJson(call.request().headers()));
                     } catch (Exception e) {
                         Log.e(TAG, "Error reading error body", e);
-                        updateStatus("Failed to get ad units: " + response.code());
+                        updateStatus("Server error: " + response.code() + 
+                            "\nRequest URL: " + call.request().url());
                     }
                 }
                 progressBar.setVisibility(View.GONE);
@@ -449,7 +475,10 @@ public class TestAdActivity extends AppCompatActivity {
             public void onFailure(Call<com.ds.eventwish.data.model.response.AdMobResponse> call, Throwable t) {
                 String errorMsg = "Network error when getting ad units: " + t.getMessage();
                 Log.e(TAG, errorMsg, t);
-                updateStatus(errorMsg);
+                updateStatus("Network Error:\n" + t.getMessage() + 
+                    "\n\nRequest Details:" +
+                    "\nURL: " + call.request().url() +
+                    "\nHeaders: " + gson.toJson(call.request().headers()));
                 progressBar.setVisibility(View.GONE);
             }
         });
@@ -709,30 +738,50 @@ public class TestAdActivity extends AppCompatActivity {
     private Map<String, String> createRequestHeaders() {
         Map<String, String> headers = new HashMap<>();
         
-        // Get API key from SecureTokenManager
-        String apiKey = SecureTokenManager.getInstance().getApiKey();
-        if (apiKey == null || apiKey.isEmpty()) {
-            apiKey = "ew_dev_c1ce47afeff9fa8b7b1aa165562cb915"; // Fallback to default
-            Log.w(TAG, "Using fallback API key as none found in SecureTokenManager");
-        } else {
-            Log.d(TAG, "Using API key from SecureTokenManager: " + apiKey);
+        try {
+            // Initialize SecureTokenManager with context
+            SecureTokenManager.getInstance().init(getApplicationContext());
+            
+            // Get API key from SecureTokenManager
+            String apiKey = SecureTokenManager.getInstance().getApiKey();
+            if (apiKey == null || apiKey.isEmpty()) {
+                apiKey = "ew_dev_c1ce47afeff9fa8b7b1aa165562cb915"; // Fallback to default
+                Log.w(TAG, "Using fallback API key as none found in SecureTokenManager");
+            } else {
+                Log.d(TAG, "Using API key from SecureTokenManager: " + apiKey);
+            }
+            
+            // Get device ID with fallback
+            String deviceId = SecureTokenManager.getInstance().getDeviceId();
+            if (deviceId == null || deviceId.isEmpty()) {
+                deviceId = "93e81b95f9f2c74a4b0124f784fe34327066c5c0f8a4c51c00a11a68c831b49e"; // Fallback device ID
+                Log.w(TAG, "Using fallback device ID as none found in SecureTokenManager");
+            }
+            Log.d(TAG, "Using device ID: " + deviceId);
+            
+            // Get app signature
+            String appSignature = AdConstants.Signature.APP_SIGNATURE; // Use constant from AdConstants
+            Log.d(TAG, "Using app signature: " + appSignature);
+            
+            // Add headers only if values are not null
+            if (apiKey != null) headers.put(AdConstants.Headers.API_KEY, apiKey);
+            if (deviceId != null) headers.put(AdConstants.Headers.DEVICE_ID, deviceId);
+            if (appSignature != null) headers.put(AdConstants.Headers.APP_SIGNATURE, appSignature);
+            
+            // Validate headers
+            if (!headers.containsKey(AdConstants.Headers.API_KEY) || 
+                !headers.containsKey(AdConstants.Headers.DEVICE_ID) || 
+                !headers.containsKey(AdConstants.Headers.APP_SIGNATURE)) {
+                throw new IllegalStateException("Missing required headers");
+            }
+            
+            // Log the final headers
+            Log.d(TAG, "Created request headers: " + gson.toJson(headers));
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error creating request headers", e);
+            updateStatus("Error: Failed to create request headers - " + e.getMessage());
         }
-        
-        // Get device ID
-        String deviceId = SecureTokenManager.getInstance().getDeviceId();
-        Log.d(TAG, "Using device ID: " + deviceId);
-        
-        // Get app signature
-        String appSignature = "app_sig_1"; // Try known working signature first
-        Log.d(TAG, "Using app signature: " + appSignature);
-        
-        // Add headers
-        headers.put(AdConstants.Headers.API_KEY, apiKey);
-        headers.put(AdConstants.Headers.DEVICE_ID, deviceId);
-        headers.put(AdConstants.Headers.APP_SIGNATURE, appSignature);
-        
-        // Log the final headers
-        Log.d(TAG, "Created request headers: " + gson.toJson(headers));
         
         return headers;
     }

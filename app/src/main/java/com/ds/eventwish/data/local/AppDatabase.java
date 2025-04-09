@@ -16,10 +16,12 @@ import com.ds.eventwish.data.local.converters.TemplateListConverter;
 import com.ds.eventwish.data.local.converter.JsonObjectTypeConverter;
 import com.ds.eventwish.data.local.converter.MapTypeConverter;
 import com.ds.eventwish.data.local.converter.ObjectTypeConverter;
+import com.ds.eventwish.data.local.dao.AdUnitDao;
 import com.ds.eventwish.data.local.dao.EngagementDataDao;
 import com.ds.eventwish.data.local.dao.FestivalDao;
 import com.ds.eventwish.data.local.dao.ResourceDao;
 import com.ds.eventwish.data.local.dao.UserDao;
+import com.ds.eventwish.data.local.entity.AdUnitEntity;
 import com.ds.eventwish.data.local.entity.ResourceEntity;
 import com.ds.eventwish.data.local.entity.UserEntity;
 import com.ds.eventwish.data.model.EngagementData;
@@ -30,9 +32,10 @@ import com.ds.eventwish.data.model.Festival;
         Festival.class,
         ResourceEntity.class,
         UserEntity.class,
-        EngagementData.class
+        EngagementData.class,
+        AdUnitEntity.class
     },
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters({
@@ -53,6 +56,7 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract ResourceDao resourceDao();
     public abstract UserDao userDao();
     public abstract EngagementDataDao engagementDataDao();
+    public abstract AdUnitDao adUnitDao();
     
     public static synchronized AppDatabase getInstance(Context context) {
         if (instance == null) {
@@ -75,7 +79,11 @@ public abstract class AppDatabase extends RoomDatabase {
                     Log.d(TAG, "Database opened");
                 }
             })
-            .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3)
+            .addMigrations(
+                Migrations.MIGRATION_1_2, 
+                Migrations.MIGRATION_2_3,
+                Migrations.MIGRATION_3_4
+            )
             .fallbackToDestructiveMigration()
             .build();
             Log.d(TAG, "Database instance created");

@@ -277,308 +277,97 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 
 # Scratchpad
 
-## Current Task: Enhance Visibility of Recommended Templates
+## Current Task: Update TestAdActivity to Use Database Ad Unit IDs
 
 ### Problem Analysis
 
-After examining the RecommendationEngine and related code, I've identified several issues with how recommended templates are displayed:
+1. **Current Implementation Issues:**
+   - TestAdActivity uses hardcoded/local ad unit IDs
+   - No proper database integration for ad units
+   - Needs to fetch ad configurations from backend
+   - Authentication and signature verification needs improvement
 
-1. **Poor Visibility of Recommended Templates:**
-   - Recommended templates are currently shown with a small badge that doesn't stand out
-   - They're mixed in with regular templates without clear visual distinction
-   - The "RECOMMENDED" label is too small and can be easily overlooked
-   - No additional UI cues to highlight these high-quality recommendations
-
-2. **Implementation Issues:**
-   - RecommendationEngine generates quality recommendations but they're lost in the UI
-   - Only a small text badge indicates recommended status
-   - No special positioning or highlighting in the grid layout
-   - Recommended templates should be prioritized in the visual hierarchy
-
-3. **Inconsistent Recommendation Display:**
-   - There's a horizontal recommendations section at the top but it's disconnected from the main grid
-   - Users might not realize some grid items are also recommended
-   - No visual connection between the horizontal carousel and grid recommendations
+2. **Required Changes:**
+   - Need to implement proper database fetching of ad units
+   - Update ad unit handling in TestAdActivity
+   - Improve error handling and logging
+   - Add proper ad unit caching
 
 ### Action Plan
 
-[X] 1. Improve the recommended badge in template items:
-   - Increase the badge size and visibility
-   - Use a more prominent color scheme
-   - Add an icon (star or thumbs up) to the badge
-   - Make badges more visually striking
+[X] 1. Review Current Implementation
+   - Analyzed TestAdActivity.java
+   - Identified areas needing database integration
+   - Found hardcoded ad unit values to replace
 
-[X] 2. Enhance the template item card for recommended templates:
-   - Add a subtle colored border or glow effect
-   - Use a slightly different background color or gradient
-   - Implement a subtle animation or highlight effect
-   - Make recommended templates stand out in the grid
+[X] 2. Update AdMobRepository
+   - Added methods to fetch ad units from database
+   - Implemented caching mechanism
+   - Added proper error handling
+   - Updated API service interface
 
-[X] 3. Update the TemplateAdapter to prioritize recommended templates:
-   - Move recommended templates to the top of the grid
-   - Create a visual separator between recommended and regular templates
-   - Add a "Recommended for you" header above recommended items in the grid
-   - Ensure recommended templates are clearly grouped together
+[X] 3. Add Database Support
+   - Created AdUnit table/collection
+   - Added migration for version 4
+   - Implemented CRUD operations
+   - Added cache invalidation
 
-[X] 4. Implement visual indicators in the HomeFragment:
-   - Add explanatory text to highlight why items are recommended
-   - Create a new section header for recommended items
-   - Add a "More recommendations" button at the end of the recommended section
-   - Improve user education about the recommendation system
+[X] 4. Update API Integration
+   - Updated API endpoints
+   - Added proper error handling
+   - Implemented retry mechanism
+   - Added request/response logging
 
-[X] 5. Enhance the recommended templates tracking:
-   - Improve analytics for recommended template engagement
-   - Track when users interact with recommended vs. regular templates
-   - Measure the effectiveness of the new recommendation UI
-   - Add feedback mechanism for recommendation quality
+[X] 5. Modify TestAdActivity
+   - Removed hardcoded ad unit IDs
+   - Updated fetchAdUnits method to use database
+   - Improved error handling and logging
+   - Added loading states and UI feedback
 
-### Implementation Completed
+[X] 6. Implement Testing Features
+   - Added test mode toggle
+   - Added debug logging
+   - Created test ad units in database
+   - Added performance monitoring
 
-1. **Created a dedicated RecommendedTemplateAdapter**
-   - Built a specialized adapter for handling templates with section headers
-   - Implemented a clean separation between recommended and regular templates
-   - Added visual styling for recommended templates with background color changes
-   - Improved elevation for recommended templates for better visibility
+### Implementation Details
 
-2. **Enhanced HomeFragment Integration**
-   - Updated HomeFragment to use the new RecommendedTemplateAdapter
-   - Implemented proper span handling for section headers in the grid
-   - Created a better integration with the recommendation engine
-   - Added tracking of recommended template IDs for consistent display
+1. **Database Integration**
+   - Created AdUnitEntity with Room annotations
+   - Added AdUnitDao for database operations
+   - Added type converters for complex types
+   - Implemented database migration
 
-3. **Improved Template Item Layout**
-   - Added a star icon to the recommended badge for better visibility
-   - Created a custom background drawable for the recommended badge
-   - Enhanced the badge's layout with icon and text combination
-   - Made recommended badge more visually striking
+2. **Repository Updates**
+   - Updated AdMobRepository to use database
+   - Added methods for database operations
+   - Implemented caching with Room
+   - Added error handling and logging
 
-4. **Enhanced Recommendation Tracking**
-   - Updated HomeViewModel to track recommended template IDs
-   - Added LiveData for recommended template IDs
-   - Implemented better integration with the RecommendationEngine
-   - Added centralized management of recommended template state
+3. **Activity Updates**
+   - Updated TestAdActivity to use database
+   - Added LiveData observers
+   - Improved error handling
+   - Added loading states
 
-5. **Fixed Technical Issues**
-   - Correctly implemented RecyclerView.Adapter for the template adapters
-   - Added synchronous template retrieval to the TemplateRepository
-   - Created a clean new horizontal template adapter for recommendations
-   - Fixed styling issues with the CardView elements
+4. **Testing & Validation**
+   - Added test mode
+   - Improved logging
+   - Added error tracking
+   - Added performance monitoring
 
 ### Next Steps
 
-1. **Testing and Refinement**
-   - Test the implementation on various device sizes
-   - Evaluate performance on low-end devices
-   - Gather user feedback on the new UI
-   - Measure engagement metrics for recommended vs regular templates
+1. Test the implementation thoroughly:
+   - Test database operations
+   - Test API integration
+   - Test error scenarios
+   - Monitor performance
 
-2. **Additional Enhancements**
-   - Consider adding animation effects for recommended templates
-   - Implement A/B testing to measure effectiveness of different approaches
-   - Add a "show more recommended" option at the end of the recommended section
-   - Enhance AI behind recommendations with more personalization
+2. Potential improvements:
+   - Add batch operations for better performance
+   - Implement better caching strategies
+   - Add analytics for ad performance
+   - Improve error recovery
 
-## Fixes for Backend API Errors and Category Order Preservation
-
-### Problem Analysis
-
-After implementing the enhanced recommended templates visibility, we encountered two significant issues:
-
-1. **Missing Backend API Endpoint:**
-   - `404 Not Found` error for `/api/users/engagement` endpoint in the backend
-   - Error when tracking user engagement with templates
-   - Client attempting to sync engagement data to non-existent server endpoint
-   - User experience impacted by repeated API failures
-
-2. **Category List Order Changing:**
-   - When clicking on categories, their order in the horizontal list changed
-   - Inconsistent category positions caused confusion for users
-   - Category reordering during loading/pagination operations
-   - Poor visual stability in the UI
-
-### Action Plan and Implementation
-
-[X] 1. Fixed Backend API Endpoint Issue:
-   - Created the missing `/api/users/engagement` endpoint in the backend
-   - Added POST handler to record detailed engagement metrics
-   - Implemented batch sync endpoint for efficient processing
-   - Added consistent error handling across new endpoints
-
-[X] 2. Enhanced Client-Side Error Handling:
-   - Improved EngagementRepository to gracefully handle API errors
-   - Implemented SharedPreferences tracking for API failures
-   - Added special handling for 404 errors to avoid repeated failures
-   - Ensured data is still stored locally even when server sync fails
-
-[X] 3. Fixed Category Order Preservation:
-   - Updated CategoriesAdapter to preserve original order when selecting categories
-   - Added protection against category list changes during loading operations
-   - Improved update logic to avoid unnecessary UI refreshes
-   - Implemented stable ordering for categories with proper List handling
-
-[X] 4. Added UI Stability Improvements:
-   - Implemented better prevention flags during scrolling and loading
-   - Created helper method to detect minor vs major changes to the categories list
-   - Enhanced updateSelectedCategory with more robust change handling
-   - Added setupLoadingObserver to properly manage loading state and category stability
-
-### Results
-
-1. **Engagement Tracking:**
-   - Users can now interact with templates without errors
-   - Engagement data is properly tracked both locally and on the server
-   - Graceful fallback to local-only tracking when server issues occur
-   - Better analytics for measuring recommendation effectiveness
-
-2. **Category UI Stability:**
-   - Categories maintain a consistent order throughout the user session
-   - Categories don't jump around when selected or during content loading
-   - Better visual hierarchy with the "All" category always first
-   - Smooth transitions between category selections without jarring reordering
-
-The fixes maintain all the visual enhancements for recommended templates while ensuring a stable and consistent user experience when navigating categories and interacting with templates.
-
-## AdMob Integration Plan with Separate Entry Points
-
-### Overview and Requirements
-
-The task is to implement Google AdMob integration in the EventWish app while ensuring:
-1. The integration is separate and doesn't interfere with existing code
-2. We create clean entry points for the AdMob functionality
-3. We utilize the backend AdMob model and API endpoints
-4. We test with backend tokens and app signature verification
-5. We follow best practices for mobile ad integration
-
-### Current State Analysis
-
-[X] Analyzed backend AdMob model (`AdMob.js`) that provides:
-   - Ad unit management (Banner, Interstitial, Rewarded, Native, App Open, Video)
-   - Ad targeting criteria and segmentation
-   - Performance metrics tracking (impressions, clicks, CTR)
-   - User targeting and customization parameters
-   - Device-specific ad delivery rules and cooldowns
-
-[X] Identified existing backend route (`/api/admob`) with endpoints:
-   - GET `/units` - Get available ad units for a device
-   - GET `/status` - Get ad status and cooldowns for a device
-   - POST `/reward` - Handle reward redemption
-   - POST `/impression` - Record ad impression
-   - POST `/click` - Record ad click
-
-[X] Reviewed existing app architecture:
-   - Uses repository pattern and MVVM architecture
-   - Has SecureTokenManager for handling API keys and authentication
-   - Uses DeviceUtils for device identification and security
-   - Has centralized initialization in EventWishApplication
-
-### Implementation Plan
-
-#### 1. Create Core AdMob Classes
-
-[ ] Create AdMob Models
-   - Create `AdUnitModel.java` to represent ad units from backend
-   - Create `AdResponse.java` for API responses
-   - Create `AdStatus.java` for tracking ad status
-
-[ ] Implement AdMob Repository
-   - Create `AdMobRepository.java` with methods to interact with backend
-   - Add cache layer for offline operation
-   - Implement ad request throttling and error handling
-
-[ ] Create AdMob Service Interface
-   - Create `AdMobService.java` interface for ad-related operations
-   - Add methods for fetching, displaying, and tracking ads
-   - Define callback interfaces for ad events
-
-#### 2. Add Network and API Support
-
-[ ] Update ApiService with AdMob Endpoints
-   - Add endpoints for `/api/admob/units`, etc.
-   - Create request/response models
-   - Add proper error handling
-
-[ ] Implement Secure Token Handling for AdMob
-   - Use existing SecureTokenManager for storing ad-related tokens
-   - Implement device-ad association validation
-
-[ ] Add Proper Signature Verification
-   - Implement app signature verification for ad requests
-   - Add tamper detection for ad responses
-
-#### 3. Create AdMob Manager
-
-[ ] Implement AdMobManager as Singleton
-   - Create `AdMobManager.java` as the main entry point
-   - Add initialization in a way that doesn't affect current app flow
-   - Implement lazy loading of Google Mobile Ads SDK
-
-[ ] Add AdMob Configuration
-   - Create `AdConfig.java` for storing configuration
-   - Add test/production mode toggle
-   - Implement ad frequency capping
-
-[ ] Implement Specialized Ad Type Managers
-   - Create `BannerAdManager.java` for banner ads
-   - Create `InterstitialAdManager.java` for interstitial ads
-   - Create `RewardedAdManager.java` for rewarded ads
-
-#### 4. Create UI Components
-
-[ ] Add AdMob UI Components
-   - Create `AdBannerView.java` custom view for banner ads
-   - Create layout files for different ad formats
-   - Implement placeholder views for ad loading states
-
-[ ] Design Ad Integration Points
-   - Create adapter for RecyclerView with ad items
-   - Add fragment for displaying interstitial ads
-   - Implement dialog for rewarded ads
-
-#### 5. Testing Infrastructure
-
-[ ] Create Test Mode with Test Ads
-   - Implement test ad ID handling
-   - Add debug logging for ad operations
-   - Create mock responses for offline testing
-
-[ ] Add Analytics and Reporting
-   - Track ad performance metrics
-   - Log errors and user interactions
-   - Create dashboard for ad performance
-
-### Implementation Approach
-
-1. **Isolation Strategy**: All AdMob code will be in a separate `ads` package to maintain clean separation
-2. **Lazy Initialization**: AdMob SDK will only be initialized if ads are used
-3. **Feature Flags**: Add configuration to enable/disable ads completely
-4. **Graceful Degradation**: App will function normally even if ad services fail
-5. **Testing Support**: Include test ad IDs and mock responses for development
-
-### Integration Test Plan
-
-[ ] Test Backend API Integration
-   - Verify backend endpoints are accessible
-   - Test token and signature verification
-   - Validate response parsing
-
-[ ] Test Ad Display Functionality
-   - Verify ads load and display correctly
-   - Test ad lifecycle events (load, show, click, close)
-   - Validate error handling
-
-[ ] Performance Testing
-   - Measure impact on app startup time
-   - Monitor memory usage with ads
-   - Test battery consumption
-
-### First Milestone: Backend Communication
-
-Our first goal is to establish communication with the backend AdMob endpoints:
-
-1. Create the models and repository
-2. Add API endpoints to ApiService
-3. Implement test/dev mode
-4. Create minimal AdMobManager for verification
-5. Test with backend token validation
-
-This approach ensures we can build a robust AdMob integration without disrupting existing code, while maintaining clean architecture and separation of concerns.
+Current focus: Testing the implementation to ensure everything works as expected.

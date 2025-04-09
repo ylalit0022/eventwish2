@@ -9,6 +9,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.internal.LinkedTreeMap;
 
+import java.util.Map;
 import android.util.Log;
 
 /**
@@ -42,6 +43,12 @@ public class ObjectTypeConverter {
         }
         
         try {
+            if (object instanceof JsonObject) {
+                return gson.toJson(object);
+            } else if (object instanceof Map) {
+                JsonObject jsonObject = convertMapToJsonObject((Map<String, Object>) object);
+                return gson.toJson(jsonObject);
+            }
             return gson.toJson(object);
         } catch (Exception e) {
             Log.e(TAG, "Error converting Object to String: " + e.getMessage(), e);
@@ -62,14 +69,49 @@ public class ObjectTypeConverter {
                     return gson.fromJson(value, JsonObject.class);
                 } catch (Exception e) {
                     Log.d(TAG, "Failed to parse as JsonObject, trying LinkedTreeMap: " + e.getMessage());
+                    try {
+                        // If that fails, try to parse as LinkedTreeMap and convert to JsonObject
+                        LinkedTreeMap<String, Object> map = gson.fromJson(value, LinkedTreeMap.class);
+                        return convertMapToJsonObject(map);
+                    } catch (Exception ex) {
+                        Log.e(TAG, "Failed to convert LinkedTreeMap to JsonObject: " + ex.getMessage());
+                    }
                 }
             }
             
-            // If that fails, try to parse as LinkedTreeMap
+            // If all else fails, try to parse as Object
             return gson.fromJson(value, Object.class);
         } catch (Exception e) {
             Log.e(TAG, "Error converting String to Object: " + e.getMessage(), e);
             return null;
         }
+    }
+
+    private static JsonObject convertMapToJsonObject(Map<String, Object> map) {
+        JsonObject jsonObject = new JsonObject();
+        
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
+            String key = entry.getKey();
+            Object mapValue = entry.getValue();
+            
+            if (mapValue == null) {
+                jsonObject.addProperty(key, (String) null);
+            } else if (mapValue instanceof String) {
+                jsonObject.addProperty(key, (String) mapValue);
+            } else if (mapValue instanceof Number) {
+                jsonObject.addProperty(key, (Number) mapValue);
+            } else if (mapValue instanceof Boolean) {
+                jsonObject.addProperty(key, (Boolean) mapValue);
+            } else if (mapValue instanceof Map) {
+                // Recursively convert nested maps
+                JsonObject nestedObject = convertMapToJsonObject((Map<String, Object>) mapValue);
+                jsonObject.add(key, nestedObject);
+            } else {
+                // For other types, convert to string
+                jsonObject.addProperty(key, mapValue.toString());
+            }
+        }
+        
+        return jsonObject;
     }
 } 

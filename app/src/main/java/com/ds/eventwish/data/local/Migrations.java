@@ -82,6 +82,42 @@ public class Migrations {
     };
     
     /**
+     * Migration from version 3 to 4
+     * - Added ad_units table for ad management
+     */
+    public static final Migration MIGRATION_3_4 = new Migration(3, 4) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            // Create ad_units table
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS `ad_units` (" +
+                "`id` TEXT NOT NULL, " +
+                "`adName` TEXT, " +
+                "`adUnitCode` TEXT, " +
+                "`adType` TEXT, " +
+                "`status` INTEGER NOT NULL DEFAULT 0, " +
+                "`targetingCriteria` TEXT, " +
+                "`targetingPriority` INTEGER NOT NULL DEFAULT 1, " +
+                "`parameters` TEXT, " +
+                "`maxImpressionsPerDay` INTEGER NOT NULL DEFAULT 10, " +
+                "`minIntervalBetweenAds` INTEGER NOT NULL DEFAULT 60, " +
+                "`cooldownPeriod` INTEGER NOT NULL DEFAULT 15, " +
+                "`canShow` INTEGER NOT NULL DEFAULT 0, " +
+                "`reason` TEXT, " +
+                "`nextAvailable` TEXT, " +
+                "`lastUpdated` INTEGER NOT NULL DEFAULT 0, " +
+                "PRIMARY KEY(`id`)" +
+                ")"
+            );
+            
+            // Create index on adType for faster queries
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_ad_units_adType` ON `ad_units` (`adType`)"
+            );
+        }
+    };
+    
+    /**
      * Keep a reference to the expected schema for engagement_data
      * This aids in debugging migration issues
      */
