@@ -110,6 +110,18 @@
                     android:clickable="true"
                     android:focusable="true"
                     android:layout_marginStart="16dp"/>
+                    
+                <ImageView
+                    android:id="@+id/fullscreenToggleIcon"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_fullscreen"
+                    app:tint="@android:color/black"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:layout_marginStart="16dp"
+                    android:contentDescription="Toggle fullscreen mode"/>
             </LinearLayout>
 
             <!-- Filter Chips Section -->
@@ -264,6 +276,18 @@
         </RelativeLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
+    <!-- Floating Exit Fullscreen Button -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/exitFullscreenButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|top"
+        android:layout_margin="16dp"
+        android:src="@drawable/ic_fullscreen_exit"
+        app:fabSize="mini"
+        android:visibility="gone"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+
     <!-- Offline Indicator -->
     <com.ds.eventwish.ui.views.OfflineIndicatorView
         android:id="@+id/offlineIndicator"
@@ -373,6 +397,7 @@
                 android:layout_height="match_parent"
                 android:clipToPadding="false"
                 android:paddingHorizontal="16dp"
+                android:background="@color/white"
                 android:paddingBottom="16dp"
                 app:layout_behavior="@string/appbar_scrolling_view_behavior"/>
 
@@ -448,17 +473,6 @@
         </FrameLayout>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-    <!-- Ad Banner View -->
-    <com.ds.eventwish.ads.AdBannerView
-        android:id="@+id/adBannerView"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:layout_marginBottom="8dp"
-        app:testMode="true"
-        app:enabled="true"
-        app:adType="BANNER"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior"/>
 
     <!-- Bottom loading indicator for pagination -->
     <FrameLayout

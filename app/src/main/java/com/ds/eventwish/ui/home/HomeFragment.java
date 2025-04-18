@@ -7,6 +7,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewGroup.MarginLayoutParams;
 import android.widget.SearchView;
 import android.widget.Toast;
 import android.widget.ImageView;
@@ -18,6 +19,7 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
@@ -49,9 +51,8 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.ds.eventwish.ui.festival.FestivalViewModel;
 import com.ds.eventwish.data.repository.CategoryIconRepository;
-import com.ds.eventwish.ads.AdMobManager;
-import com.ds.eventwish.EventWishApplication;
-import com.ds.eventwish.ads.AdBannerView;
+
+import com.google.android.material.appbar.AppBarLayout;
 
 public class HomeFragment extends BaseFragment implements RecommendedTemplateAdapter.TemplateClickListener {
     private static final String TAG = "HomeFragment";
@@ -68,7 +69,6 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     private CategoryIconRepository categoryIconRepository;
     private boolean wasInBackground = false;
     private boolean isResumed = false;
-    private AdMobManager adMobManager;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -109,8 +109,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         // Set up bottom navigation
         setupBottomNavigation();
 
-        // Set up AdMob Banner
-        setupAdBanner();
+
 
         // Ensure filter chips are initially hidden
         binding.filterChipsScrollView.setVisibility(View.GONE);
@@ -122,6 +121,11 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
 
         // Ensure categories are visible
         ensureCategoriesVisible();
+        
+        // Restore fullscreen mode if needed
+        if (viewModel.isFullscreenMode()) {
+            toggleFullscreenMode(true);
+        }
         
         // Mark as not in background since we're creating the view
         wasInBackground = false;
@@ -337,6 +341,16 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             
             // Hide the badge immediately
             binding.notificationBadge.setVisibility(View.GONE);
+        });
+        
+        // Set up fullscreen toggle functionality
+        binding.fullscreenToggleIcon.setOnClickListener(v -> {
+            toggleFullscreenMode(true);
+        });
+        
+        // Set up exit fullscreen button
+        binding.exitFullscreenButton.setOnClickListener(v -> {
+            toggleFullscreenMode(false);
         });
         
         // Observe unread festival count
@@ -1094,8 +1108,18 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         // Observe new template IDs
         viewModel.getNewTemplateIds().observe(getViewLifecycleOwner(), newIds -> {
             if (newIds != null && adapter != null) {
-                Log.d(TAG, "New template IDs updated: " + newIds.size());
+                int count = newIds.size();
+                Log.d(TAG, "New template IDs updated: " + count + (count > 0 ? ", First ID: " + newIds.iterator().next() : ""));
                 adapter.setNewTemplateIds(newIds);
+                
+                // Force a refresh of all visible items to ensure badges are displayed
+                if (count > 0 && layoutManager != null) {
+                    int firstVisible = layoutManager.findFirstVisibleItemPosition();
+                    int lastVisible = layoutManager.findLastVisibleItemPosition();
+                    if (firstVisible >= 0 && lastVisible >= 0) {
+                        adapter.notifyItemRangeChanged(firstVisible, lastVisible - firstVisible + 1);
+                    }
+                }
             }
         });
         
@@ -1229,48 +1253,6 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         }
     }
 
-    /**
-     * Set up AdMob banner
-     */
-    private void setupAdBanner() {
-        try {
-            // Try to get AdMobManager
-            adMobManager = ((EventWishApplication) requireActivity().getApplication()).getAdMobManager();
-            
-            // Set up the AdBanner if AdMobManager is initialized
-            if (adMobManager != null && adMobManager.isInitialized()) {
-                Log.d(TAG, "Setting up ad banner with AdMobManager");
-                
-                // Observe ad enabled state
-                adMobManager.getEnabledState().observe(getViewLifecycleOwner(), isEnabled -> {
-                    if (binding != null && binding.adBannerView != null) {
-                        if (isEnabled) {
-                            binding.adBannerView.setVisibility(View.VISIBLE);
-                        } else {
-                            binding.adBannerView.setVisibility(View.GONE);
-                        }
-                    }
-                });
-                
-                // Set test mode based on AdMobManager
-                if (binding.adBannerView != null) {
-                    binding.adBannerView.setTestMode(adMobManager.isTestModeEnabled());
-                }
-            } else {
-                // Hide the banner if AdMobManager is not initialized
-                Log.d(TAG, "AdMobManager not initialized, hiding ad banner");
-                if (binding != null && binding.adBannerView != null) {
-                    binding.adBannerView.setVisibility(View.GONE);
-                }
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error setting up ad banner: " + e.getMessage(), e);
-            // Hide the banner on error
-            if (binding != null && binding.adBannerView != null) {
-                binding.adBannerView.setVisibility(View.GONE);
-            }
-        }
-    }
 
     @Override
     public void onTemplateClick(Template template) {
@@ -1457,6 +1439,93 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         
         // Show the Snackbar
         snackbar.show();
+    }
+
+    private void toggleFullscreenMode(boolean isFullscreen) {
+        if (isFullscreen) {
+            // Hide AppBarLayout (header section)
+            binding.appBarLayout.setVisibility(View.GONE);
+            
+            // Update AppBarLayout parameters to not take up space
+            CoordinatorLayout.LayoutParams appBarLayoutParams = (CoordinatorLayout.LayoutParams) binding.appBarLayout.getLayoutParams();
+            appBarLayoutParams.height = 0;
+            binding.appBarLayout.setLayoutParams(appBarLayoutParams);
+            
+            // Make sure behavior is not affecting scroll
+            appBarLayoutParams.setBehavior(null);
+            
+            // Hide bottom navigation
+            if (bottomNav != null) {
+                bottomNav.setVisibility(View.GONE);
+            }
+            
+            // Hide AdBannerView
+//            binding.adBannerView.setVisibility(View.GONE);
+            
+            // Show exit fullscreen button
+            binding.exitFullscreenButton.setVisibility(View.VISIBLE);
+            
+            // Adjust recycler view to use full screen space
+            ViewGroup.MarginLayoutParams layoutParams = (MarginLayoutParams) binding.swipeRefreshLayout.getLayoutParams();
+            layoutParams.topMargin = 0;
+            layoutParams.bottomMargin = 0;
+            binding.swipeRefreshLayout.setLayoutParams(layoutParams);
+            
+            // Remove the appbar scrolling behavior from SwipeRefreshLayout
+            CoordinatorLayout.LayoutParams swipeParams = (CoordinatorLayout.LayoutParams) binding.swipeRefreshLayout.getLayoutParams();
+            swipeParams.setBehavior(null);
+            binding.swipeRefreshLayout.setLayoutParams(swipeParams);
+            
+            // Update the layout
+            binding.getRoot().requestLayout();
+            
+            // Save the fullscreen state
+            viewModel.setFullscreenMode(true);
+        } else {
+            // Restore AppBarLayout (header section)
+            binding.appBarLayout.setVisibility(View.VISIBLE);
+            
+            // Restore AppBarLayout parameters
+            CoordinatorLayout.LayoutParams appBarLayoutParams = (CoordinatorLayout.LayoutParams) binding.appBarLayout.getLayoutParams();
+            appBarLayoutParams.height = CoordinatorLayout.LayoutParams.WRAP_CONTENT;
+            binding.appBarLayout.setLayoutParams(appBarLayoutParams);
+            
+            // Restore behavior
+            AppBarLayout.Behavior behavior = new AppBarLayout.Behavior();
+            behavior.setDragCallback(new AppBarLayout.Behavior.DragCallback() {
+                @Override
+                public boolean canDrag(@NonNull AppBarLayout appBarLayout) {
+                    return true;
+                }
+            });
+            appBarLayoutParams.setBehavior(behavior);
+            
+            // Show bottom navigation
+            if (bottomNav != null) {
+                bottomNav.setVisibility(View.VISIBLE);
+            }
+
+            
+            // Hide exit fullscreen button
+            binding.exitFullscreenButton.setVisibility(View.GONE);
+            
+            // Reset recycler view margins
+            ViewGroup.MarginLayoutParams layoutParams = (MarginLayoutParams) binding.swipeRefreshLayout.getLayoutParams();
+            layoutParams.topMargin = getResources().getDimensionPixelSize(R.dimen.recycler_view_top_margin);
+            layoutParams.bottomMargin = getResources().getDimensionPixelSize(R.dimen.recycler_view_bottom_margin);
+            binding.swipeRefreshLayout.setLayoutParams(layoutParams);
+            
+            // Restore the appbar scrolling behavior to SwipeRefreshLayout
+            CoordinatorLayout.LayoutParams swipeParams = (CoordinatorLayout.LayoutParams) binding.swipeRefreshLayout.getLayoutParams();
+            swipeParams.setBehavior(new AppBarLayout.ScrollingViewBehavior());
+            binding.swipeRefreshLayout.setLayoutParams(swipeParams);
+            
+            // Update the layout
+            binding.getRoot().requestLayout();
+            
+            // Save the fullscreen state
+            viewModel.setFullscreenMode(false);
+        }
     }
 }
 

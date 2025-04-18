@@ -479,16 +479,55 @@ public class HomeViewModel extends ViewModel {
         }
         
         Set<String> newIds = new HashSet<>();
+        
+        // Get the current time for tracking recent changes
+        long currentTime = System.currentTimeMillis();
+        // Define a threshold for "new" templates (e.g., added in the last 3 days)
+        long newThreshold = currentTime - (3 * 24 * 60 * 60 * 1000); // 3 days in milliseconds
+        
+        // Load last check time
+        SharedPreferences prefs = appContext.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
+        long lastCheckTime = prefs.getLong(PREF_LAST_CHECK_TIME, 0);
+        
+        // If this is the first check, set a reasonable time (e.g., 7 days ago)
+        if (lastCheckTime == 0) {
+            lastCheckTime = currentTime - (7 * 24 * 60 * 60 * 1000); // 7 days ago
+        }
+        
+        Log.d(TAG, "Checking for new templates - Last check time: " + lastCheckTime);
+        
         for (Template template : templates) {
+            if (template.getId() == null || template.getId().isEmpty()) {
+                continue;
+            }
+            
+            // A template is "new" if:
+            // 1. It hasn't been viewed before
+            // 2. AND (It's been created/updated since last check OR it's a recent template)
             if (!viewedTemplateIds.contains(template.getId())) {
-                newIds.add(template.getId());
+                long templateTime = template.getCreatedAtTimestamp();
+                if (templateTime > lastCheckTime || templateTime > newThreshold) {
+                    newIds.add(template.getId());
+                    Log.d(TAG, "Marking as new: " + template.getId() + " created at: " + templateTime);
+                }
             }
         }
+        
+        Log.d(TAG, "Found " + newIds.size() + " new templates");
         
         if (!newIds.isEmpty()) {
             hasNewTemplates.setValue(true);
             newTemplateIds.setValue(newIds);
+            
+            // Force a notification by setting a value
+            if (newTemplateIds.getValue() != null) {
+                newTemplateIds.setValue(new HashSet<>(newIds));
+            }
         }
+        
+        // Update the last check time
+        prefs.edit().putLong(PREF_LAST_CHECK_TIME, currentTime).apply();
+        Log.d(TAG, "Updated last check time to: " + currentTime);
     }
 
     public void markTemplateAsViewed(String templateId) {
@@ -731,5 +770,24 @@ public class HomeViewModel extends ViewModel {
         
         currentIds.add(id);
         recommendedTemplateIds.setValue(currentIds);
+    }
+
+    private String searchQuery = "";
+    private boolean isFullscreenMode = false;
+
+    /**
+     * Set fullscreen mode
+     * @param isFullscreen true for fullscreen mode, false for normal mode
+     */
+    public void setFullscreenMode(boolean isFullscreen) {
+        this.isFullscreenMode = isFullscreen;
+    }
+
+    /**
+     * Check if fullscreen mode is enabled
+     * @return true if fullscreen mode is enabled
+     */
+    public boolean isFullscreenMode() {
+        return isFullscreenMode;
     }
 }

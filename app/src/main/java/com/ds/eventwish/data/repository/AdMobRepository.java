@@ -976,4 +976,12 @@ public class AdMobRepository {
             Log.e(TAG, "Error syncing stored engagement data", e);
         }
     }
+
+    /**
+     * Get the AdUnitDao for direct database operations
+     * @return AdUnitDao instance
+     */
+    public AdUnitDao getAdUnitDao() {
+        return adUnitDao;
+    }
 } 

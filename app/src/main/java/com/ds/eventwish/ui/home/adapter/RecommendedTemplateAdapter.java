@@ -291,37 +291,48 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
      * Set new template IDs for showing the NEW badge
      */
     public void setNewTemplateIds(Set<String> ids) {
-        // Check if an update is in progress
-        if (newTemplateIds == null) {
-            Log.e(TAG, "setNewTemplateIds: newTemplateIds is null, ignoring update");
+        Log.d(TAG, "Setting new template IDs: " + (ids != null ? ids.size() : 0));
+        
+        // Check if an update is needed
+        if (ids == null && newTemplateIds.isEmpty()) {
+            return; // No change needed
+        }
+        
+        if (ids == null && !newTemplateIds.isEmpty()) {
+            // Clear all IDs
+            newTemplateIds.clear();
+            notifyDataSetChanged();
             return;
         }
         
-        try {
+        // Check for actual changes
+        boolean hasChanges = false;
+        
+        // Check if any IDs were added
+        for (String id : ids) {
+            if (!newTemplateIds.contains(id)) {
+                hasChanges = true;
+                break;
+            }
+        }
+        
+        // Check if any IDs were removed
+        if (!hasChanges && newTemplateIds.size() != ids.size()) {
+            hasChanges = true;
+        }
+        
+        // Only update if there are actual changes
+        if (hasChanges) {
             newTemplateIds.clear();
-            if (ids != null) {
-                newTemplateIds.addAll(ids);
+            newTemplateIds.addAll(ids);
+            
+            // Log the IDs for debugging
+            if (!newTemplateIds.isEmpty()) {
+                Log.d(TAG, "New template IDs: " + String.join(", ", newTemplateIds));
             }
-            // Only notify if adapter is still attached
-            RecyclerView recyclerView = null;
-            try {
-                Field field = RecyclerView.Adapter.class.getDeclaredField("mObservable");
-                field.setAccessible(true);
-                Object observable = field.get(this);
-                if (observable != null) {
-                    notifyDataSetChanged();
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Error checking adapter state", e);
-                // Fallback - try to notify anyway
-                try {
-                    notifyDataSetChanged();
-                } catch (IllegalStateException ex) {
-                    Log.e(TAG, "Failed to notify adapter, it may be detached", ex);
-                }
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "setNewTemplateIds error", e);
+            
+            // Update the adapter
+            notifyDataSetChanged();
         }
     }
     

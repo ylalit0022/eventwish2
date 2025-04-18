@@ -29,6 +29,7 @@ import com.ds.eventwish.ads.AdMobManager;
 import com.ds.eventwish.data.model.ads.AdConstants;
 import com.ds.eventwish.data.model.ads.AdUnit;
 import com.ds.eventwish.data.repository.AdMobRepository;
+import com.ds.eventwish.data.local.entity.AdUnitEntity;
 import com.ds.eventwish.util.SecureTokenManager;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -387,6 +388,71 @@ public class TestAdActivity extends AppCompatActivity {
     private void fetchAdUnits(String adType) {
         Log.d(TAG, "Fetching ad units for type: " + adType);
         progressBar.setVisibility(View.VISIBLE);
+        updateStatus("Fetching " + adType + " ad units...");
+        
+        // First check if we have ad units in the database
+        adMobRepository.getAdUnitsByType(adType).observe(this, adUnitEntities -> {
+            if (adUnitEntities != null && !adUnitEntities.isEmpty()) {
+                Log.d(TAG, "Found " + adUnitEntities.size() + " ad units in database for type: " + adType);
+                updateStatus("Found " + adUnitEntities.size() + " ad units in database");
+                
+                // Log and display the ad units from database
+                StringBuilder dbDataLog = new StringBuilder();
+                dbDataLog.append("Database Ad Units:\n");
+                dbDataLog.append("Total ad units: ").append(adUnitEntities.size()).append("\n\n");
+                
+                // Filter for the requested ad type
+                List<AdUnit> filteredAdUnits = new ArrayList<>();
+                for (AdUnit unit : adUnitEntities) {
+                    // Log each ad unit
+                    Log.d(TAG, "Ad Unit from DB: " + gson.toJson(unit));
+                    dbDataLog.append("Ad Unit ID: ").append(unit.getId())
+                        .append("\nType: ").append(unit.getAdType())
+                        .append("\nCode: ").append(unit.getAdUnitCode())
+                        .append("\n\n");
+                    
+                    if (adType.equalsIgnoreCase(unit.getAdType())) {
+                        filteredAdUnits.add(unit);
+                    }
+                }
+                
+                // Update UI with database data
+                updateStatus(dbDataLog.toString());
+                
+                if (filteredAdUnits.isEmpty()) {
+                    String error = "No " + adType + " ad units found in database. Fetching from server...";
+                    Log.d(TAG, error);
+                    appendStatus("\n" + error);
+                    
+                    // Fetch from server as fallback
+                    fetchAdUnitsFromServer(adType);
+                } else {
+                    // Use the first matching ad unit
+                    AdUnit adUnit = filteredAdUnits.get(0);
+                    Log.d(TAG, "Selected ad unit from database: " + gson.toJson(adUnit));
+                    appendStatus("\nSelected Ad Unit (Database):\n" +
+                        "ID: " + adUnit.getId() + "\n" +
+                        "Type: " + adUnit.getAdType() + "\n" +
+                        "Code: " + adUnit.getAdUnitCode());
+                    
+                    // Check ad status before showing
+                    checkAdStatus(adUnit);
+                    progressBar.setVisibility(View.GONE);
+                }
+            } else {
+                Log.d(TAG, "No ad units found in database. Fetching from server...");
+                appendStatus("No ad units found in database. Fetching from server...");
+                
+                // Fetch from server if no database entries
+                fetchAdUnitsFromServer(adType);
+            }
+        });
+    }
+    
+    /**
+     * Fetch ad units from the server when they aren't in the database
+     */
+    private void fetchAdUnitsFromServer(String adType) {
         updateStatus("Fetching " + adType + " ad units from server...");
         
         // Create headers for the request
@@ -404,6 +470,26 @@ public class TestAdActivity extends AppCompatActivity {
                         
                         List<AdUnit> adUnits = response.body().getData().getAdUnits();
                         if (adUnits != null && !adUnits.isEmpty()) {
+                            // Save ad units to database for future use
+                            List<AdUnitEntity> entities = new ArrayList<>();
+                            for (AdUnit unit : adUnits) {
+                                entities.add(AdUnitEntity.fromAdUnit(unit));
+                            }
+                            
+                            // Save to database on a background thread
+                            new Thread(() -> {
+                                try {
+                                    if (adType != null) {
+                                        adMobRepository.getAdUnitDao().refreshAdUnitsByType(adType, entities);
+                                    } else {
+                                        adMobRepository.getAdUnitDao().refreshAdUnits(entities);
+                                    }
+                                    Log.d(TAG, "Saved " + entities.size() + " ad units to database");
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error saving ad units to database", e);
+                                }
+                            }).start();
+                            
                             // Log all received ad units
                             Log.d(TAG, "Received " + adUnits.size() + " ad units from server");
                             StringBuilder serverDataLog = new StringBuilder();
@@ -436,7 +522,7 @@ public class TestAdActivity extends AppCompatActivity {
                                 // Use the first matching ad unit
                                 AdUnit adUnit = filteredAdUnits.get(0);
                                 Log.d(TAG, "Selected ad unit for display: " + gson.toJson(adUnit));
-                                appendStatus("\nSelected Ad Unit:\n" +
+                                appendStatus("\nSelected Ad Unit (Server):\n" +
                                     "ID: " + adUnit.getId() + "\n" +
                                     "Type: " + adUnit.getAdType() + "\n" +
                                     "Code: " + adUnit.getAdUnitCode());

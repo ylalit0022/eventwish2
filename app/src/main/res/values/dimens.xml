@@ -15,4 +15,6 @@
     <dimen name="fab_margin">16dp</dimen>
     <dimen name="corner_radius">8dp</dimen>
     <dimen name="snackbar_margin">5dp</dimen>
+    <dimen name="recycler_view_top_margin">8dp</dimen>
+    <dimen name="recycler_view_bottom_margin">8dp</dimen>
 </resources>
