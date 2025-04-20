@@ -3,6 +3,9 @@ package com.ds.eventwish.data.converter;
 import androidx.room.TypeConverter;
 import java.util.Date;
 
+/**
+ * Type converter for Date objects in Room database
+ */
 public class DateConverter {
     @TypeConverter
     public static Date fromTimestamp(Long value) {

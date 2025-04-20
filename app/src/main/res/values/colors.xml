@@ -122,4 +122,7 @@
     <color name="colorSuccess">#4CAF50</color>
     <color name="color_success_light">#A5D6A7</color>
 
+    <!-- Add these colors for shimmer effect -->
+    <color name="shimmer_background">#EEEEEE</color>
+
 </resources>

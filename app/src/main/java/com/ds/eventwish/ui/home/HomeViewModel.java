@@ -22,6 +22,8 @@ import java.util.concurrent.TimeUnit;
 import java.lang.reflect.Field;
 import com.google.android.material.snackbar.Snackbar;
 import android.view.View;
+import java.util.LinkedHashMap;
+import java.util.Objects;
 
 public class HomeViewModel extends ViewModel {
     private static final String TAG = "HomeViewModel";
@@ -42,8 +44,8 @@ public class HomeViewModel extends ViewModel {
     
     // Filter parameters
     private String selectedCategory = null;
-    private SortOption selectedSortOption = SortOption.TRENDING;
-    private TimeFilter selectedTimeFilter = TimeFilter.ALL_TIME;
+    private final MutableLiveData<SortOption> sortOption = new MutableLiveData<>(SortOption.TRENDING);
+    private final MutableLiveData<TimeFilter> timeFilter = new MutableLiveData<>(TimeFilter.ALL);
     
     // Store the last visible position
     private int lastVisiblePosition = 0;
@@ -77,41 +79,8 @@ public class HomeViewModel extends ViewModel {
     private long lastCategoryChangeTime = 0;
     private static final long CATEGORY_CHANGE_THRESHOLD = 3000; // 3 seconds
 
-    // Enum for sort options
-    public enum SortOption {
-        TRENDING("Trending"),
-        NEWEST("Newest"),
-        OLDEST("Oldest"),
-        MOST_USED("Most Used");
-        
-        private final String displayName;
-        
-        SortOption(String displayName) {
-            this.displayName = displayName;
-        }
-        
-        public String getDisplayName() {
-            return displayName;
-        }
-    }
-    
-    // Enum for time filters
-    public enum TimeFilter {
-        TODAY("Today"),
-        THIS_WEEK("This Week"),
-        THIS_MONTH("This Month"),
-        ALL_TIME("All Time");
-        
-        private final String displayName;
-        
-        TimeFilter(String displayName) {
-            this.displayName = displayName;
-        }
-        
-        public String getDisplayName() {
-            return displayName;
-        }
-    }
+    private final MutableLiveData<Map<String, Integer>> categories = new MutableLiveData<>(new LinkedHashMap<>());
+    private boolean categoriesLoaded = false; // Track if categories have been loaded
 
     public HomeViewModel() {
         repository = TemplateRepository.getInstance();
@@ -125,18 +94,18 @@ public class HomeViewModel extends ViewModel {
         SharedPreferences prefs = context.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
         selectedCategory = prefs.getString(PREF_SELECTED_CATEGORY, null);
         String sortOption = prefs.getString(PREF_SELECTED_SORT, SortOption.TRENDING.name());
-        String timeFilter = prefs.getString(PREF_SELECTED_TIME_FILTER, TimeFilter.ALL_TIME.name());
+        String timeFilter = prefs.getString(PREF_SELECTED_TIME_FILTER, TimeFilter.ALL.name());
         
         try {
-            selectedSortOption = SortOption.valueOf(sortOption);
+            this.sortOption.setValue(SortOption.valueOf(sortOption));
         } catch (IllegalArgumentException e) {
-            selectedSortOption = SortOption.TRENDING;
+            this.sortOption.setValue(SortOption.TRENDING);
         }
         
         try {
-            selectedTimeFilter = TimeFilter.valueOf(timeFilter);
+            this.timeFilter.setValue(TimeFilter.valueOf(timeFilter));
         } catch (IllegalArgumentException e) {
-            selectedTimeFilter = TimeFilter.ALL_TIME;
+            this.timeFilter.setValue(TimeFilter.ALL);
         }
         
         // Load viewed template IDs
@@ -177,66 +146,28 @@ public class HomeViewModel extends ViewModel {
      * Load categories from the repository
      */
     public void loadCategories() {
-        // If categories are already loaded, just return
-        if (categoriesPreloaded.getValue() == Boolean.TRUE) {
-            Log.d(TAG, "Categories already loaded, skipping API call");
-            
-            // Notify observers of existing categories
-            repository.notifyCategoriesObservers();
+        // If categories are already loaded, don't reload
+        if (categoriesLoaded && categories.getValue() != null && !categories.getValue().isEmpty()) {
+            Log.d(TAG, "Categories already loaded, skipping fetch");
             return;
         }
-        
-        // Check if we already have categories
-        Map<String, Integer> existingCategories = repository.getCategories().getValue();
-        
-        if (existingCategories == null || existingCategories.isEmpty()) {
-            // No categories available, load them by loading templates
-            Log.d(TAG, "No categories available, loading templates to get categories");
-            loadTemplates(true);
-            
-            // Add some default categories to ensure UI has data during initial load
-            Map<String, Integer> defaultCategories = new HashMap<>();
-            defaultCategories.put("Birthday", 10);
-            defaultCategories.put("Wedding", 8);
-            defaultCategories.put("Anniversary", 6);
-            defaultCategories.put("Graduation", 5);
-            defaultCategories.put("Holiday", 7);
-            defaultCategories.put("Congratulations", 4);
-            defaultCategories.put("Party", 9);
-            
-            // Update categories LiveData with defaults until API returns
-            if (repository.getCategories().getValue() == null ||
-                repository.getCategories().getValue().isEmpty()) {
-                Log.d(TAG, "Setting default categories until API response");
-                
-                // We need to use reflection to access the MutableLiveData in repository
-                try {
-                    Field categoriesField = TemplateRepository.class.getDeclaredField("categories");
-                    categoriesField.setAccessible(true);
-                    MutableLiveData<Map<String, Integer>> categoriesLiveData = 
-                        (MutableLiveData<Map<String, Integer>>) categoriesField.get(repository);
-                    if (categoriesLiveData != null) {
-                        categoriesLiveData.setValue(defaultCategories);
-                        Log.d(TAG, "Default categories set successfully");
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Failed to set default categories via reflection", e);
-                    // Fallback - notify observers to at least trigger UI update
-                    repository.notifyCategoriesObservers();
-                }
+
+        Log.d(TAG, "Loading categories from repository");
+        repository.getCategories(new TemplateRepository.CategoriesCallback() {
+            @Override
+            public void onSuccess(Map<String, Integer> categoryMap) {
+                repository.notifyCategoriesObservers();
+                categories.setValue(categoryMap);
+                categoriesLoaded = true; // Mark categories as loaded
+                Log.d(TAG, "Categories loaded successfully: " + categoryMap.size());
             }
-        } else {
-            // Categories already available, just notify observers
-            Log.d(TAG, "Categories already available (" + existingCategories.size() + "), notifying observers");
-            
-            // We can't directly call setValue on the LiveData returned by repository.getCategories()
-            // Instead, we'll reload templates with the current filters to refresh categories
-            // but with a flag to avoid clearing existing data
-            repository.loadTemplates(false);
-        }
-        
-        // Mark categories as loaded
-        categoriesPreloaded.setValue(true);
+
+            @Override
+            public void onError(String message) {
+                repository.notifyCategoriesObservers();
+                Log.e(TAG, "Error loading categories: " + message);
+            }
+        });
     }
 
     public LiveData<Boolean> getLoading() {
@@ -252,40 +183,19 @@ public class HomeViewModel extends ViewModel {
      * @param category The category to filter by, or null for all categories
      */
     public void setCategory(String category) {
-        if ((category == null && selectedCategory == null) ||
-            (category != null && category.equals(selectedCategory))) {
-            return; // No change
+        if (Objects.equals(selectedCategory, category)) {
+            Log.d(TAG, "Same category selected, skipping reload");
+            return;
         }
-        
-        Log.d(TAG, "Setting category filter from " + 
-              (selectedCategory != null ? selectedCategory : "All") + " to " + 
-              (category != null ? category : "All"));
-        
-        // Store the previous category for restoration if needed
-        lastSelectedCategory = selectedCategory;
-        
+
         selectedCategory = category;
-        
-        // Record the time of category change
         lastCategoryChangeTime = System.currentTimeMillis();
         
         // Save the selected category
-        if (appContext != null) {
-            SharedPreferences prefs = appContext.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
-            SharedPreferences.Editor editor = prefs.edit();
-            if (category == null) {
-                editor.remove(PREF_SELECTED_CATEGORY);
-            } else {
-                editor.putString(PREF_SELECTED_CATEGORY, category);
-            }
-            editor.apply();
-        }
+        saveTemplateState();
         
-        // Reload templates with the new filter
+        // Load templates for the new category
         loadTemplates(true);
-        
-        // Mark categories as loaded
-        categoriesPreloaded.setValue(true);
     }
 
     /**
@@ -298,48 +208,24 @@ public class HomeViewModel extends ViewModel {
 
     /**
      * Set the sort option
-     * @param sortOption The sort option to use
+     * @param option The sort option to use
      */
-    public void setSortOption(SortOption sortOption) {
-        if (sortOption == selectedSortOption) {
-            return; // No change
+    public void setSortOption(SortOption option) {
+        if (option != sortOption.getValue()) {
+            sortOption.setValue(option);
+            loadTemplates(true);
         }
-        
-        selectedSortOption = sortOption;
-        
-        // Save the selected sort option
-        if (appContext != null) {
-            SharedPreferences prefs = appContext.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
-            SharedPreferences.Editor editor = prefs.edit();
-            editor.putString(PREF_SELECTED_SORT, sortOption.name());
-            editor.apply();
-        }
-        
-        // Reload templates with the new filter
-        loadTemplates(true);
     }
 
     /**
      * Set the time filter
-     * @param timeFilter The time filter to use
+     * @param filter The time filter to use
      */
-    public void setTimeFilter(TimeFilter timeFilter) {
-        if (timeFilter == selectedTimeFilter) {
-            return; // No change
+    public void setTimeFilter(TimeFilter filter) {
+        if (filter != timeFilter.getValue()) {
+            timeFilter.setValue(filter);
+            loadTemplates(true);
         }
-        
-        selectedTimeFilter = timeFilter;
-        
-        // Save the selected time filter
-        if (appContext != null) {
-            SharedPreferences prefs = appContext.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
-            SharedPreferences.Editor editor = prefs.edit();
-            editor.putString(PREF_SELECTED_TIME_FILTER, timeFilter.name());
-            editor.apply();
-        }
-        
-        // Reload templates with the new filter
-        loadTemplates(true);
     }
 
     /**
@@ -362,18 +248,18 @@ public class HomeViewModel extends ViewModel {
         
         Log.d(TAG, "Loading templates with category: " + 
               (selectedCategory != null ? selectedCategory : "All") + 
-              ", sort: " + selectedSortOption + 
-              ", time: " + selectedTimeFilter + 
+              ", sort: " + sortOption.getValue() + 
+              ", time: " + timeFilter.getValue() + 
               ", clearExisting: " + clearExisting);
         
         // Set category filter first
         repository.setCategory(selectedCategory);
         
         // Apply sort option
-        applySortOption(selectedSortOption);
+        applySortOption(sortOption.getValue());
         
         // Apply time filter
-        applyTimeFilter(selectedTimeFilter);
+        applyTimeFilter(timeFilter.getValue());
         
         // Load templates with the current filters
         repository.loadTemplates(clearExisting);
@@ -446,7 +332,7 @@ public class HomeViewModel extends ViewModel {
      * @return The selected sort option
      */
     public SortOption getCurrentSortOption() {
-        return selectedSortOption;
+        return sortOption.getValue();
     }
 
     /**
@@ -454,7 +340,7 @@ public class HomeViewModel extends ViewModel {
      * @return The selected time filter
      */
     public TimeFilter getCurrentTimeFilter() {
-        return selectedTimeFilter;
+        return timeFilter.getValue();
     }
 
     /**
@@ -635,26 +521,10 @@ public class HomeViewModel extends ViewModel {
      * Clear cache and force a refresh of templates
      */
     public void clearCacheAndRefresh() {
-        // Clear the cache
+        categoriesLoaded = false;
         repository.clearCache();
-        
-        // Mark templates as not preloaded
-        templatesPreloaded.setValue(false);
-        
-        // Reset first load flag
-        isFirstLoad = true;
-        
-        // Reset filters to default
-        selectedSortOption = SortOption.TRENDING;
-        selectedTimeFilter = TimeFilter.ALL_TIME;
-        
-        // Don't reset category selection to maintain user's context
-        
-        // Force refresh with cleared cache
+        loadCategories();
         loadTemplates(true);
-        
-        // Clear new templates flag
-        clearNewTemplatesFlag();
     }
 
     /**
@@ -674,14 +544,14 @@ public class HomeViewModel extends ViewModel {
      * @return true if categories have been loaded
      */
     public boolean areCategoriesLoaded() {
-        return categoriesPreloaded.getValue() != null && categoriesPreloaded.getValue();
+        return categoriesLoaded;
     }
 
     /**
      * Force a reload of categories
      */
     public void forceReloadCategories() {
-        categoriesPreloaded.setValue(false);
+        categoriesLoaded = false;
         loadCategories();
     }
 
@@ -789,5 +659,55 @@ public class HomeViewModel extends ViewModel {
      */
     public boolean isFullscreenMode() {
         return isFullscreenMode;
+    }
+
+    private void saveTemplateState() {
+        SharedPreferences prefs = appContext.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+
+        // Save sort option and time filter
+        editor.putString(PREF_SELECTED_SORT, sortOption.getValue().name());
+        editor.putString(PREF_SELECTED_TIME_FILTER, timeFilter.getValue().name());
+
+        // Save category and scroll position
+        editor.putString(PREF_SELECTED_CATEGORY, selectedCategory);
+        editor.putInt("last_visible_position", lastVisiblePosition);
+
+        // Save viewed template IDs
+        Gson gson = new Gson();
+        String viewedIdsJson = gson.toJson(viewedTemplateIds);
+        editor.putString(PREF_VIEWED_TEMPLATES, viewedIdsJson);
+
+        // Save last check time
+        editor.putLong(PREF_LAST_CHECK_TIME, lastRefreshTime);
+
+        // Save fullscreen mode
+        editor.putBoolean("is_fullscreen_mode", isFullscreenMode);
+
+        // Save search query if any
+        editor.putString("search_query", searchQuery);
+
+        editor.apply();
+        Log.d(TAG, "Template state saved: category=" + selectedCategory + 
+              ", position=" + lastVisiblePosition + 
+              ", viewedCount=" + viewedTemplateIds.size());
+    }
+
+    public LiveData<SortOption> getSortOption() {
+        return sortOption;
+    }
+
+    public LiveData<TimeFilter> getTimeFilter() {
+        return timeFilter;
+    }
+
+    public void loadTemplates() {
+        loadTemplates(false);
+    }
+
+    // Method to force refresh categories if needed (e.g., after error)
+    public void forceRefreshCategories() {
+        categoriesLoaded = false;
+        loadCategories();
     }
 }

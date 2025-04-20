@@ -54,8 +54,14 @@ import com.ds.eventwish.data.repository.CategoryIconRepository;
 
 import com.google.android.material.appbar.AppBarLayout;
 
+import com.ds.eventwish.ui.home.SortOption;
+import com.ds.eventwish.ui.home.TimeFilter;
+
+import java.util.Collections;
+
 public class HomeFragment extends BaseFragment implements RecommendedTemplateAdapter.TemplateClickListener {
     private static final String TAG = "HomeFragment";
+    
     private FragmentHomeBinding binding;
     private HomeViewModel viewModel;
     private FestivalViewModel festivalViewModel;
@@ -69,12 +75,16 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     private CategoryIconRepository categoryIconRepository;
     private boolean wasInBackground = false;
     private boolean isResumed = false;
+    private OnBackPressedCallback backPressedCallback;
+    private int lastScrollPosition = 0;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentHomeBinding.inflate(inflater, container, false);
-        // Initialize ViewModel
+        // Initialize ViewModels
         viewModel = new ViewModelProvider(this).get(HomeViewModel.class);
+        viewModel.init(requireContext());
+        festivalViewModel = new ViewModelProvider(this).get(FestivalViewModel.class);
         return binding.getRoot();
     }
 
@@ -83,13 +93,6 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         super.onViewCreated(view, savedInstanceState);
 
         Log.d(TAG, "onViewCreated called");
-
-        // Initialize ViewModel
-        viewModel = new ViewModelProvider(this).get(HomeViewModel.class);
-        viewModel.init(requireContext());
-
-        // Initialize FestivalViewModel
-        festivalViewModel = new ViewModelProvider(this).get(FestivalViewModel.class);
 
         // Initialize CategoryIconRepository
         categoryIconRepository = CategoryIconRepository.getInstance();
@@ -109,7 +112,10 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         // Set up bottom navigation
         setupBottomNavigation();
 
-
+        // Restore saved state if available
+        if (savedInstanceState != null) {
+            restoreState(savedInstanceState);
+        }
 
         // Ensure filter chips are initially hidden
         binding.filterChipsScrollView.setVisibility(View.GONE);
@@ -143,11 +149,11 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         Log.d(TAG, "CategoryIconRepository initialized in onCreate");
 
         // Handle back press for exit confirmation
-        requireActivity().getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+        backPressedCallback = new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (binding.timeFilterScrollView.getVisibility() == View.VISIBLE ||
-                        binding.filterChipsScrollView.getVisibility() == View.VISIBLE) {
+                if (binding != null && (binding.timeFilterScrollView.getVisibility() == View.VISIBLE ||
+                        binding.filterChipsScrollView.getVisibility() == View.VISIBLE)) {
 
                     binding.timeFilterScrollView.setVisibility(View.GONE);
                     binding.filterChipsScrollView.setVisibility(View.GONE);
@@ -168,139 +174,77 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                     }
                 }
             }
-        });
-
-    }
-        @Override
-    public void onResume() {
-        super.onResume();
-        
-        // Mark fragment as resumed
-        isResumed = true;
-        
-        Log.d(TAG, "onResume called" + (wasInBackground ? " (returning from background)" : ""));
-        
-        // Check if we're coming back from another fragment
-        if (wasInBackground) {
-            Log.d(TAG, "Returning from background");
-            
-            // Reset pagination flag when returning to fragment
-            viewModel.setPaginationInProgress(false);
-            
-            // Don't refresh category icons if not necessary
-            if (categoryIconRepository != null && !categoryIconRepository.isInitialized()) {
-                categoryIconRepository.refreshCategoryIcons();
-            }
-            
-            // First handle category persistence - this is critical for UI consistency
-            if (viewModel != null) {
-                // Force categories to be visible without reloading them if possible
-                if (viewModel.areCategoriesLoaded()) {
-                    Log.d(TAG, "Categories already loaded, notifying observers");
-                    viewModel.loadCategories(); // This will just notify observers if already loaded
-                } else if (categoriesAdapter == null || categoriesAdapter.getItemCount() <= 1) {
-                    // Only reload categories if adapter is empty
-                    Log.d(TAG, "Explicitly loading categories in onResume because adapter is empty");
-                    viewModel.loadCategories();
-                }
-                
-                // Restore selected category
-                if (categoriesAdapter != null) {
-                    String selectedCategory = viewModel.getSelectedCategory();
-                    Log.d(TAG, "Restoring selected category: " + (selectedCategory != null ? selectedCategory : "All"));
-                    
-                    // Set prevention flag to avoid order changes during selection update
-                    categoriesAdapter.preventCategoryChanges(true);
-                    try {
-                        // Update the selected category in the adapter without reloading data
-                        categoriesAdapter.updateSelectedCategory(selectedCategory);
-                    } finally {
-                        // Always ensure we reset the prevention flag
-                        categoriesAdapter.preventCategoryChanges(false);
-                    }
-                }
-            }
-            
-            // Force UI update without reloading templates
-            if (viewModel != null && adapter != null) {
-                List<Template> currentTemplates = viewModel.getTemplates().getValue();
-                if (currentTemplates != null && !currentTemplates.isEmpty()) {
-                    Log.d(TAG, "Refreshing UI with existing " + currentTemplates.size() + " templates");
-                    adapter.updateTemplates(new ArrayList<>(currentTemplates));
-                    
-                    // Restore scroll position
-                    int lastPosition = viewModel.getLastVisiblePosition();
-                    if (lastPosition > 0) {
-                        Log.d(TAG, "Restoring scroll position to: " + lastPosition);
-                        binding.templatesRecyclerView.post(() -> {
-                            // Check if position is valid
-                            if (lastPosition < currentTemplates.size()) {
-                                layoutManager.scrollToPosition(lastPosition);
-                            }
-                        });
-                    }
-                }
-            }
-            
-            // Only refresh templates if specifically needed (and not often)
-            if (viewModel != null && viewModel.shouldRefreshOnReturn()) {
-                Log.d(TAG, "Refreshing templates because shouldRefreshOnReturn is true");
-                viewModel.loadTemplates(false); // Use false to avoid clearing existing data
-            } else {
-                Log.d(TAG, "Skipping template refresh, using existing data");
-            }
-            
-            // Update chip selections based on current filters without reloading data
-            updateChipSelections();
-            
-            wasInBackground = false;
-        }
-        
-        // Ensure categories are visible without reloading
-        ensureCategoriesVisible();
-        
-        // Check for unread festivals - using the correct method
-        if (festivalViewModel != null) {
-            // Only refresh festivals if we're coming from background
-            if (wasInBackground) {
-                festivalViewModel.refreshFestivals();
-            }
-            
-            // Update the notification badge based on unread count
-            festivalViewModel.getUnreadCount().observe(getViewLifecycleOwner(), count -> {
-                if (count != null && count > 0) {
-                    binding.notificationBadge.setVisibility(View.VISIBLE);
-                    binding.notificationBadge.setText(count <= 9 ? String.valueOf(count) : "9+");
-                } else {
-                    binding.notificationBadge.setVisibility(View.GONE);
-                }
-            });
-        }
+        };
+        requireActivity().getOnBackPressedDispatcher().addCallback(this, backPressedCallback);
     }
 
     @Override
-    public void onPause() {
-        super.onPause();
-        
-        // Mark fragment as paused
-        isResumed = false;
-        
-        Log.d(TAG, "onPause called");
-        
-        // Save the current scroll position
-        int position = layoutManager.findFirstVisibleItemPosition();
-        if (position >= 0) {
-            viewModel.saveScrollPosition(position);
-            Log.d(TAG, "Saved scroll position in onPause: " + position);
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putSerializable("sortOption", viewModel.getCurrentSortOption());
+        outState.putSerializable("timeFilter", viewModel.getCurrentTimeFilter());
+        outState.putBoolean("isFullscreenMode", viewModel.isFullscreenMode());
+        outState.putInt("lastScrollPosition", lastScrollPosition);
+    }
+
+    private void restoreState(Bundle savedInstanceState) {
+        if (savedInstanceState != null) {
+            // Restore scroll position
+            final int scrollPosition = savedInstanceState.getInt("scrollPosition", 0);
+            if (scrollPosition > 0) {
+                binding.templatesRecyclerView.post(() -> binding.templatesRecyclerView.scrollToPosition(scrollPosition));
+            }
+
+            // Restore fullscreen mode
+            boolean isFullscreen = savedInstanceState.getBoolean("isFullscreen", false);
+            if (isFullscreen) {
+                toggleFullscreenMode(true);
+            }
+
+            // Restore selected category
+            String selectedCategory = savedInstanceState.getString("selectedCategory");
+            if (selectedCategory != null) {
+                viewModel.setCategory(selectedCategory);
+            }
+
+            // Restore sort option and time filter
+            SortOption sortOption = (SortOption) savedInstanceState.getSerializable("sortOption");
+            if (sortOption != null) {
+                viewModel.setSortOption(sortOption);
+            }
+
+            TimeFilter timeFilter = (TimeFilter) savedInstanceState.getSerializable("timeFilter");
+            if (timeFilter != null) {
+                viewModel.setTimeFilter(timeFilter);
+            }
+
+            // Restore filter visibility
+            if (savedInstanceState.getBoolean("filterChipsVisible", false)) {
+                binding.filterChipsScrollView.setVisibility(View.VISIBLE);
+            }
+            if (savedInstanceState.getBoolean("timeFilterVisible", false)) {
+                binding.timeFilterScrollView.setVisibility(View.VISIBLE);
+            }
         }
-        
-        // Save the current page for pagination
-        if (viewModel.getCurrentPage() > 1) {
-            Log.d(TAG, "Saved current page in onPause: " + viewModel.getCurrentPage());
+    }
+
+    private int getScrollPosition() {
+        if (binding != null && binding.templatesRecyclerView != null && binding.templatesRecyclerView.getLayoutManager() != null) {
+            if (binding.templatesRecyclerView.getLayoutManager() instanceof LinearLayoutManager) {
+                return ((LinearLayoutManager) binding.templatesRecyclerView.getLayoutManager())
+                        .findFirstVisibleItemPosition();
+            }
         }
-        
-        // Mark that we're going to background
-        wasInBackground = true;
+        return 0;
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (backPressedCallback != null) {
+            backPressedCallback.remove();
+        }
+        binding = null;
     }
 
     private void setupUI() {
@@ -370,7 +314,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         setupCategoriesAdapter();
         
         // Set up filter chips
-        setupFilterChips();
+        setupChips();
         
         // Set up filter icon
         ImageView filterIcon = binding.filterIcon;
@@ -388,7 +332,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 binding.timeFilterScrollView.setVisibility(View.VISIBLE);
                 
                 // Update chip selections to reflect current state
-                updateChipSelections();
+                updateChipStates();
             }
         });
         
@@ -400,23 +344,17 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     }
 
     private void setupCategoriesAdapter() {
-        // Initialize the categories adapter with at least the "All" category first
+        // Initialize the categories adapter with loading state
         categoriesAdapter = new CategoriesAdapter(requireContext());
         
-        // Set up RecyclerView
+        // Set up RecyclerView with horizontal layout
         binding.categoriesRecyclerView.setLayoutManager(
                 new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false));
         binding.categoriesRecyclerView.setAdapter(categoriesAdapter);
         
-        // Always start with at least some default categories including All
+        // Initialize with just the "All" category
         List<String> initialCategories = new ArrayList<>();
         initialCategories.add("All");
-        initialCategories.add("Birthday");
-        initialCategories.add("Wedding");
-        initialCategories.add("Holiday");
-        initialCategories.add("Anniversary");
-        initialCategories.add("Graduation");
-        initialCategories.add("Party");
         categoriesAdapter.updateCategories(initialCategories);
         
         // Set up click listeners
@@ -425,149 +363,205 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 viewModel.setCategory(null);
             } else {
                 viewModel.setCategory(category);
-                
-                // Show loading Snackbar when selecting a category
-                showCategoryLoadingSnackbar(category);
             }
-            // Update the adapter's selected position
             categoriesAdapter.setSelectedPosition(position);
         });
 
-        categoriesAdapter.setOnMoreClickListener(remainingCategories -> {
-            // Display the category selection bottom sheet with all categories
-            showCategoriesBottomSheet(remainingCategories);
+        categoriesAdapter.setOnMoreClickListener(this::showCategoriesBottomSheet);
+        
+        // Observe categories from the ViewModel
+        viewModel.getCategories().observe(getViewLifecycleOwner(), categories -> {
+            if (categories != null) {
+                if (!categories.isEmpty()) {
+                    Log.d(TAG, "Received " + categories.size() + " categories");
+                    
+                    // Convert categories map to list for the adapter
+                    List<String> categoryList = new ArrayList<>(categories.keySet());
+                    
+                    // Create visible categories list (first 5 categories)
+                    List<String> visibleCategories = new ArrayList<>();
+                    visibleCategories.add("All"); // Always add "All" first
+                    
+                    // Add up to 5 categories (excluding "All")
+                    int addedCategories = 0;
+                    for (String category : categoryList) {
+                        if (!category.equals("All") && addedCategories < 5) {
+                            visibleCategories.add(category);
+                            addedCategories++;
+                        }
+                    }
+                    
+                    // Add "More" if there are additional categories
+                    if (categoryList.size() > visibleCategories.size()) {
+                        visibleCategories.add("More");
+                    }
+                    
+                    // Update adapter with prevention flag to maintain stability
+                    categoriesAdapter.preventCategoryChanges(true);
+                    try {
+                        categoriesAdapter.updateCategories(visibleCategories);
+                        
+                        // Use ViewModel's selected category if available
+                        String selectedCategory = viewModel.getSelectedCategory();
+                        if (selectedCategory != null) {
+                            categoriesAdapter.updateSelectedCategory(selectedCategory);
+                        }
+                    } finally {
+                        categoriesAdapter.preventCategoryChanges(false);
+                    }
+                    
+                    // Hide loading state
+                    categoriesAdapter.setLoading(false);
+                } else {
+                    // Show empty state for categories
+                    Log.d(TAG, "No categories received");
+                    List<String> fallbackList = new ArrayList<>();
+                    fallbackList.add("All");
+                    categoriesAdapter.updateCategories(fallbackList);
+                    categoriesAdapter.setLoading(false);
+                }
+            }
         });
         
-        // If we already have categories in the ViewModel, update the adapter immediately
-        if (viewModel != null) {
-            Map<String, Integer> categories = viewModel.getCategories().getValue();
-            if (categories != null && !categories.isEmpty()) {
-                Log.d(TAG, "Setting up categories adapter with " + categories.size() + " categories from ViewModel");
+        // Load categories only if they haven't been loaded yet
+        if (!viewModel.areCategoriesLoaded()) {
+            categoriesAdapter.setLoading(true);
+            viewModel.loadCategories();
+        } else {
+            // Categories already loaded, just update the adapter
+            Map<String, Integer> existingCategories = viewModel.getCategories().getValue();
+            if (existingCategories != null && !existingCategories.isEmpty()) {
+                List<String> categoryList = new ArrayList<>(existingCategories.keySet());
+                List<String> visibleCategories = new ArrayList<>();
+                visibleCategories.add("All");
                 
-                // Convert categories map to list for the adapter
-                List<String> categoryList = new ArrayList<>(categories.keySet());
-                
-                // Add "All" category if it doesn't exist
-                if (!categoryList.contains("All")) {
-                    categoryList.add(0, "All");
+                // Add up to 5 categories (excluding "All")
+                int addedCategories = 0;
+                for (String category : categoryList) {
+                    if (!category.equals("All") && addedCategories < 5) {
+                        visibleCategories.add(category);
+                        addedCategories++;
+                    }
                 }
                 
-                // Update the adapter
-                categoriesAdapter.updateCategories(categoryList);
-            } 
-            
-            // Force a category load regardless - this will use cached categories if available
-            // or load new ones if needed
-            Log.d(TAG, "Forcing initial load of categories");
-            viewModel.forceReloadCategories();
+                // Add "More" if there are additional categories
+                if (categoryList.size() > visibleCategories.size()) {
+                    visibleCategories.add("More");
+                }
+                
+                categoriesAdapter.updateCategories(visibleCategories);
+                
+                String selectedCategory = viewModel.getSelectedCategory();
+                if (selectedCategory != null) {
+                    categoriesAdapter.updateSelectedCategory(selectedCategory);
+                }
+            }
         }
     }
 
-    /**
-     * Shows a loading Snackbar when a category is selected
-     */
-    private void showCategoryLoadingSnackbar(String category) {
-        if (getActivity() == null || bottomNav == null) return;
-        
-        // Dismiss any existing Snackbar
-        viewModel.dismissCurrentSnackbar();
-        
-        // Create a new Snackbar
-        Snackbar snackbar = Snackbar.make(binding.getRoot(), 
-            "Loading " + category + " templates...", 
-            Snackbar.LENGTH_SHORT);
-        
-        // Position the Snackbar above bottom navigation
-        View snackbarView = snackbar.getView();
-        androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams params = 
-            (androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams) 
-            snackbarView.getLayoutParams();
-        params.setMargins(0, 0, 0, bottomNav.getHeight());
-        snackbarView.setLayoutParams(params);
-        
-        // Apply gradient background
-        snackbarView.setBackgroundResource(R.drawable.gradient_snackbar_background);
-        
-        // Apply fade-in animation
-        snackbarView.setAlpha(0f);
-        snackbarView.animate()
-            .alpha(1f)
-            .setDuration(300)
-            .start();
-        
-        // Add loading icon
-        TextView textView = snackbarView.findViewById(com.google.android.material.R.id.snackbar_text);
-        if (textView != null) {
-            textView.setTextColor(android.graphics.Color.WHITE);
-            
-            // Add loading icon with animation
-            android.widget.ImageView loadingIcon = new android.widget.ImageView(requireContext());
-            loadingIcon.setImageResource(R.drawable.ic_loading);
-            
-            // Apply rotation animation
-            android.view.animation.Animation rotation = android.view.animation.AnimationUtils.loadAnimation(
-                    requireContext(), R.anim.rotate);
-            loadingIcon.startAnimation(rotation);
-            
-            // Set icon padding
-            loadingIcon.setPadding(0, 0, 16, 0);
-            
-            // Add the loading icon to the Snackbar layout
-            android.widget.LinearLayout snackbarLayout = (android.widget.LinearLayout) textView.getParent();
-            snackbarLayout.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-            snackbarLayout.addView(loadingIcon, 0);
+    private void showCategoriesBottomSheet(List<String> categories) {
+        if (categories == null || categories.isEmpty()) {
+            Log.d(TAG, "No categories to show in bottom sheet");
+            return;
         }
+
+        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
+        View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_categories, null);
+        bottomSheetDialog.setContentView(bottomSheetView);
+
+        // Set rounded corners
+        bottomSheetView.setBackgroundResource(R.drawable.rounded_corners_bg);
+
+        RecyclerView categoriesRecyclerView = bottomSheetView.findViewById(R.id.categoriesRecyclerView);
+
+        // Get remaining categories (after the first 5)
+        List<String> bottomSheetCategories = new ArrayList<>();
+        int visibleCategoriesCount = Math.min(5, categories.size());
         
-        // Store the Snackbar reference for later dismissal
-        viewModel.setCurrentSnackbar(snackbar);
-        
-        // Show the Snackbar
-        snackbar.show();
+        // Add all categories except the first 5 and exclude "More"
+        for (int i = visibleCategoriesCount; i < categories.size(); i++) {
+            String category = categories.get(i);
+            if (!category.equals("More")) {
+                bottomSheetCategories.add(category);
+            }
+        }
+
+        // Sort categories alphabetically
+        Collections.sort(bottomSheetCategories);
+
+        Log.d(TAG, "Showing " + bottomSheetCategories.size() + " remaining categories in bottom sheet");
+
+        CategoriesAdapter bottomSheetAdapter = new CategoriesAdapter(requireContext());
+        GridLayoutManager gridLayoutManager = new GridLayoutManager(requireContext(), 3);
+        categoriesRecyclerView.setLayoutManager(gridLayoutManager);
+        categoriesRecyclerView.setPadding(16, 16, 16, 16);
+        categoriesRecyclerView.setClipToPadding(false);
+        categoriesRecyclerView.setBackgroundResource(R.drawable.rounded_corners_bg);
+        categoriesRecyclerView.setAdapter(bottomSheetAdapter);
+        bottomSheetAdapter.updateCategories(bottomSheetCategories);
+
+        bottomSheetAdapter.setOnCategoryClickListener((category, position) -> {
+            Log.d(TAG, "Selected category from bottom sheet: " + category);
+            viewModel.setCategory(category);
+            categoriesAdapter.updateSelectedCategory(category);
+            bottomSheetDialog.dismiss();
+        });
+
+        bottomSheetDialog.show();
     }
 
-    private void setupFilterChips() {
-        // Set up sort option chips
-        binding.chipTrending.setOnClickListener(v -> 
-            viewModel.setSortOption(HomeViewModel.SortOption.TRENDING));
-        binding.chipNewest.setOnClickListener(v -> 
-            viewModel.setSortOption(HomeViewModel.SortOption.NEWEST));
-        binding.chipOldest.setOnClickListener(v -> 
-            viewModel.setSortOption(HomeViewModel.SortOption.OLDEST));
-        binding.chipMostUsed.setOnClickListener(v -> 
-            viewModel.setSortOption(HomeViewModel.SortOption.MOST_USED));
-        
-        // Set up time filter chips
-        binding.chipAllTime.setOnClickListener(v -> 
-            viewModel.setTimeFilter(HomeViewModel.TimeFilter.ALL_TIME));
-        binding.chipToday.setOnClickListener(v -> 
-            viewModel.setTimeFilter(HomeViewModel.TimeFilter.TODAY));
-        binding.chipThisWeek.setOnClickListener(v -> 
-            viewModel.setTimeFilter(HomeViewModel.TimeFilter.THIS_WEEK));
-        binding.chipThisMonth.setOnClickListener(v -> 
-            viewModel.setTimeFilter(HomeViewModel.TimeFilter.THIS_MONTH));
-        
-        // Add a button to show advanced filter options
-        if (binding.advancedFilterButton != null) {
-            binding.advancedFilterButton.setOnClickListener(v -> showFilterBottomSheet());
-        }
-        
-        updateChipSelections();
+    private void setupChips() {
+        binding.chipGroupSort.setOnCheckedStateChangeListener((group, checkedIds) -> {
+            if (checkedIds.isEmpty()) return;
+            int checkedId = checkedIds.get(0);
+            SortOption selectedSortOption;
+            if (checkedId == R.id.chipTrending) {
+                selectedSortOption = SortOption.TRENDING;
+            } else if (checkedId == R.id.chipNewest) {
+                selectedSortOption = SortOption.NEWEST;
+            } else if (checkedId == R.id.chipOldest) {
+                selectedSortOption = SortOption.OLDEST;
+            } else {
+                selectedSortOption = SortOption.MOST_USED;
+            }
+            viewModel.setSortOption(selectedSortOption);
+        });
+
+        binding.chipGroupTimeFilter.setOnCheckedStateChangeListener((group, checkedIds) -> {
+            if (checkedIds.isEmpty()) return;
+            int checkedId = checkedIds.get(0);
+            TimeFilter selectedTimeFilter;
+            if (checkedId == R.id.chipAllTime) {
+                selectedTimeFilter = TimeFilter.ALL;
+            } else if (checkedId == R.id.chipToday) {
+                selectedTimeFilter = TimeFilter.TODAY;
+            } else if (checkedId == R.id.chipThisWeek) {
+                selectedTimeFilter = TimeFilter.THIS_WEEK;
+            } else if (checkedId == R.id.chipThisMonth) {
+                selectedTimeFilter = TimeFilter.THIS_MONTH;
+            } else {
+                selectedTimeFilter = TimeFilter.THIS_YEAR;
+            }
+            viewModel.setTimeFilter(selectedTimeFilter);
+        });
     }
-    
-    private void updateChipSelections() {
-        // Update sort option chips
-        binding.chipTrending.setChecked(viewModel.getCurrentSortOption() == HomeViewModel.SortOption.TRENDING);
-        binding.chipNewest.setChecked(viewModel.getCurrentSortOption() == HomeViewModel.SortOption.NEWEST);
-        binding.chipOldest.setChecked(viewModel.getCurrentSortOption() == HomeViewModel.SortOption.OLDEST);
-        binding.chipMostUsed.setChecked(viewModel.getCurrentSortOption() == HomeViewModel.SortOption.MOST_USED);
-        
-        // Update time filter chips
-        binding.chipAllTime.setChecked(viewModel.getCurrentTimeFilter() == HomeViewModel.TimeFilter.ALL_TIME);
-        binding.chipToday.setChecked(viewModel.getCurrentTimeFilter() == HomeViewModel.TimeFilter.TODAY);
-        binding.chipThisWeek.setChecked(viewModel.getCurrentTimeFilter() == HomeViewModel.TimeFilter.THIS_WEEK);
-        binding.chipThisMonth.setChecked(viewModel.getCurrentTimeFilter() == HomeViewModel.TimeFilter.THIS_MONTH);
+
+    private void updateChipStates() {
+        SortOption currentSortOption = viewModel.getCurrentSortOption();
+        TimeFilter currentTimeFilter = viewModel.getCurrentTimeFilter();
+
+        binding.chipTrending.setChecked(currentSortOption == SortOption.TRENDING);
+        binding.chipNewest.setChecked(currentSortOption == SortOption.NEWEST);
+        binding.chipOldest.setChecked(currentSortOption == SortOption.OLDEST);
+        binding.chipMostUsed.setChecked(currentSortOption == SortOption.MOST_USED);
+
+        binding.chipAllTime.setChecked(currentTimeFilter == TimeFilter.ALL);
+        binding.chipToday.setChecked(currentTimeFilter == TimeFilter.TODAY);
+        binding.chipThisWeek.setChecked(currentTimeFilter == TimeFilter.THIS_WEEK);
+        binding.chipThisMonth.setChecked(currentTimeFilter == TimeFilter.THIS_MONTH);
+        binding.chipThisYear.setChecked(currentTimeFilter == TimeFilter.THIS_YEAR);
     }
-    
+
     private void showFilterBottomSheet() {
         // Get the bottom sheet view directly from the binding
         View bottomSheetView = binding.filterBottomSheet.getRoot();
@@ -588,8 +582,8 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         Button resetButton = bottomSheetView.findViewById(R.id.resetFiltersButton);
         
         // Set initial state based on current selections
-        HomeViewModel.SortOption currentSortOption = viewModel.getCurrentSortOption();
-        HomeViewModel.TimeFilter currentTimeFilter = viewModel.getCurrentTimeFilter();
+        SortOption currentSortOption = viewModel.getCurrentSortOption();
+        TimeFilter currentTimeFilter = viewModel.getCurrentTimeFilter();
         
         // Set the appropriate radio button checked based on current sort option
         switch (currentSortOption) {
@@ -609,7 +603,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         
         // Set the appropriate radio button checked based on current time filter
         switch (currentTimeFilter) {
-            case ALL_TIME:
+            case ALL:
                 radioAllTime.setChecked(true);
                 break;
             case TODAY:
@@ -626,27 +620,27 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         // Apply button click listener
         applyButton.setOnClickListener(v -> {
             // Determine which sort option is selected
-            HomeViewModel.SortOption selectedSortOption;
+            SortOption selectedSortOption;
             if (radioTrending.isChecked()) {
-                selectedSortOption = HomeViewModel.SortOption.TRENDING;
+                selectedSortOption = SortOption.TRENDING;
             } else if (radioNewest.isChecked()) {
-                selectedSortOption = HomeViewModel.SortOption.NEWEST;
+                selectedSortOption = SortOption.NEWEST;
             } else if (radioOldest.isChecked()) {
-                selectedSortOption = HomeViewModel.SortOption.OLDEST;
+                selectedSortOption = SortOption.OLDEST;
             } else {
-                selectedSortOption = HomeViewModel.SortOption.MOST_USED;
+                selectedSortOption = SortOption.MOST_USED;
             }
             
             // Determine which time filter is selected
-            HomeViewModel.TimeFilter selectedTimeFilter;
+            TimeFilter selectedTimeFilter;
             if (radioAllTime.isChecked()) {
-                selectedTimeFilter = HomeViewModel.TimeFilter.ALL_TIME;
+                selectedTimeFilter = TimeFilter.ALL;
             } else if (radioToday.isChecked()) {
-                selectedTimeFilter = HomeViewModel.TimeFilter.TODAY;
+                selectedTimeFilter = TimeFilter.TODAY;
             } else if (radioThisWeek.isChecked()) {
-                selectedTimeFilter = HomeViewModel.TimeFilter.THIS_WEEK;
+                selectedTimeFilter = TimeFilter.THIS_WEEK;
             } else {
-                selectedTimeFilter = HomeViewModel.TimeFilter.THIS_MONTH;
+                selectedTimeFilter = TimeFilter.THIS_MONTH;
             }
             
             // Apply the filters
@@ -654,7 +648,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             viewModel.setTimeFilter(selectedTimeFilter);
             
             // Update chip selections
-            updateChipSelections();
+            updateChipStates();
             
             // Hide the bottom sheet
             bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
@@ -663,12 +657,12 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         // Reset button click listener
         resetButton.setOnClickListener(v -> {
             // Reset to default values
-            viewModel.setSortOption(HomeViewModel.SortOption.TRENDING);
-            viewModel.setTimeFilter(HomeViewModel.TimeFilter.ALL_TIME);
+            viewModel.setSortOption(SortOption.TRENDING);
+            viewModel.setTimeFilter(TimeFilter.ALL);
             viewModel.setCategory(null);
             
             // Update UI
-            updateChipSelections();
+            updateChipStates();
             
             // Hide the bottom sheet
             bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
@@ -677,47 +671,6 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         // Show the bottom sheet
         bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
     }
-
-    private void showCategoriesBottomSheet(List<String> categories) {
-        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
-        View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_categories, null);
-        bottomSheetDialog.setContentView(bottomSheetView);
-
-        // Set rounded corners
-        bottomSheetView.setBackgroundResource(R.drawable.rounded_corners_bg);
-
-        RecyclerView categoriesRecyclerView = bottomSheetView.findViewById(R.id.categoriesRecyclerView);
-
-        List<String> visibleCategories = categoriesAdapter.getVisibleCategories();
-        List<String> allCategories = new ArrayList<>(viewModel.getCategories().getValue().keySet());
-
-        // Remove all visible categories including "All" and "More"
-        List<String> bottomSheetCategories = new ArrayList<>(allCategories);
-        bottomSheetCategories.removeAll(visibleCategories);
-        bottomSheetCategories.remove("More"); // Just in case "More" is not in visibleCategories
-
-        Log.d(TAG, "Showing " + bottomSheetCategories.size() + " categories in bottom sheet");
-
-        CategoriesAdapter bottomSheetAdapter = new CategoriesAdapter();
-        GridLayoutManager gridLayoutManager = new GridLayoutManager(requireContext(), 3);
-        categoriesRecyclerView.setLayoutManager(gridLayoutManager);
-        // Add padding and rounded corners to the RecyclerView
-        categoriesRecyclerView.setPadding(16, 16, 16, 16);
-        categoriesRecyclerView.setClipToPadding(false);
-        categoriesRecyclerView.setBackgroundResource(R.drawable.rounded_corners_bg); // Make sure to create this drawable
-        categoriesRecyclerView.setAdapter(bottomSheetAdapter);
-        bottomSheetAdapter.updateCategories(bottomSheetCategories);
-
-        bottomSheetAdapter.setOnCategoryClickListener((category, position) -> {
-            Log.d(TAG, "Selected category from bottom sheet: " + category);
-            viewModel.setCategory(category);
-            categoriesAdapter.updateSelectedCategory(category);
-            bottomSheetDialog.dismiss();
-        });
-
-        bottomSheetDialog.show();
-    }
-
 
     private void setupRecyclerView() {
         adapter = new RecommendedTemplateAdapter(this);
@@ -1170,64 +1123,6 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             }
         });
         
-        // Observe categories from the ViewModel
-        viewModel.getCategories().observe(getViewLifecycleOwner(), categories -> {
-            // Skip updates if fragment is not resumed to avoid unnecessary processing
-            if (!isResumed) {
-                Log.d(TAG, "Categories update received while fragment not resumed, skipping");
-                return;
-            }
-            
-            if (categories != null && !categories.isEmpty()) {
-                Log.d(TAG, "Received " + categories.size() + " categories");
-                
-                // Store the current selection before update
-                String currentlySelectedCategory = null;
-                int currentSelectedPosition = -1;
-                
-                if (categoriesAdapter != null) {
-                    currentSelectedPosition = categoriesAdapter.getSelectedPosition();
-                    List<String> visibleCategories = categoriesAdapter.getVisibleCategories();
-                    if (currentSelectedPosition >= 0 && currentSelectedPosition < visibleCategories.size()) {
-                        currentlySelectedCategory = visibleCategories.get(currentSelectedPosition);
-                        Log.d(TAG, "Current selected category before update: " + currentlySelectedCategory);
-                    }
-                }
-                
-                // Make sure category icons are loaded
-                categoryIconRepository.loadCategoryIcons();
-                
-                // Convert categories map to list for the adapter
-                List<String> categoryList = new ArrayList<>(categories.keySet());
-                
-                // Add "All" category if it doesn't exist
-                if (!categoryList.contains("All")) {
-                    categoryList.add(0, "All");
-                }
-                
-                // Update adapter with prevention flag to maintain stability
-                if (categoriesAdapter != null) {
-                    categoriesAdapter.preventCategoryChanges(true);
-                    try {
-                        categoriesAdapter.updateCategories(categoryList);
-                        
-                        // Restore selection if we had one
-                        if (currentlySelectedCategory != null) {
-                            categoriesAdapter.updateSelectedCategory(currentlySelectedCategory);
-                        } else {
-                            // Use ViewModel's selected category if available
-                            String selectedCategory = viewModel.getSelectedCategory();
-                            if (selectedCategory != null) {
-                                categoriesAdapter.updateSelectedCategory(selectedCategory);
-                            }
-                        }
-                    } finally {
-                        categoriesAdapter.preventCategoryChanges(false);
-                    }
-                }
-            }
-        });
-        
         // Observe new templates indicator
         viewModel.getHasNewTemplates().observe(getViewLifecycleOwner(), hasNew -> {
             binding.refreshIndicator.setVisibility(hasNew ? View.VISIBLE : View.GONE);
@@ -1273,16 +1168,6 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         Navigation.findNavController(requireView()).navigate(R.id.action_home_to_template_detail, args);
     }
 
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        
-        // Don't clear the position when destroying the view
-        // This allows us to restore the position when coming back
-        
-        binding = null;
-    }
-
     // Test method to simulate new templates (for development/testing only)
     private void testNewTemplatesIndicator() {
         // Toggle the indicator for testing
@@ -1301,101 +1186,37 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
      * Ensure that the categories section is visible with proper state
      */
     private void ensureCategoriesVisible() {
-        // Make sure the categories RecyclerView is visible
         if (binding.categoriesRecyclerView != null) {
             binding.categoriesRecyclerView.setVisibility(View.VISIBLE);
             
-            // Log the current state
             Log.d(TAG, "Categories RecyclerView visibility: " + 
                   (binding.categoriesRecyclerView.getVisibility() == View.VISIBLE ? "VISIBLE" : "NOT VISIBLE"));
             
-            // Check if adapter is set
             if (binding.categoriesRecyclerView.getAdapter() == null) {
                 Log.d(TAG, "Categories RecyclerView adapter is null, setting adapter");
                 binding.categoriesRecyclerView.setAdapter(categoriesAdapter);
             }
             
-            // Check if adapter has data
             if (categoriesAdapter != null) {
-                Log.d(TAG, "Categories adapter item count: " + categoriesAdapter.getItemCount());
+                // Show loading state while checking for data
+                categoriesAdapter.setLoading(true);
                 
-                // Save existing selection if any
-                String currentSelectedCategory = categoriesAdapter.getSelectedCategory();
-                int currentSelectedPosition = categoriesAdapter.getSelectedPosition();
-                
-                // Only load categories if adapter is completely empty
-                if (categoriesAdapter.getItemCount() == 0 && viewModel != null) {
-                    Map<String, Integer> categories = viewModel.getCategories().getValue();
-                    if (categories != null && !categories.isEmpty()) {
-                        Log.d(TAG, "Updating categories adapter with " + categories.size() + " categories from cached data");
-                        
-                        // Convert categories map to list for the adapter
-                        List<String> categoryList = new ArrayList<>(categories.keySet());
-                        
-                        // Add "All" category if it doesn't exist
-                        if (!categoryList.contains("All")) {
-                            categoryList.add(0, "All");
-                        }
-                        
-                        // Prevent category changes during this update
-                        categoriesAdapter.preventCategoryChanges(true);
-                        try {
-                            // Update the adapter
-                            categoriesAdapter.updateCategories(categoryList);
-                            
-                            // Restore selected category - try multiple sources in order of priority
-                            String selectedCategory = null;
-                            
-                            // 1. Previously selected category from adapter if it exists
-                            if (currentSelectedCategory != null && !currentSelectedCategory.equals("All") &&
-                                    categoryList.contains(currentSelectedCategory)) {
-                                selectedCategory = currentSelectedCategory;
-                                Log.d(TAG, "Restoring selection from adapter: " + selectedCategory);
-                            } 
-                            // 2. Category from ViewModel if present
-                            else if (viewModel.getSelectedCategory() != null) {
-                                selectedCategory = viewModel.getSelectedCategory();
-                                Log.d(TAG, "Restoring selection from ViewModel: " + selectedCategory);
-                            }
-                            
-                            // Update the selection in the adapter
-                            if (selectedCategory != null) {
-                                categoriesAdapter.updateSelectedCategory(selectedCategory);
-                            } else {
-                                // Default to "All"
-                                categoriesAdapter.setSelectedPosition(0);
-                            }
-                        } finally {
-                            categoriesAdapter.preventCategoryChanges(false);
-                        }
-                    } else {
-                        // If no categories are available, only then load them from the repository
-                        Log.d(TAG, "No categories available in ViewModel, loading categories");
-                        viewModel.loadCategories();
-                        
-                        // Add "All" category as a fallback only if adapter is empty
-                        List<String> fallbackList = new ArrayList<>();
-                        fallbackList.add("All");
-                        categoriesAdapter.updateCategories(fallbackList);
+                Map<String, Integer> categories = viewModel.getCategories().getValue();
+                if (categories != null && !categories.isEmpty()) {
+                    categoriesAdapter.setLoading(false);
+                    List<String> categoryList = new ArrayList<>(categories.keySet());
+                    if (!categoryList.contains("All")) {
+                        categoryList.add(0, "All");
                     }
-                } else if (categoriesAdapter.getItemCount() > 0) {
-                    // If adapter already has data, just make sure the selected category is correct
-                    // without changing the order or triggering a reload
-                    if (viewModel != null) {
-                        String selectedCategory = viewModel.getSelectedCategory();
-                        if (selectedCategory != null || currentSelectedPosition != 0) {
-                            Log.d(TAG, "Ensuring selected category is consistent with ViewModel: " + 
-                                  (selectedCategory != null ? selectedCategory : "All"));
-                            
-                            // Only update if needed, using prevention flag
-                            categoriesAdapter.preventCategoryChanges(true);
-                            try {
-                                categoriesAdapter.updateSelectedCategory(selectedCategory);
-                            } finally {
-                                categoriesAdapter.preventCategoryChanges(false);
-                            }
-                        }
+                    categoriesAdapter.updateCategories(categoryList);
+                    
+                    String selectedCategory = viewModel.getSelectedCategory();
+                    if (selectedCategory != null) {
+                        categoriesAdapter.updateSelectedCategory(selectedCategory);
                     }
+                } else {
+                    // Load categories if none are available
+                    viewModel.loadCategories();
                 }
             }
         }
