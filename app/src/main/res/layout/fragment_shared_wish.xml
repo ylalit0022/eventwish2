@@ -4,6 +4,21 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <!--    <FrameLayout-->
+<!--        android:id="@+id/loadingView"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="match_parent"-->
+<!--        android:background="#80FFFFFF"-->
+<!--        android:visibility="visible">-->
+
+<!--        <ProgressBar-->
+<!--            android:id="@+id/progressBar"-->
+<!--            android:layout_width="wrap_content"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:layout_gravity="center" />-->
+
+<!--    </FrameLayout>-->
+
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/contentLayout"
         android:layout_width="match_parent"
@@ -17,6 +32,7 @@
             android:layout_margin="16dp"
             app:cardCornerRadius="8dp"
             app:cardElevation="4dp"
+            android:visibility="gone"
             app:layout_constraintTop_toTopOf="parent">
 
             <androidx.constraintlayout.widget.ConstraintLayout
@@ -29,9 +45,9 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:textAppearance="?attr/textAppearanceHeadline6"
-                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintEnd_toStartOf="@id/analyticsButton"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toStartOf="@id/analyticsButton" />
+                    app:layout_constraintTop_toTopOf="parent" />
 
                 <TextView
                     android:id="@+id/senderNameText"
@@ -39,22 +55,22 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:textAppearance="?attr/textAppearanceBody1"
-                    app:layout_constraintTop_toBottomOf="@id/recipientNameText"
+                    app:layout_constraintEnd_toStartOf="@id/analyticsButton"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toStartOf="@id/analyticsButton" />
+                    app:layout_constraintTop_toBottomOf="@id/recipientNameText" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/analyticsButton"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="0"
+                    android:visibility="gone"
                     app:icon="@drawable/ic_analytics"
                     app:iconGravity="textStart"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintBottom_toBottomOf="parent"
-                    android:visibility="gone" />
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
 
             </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -92,27 +108,13 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
+                android:visibility="gone"
                 android:text="@string/reply"
                 app:icon="@drawable/ic_reply" />
 
         </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
-
-<!--    <FrameLayout-->
-<!--        android:id="@+id/loadingView"-->
-<!--        android:layout_width="match_parent"-->
-<!--        android:layout_height="match_parent"-->
-<!--        android:background="#80FFFFFF"-->
-<!--        android:visibility="visible">-->
-
-<!--        <ProgressBar-->
-<!--            android:id="@+id/progressBar"-->
-<!--            android:layout_width="wrap_content"-->
-<!--            android:layout_height="wrap_content"-->
-<!--            android:layout_gravity="center" />-->
-
-<!--    </FrameLayout>-->
 
     <FrameLayout
         android:id="@+id/loadingView"

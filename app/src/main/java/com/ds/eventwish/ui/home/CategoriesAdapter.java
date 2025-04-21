@@ -4,7 +4,6 @@ import android.content.Context;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.util.Log;
-import android.util.LruCache;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -28,26 +27,78 @@ import com.ds.eventwish.data.model.CategoryIcon;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.repository.CategoryIconRepository;
 import com.google.android.material.card.MaterialCardView;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import com.facebook.shimmer.ShimmerFrameLayout;
 
 /**
  * Adapter for displaying category items in horizontal RecyclerView
  * with optimized icon loading and caching
  */
-public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.CategoryViewHolder> {
+public class CategoriesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private static final String TAG = "CategoriesAdapter";
-    private static final int MAX_VISIBLE_CATEGORIES = 8;
+    private static final int MAX_VISIBLE_CATEGORIES = 5; // Fixed number of visible categories
+    private static final int VIEW_TYPE_CATEGORY = 0;
+    private static final int VIEW_TYPE_LOADING = 1;
+    private static final long CACHE_EXPIRATION_MS = 30 * 60 * 1000; // 30 minutes
+    private static final long INITIAL_RETRY_DELAY_MS = 1000; // 1 second
+    private static final int MAX_RETRY_COUNT = 3;
     
-    // Drawable cache to avoid frequent image loading
-    private static final int ICON_CACHE_SIZE = 20;
-    private final LruCache<String, String> iconUrlCache = new LruCache<>(ICON_CACHE_SIZE);
+    /**
+     * Tracks failed icon loads with retry information
+     */
+    private static class RetryEntry {
+        final String iconUrl;
+        int retryCount;
+        long nextRetryTime;
+        
+        RetryEntry(String iconUrl) {
+            this.iconUrl = iconUrl;
+            this.retryCount = 0;
+            this.nextRetryTime = System.currentTimeMillis();
+        }
+        
+        boolean shouldRetry() {
+            return retryCount < MAX_RETRY_COUNT && System.currentTimeMillis() >= nextRetryTime;
+        }
+        
+        void incrementRetry() {
+            retryCount++;
+            // Exponential backoff: delay = initial_delay * 2^retry_count
+            long delay = INITIAL_RETRY_DELAY_MS * (1L << (retryCount - 1));
+            nextRetryTime = System.currentTimeMillis() + delay;
+        }
+    }
     
-    // Track failed icon loads to avoid repeated failures
-    private final Set<String> failedIconUrls = new HashSet<>();
+    // Track failed icon loads with retry information
+    private final Map<String, RetryEntry> failedIconLoads = new HashMap<>();
+    
+    /**
+     * Cache entry that includes both the drawable and its expiration time
+     */
+    private static class CacheEntry {
+        final WeakReference<Drawable> drawable;
+        final long expirationTime;
+        
+        CacheEntry(Drawable drawable) {
+            this.drawable = new WeakReference<>(drawable);
+            this.expirationTime = System.currentTimeMillis() + CACHE_EXPIRATION_MS;
+        }
+        
+        boolean isExpired() {
+            return System.currentTimeMillis() > expirationTime || drawable.get() == null;
+        }
+    }
+    
+    // Cache loaded icons with weak references to allow GC
+    private final Map<String, CacheEntry> iconCache = new HashMap<>();
     
     // Categories data 
     private final List<String> categories = new ArrayList<>();
@@ -71,6 +122,10 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
     
     // Reusable request options
     private final RequestOptions iconRequestOptions;
+    
+    // Track if we're in pagination loading
+    private boolean isPaginationLoading = false;
+    private boolean isInitialLoading = false;
 
     /**
      * Callback for category selection events
@@ -167,49 +222,27 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
             Log.d(TAG, "🔄 Refresh already in progress, skipping update");
             return;
         }
-        
-        // Check if categories actually changed to avoid unnecessary updates
-        if (categoriesEqual(categories, newCategories)) {
-            Log.d(TAG, "✅ Categories unchanged, skipping update");
-            return;
+
+        // Clear icon cache if category list size changed significantly
+        if (Math.abs(categories.size() - newCategories.size()) > 2) {
+            clearIconCaches();
+            Log.d(TAG, "🧹 Cleared icon cache due to significant category list change");
         }
         
         // Set refresh flag to prevent concurrent updates
         refreshInProgress.set(true);
         
         try {
-            Log.d(TAG, "🔄 Updating categories: " + newCategories.size() + " categories: " + newCategories);
-            
             // Clear and update the categories list
             categories.clear();
             categories.addAll(newCategories);
             
-            Log.d(TAG, "📋 Categories after update: " + categories.size() + " categories: " + categories);
-            
             // Update visible categories based on mode
-            if (moreClickListener == null) {
-                // Bottom sheet mode - show all categories
-                visibleCategories.clear();
-                visibleCategories.addAll(categories);
-                Log.d(TAG, "📋 Bottom sheet mode: showing all " + categories.size() + " categories: " + visibleCategories);
-            } else {
-                // Main adapter mode - apply visible categories logic
-                updateVisibleCategories();
-                Log.d(TAG, "📋 Main adapter mode: showing " + visibleCategories.size() + " of " + categories.size() + " categories: " + visibleCategories);
-            }
+            updateVisibleCategories();
             
-            // Initialize category icons if not already done
-            if (!categoryIconsInitialized.get()) {
-                categoryIconRepository.refreshCategoryIcons();
-                categoryIconsInitialized.set(true);
-                Log.d(TAG, "🔄 Initialized category icons");
-            }
-            
-            // Notify to update the UI
             notifyDataSetChanged();
-            Log.d(TAG, "✅ Adapter notified of data change, item count: " + getItemCount());
+            Log.d(TAG, "✅ Categories updated successfully");
         } finally {
-            // Reset refresh flag
             refreshInProgress.set(false);
         }
     }
@@ -247,74 +280,47 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         String selectedCategory = selectedPosition < visibleCategories.size() ? 
                 visibleCategories.get(selectedPosition) : null;
                 
-        // Log the current state before update
-        Log.d(TAG, "📋 Updating visible categories. Original categories: " + categories.size() + 
-              ", Selected category: " + (selectedCategory != null ? selectedCategory : "All"));
+        Log.d(TAG, "📋 Updating visible categories. Total categories: " + categories.size());
         
         visibleCategories.clear();
         
-        // Always include "All" category if it exists or add it if it doesn't
-        if (categories.contains("All")) {
-            visibleCategories.add("All");
-        } else {
-            visibleCategories.add("All");
-            // Add "All" to the main categories list if not present
-            if (!categories.contains("All")) {
-                categories.add(0, "All");
-            }
-        }
+        // Always include "All" category first
+        visibleCategories.add("All");
         
-        // Add the selected category if not "All" and not already included
-        if (selectedCategory != null && !selectedCategory.equals("All") && 
-                categories.contains(selectedCategory) && 
-                !visibleCategories.contains(selectedCategory)) {
-            visibleCategories.add(selectedCategory);
-        }
-        
-        // Create remaining categories list excluding already added ones
-        // Important: preserve original order from 'categories' list
-        List<String> remainingCategories = new ArrayList<>();
+        // Create list of regular categories (excluding All and More)
+        List<String> regularCategories = new ArrayList<>();
         for (String category : categories) {
-            if (!visibleCategories.contains(category) && !category.equals("All")) {
-                remainingCategories.add(category);
+            if (!category.equals("All") && !category.equals("More")) {
+                regularCategories.add(category);
             }
         }
         
-        // In case of empty categories, add some defaults
-        if (remainingCategories.isEmpty() && categories.size() <= 1) {
-            Log.d(TAG, "📋 No additional categories found, adding defaults");
-            remainingCategories.add("Birthday");
-            remainingCategories.add("Wedding");
-            remainingCategories.add("Holiday");
-            remainingCategories.add("Anniversary");
-            
-            // Add these defaults to the main categories list too
-            for (String defaultCategory : remainingCategories) {
-                if (!categories.contains(defaultCategory)) {
-                    categories.add(defaultCategory);
-                }
+        // Sort regular categories alphabetically
+        Collections.sort(regularCategories);
+        
+        // If selected category is not "All", ensure it's included first
+        if (selectedCategory != null && !selectedCategory.equals("All")) {
+            if (regularCategories.remove(selectedCategory)) {
+                regularCategories.add(0, selectedCategory);
             }
         }
         
-        // Calculate remaining slots with a minimum of 3 visible categories plus All
-        int remainingSlots = MAX_VISIBLE_CATEGORIES - visibleCategories.size();
+        // Add categories up to MAX_VISIBLE_CATEGORIES - 1 (leaving space for More if needed)
+        int availableSlots = MAX_VISIBLE_CATEGORIES - visibleCategories.size();
+        int categoriesToShow = Math.min(availableSlots, regularCategories.size());
         
-        // Always show at least 3 categories plus All if available
-        int minCategoriesToShow = Math.min(3, remainingCategories.size());
-        
-        // Add other categories (preserving original order)
-        for (int i = 0; i < Math.max(minCategoriesToShow, Math.min(remainingSlots, remainingCategories.size())); i++) {
-            visibleCategories.add(remainingCategories.get(i));
+        for (int i = 0; i < categoriesToShow; i++) {
+            visibleCategories.add(regularCategories.get(i));
         }
         
-        // Add "More" if necessary and we have more categories to show
-        if (remainingCategories.size() > remainingSlots && remainingSlots > 0) {
+        // Add "More" if there are additional categories
+        if (regularCategories.size() > categoriesToShow) {
             visibleCategories.add("More");
         }
         
-        // Log the result
-        Log.d(TAG, "📋 Visible categories updated: " + visibleCategories.size() + 
-              " categories showing: " + visibleCategories);
+        Log.d(TAG, "📋 Visible categories: " + visibleCategories.size() + 
+              " shown, " + Math.max(0, regularCategories.size() - categoriesToShow) + 
+              " in More section");
     }
 
     /**
@@ -413,7 +419,7 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
     private void updateVisibleCategoriesWithSelected(String category) {
         visibleCategories.clear();
         
-        // Always include "All" category if it exists
+        // Always include "All" category first
         if (categories.contains("All")) {
             visibleCategories.add("All");
         }
@@ -425,68 +431,99 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         }
         
         // Create remaining categories list excluding already added ones
-        // Important: preserve original order from 'categories' list
         List<String> remainingCategories = new ArrayList<>();
         for (String cat : categories) {
-            if (!visibleCategories.contains(cat)) {
+            if (!visibleCategories.contains(cat) && !cat.equals("All")) {
                 remainingCategories.add(cat);
             }
         }
         
-        // Calculate remaining slots
-        int remainingSlots = MAX_VISIBLE_CATEGORIES - 1 - visibleCategories.size();
+        // Calculate how many more categories we can add to reach 5 total
+        int slotsRemaining = 5 - visibleCategories.size();
         
-        // Add other categories (preserving original order)
-        for (int i = 0; i < Math.min(remainingSlots, remainingCategories.size()); i++) {
+        // Add remaining categories up to the 5-category limit
+        for (int i = 0; i < Math.min(slotsRemaining, remainingCategories.size()); i++) {
             visibleCategories.add(remainingCategories.get(i));
         }
         
-        // Add "More" if necessary
-        if (remainingCategories.size() > remainingSlots) {
+        // Remove added categories from remainingCategories
+        remainingCategories = remainingCategories.subList(
+            Math.min(slotsRemaining, remainingCategories.size()),
+            remainingCategories.size()
+        );
+        
+        // Add "More" if there are remaining categories
+        if (!remainingCategories.isEmpty()) {
             visibleCategories.add("More");
+            Log.d(TAG, "📋 Added 'More' option for " + remainingCategories.size() + " additional categories");
         }
     }
 
     @NonNull
     @Override
-    public CategoryViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_category, parent, false);
-        return new CategoryViewHolder(view);
+    public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        if (viewType == VIEW_TYPE_LOADING) {
+            View view = LayoutInflater.from(parent.getContext())
+                    .inflate(R.layout.item_category_loading, parent, false);
+            return new LoadingViewHolder(view);
+        } else {
+            View view = LayoutInflater.from(parent.getContext())
+                    .inflate(R.layout.item_category, parent, false);
+            return new CategoryViewHolder(view);
+        }
     }
 
     @Override
-    public void onBindViewHolder(@NonNull CategoryViewHolder holder, int position) {
-        String category = visibleCategories.get(position);
-        boolean isMore = moreClickListener != null && "More".equals(category);
-        boolean isSelected = position == selectedPosition && !isMore;
+    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+        if (holder instanceof LoadingViewHolder) {
+            ((LoadingViewHolder) holder).shimmerLayout.startShimmer();
+        } else if (holder instanceof CategoryViewHolder) {
+            CategoryViewHolder categoryHolder = (CategoryViewHolder) holder;
+            String category = visibleCategories.get(position);
+            boolean isMore = "More".equals(category);
+            boolean isSelected = position == selectedPosition && !isMore;
 
-        // Bind the data to the ViewHolder
-        holder.bind(category, isSelected);
+            // Bind the data to the ViewHolder
+            categoryHolder.bind(category, isSelected);
 
-        // Set click listener
-        holder.itemView.setOnClickListener(v -> {
-            if (isMore && moreClickListener != null) {
-                // Calculate remaining categories
-                List<String> remainingCategories = new ArrayList<>(categories);
-                for (String visibleCategory : visibleCategories) {
-                    if (!"More".equals(visibleCategory)) {
-                        remainingCategories.remove(visibleCategory);
+            // Set click listener
+            holder.itemView.setOnClickListener(v -> {
+                if (isMore && moreClickListener != null) {
+                    // Get remaining categories, excluding special categories and already visible ones
+                    List<String> remainingCategories = new ArrayList<>();
+                    for (String cat : categories) {
+                        // Skip special categories and already visible ones
+                        if (!cat.equals("All") && 
+                            !cat.equals("More") && 
+                            !visibleCategories.subList(0, visibleCategories.size() - 1).contains(cat)) {
+                            remainingCategories.add(cat);
+                        }
                     }
+                    
+                    if (!remainingCategories.isEmpty()) {
+                        // Sort categories alphabetically for better readability in dialog
+                        Collections.sort(remainingCategories);
+                        moreClickListener.onMoreClick(remainingCategories);
+                        Log.d(TAG, "👆 More clicked, showing " + remainingCategories.size() + 
+                              " additional categories");
+                    }
+                } else if (listener != null && !isMore) {
+                    setSelectedPosition(position);
+                    listener.onCategoryClick(category, position);
+                    Log.d(TAG, "👆 Category clicked: " + category + " at position " + position);
                 }
-                moreClickListener.onMoreClick(remainingCategories);
-                Log.d(TAG, "👆 'More' clicked, showing " + remainingCategories.size() + " additional categories");
-            } else if (listener != null && !isMore) {
-                setSelectedPosition(position);
-                listener.onCategoryClick(category, position);
-                Log.d(TAG, "👆 Category clicked: '" + category + "' at position " + position);
-            }
-        });
+            });
+        }
     }
 
     @Override
     public int getItemCount() {
-        return visibleCategories.size();
+        return isInitialLoading ? 5 : visibleCategories.size(); // Show 5 shimmer items during initial load
+    }
+
+    @Override
+    public int getItemViewType(int position) {
+        return isPaginationLoading ? VIEW_TYPE_LOADING : VIEW_TYPE_CATEGORY;
     }
 
     /**
@@ -536,18 +573,9 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
                 return;
             }
 
-            // Try to get cached URL first for better performance
-            String cachedUrl = iconUrlCache.get(category);
-            if (cachedUrl != null) {
-                loadIconWithGlide(cachedUrl, category, iconResId, isSelected);
-                return;
-            }
-            
-            // Get icon from repository if not in cache
+            // Try to get icon URL
             String iconUrl = getCategoryIconUrl(category);
-            if (iconUrl != null && !failedIconUrls.contains(iconUrl)) {
-                // Cache the URL for future use
-                iconUrlCache.put(category, iconUrl);
+            if (iconUrl != null && !failedIconLoads.containsKey(iconUrl)) {
                 loadIconWithGlide(iconUrl, category, iconResId, isSelected);
             } else {
                 // Use default icon
@@ -579,11 +607,6 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
             // Log icon loading attempt with full details
             Log.d(TAG, "🔄 Loading icon for '" + category + "' from URL: " + iconUrl);
             
-            // Special handling for "All" category which is critical
-            if ("All".equalsIgnoreCase(category) || "all".equalsIgnoreCase(category)) {
-                Log.d(TAG, "⭐ Special handling for 'All' category: " + iconUrl);
-            }
-            
             // Set current styles immediately while loading
             setItemStyles(isSelected);
             
@@ -591,97 +614,63 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
             if (iconUrl == null || iconUrl.trim().isEmpty()) {
                 Log.e(TAG, "❌ Empty icon URL for category '" + category + "', using fallback");
                 categoryIconView.setImageResource(fallbackIconResId);
-                
-                // For the All category specifically, use a known working fallback
-                if ("All".equalsIgnoreCase(category) || "all".equalsIgnoreCase(category)) {
-                    String fallback = "https://raw.githubusercontent.com/google/material-design-icons/master/png/action/view_comfy/materialicons/24dp/2x/baseline_view_comfy_black_24dp.png";
-                    Log.d(TAG, "⭐ Using reliable fallback for 'All' category: " + fallback);
-                    loadDirectIconUrl(fallback, fallbackIconResId, isSelected);
-                }
                 return;
             }
             
-            // If context is null, use fallback icon
-            if (itemView.getContext() == null) {
-                Log.e(TAG, "❌ Null context for loading icon for '" + category + "', using fallback");
-                categoryIconView.setImageResource(fallbackIconResId);
-                return;
+            // Check if this URL is in failed loads and handle retry logic
+            RetryEntry retryEntry = failedIconLoads.get(iconUrl);
+            if (retryEntry != null) {
+                if (!retryEntry.shouldRetry()) {
+                    Log.d(TAG, "⏳ Skipping load for '" + category + "', max retries exceeded or waiting for backoff");
+                    categoryIconView.setImageResource(fallbackIconResId);
+                    return;
+                }
+                retryEntry.incrementRetry();
+                Log.d(TAG, "🔄 Retrying load for '" + category + "', attempt " + retryEntry.retryCount);
             }
             
             try {
                 // Set placeholder immediately
                 categoryIconView.setImageResource(fallbackIconResId);
                 
-                // Prepare enhanced request options
-                RequestOptions enhancedOptions = iconRequestOptions
-                    .placeholder(fallbackIconResId)
-                    .error(fallbackIconResId)
-                    .diskCacheStrategy(DiskCacheStrategy.ALL) // Cache both original & resized
-                    .timeout(8000); // 8s timeout
-                
                 // Load icon with Glide
-                Glide.with(itemView.getContext().getApplicationContext()) // Use application context for safety
+                Glide.with(context)
                     .load(iconUrl)
-                    .apply(enhancedOptions)
+                    .apply(iconRequestOptions)
                     .listener(new RequestListener<Drawable>() {
                         @Override
                         public boolean onLoadFailed(@Nullable GlideException e, Object model,
                                                     Target<Drawable> target, boolean isFirstResource) {
-                            // Mark as failed to avoid repeated failures
-                            failedIconUrls.add(iconUrl);
-                            Log.e(TAG, "❌ Failed to load icon for '" + category + "': " +
-                                    (e != null ? e.getMessage() : "unknown error"));
-                            
-                            // Try to load a fallback URL after failure
-                            String fallbackUrl = generateFallbackUrl(category);
-                            if (!iconUrl.equals(fallbackUrl)) {
-                                // Prevent infinite recursion
-                                loadIconWithGlide(fallbackUrl, category, fallbackIconResId, isSelected);
+                            if (retryEntry == null) {
+                                failedIconLoads.put(iconUrl, new RetryEntry(iconUrl));
                             }
-                            return false;
+                            Log.e(TAG, "❌ Failed to load icon for '" + category + "': " +
+                                    (e != null ? e.getMessage() : "unknown error") +
+                                    (retryEntry != null ? ", retry " + retryEntry.retryCount + "/" + MAX_RETRY_COUNT : ""));
+                            categoryIconView.setImageResource(fallbackIconResId);
+                            return true;
                         }
 
                         @Override
                         public boolean onResourceReady(Drawable resource, Object model,
                                                       Target<Drawable> target, DataSource dataSource,
                                                       boolean isFirstResource) {
-                            // Log successful load and cache source
                             Log.d(TAG, "✅ Loaded icon for '" + category + "' successfully" + 
                                 (dataSource == DataSource.MEMORY_CACHE ? " (from memory cache)" : 
                                 dataSource == DataSource.LOCAL ? " (from disk cache)" : 
                                 " (from network)"));
+                            // Remove from failed loads if it was there
+                            failedIconLoads.remove(iconUrl);
+                            iconCache.put(iconUrl, new CacheEntry(resource));
                             return false;
                         }
                     })
                     .into(categoryIconView);
             } catch (Exception e) {
-                // Handle any exceptions during loading
                 Log.e(TAG, "❌ Exception loading icon for '" + category + "': " + e.getMessage(), e);
-                categoryIconView.setImageResource(fallbackIconResId);
-            }
-        }
-        
-        /**
-         * Load an icon directly from URL as backup method
-         */
-        private void loadDirectIconUrl(String iconUrl, int fallbackIconResId, boolean isSelected) {
-            try {
-                // Set placeholder immediately  
-                categoryIconView.setImageResource(fallbackIconResId);
-                
-                // Set styles
-                setItemStyles(isSelected);
-                
-                // Use direct loading with simpler options
-                Glide.with(itemView.getContext().getApplicationContext())
-                    .load(iconUrl)
-                    .placeholder(fallbackIconResId)
-                    .error(fallbackIconResId)
-                    .into(categoryIconView);
-                
-                Log.d(TAG, "⭐ Direct icon loading attempt for URL: " + iconUrl);
-            } catch (Exception e) {
-                Log.e(TAG, "❌ Error with direct icon loading: " + e.getMessage(), e);
+                if (retryEntry == null) {
+                    failedIconLoads.put(iconUrl, new RetryEntry(iconUrl));
+                }
                 categoryIconView.setImageResource(fallbackIconResId);
             }
         }
@@ -703,17 +692,22 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
             
             // Check URL cache first for fast return
             String normalizedCategory = normalizeCategory(category);
-            String cachedUrl = iconUrlCache.get(normalizedCategory);
-            if (cachedUrl != null) {
-                Log.d(TAG, "🚀 URL cache hit for category: '" + category + "'");
-                return cachedUrl;
+            CacheEntry cachedEntry = iconCache.get(normalizedCategory);
+            if (cachedEntry != null) {
+                if (!cachedEntry.isExpired() && cachedEntry.drawable.get() != null) {
+                    Log.d(TAG, "🚀 Icon cache hit for category: '" + category + "'");
+                    return category; // Return category as key since we have the icon cached
+                } else {
+                    // Remove expired entry
+                    Log.d(TAG, "⌛ Removing expired cache entry for category: '" + category + "'");
+                    iconCache.remove(normalizedCategory);
+                }
             }
             
             // Handle "All" category specially
             if ("all".equalsIgnoreCase(normalizedCategory)) {
                 String allFallbackUrl = "https://raw.githubusercontent.com/google/material-design-icons/master/png/action/view_comfy/materialicons/24dp/2x/baseline_view_comfy_black_24dp.png";
                 Log.d(TAG, "⭐ Using reliable 'All' category icon: " + allFallbackUrl);
-                iconUrlCache.put("all", allFallbackUrl);
                 return allFallbackUrl;
             }
             
@@ -727,8 +721,6 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
             String iconUrl = categoryIconRepository.getCategoryIconUrl(category);
             
             if (iconUrl != null && !iconUrl.isEmpty()) {
-                // Cache the URL for future use
-                iconUrlCache.put(normalizedCategory, iconUrl);
                 Log.d(TAG, "🖼️ Found icon URL for category: '" + category + "': " + iconUrl);
                 return iconUrl;
             } else {
@@ -741,8 +733,6 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
                     // Retry after refresh
                     iconUrl = categoryIconRepository.getCategoryIconUrl(category);
                     if (iconUrl != null && !iconUrl.isEmpty()) {
-                        // Cache the URL for future use
-                        iconUrlCache.put(normalizedCategory, iconUrl);
                         Log.d(TAG, "🔄 Found icon URL after refresh for category: '" + category + "': " + iconUrl);
                         return iconUrl;
                     }
@@ -750,14 +740,11 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
                 
                 // If all else fails, generate a fallback URL
                 String fallbackUrl = generateFallbackUrl(category);
-                iconUrlCache.put(normalizedCategory, fallbackUrl);
                 return fallbackUrl;
             }
         } catch (Exception e) {
             Log.e(TAG, "❌ Error getting icon URL for category: '" + category + "'", e);
-            String fallbackUrl = generateFallbackUrl(category);
-            iconUrlCache.put(normalizeCategory(category), fallbackUrl);
-            return fallbackUrl;
+            return generateFallbackUrl(category);
         }
     }
     
@@ -777,31 +764,14 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
             return null;
         }
         
-        // Try to match common categories with fixed URLs
+        // Special case for "All" category since it's a core UI element
         String normalized = normalizeCategory(category);
-        
-        // Common category mappings
         if (normalized.equals("all")) {
             return "https://raw.githubusercontent.com/google/material-design-icons/master/png/action/view_comfy/materialicons/24dp/2x/baseline_view_comfy_black_24dp.png";
-        } else if (normalized.contains("birthday")) {
-            return "https://raw.githubusercontent.com/google/material-design-icons/master/png/social/cake/materialicons/24dp/2x/baseline_cake_black_24dp.png";
-        } else if (normalized.contains("wedding")) {
-            return "https://raw.githubusercontent.com/google/material-design-icons/master/png/places/cake/materialicons/24dp/2x/baseline_cake_black_24dp.png";
-        } else if (normalized.contains("holiday") || normalized.contains("festival")) {
-            return "https://raw.githubusercontent.com/google/material-design-icons/master/png/notification/event_note/materialicons/24dp/2x/baseline_event_note_black_24dp.png";
-        } else if (normalized.contains("christmas")) {
-            return "https://raw.githubusercontent.com/google/material-design-icons/master/png/maps/local_florist/materialicons/24dp/2x/baseline_local_florist_black_24dp.png";
-        } else if (normalized.contains("anniversary")) {
-            return "https://raw.githubusercontent.com/google/material-design-icons/master/png/action/date_range/materialicons/24dp/2x/baseline_date_range_black_24dp.png";
-        } else if (normalized.contains("baby")) {
-            return "https://raw.githubusercontent.com/google/material-design-icons/master/png/image/child_care/materialicons/24dp/2x/baseline_child_care_black_24dp.png";
-        } else if (normalized.contains("invitation")) {
-            return "https://raw.githubusercontent.com/google/material-design-icons/master/png/content/mail/materialicons/24dp/2x/baseline_mail_black_24dp.png";
-        } else if (normalized.contains("graduation")) {
-            return "https://raw.githubusercontent.com/google/material-design-icons/master/png/social/school/materialicons/24dp/2x/baseline_school_black_24dp.png";
         }
         
-        // Generic material design icon as last resort
+        // Use generic material design icon for all other categories
+        // This URL will be replaced by the CategoryIconRepository's URL once available
         return "https://raw.githubusercontent.com/google/material-design-icons/master/png/action/category/materialicons/24dp/2x/baseline_category_black_24dp.png";
     }
     
@@ -809,9 +779,9 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
      * Clear the icon caches
      */
     public void clearIconCaches() {
-        iconUrlCache.evictAll();
-        failedIconUrls.clear();
-        Log.d(TAG, "🧹 Cleared icon caches");
+        iconCache.clear();
+        failedIconLoads.clear();
+        Log.d(TAG, "🧹 Cleared icon caches and retry tracking");
     }
 
     /**
@@ -847,5 +817,41 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
             return visibleCategories.get(selectedPosition);
         }
         return "All";
+    }
+
+    public void setLoading(boolean loading) {
+        // Handle initial loading vs pagination loading
+        if (!this.isInitialLoading && loading) {
+            // This is the first loading state
+            this.isInitialLoading = true;
+            this.isPaginationLoading = false;
+        } else if (this.isInitialLoading && !loading) {
+            // Initial loading finished
+            this.isInitialLoading = false;
+        }
+        
+        if (this.isPaginationLoading != loading) {
+            this.isPaginationLoading = loading;
+            // Only show loading UI during pagination
+            if (loading) {
+                notifyDataSetChanged();
+            }
+        }
+    }
+
+    @Override
+    public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
+        super.onDetachedFromRecyclerView(recyclerView);
+        clearIconCaches();
+        Log.d(TAG, "🧹 Cleaned up resources on detach");
+    }
+
+    static class LoadingViewHolder extends RecyclerView.ViewHolder {
+        ShimmerFrameLayout shimmerLayout;
+
+        LoadingViewHolder(View itemView) {
+            super(itemView);
+            shimmerLayout = itemView.findViewById(R.id.shimmerLayout);
+        }
     }
 }

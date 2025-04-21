@@ -1,17 +1,61 @@
 package com.ds.eventwish.data.model;
 
 import androidx.annotation.NonNull;
+import androidx.room.ColumnInfo;
+import androidx.room.Entity;
+import androidx.room.Index;
+import androidx.room.PrimaryKey;
+import androidx.room.TypeConverters;
+import androidx.room.Ignore;
+
+import com.ds.eventwish.data.converter.CategoryIconConverter;
+import com.google.gson.annotations.SerializedName;
 
 /**
  * Data class representing a category
  */
+@Entity(
+    tableName = "category",
+    indices = {
+        @Index(value = {"name"}, unique = true),
+        @Index(value = {"display_order"})
+    }
+)
 public class Category {
+    @PrimaryKey
+    @NonNull
+    @ColumnInfo(name = "id")
+    @SerializedName("_id")
     private String id;
+
+    @ColumnInfo(name = "name")
+    @SerializedName("name")
     private String name;
+
+    @ColumnInfo(name = "display_name")
+    @SerializedName("displayName")
+    private String displayName;
+
+    @ColumnInfo(name = "description")
+    @SerializedName("description")
     private String description;
-    private String iconUrl;
-    private int count;
-    private int order;
+
+    @ColumnInfo(name = "display_order")
+    @SerializedName("displayOrder")
+    private int displayOrder;
+
+    @ColumnInfo(name = "icon")
+    @SerializedName("icon")
+    @TypeConverters(CategoryIconConverter.class)
+    private CategoryIcon icon;
+
+    @ColumnInfo(name = "template_count", defaultValue = "0")
+    @SerializedName("templateCount")
+    private int templateCount;
+
+    @ColumnInfo(name = "is_visible", defaultValue = "1")
+    @SerializedName("isVisible")
+    private boolean isVisible;
     
     /**
      * Default constructor
@@ -24,32 +68,50 @@ public class Category {
      * @param id Category ID
      * @param name Category name
      * @param description Category description
-     * @param iconUrl URL to category icon
-     * @param count Number of items in category
-     * @param order Display order
+     * @param icon Category icon
+     * @param templateCount Number of items in category
+     * @param displayOrder Display order
      */
-    public Category(String id, String name, String description, String iconUrl, int count, int order) {
+    public Category(String id, String name, String description, CategoryIcon icon, int templateCount, int displayOrder) {
         this.id = id;
         this.name = name;
         this.description = description;
-        this.iconUrl = iconUrl;
-        this.count = count;
-        this.order = order;
+        this.icon = icon;
+        this.templateCount = templateCount;
+        this.displayOrder = displayOrder;
+        this.isVisible = true;
     }
     
     /**
      * Constructor with essential fields
      * @param id Category ID
      * @param name Category name
-     * @param iconUrl URL to category icon
+     * @param icon Category icon
      */
-    public Category(String id, String name, String iconUrl) {
+    public Category(String id, String name, CategoryIcon icon) {
         this.id = id;
         this.name = name;
-        this.iconUrl = iconUrl;
+        this.icon = icon;
         this.description = "";
-        this.count = 0;
-        this.order = 0;
+        this.templateCount = 0;
+        this.displayOrder = 0;
+        this.isVisible = true;
+    }
+    
+    /**
+     * Additional constructor with @Ignore annotation
+     * @param name Category name
+     * @param displayName Category display name
+     * @param description Category description
+     * @param displayOrder Display order
+     */
+    @Ignore
+    public Category(String name, String displayName, String description, int displayOrder) {
+        this.name = name;
+        this.displayName = displayName;
+        this.description = description;
+        this.displayOrder = displayOrder;
+        this.isVisible = true;
     }
     
     public String getId() {
@@ -76,28 +138,44 @@ public class Category {
         this.description = description;
     }
     
-    public String getIconUrl() {
-        return iconUrl;
+    public CategoryIcon getIcon() {
+        return icon;
     }
     
-    public void setIconUrl(String iconUrl) {
-        this.iconUrl = iconUrl;
+    public void setIcon(CategoryIcon icon) {
+        this.icon = icon;
     }
     
-    public int getCount() {
-        return count;
+    public int getTemplateCount() {
+        return templateCount;
     }
     
-    public void setCount(int count) {
-        this.count = count;
+    public void setTemplateCount(int templateCount) {
+        this.templateCount = templateCount;
     }
     
-    public int getOrder() {
-        return order;
+    public int getDisplayOrder() {
+        return displayOrder;
     }
     
-    public void setOrder(int order) {
-        this.order = order;
+    public void setDisplayOrder(int displayOrder) {
+        this.displayOrder = displayOrder;
+    }
+    
+    public boolean isVisible() {
+        return isVisible;
+    }
+    
+    public void setVisible(boolean visible) {
+        this.isVisible = visible;
+    }
+    
+    public String getDisplayName() {
+        return displayName;
+    }
+    
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
     
     @NonNull
@@ -106,10 +184,12 @@ public class Category {
         return "Category{" +
                 "id='" + id + '\'' +
                 ", name='" + name + '\'' +
+                ", displayName='" + displayName + '\'' +
                 ", description='" + description + '\'' +
-                ", iconUrl='" + iconUrl + '\'' +
-                ", count=" + count +
-                ", order=" + order +
+                ", icon='" + icon + '\'' +
+                ", templateCount=" + templateCount +
+                ", displayOrder=" + displayOrder +
+                ", isVisible=" + isVisible +
                 '}';
     }
 } 

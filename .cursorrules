@@ -280,6 +280,7 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 
 # Scratchpad
 
+<<<<<<< HEAD
 ## Current Task: Fix LiveData Threading Issue in CategoryIconRepository
 
 ### Problem Analysis
@@ -317,96 +318,173 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 4. Add debug logging that includes thread information in critical sections.
 
 ## Current Task: Update TestAdActivity to Use Database Ad Unit IDs
+=======
+## Current Task: App Architecture Analysis and Implementation Plan
+>>>>>>> bccc711c1823d8686d1a06372169169277f3650d
 
-### Problem Analysis
+### 1. Architecture Overview Analysis
 
-1. **Current Implementation Issues:**
-   - TestAdActivity uses hardcoded/local ad unit IDs
-   - No proper database integration for ad units
-   - Needs to fetch ad configurations from backend
-   - Authentication and signature verification needs improvement
+#### A. Core Architecture (MVVM)
+- Single Activity (`MainActivity`) hosting multiple fragments
+- Clear separation of concerns:
+  - UI Layer (Fragments)
+  - ViewModel Layer
+  - Repository Layer
+  - Data Layer (API + Local Storage)
 
-2. **Required Changes:**
-   - Need to implement proper database fetching of ad units
-   - Update ad unit handling in TestAdActivity
-   - Improve error handling and logging
-   - Add proper ad unit caching
+#### B. Key Components
+1. Data Models Analysis [COMPLETED]:
+   - Template
+     - ✓ Core fields present
+     - ✓ Room integration ready
+     - ✓ Gson serialization
+     - ! Need to add Room Entity annotations
+     - ! Consider adding index for faster queries
+   
+   - SharedWish
+     - ✓ Core fields present
+     - ✓ Proper null handling
+     - ✓ Deep linking support
+     - ! Need to add Room Entity annotations
+     - ! Consider adding relationship with Template
+   
+   - Category
+     - ✓ Well documented
+     - ✓ Flexible constructors
+     - ✓ Display order support
+     - ! Need to add Room Entity annotations
+     - ! Consider adding relationship with Template
 
-### Action Plan
+2. ViewModels:
+   - HomeViewModel (main focus)
+   - TemplateDetailViewModel
+   - SharedWishViewModel
 
-[X] 1. Review Current Implementation
-   - Analyzed TestAdActivity.java
-   - Identified areas needing database integration
-   - Found hardcoded ad unit values to replace
+3. Repositories:
+   - TemplateRepository
+   - SharedWishRepository
+   - EnhancedTemplateRepository (needs integration)
 
-[X] 2. Update AdMobRepository
-   - Added methods to fetch ad units from database
-   - Implemented caching mechanism
-   - Added proper error handling
-   - Updated API service interface
+### 2. Current State Assessment
 
-[X] 3. Add Database Support
-   - Created AdUnit table/collection
-   - Added migration for version 4
-   - Implemented CRUD operations
-   - Added cache invalidation
+[X] 1. Repository Reset
+   - Successfully reset to commit a91decf
+   - Clean working directory confirmed
+   - Previous changes removed
 
-[X] 4. Update API Integration
-   - Updated API endpoints
-   - Added proper error handling
-   - Implemented retry mechanism
-   - Added request/response logging
+[X] 2. Data Models Review
+   - Core models identified and analyzed
+   - Room database integration needed
+   - Entity relationships to be defined
+   - Migration strategy needed
 
-[X] 5. Modify TestAdActivity
-   - Removed hardcoded ad unit IDs
-   - Updated fetchAdUnits method to use database
-   - Improved error handling and logging
-   - Added loading states and UI feedback
+[X] 3. Repository Layer Review
+   - Basic TemplateRepository identified
+   - EnhancedTemplateRepository with improved features
+   - Caching mechanism present but needs Room integration
+   - Error handling and network utilities in place
 
-[X] 6. Implement Testing Features
-   - Added test mode toggle
-   - Added debug logging
-   - Created test ad units in database
-   - Added performance monitoring
+[ ] 4. Core Functionality Review
+   - Template loading and display
+   - Category filtering
+   - Infinite scroll implementation
+   - State management
+   - Cache handling
 
-### Implementation Details
+[ ] 5. Identify Critical Components
+   - Template rendering system
+   - Data persistence
+   - API integration
+   - Error handling
+   - Performance optimization
 
-1. **Database Integration**
-   - Created AdUnitEntity with Room annotations
-   - Added AdUnitDao for database operations
-   - Added type converters for complex types
-   - Implemented database migration
+### 3. Implementation Plan
 
-2. **Repository Updates**
-   - Updated AdMobRepository to use database
-   - Added methods for database operations
-   - Implemented caching with Room
-   - Added error handling and logging
+[ ] 1. Data Layer Enhancement
+   - Review and implement proper data models
+   - Set up Room database for offline caching
+   - Implement robust API service integration
+   - Add proper error handling
 
-3. **Activity Updates**
-   - Updated TestAdActivity to use database
-   - Added LiveData observers
-   - Improved error handling
-   - Added loading states
+[ ] 2. Repository Layer Optimization
+   - Implement EnhancedTemplateRepository
+   - Add caching mechanism
+   - Implement proper state management
+   - Add pagination support
 
-4. **Testing & Validation**
-   - Added test mode
-   - Improved logging
-   - Added error tracking
-   - Added performance monitoring
+[ ] 3. ViewModel Implementation
+   - Implement proper state handling
+   - Add data transformation logic
+   - Implement error handling
+   - Add lifecycle management
 
-### Next Steps
+[ ] 4. UI Layer Implementation
+   - Implement fragment layouts
+   - Add proper state restoration
+   - Implement infinite scroll
+   - Add loading indicators
+   - Implement error states
 
-1. Test the implementation thoroughly:
-   - Test database operations
-   - Test API integration
-   - Test error scenarios
-   - Monitor performance
+### 4. Testing Strategy
 
-2. Potential improvements:
-   - Add batch operations for better performance
-   - Implement better caching strategies
-   - Add analytics for ad performance
-   - Improve error recovery
+[ ] 1. Unit Tests
+   - Repository tests
+   - ViewModel tests
+   - Data model tests
 
-Current focus: Testing the implementation to ensure everything works as expected.
+[ ] 2. Integration Tests
+   - API integration tests
+   - Database operation tests
+   - UI flow tests
+
+### 5. Performance Optimization
+
+[ ] 1. Implement Caching
+   - In-memory caching
+   - Disk caching
+   - Image caching
+
+[ ] 2. Optimize Loading
+   - Implement lazy loading
+   - Add pagination
+   - Optimize image loading
+
+### Next Steps (Updated)
+
+1. Repository Layer Enhancement:
+   a. Integrate Room with EnhancedTemplateRepository [IN PROGRESS]
+      - ✓ Create Room Database class
+      - ✓ Set up type converters
+      - ✓ Create initial DAO (TemplateDao)
+      - ! Need to add Room Entity annotations to models
+      - ! Need to create remaining DAOs
+      - ! Need to implement migration strategy
+   
+   b. Implement Caching Strategy
+      - Define cache invalidation rules
+      - Set up sync between Room and network
+      - Implement offline-first approach
+      - Add migration path from current cache
+   
+   c. Add Performance Optimizations
+      - Add indices for frequent queries
+      - Implement efficient relationship queries
+      - Set up background sync
+      - Add proper transaction handling
+
+2. Next Immediate Tasks:
+   a. Add Room Entity annotations to models:
+      - Template.java
+      - SharedWish.java
+      - Category.java
+   
+   b. Create remaining DAOs:
+      - SharedWishDao
+      - CategoryDao
+   
+   c. Update EnhancedTemplateRepository:
+      - Integrate Room database operations
+      - Implement caching strategy
+      - Add migration from current cache
+
+Current Focus: Adding Room Entity annotations to our model classes to make them compatible with the Room database.

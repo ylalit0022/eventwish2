@@ -2,61 +2,154 @@ package com.ds.eventwish.data.model;
 
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+import androidx.room.ColumnInfo;
+import androidx.room.Entity;
+import androidx.room.ForeignKey;
+import androidx.room.Ignore;
+import androidx.room.Index;
+import androidx.room.PrimaryKey;
 import androidx.room.TypeConverters;
 
 import com.ds.eventwish.data.converter.CategoryIconConverter;
+import com.ds.eventwish.data.converter.DateConverter;
+import com.ds.eventwish.data.converter.StringListConverter;
 import com.google.gson.annotations.SerializedName;
 
+import java.util.Date;
+import java.util.List;
+
+@Entity(
+    tableName = "template",
+    foreignKeys = {
+        @ForeignKey(
+            entity = Category.class,
+            parentColumns = "id",
+            childColumns = "category_id",
+            onDelete = ForeignKey.SET_NULL
+        )
+    },
+    indices = {
+        @Index(value = {"category_id"}),
+        @Index(value = {"created_at"}),
+        @Index(value = {"updated_at"}),
+        @Index(value = {"is_featured"}),
+        @Index(value = {"is_visible"})
+    }
+)
 public class Template {
+    @PrimaryKey
+    @NonNull
+    @ColumnInfo(name = "id")
     @SerializedName("_id")
     private String id;
     
+    @ColumnInfo(name = "title")
+    @SerializedName("title")
     private String title;
+
+    @ColumnInfo(name = "description")
+    @SerializedName("description")
+    private String description;
+
+    @ColumnInfo(name = "content")
+    @SerializedName("content")
+    private String content;
+
+    @ColumnInfo(name = "category_id")
+    @SerializedName("categoryId")
+    private String categoryId;
+
+    @ColumnInfo(name = "tags")
+    @SerializedName("tags")
+    @TypeConverters(StringListConverter.class)
+    private List<String> tags;
+
+    @ColumnInfo(name = "created_at")
+    @SerializedName("createdAt")
+    @TypeConverters(DateConverter.class)
+    private Date createdAt;
+
+    @ColumnInfo(name = "updated_at")
+    @SerializedName("updatedAt")
+    @TypeConverters(DateConverter.class)
+    private Date updatedAt;
+
+    @ColumnInfo(name = "is_featured", defaultValue = "0")
+    @SerializedName("isFeatured")
+    private boolean isFeatured;
+
+    @ColumnInfo(name = "is_visible", defaultValue = "1")
+    @SerializedName("isVisible")
+    private boolean isVisible;
+
+    @ColumnInfo(name = "view_count", defaultValue = "0")
+    @SerializedName("viewCount")
+    private int viewCount;
+
+    @ColumnInfo(name = "share_count", defaultValue = "0")
+    @SerializedName("shareCount")
+    private int shareCount;
+
+    @ColumnInfo(name = "like_count", defaultValue = "0")
+    @SerializedName("likeCount")
+    private int likeCount;
+
+    @ColumnInfo(name = "category")
     private String category;
+
+    @ColumnInfo(name = "recipient_name")
     @SerializedName("recipientName")
     private String recipientName;
 
+    @ColumnInfo(name = "sender_name")
     @SerializedName("senderName")
     private String senderName;
 
+    @Ignore
     @SerializedName("template")
     private Template template;
 
+    @ColumnInfo(name = "short_code")
     @SerializedName("shortCode")
     private String shortCode;
     
+    @ColumnInfo(name = "html_content")
     @SerializedName("htmlContent")
     private String htmlContent;
     
+    @ColumnInfo(name = "css_content")
     @SerializedName("cssContent")
     private String cssContent;
     
+    @ColumnInfo(name = "js_content")
     @SerializedName("jsContent")
     private String jsContent;
     
+    @ColumnInfo(name = "preview_url")
     @SerializedName("previewUrl")
     private String previewUrl;
     
+    @ColumnInfo(name = "thumbnail_url")
     @SerializedName("thumbnailUrl")
     private String thumbnailUrl;
     
+    @ColumnInfo(name = "status")
     private boolean status;
     
+    @ColumnInfo(name = "category_icon")
     @SerializedName("categoryIcon")
     @TypeConverters(CategoryIconConverter.class)
     private CategoryIcon categoryIcon;
     
-    @SerializedName("createdAt")
-    private String createdAt;
-    
-    @SerializedName("updatedAt")
-    private String updatedAt;
-
-    // Add type field with a default getter
+    @ColumnInfo(name = "type", defaultValue = "html")
     private String type = "html";
     
-    // Add a recommended flag with default value false
+    @ColumnInfo(name = "recommended", defaultValue = "0")
     private boolean recommended = false;
+
+    // Required by Room
+    public Template() {}
     
     public boolean isRecommended() {
         return recommended;
@@ -128,49 +221,34 @@ public class Template {
     public boolean isStatus() { return status; }
     public CategoryIcon getCategoryIcon() { return categoryIcon; }
     public void setCategoryIcon(CategoryIcon categoryIcon) { this.categoryIcon = categoryIcon; }
-    public String getCreatedAt() { return createdAt; }
-    public String getUpdatedAt() { return updatedAt; }
+    
+    // Get dates as formatted strings
+    public String getCreatedAtString() { return createdAt != null ? createdAt.toString() : null; }
+    public String getUpdatedAtString() { return updatedAt != null ? updatedAt.toString() : null; }
     
     // Alias for getTitle() for compatibility with some fragments
     public String getName() { return title; }
     
     // Get createdAt as timestamp for comparison
     public long getCreatedAtTimestamp() {
-        try {
-            if (createdAt == null) {
-                android.util.Log.d("Template", "createdAt is null");
-                return 0;
-            }
-            
-            android.util.Log.d("Template", "Raw createdAt value: " + createdAt);
-            
-            // If createdAt is in ISO format (e.g., "2023-01-01T12:00:00.000Z")
-            if (createdAt.contains("T")) {
-                // Simple conversion - just get the milliseconds since epoch
-                return java.time.Instant.parse(createdAt).toEpochMilli();
-            }
-            
-            // Try parsing as Unix timestamp (seconds since epoch)
-            try {
-                // If it's a numeric string, it might be a Unix timestamp
-                long timestamp = Long.parseLong(createdAt);
-                // If it's in seconds (Unix timestamp), convert to milliseconds
-                if (timestamp < 2000000000L) { // If less than year ~2033, it's likely seconds
-                    timestamp *= 1000;
-                }
-                android.util.Log.d("Template", "Parsed as numeric timestamp: " + timestamp);
-                return timestamp;
-            } catch (NumberFormatException e) {
-                // Not a numeric timestamp
-                android.util.Log.d("Template", "Not a numeric timestamp: " + e.getMessage());
-            }
-            
-            return 0;
-        } catch (Exception e) {
-            android.util.Log.e("Template", "Error parsing date: " + e.getMessage() + " for value: " + createdAt);
+        if (createdAt == null) {
+            Log.d("Template", "createdAt is null");
             return 0;
         }
+        return createdAt.getTime();
     }
+
+    public String getDescription() { return description; }
+    public String getContent() { return content; }
+    public String getCategoryId() { return categoryId; }
+    public List<String> getTags() { return tags; }
+    public Date getCreatedAt() { return createdAt; }
+    public Date getUpdatedAt() { return updatedAt; }
+    public boolean isFeatured() { return isFeatured; }
+    public boolean isVisible() { return isVisible; }
+    public int getViewCount() { return viewCount; }
+    public int getShareCount() { return shareCount; }
+    public int getLikeCount() { return likeCount; }
 
     // Setters
     public void setId(String id) { this.id = id; }
@@ -182,6 +260,15 @@ public class Template {
     public void setPreviewUrl(String previewUrl) { this.previewUrl = previewUrl; }
     public void setThumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; }
     public void setStatus(boolean status) { this.status = status; }
-    public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
-    public void setUpdatedAt(String updatedAt) { this.updatedAt = updatedAt; }
+    public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }
+    public void setUpdatedAt(Date updatedAt) { this.updatedAt = updatedAt; }
+    public void setDescription(String description) { this.description = description; }
+    public void setContent(String content) { this.content = content; }
+    public void setCategoryId(String categoryId) { this.categoryId = categoryId; }
+    public void setTags(List<String> tags) { this.tags = tags; }
+    public void setFeatured(boolean featured) { this.isFeatured = featured; }
+    public void setVisible(boolean visible) { this.isVisible = visible; }
+    public void setViewCount(int viewCount) { this.viewCount = viewCount; }
+    public void setShareCount(int shareCount) { this.shareCount = shareCount; }
+    public void setLikeCount(int likeCount) { this.likeCount = likeCount; }
 }
