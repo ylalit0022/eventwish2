@@ -22,7 +22,8 @@ import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.Target;
 import com.ds.eventwish.R;
-import com.ds.eventwish.ui.home.Category;
+import com.ds.eventwish.data.model.Category;
+import com.ds.eventwish.data.repository.CategoryIconRepository;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -61,6 +62,14 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         this.context = context;
         this.categories = sortCategoriesStably(categories != null ? categories : new ArrayList<>());
         this.onCategoryClickListener = listener;
+    }
+    
+    /**
+     * Constructor with just context
+     * @param context Context
+     */
+    public CategoriesAdapter(Context context) {
+        this(context, new ArrayList<>(), null);
     }
     
     public void setOnCategoryClickListener(OnCategoryClickListener listener) {
@@ -130,8 +139,8 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
                 boolean sameId = (oldItem.getId() == null && newItem.getId() == null) ||
                         (oldItem.getId() != null && oldItem.getId().equals(newItem.getId()));
                 boolean sameName = oldItem.getName().equals(newItem.getName());
-                boolean sameImage = (oldItem.getImageUrl() == null && newItem.getImageUrl() == null) ||
-                        (oldItem.getImageUrl() != null && oldItem.getImageUrl().equals(newItem.getImageUrl()));
+                boolean sameImage = (oldItem.getIconUrl() == null && newItem.getIconUrl() == null) ||
+                        (oldItem.getIconUrl() != null && oldItem.getIconUrl().equals(newItem.getIconUrl()));
                 
                 return sameId && sameName && sameImage;
             }
@@ -181,6 +190,44 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
     }
     
     /**
+     * Get the currently selected category ID
+     * @return The ID of the selected category, null for "All" category
+     */
+    public String getSelectedCategoryId() {
+        return selectedCategoryId;
+    }
+    
+    /**
+     * Get the position of the currently selected category in the visible list
+     * @return Position of the selected category, or -1 if not found
+     */
+    public int getSelectedPosition() {
+        if (categories == null || categories.isEmpty()) {
+            return -1;
+        }
+        
+        // If selectedCategoryId is null, the "All" category is selected (typically at position 0)
+        if (selectedCategoryId == null) {
+            for (int i = 0; i < categories.size(); i++) {
+                if (categories.get(i).getId() == null) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+        
+        // Find the position of the selected category by ID
+        for (int i = 0; i < categories.size(); i++) {
+            Category category = categories.get(i);
+            if (category.getId() != null && category.getId().equals(selectedCategoryId)) {
+                return i;
+            }
+        }
+        
+        return -1;
+    }
+    
+    /**
      * Update the selected category
      * @param categoryId ID of the selected category, can be null for "All"
      */
@@ -193,6 +240,37 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         
         this.selectedCategoryId = categoryId;
         notifyDataSetChanged();
+    }
+    
+    /**
+     * Prevent category changes temporarily
+     * This is used to avoid UI flickering when updating categories
+     */
+    public void preventCategoryChanges(boolean prevent) {
+        // Implementation for preventing category changes
+        // This can be used to temporarily disable UI updates
+    }
+    
+    /**
+     * Set the selected position
+     * @param position Position to select
+     */
+    public void setSelectedPosition(int position) {
+        if (position >= 0 && position < categories.size()) {
+            Category category = categories.get(position);
+            updateSelectedCategory(category.getId());
+        } else if (position == 0 && categories.isEmpty()) {
+            // Default to null (All) if no categories
+            updateSelectedCategory(null);
+        }
+    }
+    
+    /**
+     * Get selected category by ID
+     * @return The ID of the currently selected category
+     */
+    public String getSelectedCategory() {
+        return selectedCategoryId;
     }
     
     /**
@@ -215,8 +293,8 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
             textView.setText(category.getName());
             
             // Load image with enhanced Glide configuration for better caching
-            if (category.getImageUrl() != null && !category.getImageUrl().isEmpty()) {
-                String imageUrl = category.getImageUrl();
+            if (category.getIconUrl() != null && !category.getIconUrl().isEmpty()) {
+                String imageUrl = category.getIconUrl();
                 
                 // Log image loading for debugging
                 Log.d(TAG, "Loading category icon for: " + category.getName() + " from URL: " + imageUrl);
@@ -270,7 +348,7 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
                 }
             } else {
                 // Use default icon if no URL is available
-                Log.d(TAG, "No image URL for category: " + category.getName() + ", using default icon");
+                Log.d(TAG, "No icon URL for category: " + category.getName() + ", using default icon");
                 imageView.setImageResource(R.drawable.ic_category);
             }
             

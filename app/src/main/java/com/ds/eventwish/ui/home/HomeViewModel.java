@@ -177,12 +177,19 @@ public class HomeViewModel extends ViewModel {
      * Load categories from the repository
      */
     public void loadCategories() {
-        // If categories are already loaded, just return
+        // If categories are already loaded, notify observers but don't reload unless forced
         if (categoriesPreloaded.getValue() == Boolean.TRUE) {
-            Log.d(TAG, "Categories already loaded, skipping API call");
+            Log.d(TAG, "Categories already loaded, notifying observers");
             
             // Notify observers of existing categories
             repository.notifyCategoriesObservers();
+            
+            // Even if already loaded, check for empty categories and force load if needed
+            Map<String, Integer> existingCategories = repository.getCategories().getValue();
+            if (existingCategories == null || existingCategories.isEmpty()) {
+                Log.d(TAG, "Categories appear to be empty, forcing reload");
+                loadTemplates(true);
+            }
             return;
         }
         
@@ -194,37 +201,8 @@ public class HomeViewModel extends ViewModel {
             Log.d(TAG, "No categories available, loading templates to get categories");
             loadTemplates(true);
             
-            // Add some default categories to ensure UI has data during initial load
-            Map<String, Integer> defaultCategories = new HashMap<>();
-            defaultCategories.put("Birthday", 10);
-            defaultCategories.put("Wedding", 8);
-            defaultCategories.put("Anniversary", 6);
-            defaultCategories.put("Graduation", 5);
-            defaultCategories.put("Holiday", 7);
-            defaultCategories.put("Congratulations", 4);
-            defaultCategories.put("Party", 9);
-            
-            // Update categories LiveData with defaults until API returns
-            if (repository.getCategories().getValue() == null ||
-                repository.getCategories().getValue().isEmpty()) {
-                Log.d(TAG, "Setting default categories until API response");
-                
-                // We need to use reflection to access the MutableLiveData in repository
-                try {
-                    Field categoriesField = TemplateRepository.class.getDeclaredField("categories");
-                    categoriesField.setAccessible(true);
-                    MutableLiveData<Map<String, Integer>> categoriesLiveData = 
-                        (MutableLiveData<Map<String, Integer>>) categoriesField.get(repository);
-                    if (categoriesLiveData != null) {
-                        categoriesLiveData.setValue(defaultCategories);
-                        Log.d(TAG, "Default categories set successfully");
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Failed to set default categories via reflection", e);
-                    // Fallback - notify observers to at least trigger UI update
-                    repository.notifyCategoriesObservers();
-                }
-            }
+            // No default categories - only use what server provides
+            Log.d(TAG, "Waiting for server to provide categories");
         } else {
             // Categories already available, just notify observers
             Log.d(TAG, "Categories already available (" + existingCategories.size() + "), notifying observers");
@@ -281,11 +259,19 @@ public class HomeViewModel extends ViewModel {
             editor.apply();
         }
         
+        // Don't clear categories when changing categories
+        boolean preserveCategories = categoriesPreloaded.getValue() == Boolean.TRUE;
+        
         // Reload templates with the new filter
         loadTemplates(true);
         
-        // Mark categories as loaded
+        // Mark categories as loaded - maintain this flag to avoid reloading categories
         categoriesPreloaded.setValue(true);
+        
+        // Notify that categories should be maintained
+        if (preserveCategories) {
+            repository.notifyCategoriesObservers();
+        }
     }
 
     /**
@@ -681,14 +667,34 @@ public class HomeViewModel extends ViewModel {
      * Force a reload of categories
      */
     public void forceReloadCategories() {
+        Log.d(TAG, "Force reloading categories from server");
         categoriesPreloaded.setValue(false);
-        loadCategories();
+        
+        // Get current categories to check if we have any
+        Map<String, Integer> existingCategories = repository.getCategories().getValue();
+        
+        // Force an immediate load to ensure we're not waiting for a delayed load
+        repository.loadTemplates(true);
+        
+        // Re-notify observers to keep UI in sync
+        repository.notifyCategoriesObservers();
+        
+        // Mark as loaded after reload
+        categoriesPreloaded.setValue(true);
     }
 
     @Override
     protected void onCleared() {
         super.onCleared();
+        
+        // Cancel all ongoing API calls
         repository.cancelCurrentCall();
+        repository.cancelTemplateCall();
+        
+        // Clear any references that might prevent garbage collection
+        dismissCurrentSnackbar();
+        
+        Log.d(TAG, "HomeViewModel cleared, all API calls cancelled");
     }
 
     /**

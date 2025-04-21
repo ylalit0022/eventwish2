@@ -119,12 +119,15 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Consider service registration patterns for complex dependency graphs
 - When working with LiveData in Android:
   - Always use postValue() instead of setValue() when updating LiveData from background threads
-  - LiveData.setValue() can only be called from the main thread, otherwise it throws IllegalStateException
+  - LiveData.setValue() can only be called from the main thread, otherwise it throws IllegalStateException: "Cannot invoke setValue on a background thread"
   - Use proper threading practices: AppExecutors or Handlers for background operations
-  - Consider using observeForever() with proper cleanup for background workers that need LiveData updates
-  - Add thread safety checks before LiveData operations in repository classes
-  - Be cautious when initializing repositories with LiveData in Application.onCreate()
-  - Use SingleLiveEvent for one-time events to avoid LiveData redelivery on configuration changes
+  - When initializing repositories, be careful about threading as constructor code might run on a background thread
+  - Look for error messages like "FATAL EXCEPTION: pool-X-thread-Y" and "java.lang.IllegalStateException: Cannot invoke setValue on a background thread" in logcat
+  - Be especially careful with code that runs in executors (executors.diskIO().execute(() -> {...}), etc.)
+  - Consider using synchronization or thread-safe collections when updating shared data from multiple threads
+  - Add proper error handling for LiveData operations to prevent app crashes
+  - Consider using postValue() by default for all LiveData updates as a safer approach
+  - When debugging thread issues, add Thread.currentThread().getName() to log statements to identify which thread is causing problems
 - When working with Room database in Android:
   - Add @Ignore annotation to additional constructors to avoid Room warnings
   - Ensure field names in DAO queries match the actual entity field names
@@ -276,6 +279,42 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Include comprehensive metrics in test output for analysis
 
 # Scratchpad
+
+## Current Task: Fix LiveData Threading Issue in CategoryIconRepository
+
+### Problem Analysis
+
+[X] 1. Identify the error
+   - App crashes with "java.lang.IllegalStateException: Cannot invoke setValue on a background thread"
+   - Error occurs in CategoryIconRepository.loadCategoryIcons at line 357
+   - The issue is using setValue() on a LiveData object from a background thread
+
+[X] 2. Locate problematic code
+   - Found loading.setValue(true) in loadCategoryIcons() method
+   - Found categoryIcons.setValue(new ArrayList<>()) in constructor
+   - Both are updating LiveData from potentially non-main threads
+
+[X] 3. Fix the issues
+   - Changed loading.setValue(true) to loading.postValue(true)
+   - Changed categoryIcons.setValue(new ArrayList<>()) to categoryIcons.postValue(new ArrayList<>())
+
+[X] 4. Test the fix
+   - Successfully compiled the app
+   - Successfully installed the app
+
+### Key Takeaways
+
+1. **Thread Safety**: Always use postValue() instead of setValue() when updating LiveData from non-main threads.
+2. **Debugging**: Look for "Cannot invoke setValue on a background thread" errors in logcat.
+3. **Initialization**: Be careful about repository initialization, as constructor code might run on background threads.
+4. **Error Prevention**: Consider using postValue() by default as a safer approach for all LiveData updates.
+
+### Future Improvements
+
+1. Conduct a thorough review of all repositories for similar thread safety issues.
+2. Add thread assertion checks for critical operations.
+3. Consider implementing a wrapper around LiveData that enforces thread safety.
+4. Add debug logging that includes thread information in critical sections.
 
 ## Current Task: Update TestAdActivity to Use Database Ad Unit IDs
 

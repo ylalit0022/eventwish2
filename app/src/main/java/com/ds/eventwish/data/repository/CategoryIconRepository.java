@@ -181,8 +181,8 @@ public class CategoryIconRepository {
             Log.w(TAG, "⚠️ CategoryIconRepository initialized with minimal functionality (no context)");
         }
         
-        // Initialize category icons list
-        categoryIcons.setValue(new ArrayList<>());
+        // Initialize category icons list - using postValue instead of setValue to avoid threading issues
+        categoryIcons.postValue(new ArrayList<>());
         
         // Add fallback icons immediately
         addFallbackIcons();
@@ -353,8 +353,7 @@ public class CategoryIconRepository {
             return;
         }
         
-        // Set loading state
-        loading.setValue(true);
+        loading.postValue(true);
         
         // Execute in background thread
         executors.diskIO().execute(() -> {

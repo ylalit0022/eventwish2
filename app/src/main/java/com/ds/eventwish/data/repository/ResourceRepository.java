@@ -122,7 +122,7 @@ public class ResourceRepository {
      */
     public LiveData<Resource<JsonObject>> loadResource(ResourceType type, String id, boolean forceRefresh) {
         MutableLiveData<Resource<JsonObject>> result = new MutableLiveData<>();
-        result.setValue(Resource.loading(null));
+        result.postValue(Resource.loading(null));
         
         String cacheKey = getCacheKey(type, id);
         
@@ -408,7 +408,7 @@ public class ResourceRepository {
             final boolean forceRefresh) {
         
         final MediatorLiveData<Resource<JsonObject>> result = new MediatorLiveData<>();
-        result.setValue(Resource.loading(null));
+        result.postValue(Resource.loading(null));
         
         final String cacheKey = getCacheKey(resourceType, resourceKey);
         
@@ -698,7 +698,7 @@ public class ResourceRepository {
             final boolean forceRefresh) {
         
         final MediatorLiveData<Resource<List<ResourceEntity>>> result = new MediatorLiveData<>();
-        result.setValue(Resource.loading(null));
+        result.postValue(Resource.loading(null));
         
         // Observe database for changes
         final LiveData<List<ResourceEntity>> dbSource = resourceDao.getResourcesByTypeLiveData(resourceType);

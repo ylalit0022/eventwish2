@@ -14,8 +14,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.util.Log;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import java.lang.reflect.Type;
 
 public class TemplateRepository {
+    private static final String TAG = "TemplateRepository";
     private static TemplateRepository instance;
     private final ApiService apiService;
     private final MutableLiveData<List<Template>> templates = new MutableLiveData<>();
@@ -27,10 +33,18 @@ public class TemplateRepository {
     private String currentCategory = null;
     private static final int PAGE_SIZE = 20;
     private Call<TemplateResponse> currentCall;
+    private Context appContext;
+    
+    // Add constants for SharedPreferences
+    private static final String PREF_NAME = "template_repository_prefs";
+    private static final String PREF_CATEGORIES = "saved_categories";
+
+    private Call<Template> currentTemplateCall;
 
     private TemplateRepository() {
         apiService = ApiClient.getClient();
-        templates.setValue(new ArrayList<>());
+        templates.postValue(new ArrayList<>());
+        categories.postValue(new HashMap<>());
     }
 
     /**
@@ -41,6 +55,11 @@ public class TemplateRepository {
     public static synchronized TemplateRepository init(Context context) {
         if (instance == null) {
             instance = new TemplateRepository();
+            instance.appContext = context.getApplicationContext();
+            instance.loadCategoriesFromPrefs();
+        } else if (instance.appContext == null) {
+            instance.appContext = context.getApplicationContext();
+            instance.loadCategoriesFromPrefs();
         }
         return instance;
     }
@@ -50,6 +69,63 @@ public class TemplateRepository {
             instance = new TemplateRepository();
         }
         return instance;
+    }
+
+    /**
+     * Load categories from SharedPreferences on initialization
+     */
+    private void loadCategoriesFromPrefs() {
+        if (appContext == null) {
+            Log.e(TAG, "Cannot load categories from prefs: app context is null");
+            return;
+        }
+        
+        try {
+            SharedPreferences prefs = appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            String categoriesJson = prefs.getString(PREF_CATEGORIES, null);
+            
+            if (categoriesJson != null && !categoriesJson.isEmpty()) {
+                Gson gson = new Gson();
+                Type type = new TypeToken<Map<String, Integer>>(){}.getType();
+                Map<String, Integer> savedCategories = gson.fromJson(categoriesJson, type);
+                
+                if (savedCategories != null && !savedCategories.isEmpty()) {
+                    Log.d(TAG, "Loaded " + savedCategories.size() + " categories from SharedPreferences");
+                    categories.postValue(savedCategories);
+                    
+                    // Remove the call to notifyCategoriesObservers to prevent infinite recursion
+                    // notifyCategoriesObservers();
+                } else {
+                    Log.d(TAG, "No saved categories found in SharedPreferences");
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading categories from SharedPreferences", e);
+        }
+    }
+    
+    /**
+     * Save categories to SharedPreferences for persistence
+     */
+    private void saveCategoriesToPrefs(Map<String, Integer> categoriesToSave) {
+        if (appContext == null || categoriesToSave == null) {
+            return;
+        }
+        
+        try {
+            SharedPreferences prefs = appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
+            
+            Gson gson = new Gson();
+            String categoriesJson = gson.toJson(categoriesToSave);
+            
+            editor.putString(PREF_CATEGORIES, categoriesJson);
+            editor.apply();
+            
+            Log.d(TAG, "Saved " + categoriesToSave.size() + " categories to SharedPreferences");
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving categories to SharedPreferences", e);
+        }
     }
 
     public LiveData<List<Template>> getTemplates() {
@@ -90,14 +166,24 @@ public class TemplateRepository {
     }
 
     public void cancelCurrentCall() {
-        if (currentCall != null && !currentCall.isCanceled()) {
+        if (currentCall != null && !currentCall.isCanceled() && !currentCall.isExecuted()) {
+            // Only cancel calls that haven't been executed yet or are still in progress
+            Log.d(TAG, "Cancelling API call for templates");
             currentCall.cancel();
         }
     }
 
     private void setCurrentCall(Call<TemplateResponse> call) {
+        // Cancel any existing call before setting a new one
         cancelCurrentCall();
+        
+        // Store the new call
         currentCall = call;
+        
+        // Debug logging
+        Log.d(TAG, "Setting new API call for templates with category: " + 
+            (currentCategory != null ? currentCategory : "All") + 
+            ", page: " + currentPage);
     }
 
     /**
@@ -119,22 +205,34 @@ public class TemplateRepository {
             return;
         }
         
-        android.util.Log.d("TemplateRepository", "Changing category from " + 
+        Log.d(TAG, "Changing category from " + 
             (currentCategory != null ? currentCategory : "All") + " to " + 
             (category != null ? category : "All"));
             
         // Save current templates before changing category
         List<Template> currentTemplateList = templates.getValue();
         
+        // Save current categories to ensure they're maintained
+        Map<String, Integer> currentCategories = categories.getValue();
+        
         currentCategory = category;
         currentPage = 1;
         hasMorePages = true;
         
-        // Don't clear templates immediately to prevent UI flicker
-        // templates.setValue(new ArrayList<>());
-        
         if (reload) {
+            // Don't clear templates immediately to prevent UI flicker
+            // templates.setValue(new ArrayList<>());
+            
             loadTemplates(true);
+            
+            // After category change, make sure to notify observers of existing categories
+            if (currentCategories != null && !currentCategories.isEmpty()) {
+                Log.d(TAG, "Maintaining " + currentCategories.size() + " categories after category change");
+                categories.postValue(new HashMap<>(currentCategories));
+            }
+        } else {
+            // Even when not reloading, notify observers to maintain UI state
+            notifyCategoriesObservers();
         }
     }
 
@@ -143,7 +241,7 @@ public class TemplateRepository {
             return;
         }
         
-        loading.setValue(true);
+        loading.postValue(true);
         
         // If this is a forced refresh, reset pagination
         if (forceRefresh) {
@@ -155,9 +253,9 @@ public class TemplateRepository {
                 if (templates.getValue() != null) {
                     templates.getValue().clear();
                     // Notify observers of the empty list to clear the UI
-                    templates.setValue(new ArrayList<>());
+                    templates.postValue(new ArrayList<>());
                 } else {
-                    templates.setValue(new ArrayList<>());
+                    templates.postValue(new ArrayList<>());
                 }
             }
             // If we're filtering by category, we'll keep the existing templates until new ones arrive
@@ -165,14 +263,14 @@ public class TemplateRepository {
         
         // If we've already loaded all pages, don't make another request
         if (!hasMorePages && currentPage > 1) {
-            loading.setValue(false);
+            loading.postValue(false);
             return;
         }
         
         // Log request details
-        android.util.Log.d("TemplateRepository", "Loading templates - page: " + currentPage + 
-                          ", category: " + (currentCategory != null ? currentCategory : "All") + 
-                          ", forceRefresh: " + forceRefresh);
+        Log.d(TAG, "Loading templates - page: " + currentPage + 
+                  ", category: " + (currentCategory != null ? currentCategory : "All") + 
+                  ", forceRefresh: " + forceRefresh);
 
         Call<TemplateResponse> call;
         if (currentCategory != null) {
@@ -185,7 +283,19 @@ public class TemplateRepository {
         call.enqueue(new Callback<TemplateResponse>() {
             @Override
             public void onResponse(Call<TemplateResponse> call, Response<TemplateResponse> response) {
-                loading.setValue(false);
+                // Clear the current call reference if it matches this call
+                if (currentCall != null && currentCall.equals(call)) {
+                    currentCall = null;
+                }
+                
+                // Skip processing if call was cancelled
+                if (call.isCanceled()) {
+                    Log.d(TAG, "Skipping response handling for cancelled call");
+                    loading.postValue(false);
+                    return;
+                }
+                
+                loading.postValue(false);
 
                 if (response.isSuccessful() && response.body() != null) {
                     TemplateResponse templateResponse = response.body();
@@ -200,53 +310,53 @@ public class TemplateRepository {
                     
                     // Log all template IDs for debugging
                     for (Template template : templateResponse.getTemplates()) {
-                        android.util.Log.d("TemplateRepository", "Template: " + template.getTitle() + 
-                                          ", ID: " + template.getId() + 
-                                          ", Created: " + template.getCreatedAt());
+                        Log.d(TAG, "Template: " + template.getTitle() + 
+                                  ", ID: " + template.getId() + 
+                                  ", Created: " + template.getCreatedAt());
                     }
                     
-                    templates.setValue(currentList);
+                    templates.postValue(currentList);
                     
                     // Log categories for debugging
                     Map<String, Integer> categoryMap = templateResponse.getCategories();
-                    if (categoryMap == null || categoryMap.isEmpty()) {
-                        android.util.Log.d("TemplateRepository", "Categories map is null or empty, creating default categories");
-                        // Always add mock categories to ensure UI has categories to display
+                    if (categoryMap == null) {
+                        Log.d(TAG, "Categories map is null, using empty map");
                         categoryMap = new HashMap<>();
-                        categoryMap.put("Birthday", 10);
-                        categoryMap.put("Wedding", 8);
-                        categoryMap.put("Anniversary", 6);
-                        categoryMap.put("Graduation", 5);
-                        categoryMap.put("Holiday", 7);
-                        categoryMap.put("Congratulations", 4);
-                        categoryMap.put("Business", 3);
-                        categoryMap.put("Party", 9);
-                        android.util.Log.d("TemplateRepository", "Added default categories: " + categoryMap.size());
+                    } else if (categoryMap.isEmpty()) {
+                        Log.d(TAG, "Categories map is empty from server");
                     } else {
-                        android.util.Log.d("TemplateRepository", "Categories received: " + categoryMap.size());
+                        Log.d(TAG, "Categories received from server: " + categoryMap.size());
                         for (Map.Entry<String, Integer> entry : categoryMap.entrySet()) {
-                            android.util.Log.d("TemplateRepository", "Category: " + entry.getKey() + ", Count: " + entry.getValue());
+                            Log.d(TAG, "Category: " + entry.getKey() + ", Count: " + entry.getValue());
                         }
                         
-                        // Ensure at least some common categories are included
-                        if (!categoryMap.containsKey("Birthday")) categoryMap.put("Birthday", 5);
-                        if (!categoryMap.containsKey("Wedding")) categoryMap.put("Wedding", 4);
-                        if (!categoryMap.containsKey("Holiday")) categoryMap.put("Holiday", 3);
-                        android.util.Log.d("TemplateRepository", "Final categories count: " + categoryMap.size());
+                        // Save categories to SharedPreferences for persistence
+                        saveCategoriesToPrefs(categoryMap);
                     }
                     
-                    categories.setValue(categoryMap);
+                    categories.postValue(categoryMap);
                     hasMorePages = templateResponse.isHasMore();
                     currentPage++;
                 } else {
-                    error.setValue("Failed to load templates");
+                    error.postValue("Failed to load templates");
                 }
             }
 
             @Override
             public void onFailure(Call<TemplateResponse> call, Throwable t) {
-                loading.setValue(false);
-                error.setValue(t.getMessage());
+                // Clear the current call reference if it matches this call
+                if (currentCall != null && currentCall.equals(call)) {
+                    currentCall = null;
+                }
+                
+                // Check if the call was cancelled
+                if (call.isCanceled()) {
+                    Log.d(TAG, "API call was cancelled - ignoring failure response");
+                } else {
+                    Log.e(TAG, "API call failed: " + t.getMessage(), t);
+                    loading.postValue(false);
+                    error.postValue(t.getMessage());
+                }
             }
         });
     }
@@ -269,7 +379,7 @@ public class TemplateRepository {
      * Clear the template cache and reset pagination
      */
     public void clearCache() {
-        android.util.Log.d("TemplateRepository", "Clearing template cache");
+        Log.d(TAG, "Clearing template cache");
         
         // Save current categories before clearing
         Map<String, Integer> currentCategories = categories.getValue();
@@ -281,9 +391,9 @@ public class TemplateRepository {
         // Clear templates
         if (templates.getValue() != null) {
             templates.getValue().clear();
-            templates.setValue(new ArrayList<>());
+            templates.postValue(new ArrayList<>());
         } else {
-            templates.setValue(new ArrayList<>());
+            templates.postValue(new ArrayList<>());
         }
         
         // Cancel any ongoing requests
@@ -292,15 +402,25 @@ public class TemplateRepository {
         }
         
         // Reset error state
-        error.setValue(null);
+        error.postValue(null);
         
         // Reset loading state
-        loading.setValue(false);
+        loading.postValue(false);
         
         // Restore categories if they were available
         if (currentCategories != null && !currentCategories.isEmpty()) {
-            android.util.Log.d("TemplateRepository", "Restoring " + currentCategories.size() + " categories after cache clear");
-            categories.setValue(currentCategories);
+            Log.d(TAG, "Restoring " + currentCategories.size() + " categories after cache clear");
+            categories.postValue(currentCategories);
+        }
+    }
+
+    /**
+     * Cancel any ongoing template detail request
+     */
+    public void cancelTemplateCall() {
+        if (currentTemplateCall != null && !currentTemplateCall.isCanceled() && !currentTemplateCall.isExecuted()) {
+            Log.d(TAG, "Cancelling template detail API call");
+            currentTemplateCall.cancel();
         }
     }
 
@@ -317,26 +437,55 @@ public class TemplateRepository {
         if (!forceRefresh && templates.getValue() != null) {
             for (Template template : templates.getValue()) {
                 if (template.getId().equals(templateId)) {
-                    result.setValue(template);
+                    result.postValue(template);
                     return result;
                 }
             }
         }
         
+        // Cancel any ongoing template detail request
+        cancelTemplateCall();
+        
         // Fetch from network
-        apiService.getTemplateById(templateId).enqueue(new Callback<Template>() {
+        Call<Template> call = apiService.getTemplateById(templateId);
+        currentTemplateCall = call;
+        
+        call.enqueue(new Callback<Template>() {
             @Override
             public void onResponse(Call<Template> call, Response<Template> response) {
+                // Clear the current template call reference if it matches this call
+                if (currentTemplateCall != null && currentTemplateCall.equals(call)) {
+                    currentTemplateCall = null;
+                }
+                
+                // Skip processing if call was cancelled
+                if (call.isCanceled()) {
+                    Log.d(TAG, "Skipping template response handling for cancelled call");
+                    return;
+                }
+                
                 if (response.isSuccessful() && response.body() != null) {
-                    result.setValue(response.body());
+                    result.postValue(response.body());
                 } else {
-                    result.setValue(null);
+                    Log.e(TAG, "Failed to get template by ID: " + templateId + ", response code: " + response.code());
+                    result.postValue(null);
                 }
             }
 
             @Override
             public void onFailure(Call<Template> call, Throwable t) {
-                result.setValue(null);
+                // Clear the current template call reference if it matches this call
+                if (currentTemplateCall != null && currentTemplateCall.equals(call)) {
+                    currentTemplateCall = null;
+                }
+                
+                // Check if the call was cancelled
+                if (call.isCanceled()) {
+                    Log.d(TAG, "Template API call was cancelled - ignoring failure response");
+                } else {
+                    Log.e(TAG, "Template API call failed: " + t.getMessage(), t);
+                    result.postValue(null);
+                }
             }
         });
         
@@ -350,11 +499,21 @@ public class TemplateRepository {
     public void notifyCategoriesObservers() {
         Map<String, Integer> currentCategories = categories.getValue();
         if (currentCategories != null && !currentCategories.isEmpty()) {
-            android.util.Log.d("TemplateRepository", "Notifying observers of " + currentCategories.size() + " existing categories");
-            // Use setValue to trigger observer updates with existing data
-            categories.setValue(new HashMap<>(currentCategories));
+            Log.d(TAG, "Notifying observers of " + currentCategories.size() + " existing categories");
+            // Use postValue to trigger observer updates with existing data
+            categories.postValue(new HashMap<>(currentCategories));
         } else {
-            android.util.Log.d("TemplateRepository", "No categories available to notify observers");
+            // Add a guard to prevent infinite recursion
+            SharedPreferences prefs = appContext != null ? 
+                appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE) : null;
+            
+            if (prefs != null && prefs.contains(PREF_CATEGORIES)) {
+                // Try to load categories from SharedPreferences if no categories are available
+                Log.d(TAG, "No categories available, attempting to load from SharedPreferences");
+                loadCategoriesFromPrefs();
+            } else {
+                Log.d(TAG, "No categories available in memory or SharedPreferences");
+            }
         }
     }
 }
