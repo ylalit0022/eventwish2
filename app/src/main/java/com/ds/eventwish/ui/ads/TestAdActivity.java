@@ -26,6 +26,7 @@ import androidx.lifecycle.Observer;
 import com.ds.eventwish.R;
 import com.ds.eventwish.ads.AdBannerView;
 import com.ds.eventwish.ads.AdMobManager;
+import com.ds.eventwish.ads.AppOpenAdManager;
 import com.ds.eventwish.data.model.ads.AdConstants;
 import com.ds.eventwish.data.model.ads.AdUnit;
 import com.ds.eventwish.data.repository.AdMobRepository;
@@ -64,6 +65,7 @@ public class TestAdActivity extends AppCompatActivity {
     private Button showRewardedAdButton;
     private Button showNativeAdButton;
     private Button showNativeVideoAdButton;
+    private Button showAppOpenAdButton;
     private FrameLayout bannerAdContainer;
     private FrameLayout nativeAdContainer;
     private FrameLayout nativeVideoAdContainer;
@@ -111,6 +113,7 @@ public class TestAdActivity extends AppCompatActivity {
         showRewardedAdButton = findViewById(R.id.show_rewarded_ad_button);
         showNativeAdButton = findViewById(R.id.show_native_ad_button);
         showNativeVideoAdButton = findViewById(R.id.show_native_video_ad_button);
+        showAppOpenAdButton = findViewById(R.id.show_app_open_ad_button);
         bannerAdContainer = findViewById(R.id.banner_ad_container);
         nativeAdContainer = findViewById(R.id.native_ad_container);
         nativeVideoAdContainer = findViewById(R.id.native_video_ad_container);
@@ -151,6 +154,12 @@ public class TestAdActivity extends AppCompatActivity {
             updateStatus("Loading native video ad...");
             fetchAdUnits("native_video");
         });
+        
+        // App Open ad button
+        findViewById(R.id.show_app_open_ad_button).setOnClickListener(v -> {
+            updateStatus("Loading app open ad...");
+            fetchAdUnits("app_open");
+        });
     }
     
     /**
@@ -173,6 +182,7 @@ public class TestAdActivity extends AppCompatActivity {
         findViewById(R.id.show_rewarded_ad_button).setEnabled(enabled);
         findViewById(R.id.show_native_ad_button).setEnabled(enabled);
         findViewById(R.id.show_native_video_ad_button).setEnabled(enabled);
+        findViewById(R.id.show_app_open_ad_button).setEnabled(enabled);
     }
     
     /**
@@ -390,10 +400,13 @@ public class TestAdActivity extends AppCompatActivity {
         progressBar.setVisibility(View.VISIBLE);
         updateStatus("Fetching " + adType + " ad units...");
         
+        // Convert client adType to server adType format
+        String serverAdType = normalizeAdType(adType);
+        
         // First check if we have ad units in the database
-        adMobRepository.getAdUnitsByType(adType).observe(this, adUnitEntities -> {
+        adMobRepository.getAdUnitsByType(serverAdType).observe(this, adUnitEntities -> {
             if (adUnitEntities != null && !adUnitEntities.isEmpty()) {
-                Log.d(TAG, "Found " + adUnitEntities.size() + " ad units in database for type: " + adType);
+                Log.d(TAG, "Found " + adUnitEntities.size() + " ad units in database for type: " + serverAdType);
                 updateStatus("Found " + adUnitEntities.size() + " ad units in database");
                 
                 // Log and display the ad units from database
@@ -411,7 +424,7 @@ public class TestAdActivity extends AppCompatActivity {
                         .append("\nCode: ").append(unit.getAdUnitCode())
                         .append("\n\n");
                     
-                    if (adType.equalsIgnoreCase(unit.getAdType())) {
+                    if (matchesAdType(serverAdType, unit.getAdType())) {
                         filteredAdUnits.add(unit);
                     }
                 }
@@ -420,12 +433,12 @@ public class TestAdActivity extends AppCompatActivity {
                 updateStatus(dbDataLog.toString());
                 
                 if (filteredAdUnits.isEmpty()) {
-                    String error = "No " + adType + " ad units found in database. Fetching from server...";
+                    String error = "No " + serverAdType + " ad units found in database. Fetching from server...";
                     Log.d(TAG, error);
                     appendStatus("\n" + error);
                     
                     // Fetch from server as fallback
-                    fetchAdUnitsFromServer(adType);
+                    fetchAdUnitsFromServer(serverAdType);
                 } else {
                     // Use the first matching ad unit
                     AdUnit adUnit = filteredAdUnits.get(0);
@@ -444,7 +457,7 @@ public class TestAdActivity extends AppCompatActivity {
                 appendStatus("No ad units found in database. Fetching from server...");
                 
                 // Fetch from server if no database entries
-                fetchAdUnitsFromServer(adType);
+                fetchAdUnitsFromServer(serverAdType);
             }
         });
     }
@@ -506,7 +519,7 @@ public class TestAdActivity extends AppCompatActivity {
                                     .append("\nCode: ").append(unit.getAdUnitCode())
                                     .append("\n\n");
                                 
-                                if (adType.equalsIgnoreCase(unit.getAdType())) {
+                                if (matchesAdType(adType, unit.getAdType())) {
                                     filteredAdUnits.add(unit);
                                 }
                             }
@@ -630,25 +643,25 @@ public class TestAdActivity extends AppCompatActivity {
      */
     private void showAdByType(AdUnit adUnit) {
         String adType = adUnit.getAdType().toLowerCase();
-        switch (adType) {
-            case "banner":
-                displayBannerAd(adUnit);
-                break;
-            case "interstitial":
-                showInterstitialAd(adUnit);
-                break;
-            case "rewarded":
-                showRewardedAd(adUnit);
-                break;
-            case "native":
-                showNativeAd(adUnit);
-                break;
-            case "native_video":
-                showNativeVideoAd(adUnit);
-                break;
-            default:
-                updateStatus("Unsupported ad type: " + adType);
-                break;
+        Log.d(TAG, "Showing ad type: " + adType + " for ad unit: " + adUnit.getId());
+        
+        // Normalize the adType to handle various formats
+        if (adType.equals("app open") || adType.equals("appopen")) {
+            showAppOpenAd(adUnit);
+        } else if (adType.equals("banner")) {
+            displayBannerAd(adUnit);
+        } else if (adType.equals("interstitial")) {
+            showInterstitialAd(adUnit);
+        } else if (adType.equals("rewarded")) {
+            showRewardedAd(adUnit);
+        } else if (adType.equals("native")) {
+            showNativeAd(adUnit);
+        } else if (adType.equals("native video") || adType.equals("nativevideo")) {
+            showNativeVideoAd(adUnit);
+        } else {
+            String errorMsg = "Unsupported ad type: " + adUnit.getAdType();
+            Log.e(TAG, errorMsg);
+            updateStatus(errorMsg);
         }
     }
     
@@ -819,6 +832,78 @@ public class TestAdActivity extends AppCompatActivity {
     }
     
     /**
+     * Show an app open ad
+     */
+    private void showAppOpenAd(AdUnit adUnit) {
+        runOnUiThread(() -> {
+            try {
+                Log.d(TAG, "Setting up app open ad for unit: " + adUnit.getId());
+                
+                // Initialize AppOpenAdManager if not already done
+                try {
+                    AppOpenAdManager.getInstance();
+                } catch (IllegalStateException e) {
+                    // Initialize if not done yet
+                    AppOpenAdManager.init(getApplication());
+                }
+                
+                // Set the ad unit ID in the manager
+                AppOpenAdManager.getInstance().setAdUnitId(adUnit.getAdUnitCode());
+                
+                // Create a dialog to explain how App Open ads work
+                android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
+                builder.setTitle("App Open Ad Information");
+                builder.setMessage("App Open ads are designed to show when the app is brought to the foreground.\n\n" +
+                        "For testing purposes, we can force show an ad immediately or you can exit and return to the app to see it naturally.\n\n" +
+                        "Ad Unit ID: " + adUnit.getAdUnitCode());
+                
+                builder.setPositiveButton("Force Show Now", (dialog, which) -> {
+                    dialog.dismiss();
+                    
+                    // Force show the ad for testing
+                    AppOpenAdManager.getInstance().forceShowAd(this);
+                    updateStatus("Showing app open ad immediately for unit: " + adUnit.getId());
+                });
+                
+                builder.setNegativeButton("Show on Resume", (dialog, which) -> {
+                    dialog.dismiss();
+                    
+                    // The ad will show when the app is brought to the foreground
+                    updateStatus("App open ad will show when you return to the app.\n\n" +
+                            "Please press the home button and then return to the app to see the ad.");
+                });
+                
+                builder.setCancelable(true);
+                builder.show();
+                
+                // Observe the ad loading/showing state
+                AppOpenAdManager.getInstance().getLoadingState().observe(this, isLoading -> {
+                    if (isLoading) {
+                        updateStatus("Loading app open ad...");
+                    }
+                });
+                
+                AppOpenAdManager.getInstance().getShowingState().observe(this, isShowing -> {
+                    if (isShowing) {
+                        updateStatus("App open ad is showing");
+                    }
+                });
+                
+                AppOpenAdManager.getInstance().getError().observe(this, error -> {
+                    if (error != null && !error.isEmpty()) {
+                        updateStatus("App open ad error: " + error);
+                    }
+                });
+                
+            } catch (Exception e) {
+                String error = "Error displaying app open ad: " + e.getMessage();
+                Log.e(TAG, error, e);
+                updateStatus(error);
+            }
+        });
+    }
+    
+    /**
      * Create request headers with all necessary authentication information
      */
     private Map<String, String> createRequestHeaders() {
@@ -870,5 +955,69 @@ public class TestAdActivity extends AppCompatActivity {
         }
         
         return headers;
+    }
+    
+    /**
+     * Normalize the ad type from client format to server format
+     */
+    private String normalizeAdType(String clientAdType) {
+        if (clientAdType == null) {
+            return null;
+        }
+        
+        switch (clientAdType.toLowerCase()) {
+            case "banner":
+                return "Banner";
+            case "interstitial":
+                return "Interstitial";
+            case "rewarded":
+                return "Rewarded";
+            case "native":
+                return "Native";
+            case "native_video":
+                return "Native Video";
+            case "app_open":
+                return "App Open";
+            default:
+                // If unknown, just capitalize first letter
+                return clientAdType.substring(0, 1).toUpperCase() + clientAdType.substring(1);
+        }
+    }
+    
+    /**
+     * Check if an ad unit type matches the requested type, accounting for case sensitivity
+     * and format differences
+     */
+    private boolean matchesAdType(String requestedType, String adUnitType) {
+        if (requestedType == null || adUnitType == null) {
+            return false;
+        }
+        
+        // Direct match (case-sensitive)
+        if (requestedType.equals(adUnitType)) {
+            return true;
+        }
+        
+        // Case-insensitive match
+        if (requestedType.equalsIgnoreCase(adUnitType)) {
+            return true;
+        }
+        
+        // Convert special cases (with spaces or underscores)
+        if (requestedType.equalsIgnoreCase("App Open") && 
+            (adUnitType.equalsIgnoreCase("app_open") || adUnitType.equalsIgnoreCase("AppOpen"))) {
+            return true;
+        }
+        
+        if (requestedType.equalsIgnoreCase("Native Video") && 
+            (adUnitType.equalsIgnoreCase("native_video") || adUnitType.equalsIgnoreCase("NativeVideo"))) {
+            return true;
+        }
+        
+        // Handle various formats of the same ad type
+        String normalizedRequested = requestedType.toLowerCase().replace("_", "").replace(" ", "");
+        String normalizedAdUnit = adUnitType.toLowerCase().replace("_", "").replace(" ", "");
+        
+        return normalizedRequested.equals(normalizedAdUnit);
     }
 } 

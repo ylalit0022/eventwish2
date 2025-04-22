@@ -240,7 +240,7 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Modify UI fragments and activities to remove ad containers and references
   - Run clean builds frequently to catch missing files and dependencies
   - Fix possible dependency issues by downgrading to compatible versions like OkHttp 4.9.0 instead of 4.12.0
-- When implementing Express.js API routes in a Node.js backend:
+- When working with Express.js API routes in a Node.js backend:
   - Always properly register route modules in the main server.js or app.js file
   - Use app.use('/api/endpoint', require('./routes/endpoint')) pattern
   - Check for 404 errors in API responses which often indicate missing route registration
@@ -253,68 +253,54 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Use SharedPreferences to track API endpoint availability and avoid repeated failed calls
   - Add response code-specific handling (like 404 vs 500) for different error scenarios
   - Ensure data is stored locally when server operations fail to prevent data loss
-- When working with RecyclerView adapters in Android:
-  - Preserve list order stability when updating or filtering items to prevent UI jumping
-  - Use flags like preventCategoryChanges to temporarily disable updates during operations
-  - Implement comparison methods to avoid unnecessary adapter updates for identical data
-  - When handling position-dependent selection, preserve positions during list updates
-  - Use notifyItemChanged() for minor updates instead of notifyDataSetChanged() for efficiency
-  - Implement proper item comparisons and diffing to determine update strategy
-  - Add specialized adapter methods to handle external update requests in a controlled manner
-  - Maintain original item order when filtering or applying visibility constraints
-  - Implement proper state restoration after operations that might affect item positions
-  - Use preventive measures in both the adapter and parent components for consistent UX
-- When testing recommendation algorithms:
-  - Create realistic test data that mimics actual user behavior patterns
-  - Generate different user profiles (casual users, power users, niche interests)
-  - Implement a simplified version of recommendation logic for testing purposes
-  - Analyze alignment between user preferences and recommendation distribution
-  - Calculate similarity scores to evaluate recommendation quality
-  - Test edge cases like new users with limited history
-  - Consider both quality (relevance) and diversity of recommendations
-  - Mock dependencies like caching services when testing in isolation
-  - Use interleaving techniques to ensure category diversity in recommendations
-  - Evaluate performance across different user types to identify biases
-  - Adjust scoring weights based on test results
-  - Include comprehensive metrics in test output for analysis
+- When initializing singleton classes in Android:
+  - For classes that have both init() and getInstance() static methods, always call init() first
+  - Be aware of the error "SecureTokenManager not initialized" which occurs when getInstance() is called before init()
+  - Correct initialization sequence is: SecureTokenManager.init(context); then secureTokenManager = SecureTokenManager.getInstance();
+  - Never call getInstance().init() as it creates a circular dependency (you need an instance to initialize, but initialization is needed to get the instance)
+  - Class implementations should enforce this by throwing an IllegalStateException in getInstance() if init() hasn't been called
+  - Be careful of initialization order when singletons depend on each other
+  - Add proper error handling and logging during initialization
+  - Consider using dependency injection frameworks like Dagger or Hilt to manage singleton lifecycles
+  - Add init checks in methods that require initialization to provide helpful error messages
 
 # Scratchpad
 
-## Current Task: Fix LiveData Threading Issue in CategoryIconRepository
+## Current Task: Fix Singleton Initialization Order in Android Application
 
 ### Problem Analysis
 
 [X] 1. Identify the error
-   - App crashes with "java.lang.IllegalStateException: Cannot invoke setValue on a background thread"
-   - Error occurs in CategoryIconRepository.loadCategoryIcons at line 357
-   - The issue is using setValue() on a LiveData object from a background thread
+   - App showing errors "SecureTokenManager not initialized" and "DeviceUtils must be initialized first"
+   - These errors occur because the application is trying to get instances of singleton classes before initializing them
+   - The issue is calling getInstance() before init() for both SecureTokenManager and DeviceUtils
 
 [X] 2. Locate problematic code
-   - Found loading.setValue(true) in loadCategoryIcons() method
-   - Found categoryIcons.setValue(new ArrayList<>()) in constructor
-   - Both are updating LiveData from potentially non-main threads
+   - Found secureTokenManager = SecureTokenManager.getInstance(); secureTokenManager.init(this); in initializeServices()
+   - Found deviceUtils = DeviceUtils.getInstance(); deviceUtils.init(this); in initializeServices()
+   - Both are trying to get instances before proper initialization
 
 [X] 3. Fix the issues
-   - Changed loading.setValue(true) to loading.postValue(true)
-   - Changed categoryIcons.setValue(new ArrayList<>()) to categoryIcons.postValue(new ArrayList<>())
+   - Changed SecureTokenManager initialization order to: SecureTokenManager.init(this); then secureTokenManager = SecureTokenManager.getInstance();
+   - Changed DeviceUtils initialization order to: DeviceUtils.init(this); then deviceUtils = DeviceUtils.getInstance();
 
 [X] 4. Test the fix
    - Successfully compiled the app
-   - Successfully installed the app
+   - Added clear comments explaining the correct initialization sequence
 
 ### Key Takeaways
 
-1. **Thread Safety**: Always use postValue() instead of setValue() when updating LiveData from non-main threads.
-2. **Debugging**: Look for "Cannot invoke setValue on a background thread" errors in logcat.
-3. **Initialization**: Be careful about repository initialization, as constructor code might run on background threads.
-4. **Error Prevention**: Consider using postValue() by default as a safer approach for all LiveData updates.
+1. **Proper Initialization Order**: Always call init() before getInstance() for singleton classes that use this pattern.
+2. **Error Identification**: Look for error messages like "X not initialized" or "must be initialized first".
+3. **Singleton Pattern**: Be careful with initialization order when singletons depend on each other.
+4. **Documentation**: Add clear comments explaining initialization requirements to prevent future issues.
 
 ### Future Improvements
 
-1. Conduct a thorough review of all repositories for similar thread safety issues.
-2. Add thread assertion checks for critical operations.
-3. Consider implementing a wrapper around LiveData that enforces thread safety.
-4. Add debug logging that includes thread information in critical sections.
+1. Conduct a thorough review of all singleton classes for similar initialization patterns.
+2. Consider implementing dependency injection frameworks like Dagger or Hilt.
+3. Add explicit initialization validation in critical methods.
+4. Consider using builder patterns for more complex initialization requirements.
 
 ## Current Task: Update TestAdActivity to Use Database Ad Unit IDs
 

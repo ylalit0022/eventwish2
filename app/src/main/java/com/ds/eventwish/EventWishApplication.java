@@ -21,6 +21,7 @@ import com.ds.eventwish.data.repository.CategoryIconRepository;
 import com.ds.eventwish.data.repository.TokenRepository;
 import com.ds.eventwish.data.repository.UserRepository;
 import com.ds.eventwish.data.remote.ApiClient;
+import com.ds.eventwish.data.remote.ApiService;
 import com.ds.eventwish.utils.AnalyticsUtils;
 import com.ds.eventwish.utils.CacheManager;
 import com.ds.eventwish.utils.ReminderScheduler;
@@ -40,6 +41,7 @@ import com.ds.eventwish.data.repository.TemplateRepository;
 import com.ds.eventwish.data.repository.ResourceRepository;
 import com.ds.eventwish.utils.AppExecutors;
 import com.ds.eventwish.ads.AdMobManager;
+import com.ds.eventwish.ads.AppOpenAdManager;
 
 public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
@@ -49,7 +51,7 @@ public class EventWishApplication extends Application implements Configuration.P
 
     private static Context context;
 
-    private ApiClient apiClient;
+    private ApiService apiService;
     private CategoryIconRepository categoryIconRepository;
     private SecureTokenManager secureTokenManager;
     private DeviceUtils deviceUtils;
@@ -67,6 +69,9 @@ public class EventWishApplication extends Application implements Configuration.P
     
     // AdMob manager
     private AdMobManager adMobManager;
+    
+    // App Open Ad manager
+    private AppOpenAdManager appOpenAdManager;
 
     // Activity tracking
     private int runningActivities = 0;
@@ -347,83 +352,74 @@ public class EventWishApplication extends Application implements Configuration.P
         // Implementation of setupWorkManager method
     }
 
+    /**
+     * Initialize all the services for the application
+     */
     private void initializeServices() {
         try {
-            Log.d(TAG, "Initializing services...");
+            Log.d(TAG, "Initializing application services...");
             
-            // Initialize SecureTokenManager first - other services may depend on it
-            try {
-                Log.d(TAG, "Initializing SecureTokenManager");
-                SecureTokenManager.init(this);
-                secureTokenManager = SecureTokenManager.getInstance();
-                Log.d(TAG, "SecureTokenManager initialized successfully");
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing SecureTokenManager", e);
-                // Continue without secure token manager - some features may be limited
-            }
-            
-            // Initialize DeviceUtils next - many services depend on it
-            try {
-                Log.d(TAG, "Initializing DeviceUtils");
-                DeviceUtils.init(this);
-                deviceUtils = DeviceUtils.getInstance();
-                Log.d(TAG, "DeviceUtils initialized successfully");
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing DeviceUtils", e);
-                // Continue without device utils - some features may be limited
-            }
-            
-            // Initialize API client - depends on SecureTokenManager
-            ApiClient.init(this);
-            // For backward compatibility
-            com.ds.eventwish.network.ApiClient.init(this);
-            
-            // Initialize AppExecutors
+            // AppExecutors first, as many other services depend on it
             appExecutors = AppExecutors.getInstance();
             
-            // Initialize repositories
-            Log.d(TAG, "Initializing repositories...");
-            
-            // Initialize repositories in background
-            categoryIconRepository = CategoryIconRepository.getInstance(this);
-            templateRepository = TemplateRepository.getInstance();
-            festivalRepository = FestivalRepository.getInstance(this);
-            resourceRepository = ResourceRepository.getInstance(this);
-            
-            // User repository (needs secure token manager)
-            if (secureTokenManager != null) {
-                userRepository = UserRepository.getInstance(this);
-            } else {
-                Log.e(TAG, "Failed to initialize UserRepository: SecureTokenManager is null");
-            }
-            
-            // Time utils needs to be initialized with server time
+            // Initialize Time Utils
             timeUtils = new TimeUtils();
             
-            // Initialize AdMobManager
-            try {
-                AdMobManager.init(this);
-                adMobManager = AdMobManager.getInstance();
-                Log.d(TAG, "AdMobManager initialized successfully");
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing AdMobManager", e);
-            }
+            // Create notification channels
+            createNotificationChannels();
             
-            // Initialize components like analytics, notifications, etc.
-            initializeComponents();
+            // Initialize API Client
+            ApiClient.init(this);
+            apiService = ApiClient.getClient();
             
-            // Set up work manager
+            // Schedule notifications
+            scheduleNotifications();
+            
+            // Initialize Device Utils - must call init() before getInstance() to avoid IllegalStateException
+            DeviceUtils.init(this);
+            deviceUtils = DeviceUtils.getInstance();
+            
+            // Initialize Category Icon Repository
+            categoryIconRepository = CategoryIconRepository.getInstance(this);
+            
+            // Initialize Token Repository - no need to store a reference
+            TokenRepository.getInstance(this, apiService);
+            
+            // Initialize Secure Token Manager - must call init() before getInstance() to avoid IllegalStateException
+            SecureTokenManager.init(this);
+            secureTokenManager = SecureTokenManager.getInstance();
+            
+            // Initialize repositories
+            festivalRepository = FestivalRepository.getInstance(this);
+            templateRepository = TemplateRepository.getInstance();
+            resourceRepository = ResourceRepository.getInstance(this);
+            userRepository = UserRepository.getInstance(this);
+            
+            // Initialize AdMob Manager
+            AdMobManager.init(this);
+            adMobManager = AdMobManager.getInstance();
+            
+            // Initialize App Open Ad Manager
+            AppOpenAdManager.init(this);
+            
+            // Set up WorkManager
             setupWorkManager();
             
             // Schedule workers
             scheduleWorkers();
             
-            // Restore pending reminders
+            // Initialize all components
+            initializeComponents();
+            
+            // Clear database cache
+            clearDatabaseCache();
+            
+            // Restore any pending reminders
             restorePendingReminders();
             
-            Log.d(TAG, "Services initialized successfully");
+            Log.d(TAG, "All application services initialized successfully");
         } catch (Exception e) {
-            Log.e(TAG, "Error initializing services", e);
+            Log.e(TAG, "Failed to initialize services", e);
         }
     }
 
@@ -443,8 +439,8 @@ public class EventWishApplication extends Application implements Configuration.P
         return categoryIconRepository;
     }
     
-    public ApiClient getApiClient() {
-        return apiClient;
+    public ApiService getApiService() {
+        return apiService;
     }
     
     public TimeUtils getTimeUtils() {
@@ -476,7 +472,26 @@ public class EventWishApplication extends Application implements Configuration.P
 
     @Override
     public void onActivityResumed(Activity activity) {
-        this.currentActivity = activity;
+        currentActivity = activity;
+        runningActivities++;
+        
+        // If the app is now in the foreground
+        if (runningActivities == 1) {
+            Log.d(TAG, "App entered foreground");
+            
+            // Show App Open ad if available and not in TestAdActivity
+            if (!activity.getClass().getSimpleName().equals("TestAdActivity")) {
+                try {
+                    AppOpenAdManager appOpenAdManager = AppOpenAdManager.getInstance();
+                    if (appOpenAdManager.isAdReadyToShow()) {
+                        Log.d(TAG, "Showing App Open ad on resume");
+                        appOpenAdManager.showAdIfAvailable();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error showing App Open ad on resume", e);
+                }
+            }
+        }
         
         // Update user's last online status
         if (userRepository != null) {
@@ -525,5 +540,12 @@ public class EventWishApplication extends Application implements Configuration.P
 
     public SecureTokenManager getSecureTokenManager() {
         return secureTokenManager;
+    }
+
+    /**
+     * Get the App Open Ad Manager instance
+     */
+    public AppOpenAdManager getAppOpenAdManager() {
+        return AppOpenAdManager.getInstance();
     }
 }
