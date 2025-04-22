@@ -2,68 +2,119 @@ package com.ds.eventwish.data.model;
 
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+import androidx.room.ColumnInfo;
+import androidx.room.Entity;
+import androidx.room.ForeignKey;
+import androidx.room.Ignore;
+import androidx.room.Index;
+import androidx.room.PrimaryKey;
+import androidx.room.TypeConverters;
+
+import com.ds.eventwish.data.converter.DateConverter;
 import com.google.gson.annotations.SerializedName;
 import java.util.Date;
 import java.util.Objects;
 
+@Entity(
+    tableName = "shared_wish",
+    foreignKeys = @ForeignKey(
+        entity = Template.class,
+        parentColumns = "id",
+        childColumns = "template_id",
+        onDelete = ForeignKey.CASCADE
+    ),
+    indices = {
+        @Index(value = {"template_id"}),
+        @Index(value = {"short_code"}, unique = true),
+        @Index(value = {"created_at"})
+    }
+)
 public class SharedWish {
+    @PrimaryKey
+    @NonNull
+    @ColumnInfo(name = "id")
     @SerializedName("_id")
     private String id;
     
+    @ColumnInfo(name = "short_code")
     private String shortCode;
+
+    @ColumnInfo(name = "message")
     private String message;
     
+    @ColumnInfo(name = "template_id")
     @SerializedName("templateId")
     private String templateId;
 
+    @Ignore
     @SerializedName("template")
     private Template template;
     
+    @ColumnInfo(name = "recipient_name")
     @SerializedName("recipientName")
     private String recipientName;
     
+    @ColumnInfo(name = "sender_name")
     @SerializedName("senderName")
     private String senderName;
     
+    @ColumnInfo(name = "customized_html")
     @SerializedName("customizedHtml")
     private String customizedHtml;
     
+    @ColumnInfo(name = "views")
     @SerializedName("views")
     private int views;
     
+    @ColumnInfo(name = "last_shared_at")
     @SerializedName("lastSharedAt")
+    @TypeConverters(DateConverter.class)
     private Date lastSharedAt;
     
+    @ColumnInfo(name = "created_at")
     @SerializedName("createdAt")
+    @TypeConverters(DateConverter.class)
     private Date createdAt;
     
+    @ColumnInfo(name = "updated_at")
     @SerializedName("updatedAt")
+    @TypeConverters(DateConverter.class)
     private Date updatedAt;
 
+    @ColumnInfo(name = "css_content")
     @SerializedName("cssContent")
     private String cssContent;
 
+    @ColumnInfo(name = "js_content")
     @SerializedName("jsContent")
     private String jsContent;
 
+    @ColumnInfo(name = "preview_url")
     @SerializedName("previewUrl")
     private String previewUrl;
 
+    @ColumnInfo(name = "shared_via")
     @SerializedName("sharedVia")
     private String sharedVia;
 
+    @ColumnInfo(name = "title")
     @SerializedName("title")
     private String title;
 
+    @ColumnInfo(name = "description")
     @SerializedName("description")
     private String description;
 
+    @ColumnInfo(name = "deep_link")
     @SerializedName("deepLink")
     private String deepLink;
 
+    // Required by Room
     public SharedWish() {
     }
 
+    @Ignore
     public SharedWish(String senderName, String recipientName, String message, String templateId, String previewUrl) {
         this.senderName = senderName;
         this.recipientName = recipientName;

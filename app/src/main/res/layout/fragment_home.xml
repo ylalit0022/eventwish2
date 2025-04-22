@@ -136,7 +136,7 @@
                 android:scrollbars="none">
 
                 <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/filterChipGroup"
+                    android:id="@+id/chipGroupSort"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     app:singleSelection="true"
@@ -188,7 +188,7 @@
                 android:scrollbars="none">
 
                 <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/timeFilterChipGroup"
+                    android:id="@+id/chipGroupTimeFilter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     app:singleSelection="true"
@@ -226,6 +226,14 @@
                         android:layout_height="wrap_content"
                         android:textSize="10sp"
                         android:text="This Month"/>
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipThisYear"
+                        style="@style/Widget.MaterialComponents.Chip.Choice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="10sp"
+                        android:text="This Year"/>
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/advancedFilterButton"
@@ -490,4 +498,5 @@
     <include
         android:id="@+id/filterBottomSheet"
         layout="@layout/bottom_sheet_filter" />
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
