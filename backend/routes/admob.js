@@ -2,12 +2,12 @@ const express = require('express');
 const router = express.Router();
 const { AdMob } = require('../models/AdMob');
 const { Coins } = require('../models/Coins');
-const { verifyApiKey } = require('../middleware/auth');
+const apiAuth = require('../middleware/apiAuth');
 const { validateDeviceId } = require('../middleware/validation');
 const { handleError } = require('../utils/errorHandler');
 
 // Get available ad units for a device
-router.get('/units', verifyApiKey, validateDeviceId, async (req, res) => {
+router.get('/units', apiAuth, validateDeviceId, async (req, res) => {
     try {
         const deviceId = req.headers['x-device-id'];
         const adType = req.query.type; // Optional filter by ad type
@@ -49,7 +49,7 @@ router.get('/units', verifyApiKey, validateDeviceId, async (req, res) => {
 });
 
 // Get ad status and cooldowns for a device
-router.get('/status', verifyApiKey, validateDeviceId, async (req, res) => {
+router.get('/status', apiAuth, validateDeviceId, async (req, res) => {
     try {
         const deviceId = req.headers['x-device-id'];
         const adType = req.query.type; // Optional filter by ad type
@@ -102,7 +102,7 @@ router.get('/status', verifyApiKey, validateDeviceId, async (req, res) => {
 });
 
 // Handle reward redemption
-router.post('/reward', verifyApiKey, validateDeviceId, async (req, res) => {
+router.post('/reward', apiAuth, validateDeviceId, async (req, res) => {
     try {
         const deviceId = req.headers['x-device-id'];
         const { adUnitId } = req.body;
@@ -195,7 +195,7 @@ router.post('/reward', verifyApiKey, validateDeviceId, async (req, res) => {
 });
 
 // Record ad impression
-router.post('/impression', verifyApiKey, validateDeviceId, async (req, res) => {
+router.post('/impression', apiAuth, validateDeviceId, async (req, res) => {
     try {
         const deviceId = req.headers['x-device-id'];
         const { adUnitId, context } = req.body;
@@ -229,7 +229,7 @@ router.post('/impression', verifyApiKey, validateDeviceId, async (req, res) => {
 });
 
 // Record ad click
-router.post('/click', verifyApiKey, validateDeviceId, async (req, res) => {
+router.post('/click', apiAuth, validateDeviceId, async (req, res) => {
     try {
         const deviceId = req.headers['x-device-id'];
         const { adUnitId, context } = req.body;
