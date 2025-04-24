@@ -41,6 +41,10 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
     private OnMoreClickListener onMoreClickListener;
     private String selectedCategoryId; // Track the selected category ID
     
+    // State flags for loading states
+    private boolean isInitialLoading = false;
+    private boolean isPaginationLoading = false;
+    
     /**
      * Interface for handling category click events
      */
@@ -139,8 +143,8 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
                 boolean sameId = (oldItem.getId() == null && newItem.getId() == null) ||
                         (oldItem.getId() != null && oldItem.getId().equals(newItem.getId()));
                 boolean sameName = oldItem.getName().equals(newItem.getName());
-                boolean sameImage = (oldItem.getIconUrl() == null && newItem.getIconUrl() == null) ||
-                        (oldItem.getIconUrl() != null && oldItem.getIconUrl().equals(newItem.getIconUrl()));
+                boolean sameImage = (oldItem.getIcon() == null && newItem.getIcon() == null) ||
+                        (oldItem.getIcon() != null && oldItem.getIcon().equals(newItem.getIcon()));
                 
                 return sameId && sameName && sameImage;
             }
@@ -292,93 +296,16 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         void bind(final Category category, final int position) {
             textView.setText(category.getName());
             
-            // Load image with enhanced Glide configuration for better caching
-            if (category.getIconUrl() != null && !category.getIconUrl().isEmpty()) {
-                String imageUrl = category.getIconUrl();
-                
-                // Log image loading for debugging
-                Log.d(TAG, "Loading category icon for: " + category.getName() + " from URL: " + imageUrl);
-                
-                // Use a placeholder while loading to maintain layout stability
-                imageView.setImageResource(R.drawable.ic_category);
-                
-                // Enhanced Glide request with better caching and error handling
-                RequestOptions options = new RequestOptions()
-                    .placeholder(R.drawable.ic_category)
-                    .error(R.drawable.ic_category)
-                    .diskCacheStrategy(DiskCacheStrategy.ALL) // Cache both original & resized image
-                    .skipMemoryCache(false) // Use memory cache
-                    .override(200, 200) // Consistent size
-                    .centerCrop(); // Center crop for consistent appearance
-                
-                try {
-                    Glide.with(context.getApplicationContext()) // Use application context to avoid memory leaks
-                        .load(imageUrl)
-                        .apply(options)
-                        .timeout(10000) // 10-second timeout
-                        .listener(new RequestListener<>() {
-                            @Override
-                            public boolean onLoadFailed(@Nullable GlideException e, 
-                                                    Object model, 
-                                                    Target<android.graphics.drawable.Drawable> target, 
-                                                    boolean isFirstResource) {
-                                Log.e(TAG, "Failed to load image for " + category.getName() + 
-                                    ": " + (e != null ? e.getMessage() : "unknown error"));
-                                
-                                // Fallback to category default icon
-                                imageView.setImageResource(R.drawable.ic_category);
-                                return true; // We've handled the error
-                            }
-
-                            @Override
-                            public boolean onResourceReady(android.graphics.drawable.Drawable resource, 
-                                                        Object model, 
-                                                        Target<android.graphics.drawable.Drawable> target, 
-                                                        DataSource dataSource, 
-                                                        boolean isFirstResource) {
-                                Log.d(TAG, "Successfully loaded image for " + category.getName() + 
-                                    " (from " + dataSource.name() + ")");
-                                return false; // Let Glide handle setting the resource
-                            }
-                        })
-                        .into(imageView);
-                } catch (Exception e) {
-                    Log.e(TAG, "Error while loading category icon: " + e.getMessage(), e);
-                    imageView.setImageResource(R.drawable.ic_category);
-                }
-            } else {
-                // Use default icon if no URL is available
-                Log.d(TAG, "No icon URL for category: " + category.getName() + ", using default icon");
-                imageView.setImageResource(R.drawable.ic_category);
-            }
+            // Update selection state
+            boolean isSelected = (selectedCategoryId == null && category.getId() == null) ||
+                    (selectedCategoryId != null && selectedCategoryId.equals(category.getId()));
             
-            // Check if this category is selected - improved logic for handling "All" category
-            boolean isSelected;
-            if (selectedCategoryId == null) {
-                // When selectedCategoryId is null, the "All" category should be selected
-                isSelected = category.getId() == null;
-            } else {
-                // When selectedCategoryId is not null, match by ID
-                isSelected = selectedCategoryId.equals(category.getId());
-            }
-            
-            // Update the UI to reflect selection state
+            // Apply selection styling
             container.setSelected(isSelected);
+            textView.setSelected(isSelected);
             
-            // Apply additional styling for selected state
-            if (isSelected) {
-                // Change text color for selected category
-                textView.setTextColor(context.getResources().getColor(R.color.colorPrimary, null));
-                
-                // Change icon tint for selected category
-                imageView.setColorFilter(context.getResources().getColor(R.color.colorPrimary, null));
-            } else {
-                // Default text color for unselected categories
-                textView.setTextColor(context.getResources().getColor(R.color.black, null));
-                
-                // Default icon tint for unselected categories
-                imageView.setColorFilter(context.getResources().getColor(R.color.purple_500, null));
-            }
+            // Load category icon with improved error handling
+            loadCategoryIcon(category);
             
             // Set click listener
             itemView.setOnClickListener(v -> {
@@ -386,6 +313,155 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
                     onCategoryClickListener.onCategoryClick(category, position);
                 }
             });
+        }
+        
+        /**
+         * Load the category icon with robust error handling
+         */
+        private void loadCategoryIcon(Category category) {
+            // Default to placeholder
+            imageView.setImageResource(R.drawable.ic_category);
+
+            // Check all levels in the chain with detailed logging
+            if (category == null) {
+                Log.w(TAG, "Null category object in bind()");
+                return;
+            }
+            
+            if (category.getIcon() == null) {
+                Log.w(TAG, "Null icon object for category: " + category.getName());
+                return;
+            }
+            
+            if (category.getIcon().getCategoryIcon() == null) {
+                Log.w(TAG, "Null getCategoryIcon() for category: " + category.getName());
+                return;
+            }
+            
+            final String imageUrl = category.getIcon().getCategoryIcon();
+            if (imageUrl.isEmpty()) {
+                Log.w(TAG, "Empty icon URL for category: " + category.getName());
+                return;
+            }
+            
+            // Enhanced Glide request with better error handling and caching
+            RequestOptions requestOptions = new RequestOptions()
+                .placeholder(R.drawable.ic_category)
+                .error(R.drawable.ic_category)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .timeout(15000); // 15 second timeout for slow connections
+                
+            Glide.with(context)
+                .load(imageUrl)
+                .apply(requestOptions)
+                .listener(new RequestListener<android.graphics.drawable.Drawable>() {
+                    @Override
+                    public boolean onLoadFailed(@Nullable GlideException e, 
+                                            Object model, 
+                                            Target<android.graphics.drawable.Drawable> target, 
+                                            boolean isFirstResource) {
+                        String categoryName = category != null ? category.getName() : "unknown";
+                        String categoryId = category != null ? category.getId() : "null";
+                        
+                        Log.w(TAG, "Failed to load icon for category: '" + categoryName + "' (ID: " + 
+                              categoryId + "), URL: " + imageUrl, e);
+                        
+                        if (e != null) {
+                            // Log detailed exception info
+                            for (Throwable t : e.getRootCauses()) {
+                                Log.w(TAG, "Root cause: " + t.getMessage(), t);
+                            }
+                        }
+                        
+                        // Try fallback loading directly if this was a specific type of error
+                        // (like malformed URL, which we might be able to fix)
+                        if (e != null && e.getRootCauses().size() > 0 && 
+                            (e.getMessage().contains("URL") || e.getMessage().contains("http"))) {
+                            // Try fixing common URL issues
+                            final String fixedUrl = fixCommonUrlIssues(imageUrl);
+                            if (!fixedUrl.equals(imageUrl)) {
+                                Log.d(TAG, "Trying with fixed URL: " + fixedUrl);
+                                Glide.with(context)
+                                    .load(fixedUrl)
+                                    .apply(requestOptions)
+                                    .into(imageView);
+                            }
+                        }
+                        
+                        return false; // Let Glide set the error drawable
+                    }
+                    
+                    @Override
+                    public boolean onResourceReady(android.graphics.drawable.Drawable resource, 
+                                                Object model, 
+                                                Target<android.graphics.drawable.Drawable> target, 
+                                                DataSource dataSource, 
+                                                boolean isFirstResource) {
+                        Log.d(TAG, "Successfully loaded icon for: " + 
+                              (category != null ? category.getName() : "unknown") + 
+                              ", source: " + dataSource.name());
+                        return false;
+                    }
+                })
+                .into(imageView);
+        }
+        
+        /**
+         * Attempt to fix common URL issues
+         */
+        private String fixCommonUrlIssues(String url) {
+            if (url == null || url.isEmpty()) {
+                return url;
+            }
+            
+            // Add https:// if missing
+            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                if (url.startsWith("//")) {
+                    return "https:" + url;
+                } else {
+                    return "https://" + url;
+                }
+            }
+            
+            // Fix double http issues
+            if (url.contains("http://http://")) {
+                return url.replace("http://http://", "http://");
+            }
+            if (url.contains("https://http://")) {
+                return url.replace("https://http://", "http://");
+            }
+            if (url.contains("http://https://")) {
+                return url.replace("http://https://", "https://");
+            }
+            if (url.contains("https://https://")) {
+                return url.replace("https://https://", "https://");
+            }
+            
+            return url;
+        }
+    }
+    
+    /**
+     * Set loading state for the adapter
+     * @param loading Whether the adapter is in loading state
+     */
+    public void setLoading(boolean loading) {
+        // Handle initial loading vs pagination loading
+        if (!this.isInitialLoading && loading) {
+            // This is the first loading state
+            this.isInitialLoading = true;
+            this.isPaginationLoading = false;
+        } else if (this.isInitialLoading && !loading) {
+            // Initial loading finished
+            this.isInitialLoading = false;
+        }
+        
+        if (this.isPaginationLoading != loading) {
+            this.isPaginationLoading = loading;
+            // Only show loading UI during pagination
+            if (loading) {
+                notifyDataSetChanged();
+            }
         }
     }
 } 

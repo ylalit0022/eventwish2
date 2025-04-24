@@ -14,6 +14,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.DiffUtil;
+import android.animation.ValueAnimator;
+import android.graphics.PorterDuffColorFilter;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.DataSource;
@@ -305,17 +308,25 @@ public class CategoriesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             }
         }
         
-        // Add categories up to MAX_VISIBLE_CATEGORIES - 1 (leaving space for More if needed)
-        int availableSlots = MAX_VISIBLE_CATEGORIES - visibleCategories.size();
-        int categoriesToShow = Math.min(availableSlots, regularCategories.size());
+        // Calculate how many categories we can show
+        // We need to reserve 1 slot for "All" (already added) and 1 slot for "More"
+        // So we can show MAX_VISIBLE_CATEGORIES - 2 additional categories
+        int maxAdditionalCategories = MAX_VISIBLE_CATEGORIES - 2;
+        
+        // If we have more regular categories than slots, we need the "More" button
+        boolean needMoreButton = regularCategories.size() > maxAdditionalCategories;
+        
+        // Add categories up to the calculated limit
+        int categoriesToShow = Math.min(maxAdditionalCategories, regularCategories.size());
         
         for (int i = 0; i < categoriesToShow; i++) {
             visibleCategories.add(regularCategories.get(i));
         }
         
         // Add "More" if there are additional categories
-        if (regularCategories.size() > categoriesToShow) {
+        if (needMoreButton) {
             visibleCategories.add("More");
+            Log.d(TAG, "📋 Added 'More' option for " + (regularCategories.size() - categoriesToShow) + " additional categories");
         }
         
         Log.d(TAG, "📋 Visible categories: " + visibleCategories.size() + 
@@ -334,22 +345,13 @@ public class CategoriesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         
         // Only update if position changed
         if (selectedPosition != position) {
-            // Set prevention flag temporarily during selection change
-            boolean wasPreventingChanges = preventCategoryChanges;
-            preventCategoryChanges = true;
+            int previousPosition = selectedPosition;
+            selectedPosition = position;
             
-            try {
-                int previousPosition = selectedPosition;
-                selectedPosition = position;
-                
-                // Only refresh affected items instead of the whole list
-                notifyItemChanged(previousPosition);
-                notifyItemChanged(selectedPosition);
-                Log.d(TAG, "🔄 Selection changed from " + previousPosition + " to " + selectedPosition);
-            } finally {
-                // Restore previous prevention state
-                preventCategoryChanges = wasPreventingChanges;
-            }
+            // Use stable item IDs to ensure smooth animation
+            notifyItemChanged(previousPosition, "selection_change");
+            notifyItemChanged(selectedPosition, "selection_change");
+            Log.d(TAG, "🔄 Selection changed from " + previousPosition + " to " + selectedPosition);
         }
     }
 
@@ -376,13 +378,6 @@ public class CategoriesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         // At this point, the category isn't in the visible list
         Log.d(TAG, "🔄 Category not in visible list, updating: " + category);
         
-        // Save old selected position for UI update
-        String oldSelected = selectedPosition < visibleCategories.size() ? 
-                visibleCategories.get(selectedPosition) : null;
-                
-        // Create a copy of the current visible list to detect changes
-        List<String> oldVisibleList = new ArrayList<>(visibleCategories);
-        
         // Preserve original categories and their order
         List<String> originalCategories = new ArrayList<>(categories);
         
@@ -393,21 +388,30 @@ public class CategoriesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         int newPosition = visibleCategories.indexOf(category);
         if (newPosition >= 0) {
             selectedPosition = newPosition;
-            
-            // Compare visible lists to determine refresh approach
-            boolean minorChange = oldVisibleList.size() == visibleCategories.size() && 
-                    Math.abs(oldVisibleList.indexOf(oldSelected) - newPosition) <= 2;
-                    
-            if (minorChange) {
-                // Just update the selection appearance for minor changes
-                notifyItemChanged(oldVisibleList.indexOf(oldSelected));
-                notifyItemChanged(selectedPosition);
-                Log.d(TAG, "🔄 Minor update for category selection");
-            } else {
-                // Full refresh for significant changes in the visible list
-                notifyDataSetChanged();
-                Log.d(TAG, "🔄 Full refresh of categories adapter");
-            }
+            // Use diff util for smoother UI updates
+            DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(new DiffUtil.Callback() {
+                @Override
+                public int getOldListSize() {
+                    return originalCategories.size();
+                }
+
+                @Override
+                public int getNewListSize() {
+                    return categories.size();
+                }
+
+                @Override
+                public boolean areItemsTheSame(int oldItemPosition, int newItemPosition) {
+                    return oldItemPosition == newItemPosition;
+                }
+
+                @Override
+                public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
+                    return oldItemPosition == newItemPosition;
+                }
+            });
+            diffResult.dispatchUpdatesTo(this);
+            Log.d(TAG, "🔄 Smooth update of categories adapter with DiffUtil");
         } else {
             Log.e(TAG, "⚠️ Selected category not in visible list after update!");
         }
@@ -425,7 +429,7 @@ public class CategoriesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         }
         
         // Add the selected category if not "All" and not already included
-        if (!category.equals("All") && categories.contains(category) &&
+        if (category != null && !category.equals("All") && categories.contains(category) &&
                 !visibleCategories.contains(category)) {
             visibleCategories.add(category);
         }
@@ -433,26 +437,31 @@ public class CategoriesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         // Create remaining categories list excluding already added ones
         List<String> remainingCategories = new ArrayList<>();
         for (String cat : categories) {
-            if (!visibleCategories.contains(cat) && !cat.equals("All")) {
+            if (!visibleCategories.contains(cat) && !cat.equals("All") && !cat.equals("More")) {
                 remainingCategories.add(cat);
             }
         }
         
-        // Calculate how many more categories we can add to reach 5 total
-        int slotsRemaining = 5 - visibleCategories.size();
+        // Sort remaining categories for consistency
+        Collections.sort(remainingCategories);
         
-        // Add remaining categories up to the 5-category limit
+        // Calculate how many more categories we can add to reach MAX_VISIBLE_CATEGORIES (5 total including "More")
+        int slotsRemaining = MAX_VISIBLE_CATEGORIES - visibleCategories.size() - 1; // Reserve one slot for "More"
+        
+        // Add remaining categories up to the limit
         for (int i = 0; i < Math.min(slotsRemaining, remainingCategories.size()); i++) {
             visibleCategories.add(remainingCategories.get(i));
         }
         
-        // Remove added categories from remainingCategories
-        remainingCategories = remainingCategories.subList(
-            Math.min(slotsRemaining, remainingCategories.size()),
-            remainingCategories.size()
-        );
+        // Remove added categories from the remaining list
+        if (slotsRemaining < remainingCategories.size()) {
+            remainingCategories = remainingCategories.subList(
+                Math.min(slotsRemaining, remainingCategories.size()),
+                remainingCategories.size()
+            );
+        }
         
-        // Add "More" if there are remaining categories
+        // Add "More" if there are more categories that couldn't fit
         if (!remainingCategories.isEmpty()) {
             visibleCategories.add("More");
             Log.d(TAG, "📋 Added 'More' option for " + remainingCategories.size() + " additional categories");
@@ -474,6 +483,25 @@ public class CategoriesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     }
 
     @Override
+    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position, @NonNull List<Object> payloads) {
+        if (!payloads.isEmpty() && holder instanceof CategoryViewHolder) {
+            // Partial binding for selection state change only
+            if (payloads.contains("selection_change")) {
+                CategoryViewHolder categoryHolder = (CategoryViewHolder) holder;
+                String category = visibleCategories.get(position);
+                boolean isMore = "More".equals(category);
+                boolean isSelected = position == selectedPosition && !isMore;
+                
+                // Update just the selection state without rebinding everything
+                categoryHolder.updateSelectionState(isSelected);
+                return;
+            }
+        }
+        // Call full binding if not a partial update
+        onBindViewHolder(holder, position);
+    }
+
+    @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         if (holder instanceof LoadingViewHolder) {
             ((LoadingViewHolder) holder).shimmerLayout.startShimmer();
@@ -486,32 +514,47 @@ public class CategoriesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             // Bind the data to the ViewHolder
             categoryHolder.bind(category, isSelected);
 
-            // Set click listener
+            // Set click listener with animation
             holder.itemView.setOnClickListener(v -> {
-                if (isMore && moreClickListener != null) {
-                    // Get remaining categories, excluding special categories and already visible ones
-                    List<String> remainingCategories = new ArrayList<>();
-                    for (String cat : categories) {
-                        // Skip special categories and already visible ones
-                        if (!cat.equals("All") && 
-                            !cat.equals("More") && 
-                            !visibleCategories.subList(0, visibleCategories.size() - 1).contains(cat)) {
-                            remainingCategories.add(cat);
+                // Add click animation
+                v.animate()
+                    .scaleX(0.95f)
+                    .scaleY(0.95f)
+                    .setDuration(50)
+                    .withEndAction(() -> {
+                        v.animate()
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .setDuration(100)
+                            .start();
+                            
+                        // Handle click after animation
+                        if (isMore && moreClickListener != null) {
+                            // Get remaining categories, excluding special categories and already visible ones
+                            List<String> remainingCategories = new ArrayList<>();
+                            for (String cat : categories) {
+                                // Skip special categories and already visible ones
+                                if (!cat.equals("All") && 
+                                    !cat.equals("More") && 
+                                    !visibleCategories.subList(0, visibleCategories.size() - 1).contains(cat)) {
+                                    remainingCategories.add(cat);
+                                }
+                            }
+                            
+                            if (!remainingCategories.isEmpty()) {
+                                // Sort categories alphabetically for better readability in dialog
+                                Collections.sort(remainingCategories);
+                                moreClickListener.onMoreClick(remainingCategories);
+                                Log.d(TAG, "👆 More clicked, showing " + remainingCategories.size() + 
+                                      " additional categories");
+                            }
+                        } else if (listener != null && !isMore) {
+                            setSelectedPosition(position);
+                            listener.onCategoryClick(category, position);
+                            Log.d(TAG, "👆 Category clicked: " + category + " at position " + position);
                         }
-                    }
-                    
-                    if (!remainingCategories.isEmpty()) {
-                        // Sort categories alphabetically for better readability in dialog
-                        Collections.sort(remainingCategories);
-                        moreClickListener.onMoreClick(remainingCategories);
-                        Log.d(TAG, "👆 More clicked, showing " + remainingCategories.size() + 
-                              " additional categories");
-                    }
-                } else if (listener != null && !isMore) {
-                    setSelectedPosition(position);
-                    listener.onCategoryClick(category, position);
-                    Log.d(TAG, "👆 Category clicked: " + category + " at position " + position);
-                }
+                    })
+                    .start();
             });
         }
     }
@@ -564,11 +607,19 @@ public class CategoriesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             
             // Special handling for "More" button
             if ("More".equals(category)) {
+                // Use a more visually distinct style for the "More" button
                 categoryIconView.setImageResource(R.drawable.ic_more);
+                
+                // Apply special styling for More button
                 categoryIconView.setColorFilter(
-                        itemView.getContext().getColor(R.color.text_primary));
+                        itemView.getContext().getColor(R.color.purple_500));
                 categoryName.setTextColor(
-                        itemView.getContext().getColor(R.color.text_primary));
+                        itemView.getContext().getColor(R.color.purple_500));
+                
+                // Add slight elevation to make it pop
+                linearLayout.setElevation(4f);
+                
+                // More button is never selected
                 linearLayout.setSelected(false);
                 return;
             }
@@ -585,19 +636,46 @@ public class CategoriesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             }
         }
         
+        void updateSelectionState(boolean isSelected) {
+            // Update only selection-related styles
+            setItemStyles(isSelected);
+        }
+        
         /**
          * Set selection styles for item
          */
         private void setItemStyles(boolean isSelected) {
-            // Set background based on selection state
+            // Add smooth transition animation
+            int animDuration = 150; // milliseconds
+            
+            // Set background based on selection state with animation
             linearLayout.setSelected(isSelected);
             
             // Set text and icon colors based on selection state
             int colorRes = isSelected ? R.color.black : R.color.text_primary;
-            int color = itemView.getContext().getColor(colorRes);
+            int targetColor = itemView.getContext().getColor(colorRes);
             
-            categoryName.setTextColor(color);
-            categoryIconView.setColorFilter(color);
+            // Get current text color for smoother transition
+            int currentTextColor = categoryName.getCurrentTextColor();
+            
+            // Get current icon color or use default if null
+            int currentIconColor = R.color.text_primary;
+            
+            // Animate text color change
+            ValueAnimator textColorAnimator = ValueAnimator.ofArgb(
+                    currentTextColor, targetColor);
+            textColorAnimator.setDuration(animDuration);
+            textColorAnimator.addUpdateListener(animation -> 
+                    categoryName.setTextColor((int) animation.getAnimatedValue()));
+            textColorAnimator.start();
+            
+            // Animate icon color change
+            ValueAnimator iconColorAnimator = ValueAnimator.ofArgb(
+                    itemView.getContext().getColor(currentIconColor), targetColor);
+            iconColorAnimator.setDuration(animDuration);
+            iconColorAnimator.addUpdateListener(animation -> 
+                    categoryIconView.setColorFilter((int) animation.getAnimatedValue()));
+            iconColorAnimator.start();
         }
         
         /**

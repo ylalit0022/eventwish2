@@ -1,0 +1,8 @@
+[Cursor] Fix AdMob API authentication and routes
+
+- Update middleware import from auth.js to apiAuth.js
+- Fix API key validation in routes
+- Add proper error handling for API requests
+- Update route handlers to use correct authentication middleware
+- Add validation for device ID in routes
+- Improve error responses with detailed messages 

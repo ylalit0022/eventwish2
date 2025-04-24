@@ -40,8 +40,6 @@ import com.ds.eventwish.data.repository.FestivalRepository;
 import com.ds.eventwish.data.repository.TemplateRepository;
 import com.ds.eventwish.data.repository.ResourceRepository;
 import com.ds.eventwish.utils.AppExecutors;
-import com.ds.eventwish.ads.AdMobManager;
-import com.ds.eventwish.ads.AppOpenAdManager;
 
 public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
@@ -67,12 +65,6 @@ public class EventWishApplication extends Application implements Configuration.P
     // Services
     private AppExecutors appExecutors;
     
-    // AdMob manager
-    private AdMobManager adMobManager;
-    
-    // App Open Ad manager
-    private AppOpenAdManager appOpenAdManager;
-
     // Activity tracking
     private int runningActivities = 0;
 
@@ -368,16 +360,23 @@ public class EventWishApplication extends Application implements Configuration.P
             // Create notification channels
             createNotificationChannels();
             
-            // Initialize API Client
-            ApiClient.init(this);
-            apiService = ApiClient.getClient();
+            // Initialize Secure Token Manager first - must call init() before getInstance()
+            SecureTokenManager.init(this);
+            secureTokenManager = SecureTokenManager.getInstance();
             
-            // Schedule notifications
-            scheduleNotifications();
+            // Save the API key if not already saved
+            if (secureTokenManager.getApiKey() == null) {
+                Log.d(TAG, "Saving API key to SecureTokenManager");
+                secureTokenManager.saveApiKey("ew_dev_c1ce47afeff9fa8b7b1aa165562cb915");
+            }
             
-            // Initialize Device Utils - must call init() before getInstance() to avoid IllegalStateException
+            // Initialize Device Utils - depends on SecureTokenManager for device ID storage
             DeviceUtils.init(this);
             deviceUtils = DeviceUtils.getInstance();
+            
+            // Initialize API Client - depends on both SecureTokenManager and DeviceUtils
+            ApiClient.init(this);
+            apiService = ApiClient.getClient();
             
             // Initialize Category Icon Repository
             categoryIconRepository = CategoryIconRepository.getInstance(this);
@@ -385,41 +384,18 @@ public class EventWishApplication extends Application implements Configuration.P
             // Initialize Token Repository - no need to store a reference
             TokenRepository.getInstance(this, apiService);
             
-            // Initialize Secure Token Manager - must call init() before getInstance() to avoid IllegalStateException
-            SecureTokenManager.init(this);
-            secureTokenManager = SecureTokenManager.getInstance();
-            
             // Initialize repositories
             festivalRepository = FestivalRepository.getInstance(this);
             templateRepository = TemplateRepository.getInstance();
             resourceRepository = ResourceRepository.getInstance(this);
-            userRepository = UserRepository.getInstance(this);
             
-            // Initialize AdMob Manager
-            AdMobManager.init(this);
-            adMobManager = AdMobManager.getInstance();
+            // Schedule notifications
+            scheduleNotifications();
             
-            // Initialize App Open Ad Manager
-            AppOpenAdManager.init(this);
+            Log.d(TAG, "Application services initialized successfully");
             
-            // Set up WorkManager
-            setupWorkManager();
-            
-            // Schedule workers
-            scheduleWorkers();
-            
-            // Initialize all components
-            initializeComponents();
-            
-            // Clear database cache
-            clearDatabaseCache();
-            
-            // Restore any pending reminders
-            restorePendingReminders();
-            
-            Log.d(TAG, "All application services initialized successfully");
         } catch (Exception e) {
-            Log.e(TAG, "Failed to initialize services", e);
+            Log.e(TAG, "Error initializing application services", e);
         }
     }
 
@@ -478,19 +454,6 @@ public class EventWishApplication extends Application implements Configuration.P
         // If the app is now in the foreground
         if (runningActivities == 1) {
             Log.d(TAG, "App entered foreground");
-            
-            // Show App Open ad if available and not in TestAdActivity
-            if (!activity.getClass().getSimpleName().equals("TestAdActivity")) {
-                try {
-                    AppOpenAdManager appOpenAdManager = AppOpenAdManager.getInstance();
-                    if (appOpenAdManager.isAdReadyToShow()) {
-                        Log.d(TAG, "Showing App Open ad on resume");
-                        appOpenAdManager.showAdIfAvailable();
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error showing App Open ad on resume", e);
-                }
-            }
         }
         
         // Update user's last online status
@@ -530,22 +493,7 @@ public class EventWishApplication extends Application implements Configuration.P
         return userRepository;
     }
 
-    /**
-     * Get the AdMobManager instance
-     * @return AdMobManager instance or null if not initialized
-     */
-    public AdMobManager getAdMobManager() {
-        return adMobManager;
-    }
-
     public SecureTokenManager getSecureTokenManager() {
         return secureTokenManager;
-    }
-
-    /**
-     * Get the App Open Ad Manager instance
-     */
-    public AppOpenAdManager getAppOpenAdManager() {
-        return AppOpenAdManager.getInstance();
     }
 }

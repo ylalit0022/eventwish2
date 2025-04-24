@@ -537,29 +537,46 @@ public class CategoryIconRepository {
         // Check URL cache first (fastest)
         String cachedUrl = urlCache.get(normalizedCategory);
         if (cachedUrl != null) {
-            Log.d(TAG, "🚀 URL cache hit for category: '" + normalizedCategory + "'");
-            return cachedUrl;
+            // Validate the cached URL before returning
+            if (isValidUrl(cachedUrl)) {
+                Log.d(TAG, "🚀 URL cache hit for category: '" + normalizedCategory + "'");
+                return cachedUrl;
+            } else {
+                Log.w(TAG, "⚠️ Removing invalid URL from cache: " + cachedUrl);
+                urlCache.remove(normalizedCategory);
+                // Continue to other sources
+            }
         }
         
         // Check memory cache next
         CategoryIcon icon = categoryIconMap.get(normalizedCategory);
-        if (icon != null && icon.getCategoryIcon() != null && !icon.getCategoryIcon().isEmpty()) {
+        if (icon != null && icon.getCategoryIcon() != null) {
             String url = icon.getCategoryIcon();
-            // Cache the URL for future quick lookups
-            urlCache.put(normalizedCategory, url);
-            Log.d(TAG, "✅ Found exact match icon URL for category: '" + normalizedCategory + "'");
-            return url;
+            if (!url.isEmpty() && isValidUrl(url)) {
+                // Cache the URL for future quick lookups
+                urlCache.put(normalizedCategory, url);
+                Log.d(TAG, "✅ Found exact match icon URL for category: '" + normalizedCategory + "'");
+                return url;
+            } else {
+                Log.w(TAG, "⚠️ Found icon with invalid URL: " + url);
+                // Continue to other sources
+            }
         }
         
         // If not found with exact match, try fuzzy matching
         CategoryIcon matchedIcon = findBestMatchingIcon(normalizedCategory);
         if (matchedIcon != null && matchedIcon.getCategoryIcon() != null) {
             String url = matchedIcon.getCategoryIcon();
-            // Cache the URL and icon for future lookups
-            urlCache.put(normalizedCategory, url);
-            categoryIconMap.put(normalizedCategory, matchedIcon);
-            Log.d(TAG, "🔍 Found fuzzy match icon URL for category: '" + normalizedCategory + "'");
-            return url;
+            if (!url.isEmpty() && isValidUrl(url)) {
+                // Cache the URL and icon for future lookups
+                urlCache.put(normalizedCategory, url);
+                categoryIconMap.put(normalizedCategory, matchedIcon);
+                Log.d(TAG, "🔍 Found fuzzy match icon URL for category: '" + normalizedCategory + "'");
+                return url;
+            } else {
+                Log.w(TAG, "⚠️ Found fuzzy match with invalid URL: " + url);
+                // Continue to other sources
+            }
         }
         
         // If still not found, initialize if needed and check again
@@ -573,9 +590,11 @@ public class CategoryIconRepository {
             icon = categoryIconMap.get(normalizedCategory);
             if (icon != null && icon.getCategoryIcon() != null) {
                 String url = icon.getCategoryIcon();
-                urlCache.put(normalizedCategory, url);
-                Log.d(TAG, "✅ Found icon after initialization for: '" + normalizedCategory + "'");
-                return url;
+                if (!url.isEmpty() && isValidUrl(url)) {
+                    urlCache.put(normalizedCategory, url);
+                    Log.d(TAG, "✅ Found icon after initialization for: '" + normalizedCategory + "'");
+                    return url;
+                }
             }
         }
         
@@ -589,6 +608,41 @@ public class CategoryIconRepository {
         categoryIconMap.put(normalizedCategory, fallbackIcon);
         
         return fallbackUrl;
+    }
+    
+    /**
+     * Check if a URL is valid and well-formed
+     */
+    private boolean isValidUrl(String url) {
+        if (url == null || url.isEmpty()) {
+            return false;
+        }
+        
+        // Basic URL validation
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            Log.w(TAG, "⚠️ URL doesn't start with http/https: " + url);
+            return false;
+        }
+        
+        // Check for common invalid URLs
+        if (url.equals("https://null") || url.equals("http://null") || 
+            url.equals("https://undefined") || url.equals("http://undefined")) {
+            Log.w(TAG, "⚠️ URL contains invalid value: " + url);
+            return false;
+        }
+        
+        // Make sure URL has a host
+        try {
+            java.net.URL parsedUrl = new java.net.URL(url);
+            if (parsedUrl.getHost() == null || parsedUrl.getHost().isEmpty()) {
+                Log.w(TAG, "⚠️ URL has no host: " + url);
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "⚠️ Invalid URL format: " + url, e);
+            return false;
+        }
     }
     
     /**
@@ -953,5 +1007,63 @@ public class CategoryIconRepository {
         long currentTime = System.currentTimeMillis();
         long cacheTime = lastMemoryCacheRefresh + CACHE_EXPIRATION_ICONS;
         return currentTime > cacheTime;
+    }
+
+    /**
+     * Get a category icon by its MongoDB ObjectId
+     * @param iconId MongoDB ObjectId as string
+     * @return The CategoryIcon object or null if not found
+     */
+    @Nullable
+    public CategoryIcon getCategoryIconById(String iconId) {
+        if (iconId == null || iconId.isEmpty()) {
+            Log.w(TAG, "⚠️ getCategoryIconById called with null/empty id");
+            return null;
+        }
+        
+        // Check if we already have this icon in the map by iterating values
+        for (CategoryIcon icon : categoryIconMap.values()) {
+            if (iconId.equals(icon.getId())) {
+                Log.d(TAG, "✅ Found cached icon by ID: " + iconId);
+                return icon;
+            }
+        }
+        
+        // If not found in cache, try to fetch it from the API synchronously
+        // This is a blocking operation, so it should be called from a background thread
+        if (apiService != null) {
+            try {
+                Log.d(TAG, "🔄 Fetching category icon by ID: " + iconId);
+                
+                // The URL is expected to be in the format:
+                // https://eventwish2.onrender.com/api/categoryIcons/OBJECT_ID
+                Response<CategoryIcon> response = apiService.getCategoryIconById(iconId).execute();
+                
+                if (response.isSuccessful() && response.body() != null) {
+                    CategoryIcon icon = response.body();
+                    Log.d(TAG, "✅ Fetched icon by ID: " + iconId);
+                    
+                    // Cache the icon for future use
+                    if (icon.getCategory() != null) {
+                        String normalizedCategory = normalizeCategory(icon.getCategory());
+                        categoryIconMap.put(normalizedCategory, icon);
+                        Log.d(TAG, "🔄 Cached icon with category: " + normalizedCategory);
+                    }
+                    
+                    return icon;
+                } else {
+                    Log.e(TAG, "❌ Failed to fetch icon by ID: " + iconId + 
+                          ", status: " + response.code());
+                    return null;
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Error fetching icon by ID: " + iconId, e);
+                return null;
+            }
+        }
+        
+        // If all else fails, create a placeholder icon
+        Log.w(TAG, "⚠️ Using fallback for icon ID: " + iconId);
+        return new CategoryIcon(iconId, "Unknown", generateFallbackUrl("unknown"));
     }
 }

@@ -143,49 +143,9 @@ public class HomeViewModel extends ViewModel {
     }
 
     /**
-     * Load categories from the repository
+     * Load categories for the UI
      */
     public void loadCategories() {
-<<<<<<< HEAD
-        // If categories are already loaded, notify observers but don't reload unless forced
-        if (categoriesPreloaded.getValue() == Boolean.TRUE) {
-            Log.d(TAG, "Categories already loaded, notifying observers");
-            
-            // Notify observers of existing categories
-            repository.notifyCategoriesObservers();
-            
-            // Even if already loaded, check for empty categories and force load if needed
-            Map<String, Integer> existingCategories = repository.getCategories().getValue();
-            if (existingCategories == null || existingCategories.isEmpty()) {
-                Log.d(TAG, "Categories appear to be empty, forcing reload");
-                loadTemplates(true);
-            }
-            return;
-        }
-        
-        // Check if we already have categories
-        Map<String, Integer> existingCategories = repository.getCategories().getValue();
-        
-        if (existingCategories == null || existingCategories.isEmpty()) {
-            // No categories available, load them by loading templates
-            Log.d(TAG, "No categories available, loading templates to get categories");
-            loadTemplates(true);
-            
-            // No default categories - only use what server provides
-            Log.d(TAG, "Waiting for server to provide categories");
-        } else {
-            // Categories already available, just notify observers
-            Log.d(TAG, "Categories already available (" + existingCategories.size() + "), notifying observers");
-            
-            // We can't directly call setValue on the LiveData returned by repository.getCategories()
-            // Instead, we'll reload templates with the current filters to refresh categories
-            // but with a flag to avoid clearing existing data
-            repository.loadTemplates(false);
-        }
-        
-        // Mark categories as loaded
-        categoriesPreloaded.setValue(true);
-=======
         // If categories are already loaded, don't reload
         if (categoriesLoaded && categories.getValue() != null && !categories.getValue().isEmpty()) {
             Log.d(TAG, "Categories already loaded, skipping fetch");
@@ -208,7 +168,6 @@ public class HomeViewModel extends ViewModel {
                 Log.e(TAG, "Error loading categories: " + message);
             }
         });
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
     }
 
     public LiveData<Boolean> getLoading() {
@@ -235,24 +194,8 @@ public class HomeViewModel extends ViewModel {
         // Save the selected category
         saveTemplateState();
         
-<<<<<<< HEAD
-        // Don't clear categories when changing categories
-        boolean preserveCategories = categoriesPreloaded.getValue() == Boolean.TRUE;
-        
-        // Reload templates with the new filter
-        loadTemplates(true);
-        
-        // Mark categories as loaded - maintain this flag to avoid reloading categories
-        categoriesPreloaded.setValue(true);
-        
-        // Notify that categories should be maintained
-        if (preserveCategories) {
-            repository.notifyCategoriesObservers();
-        }
-=======
         // Load templates for the new category
         loadTemplates(true);
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
     }
 
     /**
@@ -605,28 +548,11 @@ public class HomeViewModel extends ViewModel {
     }
 
     /**
-     * Force a reload of categories
+     * Force reload categories from the server
      */
     public void forceReloadCategories() {
-<<<<<<< HEAD
-        Log.d(TAG, "Force reloading categories from server");
-        categoriesPreloaded.setValue(false);
-        
-        // Get current categories to check if we have any
-        Map<String, Integer> existingCategories = repository.getCategories().getValue();
-        
-        // Force an immediate load to ensure we're not waiting for a delayed load
-        repository.loadTemplates(true);
-        
-        // Re-notify observers to keep UI in sync
-        repository.notifyCategoriesObservers();
-        
-        // Mark as loaded after reload
-        categoriesPreloaded.setValue(true);
-=======
         categoriesLoaded = false;
         loadCategories();
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
     }
 
     @Override

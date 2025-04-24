@@ -11,6 +11,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.WebSettings;
 import android.widget.Button;
 import android.widget.EditText;
 
@@ -518,7 +519,9 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
                           (customizedHtml != null ? customizedHtml.substring(0, Math.min(50, customizedHtml.length())) + "..." : "null"));
                 }
                 
-                Log.d(TAG, "Sharing template with recipient: " + recipientName + ", sender: " + senderName);
+                Log.d(TAG, "Preparing to share template with recipient: " + recipientName + ", sender: " + senderName);
+                
+                // Save wish directly since ads are disabled
                 viewModel.saveWish();
             }
         });
@@ -1072,6 +1075,12 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
             });
         } catch (Exception e) {
             Log.e(TAG, "Error refreshing WebView display: " + e.getMessage(), e);
+        }
+    }
+
+    private void navigateToHome() {
+        if (isAdded()) {
+            Navigation.findNavController(requireView()).navigate(R.id.action_template_detail_to_home);
         }
     }
 }

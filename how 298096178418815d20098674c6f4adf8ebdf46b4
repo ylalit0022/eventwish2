@@ -1,0 +1,8 @@
+[33mcommit 298096178418815d20098674c6f4adf8ebdf46b4[m
+Author: ylalit0022 <ylalit0022@gmail.com>
+Date:   Sat Mar 8 21:57:37 2025 +0530
+
+    fixing categoryIcon field
+
+ backend/models/Template.js | 9 [32m++++++++[m[31m-[m
+ 1 file changed, 8 insertions(+), 1 deletion(-)

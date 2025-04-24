@@ -263,43 +263,84 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Add proper error handling and logging during initialization
   - Consider using dependency injection frameworks like Dagger or Hilt to manage singleton lifecycles
   - Add init checks in methods that require initialization to provide helpful error messages
+- When handling AdMob ad units in Android:
+  - Always check the database for the latest ad unit information before displaying ads
+  - Use a "database-first" approach where you try to match server ad units with database entries by ID
+  - Add proper null and empty string checks for ad unit IDs and codes
+  - Add specific handling for various ad type naming conventions (e.g., "app_open", "AppOpen", "App Open")
+  - Include detailed logging of ad unit selection and matching process
+  - Provide transparency to users about ad unit sources (database vs. original request)
+  - Add robust error handling for when ad units are invalid or missing
+  - Consider creating a unified ad unit selection method to reduce code duplication
+  - Use thread-safe LiveData observers when accessing database in UI components
+- When implementing AdMob interstitial ads in Android:
+  - Always verify helper classes are created before using them in fragments
+  - Check correct import paths when importing utility classes (like AnalyticsUtils)
+  - Use the existing AdConstants class for ad unit IDs instead of hardcoding values
+  - Implement proper cleanup in onDestroy to prevent memory leaks
+  - Preload ads early in onResume for better user experience
+  - Add robust fallbacks when ads aren't loaded or fail to display
+  - Always initialize AdMobManager before using other ad-related helpers
 
 # Scratchpad
 
-## Current Task: Fix Singleton Initialization Order in Android Application
+## Current Task: Fix Ad Display When API Key is Missing
 
-### Problem Analysis
+### Analysis of Logs
+1. Initialization Sequence:
+   - AdMobRepository initializes successfully
+   - InterstitialAdHelper reports "AdMob SDK not initialized" twice
+   - AdMob SDK initializes successfully with adapters
+   - Ad unit fetch fails due to missing API key
+   - Still shows test ads despite API key missing
 
-[X] 1. Identify the error
-   - App showing errors "SecureTokenManager not initialized" and "DeviceUtils must be initialized first"
-   - These errors occur because the application is trying to get instances of singleton classes before initializing them
-   - The issue is calling getInstance() before init() for both SecureTokenManager and DeviceUtils
+2. Key Issues:
+   - SecureTokenManager not providing API key
+   - Falling back to test ads even when API key is missing
+   - NullPointerException in recordImpression callback
 
-[X] 2. Locate problematic code
-   - Found secureTokenManager = SecureTokenManager.getInstance(); secureTokenManager.init(this); in initializeServices()
-   - Found deviceUtils = DeviceUtils.getInstance(); deviceUtils.init(this); in initializeServices()
-   - Both are trying to get instances before proper initialization
+3. Problem Areas:
+   - AdMobManager.getAdUnitId() returns test ad unit even when we should block ads
+   - recordImpression() failing due to null callback
+   - No proper validation of API key before showing ads
 
-[X] 3. Fix the issues
-   - Changed SecureTokenManager initialization order to: SecureTokenManager.init(this); then secureTokenManager = SecureTokenManager.getInstance();
-   - Changed DeviceUtils initialization order to: DeviceUtils.init(this); then deviceUtils = DeviceUtils.getInstance();
+### Implementation Plan
+[ ] 1. Update AdMobManager to block ads when API key is missing
+   - Modify areAdsEnabled() to check for API key
+   - Return null from getAdUnitId() if API key missing
+   - Add proper logging for API key status
 
-[X] 4. Test the fix
-   - Successfully compiled the app
-   - Added clear comments explaining the correct initialization sequence
+[ ] 2. Fix recordImpression callback handling
+   - Add null check for callback parameter
+   - Add default empty callback if none provided
+   - Improve error handling
 
-### Key Takeaways
+[ ] 3. Update InterstitialAdHelper
+   - Add API key validation before loading ads
+   - Improve initialization checks
+   - Add proper error handling for missing API key
 
-1. **Proper Initialization Order**: Always call init() before getInstance() for singleton classes that use this pattern.
-2. **Error Identification**: Look for error messages like "X not initialized" or "must be initialized first".
-3. **Singleton Pattern**: Be careful with initialization order when singletons depend on each other.
-4. **Documentation**: Add clear comments explaining initialization requirements to prevent future issues.
+### Technical Details
+1. Files to Modify:
+   - AdMobManager.java
+   - AdMobRepository.java
+   - InterstitialAdHelper.java
 
-### Future Improvements
+2. Key Methods:
+   - areAdsEnabled()
+   - getAdUnitId()
+   - recordImpression()
+   - initializeAdSdk()
 
-1. Conduct a thorough review of all singleton classes for similar initialization patterns.
-2. Consider implementing dependency injection frameworks like Dagger or Hilt.
-3. Add explicit initialization validation in critical methods.
-4. Consider using builder patterns for more complex initialization requirements.
+### Progress Tracking
+- Current Status: Analyzing issue
+- Next Step: Update AdMobManager
 
-## Current Task: Update TestAdActivity to Use Database Ad Unit IDs
+# Lessons
+
+## Ad Integration
+- Always validate API key before showing ads
+- Don't fall back to test ads when API key is missing
+- Add proper callback handling for impression tracking
+- Check initialization status before loading ads
+- Add comprehensive logging for debugging ad issues

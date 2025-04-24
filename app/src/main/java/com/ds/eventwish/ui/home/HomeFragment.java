@@ -33,6 +33,7 @@ import com.ds.eventwish.R;
 import com.ds.eventwish.databinding.FragmentHomeBinding;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.model.Category;
+import com.ds.eventwish.data.model.CategoryIcon;
 import com.ds.eventwish.ui.base.BaseFragment;
 import com.ds.eventwish.ui.home.adapter.RecommendedTemplateAdapter;
 import com.ds.eventwish.ui.home.adapter.CategoriesAdapter;
@@ -61,6 +62,8 @@ import com.ds.eventwish.ui.home.SortOption;
 import com.ds.eventwish.ui.home.TimeFilter;
 
 import java.util.Collections;
+import android.graphics.Rect;
+import android.os.Handler;
 
 public class HomeFragment extends BaseFragment implements RecommendedTemplateAdapter.TemplateClickListener {
     private static final String TAG = "HomeFragment";
@@ -94,6 +97,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        viewModel.init(requireContext());
 
         Log.d(TAG, "onViewCreated called");
 
@@ -114,15 +118,12 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
 
         // Set up bottom navigation
         setupBottomNavigation();
-
-<<<<<<< HEAD
-=======
+        
         // Restore saved state if available
         if (savedInstanceState != null) {
             restoreState(savedInstanceState);
         }
 
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
         // Ensure filter chips are initially hidden
         binding.filterChipsScrollView.setVisibility(View.GONE);
         binding.timeFilterScrollView.setVisibility(View.GONE);
@@ -201,11 +202,11 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                     }
                 }
             }
-<<<<<<< HEAD
-        });
-
+        };
+        requireActivity().getOnBackPressedDispatcher().addCallback(this, backPressedCallback);
     }
-        @Override
+
+    @Override
     public void onResume() {
         super.onResume();
         
@@ -236,9 +237,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                     // Only reload categories if adapter is empty
                     Log.d(TAG, "Explicitly loading categories in onResume because adapter is empty");
                     viewModel.loadCategories();
-            }
+                }
 
-            // Restore selected category
+                // Restore selected category
                 if (categoriesAdapter != null) {
                     String selectedCategory = viewModel.getSelectedCategory();
                     Log.d(TAG, "Restoring selected category: " + (selectedCategory != null ? selectedCategory : "All"));
@@ -310,10 +311,6 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 }
             });
         }
-=======
-        };
-        requireActivity().getOnBackPressedDispatcher().addCallback(this, backPressedCallback);
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
     }
 
     @Override
@@ -470,7 +467,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 binding.timeFilterScrollView.setVisibility(View.VISIBLE);
                 
                 // Update chip selections to reflect current state
-                updateChipStates();
+                updateChipSelections();
             }
         });
         
@@ -482,11 +479,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     }
 
     private void setupCategoriesAdapter() {
-<<<<<<< HEAD
-        // Initialize the categories adapter with the "All" category
-=======
         // Initialize the categories adapter with loading state
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
         categoriesAdapter = new CategoriesAdapter(requireContext());
         
         // Set up RecyclerView with horizontal layout
@@ -494,15 +487,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false));
         binding.categoriesRecyclerView.setAdapter(categoriesAdapter);
         
-<<<<<<< HEAD
-        // Start with "All" category
+        // Initialize with just the "All" category
         List<Category> initialCategories = new ArrayList<>();
         initialCategories.add(createCategory(null, "All", null));
-=======
-        // Initialize with just the "All" category
-        List<String> initialCategories = new ArrayList<>();
-        initialCategories.add("All");
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
         categoriesAdapter.updateCategories(initialCategories);
         
         // Set up click listeners
@@ -516,7 +503,6 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             if ("All".equals(categoryName) || categoryId == null) {
                 viewModel.setCategory(null);
             } else {
-<<<<<<< HEAD
                 viewModel.setCategory(categoryName);
                 
                 // Show loading Snackbar when selecting a category
@@ -525,70 +511,51 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             
             // Update selected category without changing the category list
             categoriesAdapter.updateSelectedCategory(categoryId);
-=======
-                viewModel.setCategory(category);
-            }
-            categoriesAdapter.setSelectedPosition(position);
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
         });
 
         categoriesAdapter.setOnMoreClickListener(this::showCategoriesBottomSheet);
         
         // Observe categories from the ViewModel
-        viewModel.getCategories().observe(getViewLifecycleOwner(), categories -> {
-            if (categories != null) {
-                if (!categories.isEmpty()) {
-                    Log.d(TAG, "Received " + categories.size() + " categories");
-                    
-                    // Convert categories map to list for the adapter
-                    List<String> categoryList = new ArrayList<>(categories.keySet());
-                    
-                    // Create visible categories list (first 5 categories)
-                    List<String> visibleCategories = new ArrayList<>();
-                    visibleCategories.add("All"); // Always add "All" first
-                    
-                    // Add up to 5 categories (excluding "All")
-                    int addedCategories = 0;
-                    for (String category : categoryList) {
-                        if (!category.equals("All") && addedCategories < 5) {
-                            visibleCategories.add(category);
-                            addedCategories++;
-                        }
-                    }
-                    
-                    // Add "More" if there are additional categories
-                    if (categoryList.size() > visibleCategories.size()) {
-                        visibleCategories.add("More");
-                    }
-                    
-                    // Update adapter with prevention flag to maintain stability
-                    categoriesAdapter.preventCategoryChanges(true);
-                    try {
-                        categoriesAdapter.updateCategories(visibleCategories);
-                        
-                        // Use ViewModel's selected category if available
-                        String selectedCategory = viewModel.getSelectedCategory();
-                        if (selectedCategory != null) {
-                            categoriesAdapter.updateSelectedCategory(selectedCategory);
-                        }
-                    } finally {
-                        categoriesAdapter.preventCategoryChanges(false);
-                    }
-                    
-                    // Hide loading state
-                    categoriesAdapter.setLoading(false);
-                } else {
-                    // Show empty state for categories
-                    Log.d(TAG, "No categories received");
-                    List<String> fallbackList = new ArrayList<>();
-                    fallbackList.add("All");
-                    categoriesAdapter.updateCategories(fallbackList);
-                    categoriesAdapter.setLoading(false);
+        viewModel.getCategories().observe(getViewLifecycleOwner(), categoriesMap -> {
+            if (categoriesMap != null && !categoriesMap.isEmpty()) {
+                Log.d(TAG, "Received " + categoriesMap.size() + " categories");
+                
+                // Convert categories map to list for the adapter
+                List<String> categoryList = new ArrayList<>(categoriesMap.keySet());
+                
+                // Convert string list to Category list
+                List<Category> categoryObjectList = new ArrayList<>();
+                for (String name : categoryList) {
+                    categoryObjectList.add(createCategory(
+                        "All".equals(name) ? null : name.toLowerCase(),
+                        name,
+                        null
+                    ));
                 }
+                
+                // Add More category explicitly if there are more than 3 categories (All + 2 others)
+                if (categoryObjectList.size() > 3) {
+                    Category moreCategory = createCategory("more", "More", null);
+                    moreCategory.setDisplayOrder(1000); // High number to ensure it's last
+                    if (!categoryObjectList.contains(moreCategory)) {
+                        categoryObjectList.add(moreCategory);
+                        Log.d(TAG, "Adding 'More' category explicitly");
+                    }
+                }
+
+                // Update adapter with category objects
+                categoriesAdapter.updateCategories(categoryObjectList);
+                
+                String selectedCategory = viewModel.getSelectedCategory();
+                if (selectedCategory != null) {
+                    categoriesAdapter.updateSelectedCategory(selectedCategory);
+                }
+            } else {
+                // Load categories if none are available
+                viewModel.loadCategories();
             }
         });
         
-<<<<<<< HEAD
         // Immediately load categories from server
         if (viewModel != null) {
             // Force load categories from server right away
@@ -602,106 +569,95 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                     Log.d(TAG, "Categories already available, updating UI...");
                     
                     // Convert to list
-                    List<Category> categoryList = new ArrayList<>();
-                    categoryList.add(createCategory(null, "All", null));
+                    List<String> categoryList = new ArrayList<>(categories.keySet());
+                    if (!categoryList.contains("All")) {
+                        categoryList.add(0, "All");
+                    }
                     
-                    for (Map.Entry<String, Integer> entry : categories.entrySet()) {
-                        String name = entry.getKey();
-                        if (!"All".equalsIgnoreCase(name)) {
-                            Category category = createCategory(name.toLowerCase(), name, null);
-                            category.setCount(entry.getValue());
-                            categoryList.add(category);
+                    // Convert strings to Category objects
+                    List<Category> categoryObjects = new ArrayList<>();
+                    for (String name : categoryList) {
+                        Category category = createCategory(
+                            "All".equals(name) ? null : name.toLowerCase(),
+                            name,
+                            null
+                        );
+                        // Set count if available
+                        if (!"All".equals(name) && categories.containsKey(name)) {
+                            category.setTemplateCount(categories.get(name));
                         }
+                        categoryObjects.add(category);
                     }
                     
-                    // Update adapter
-                    categoriesAdapter.updateCategories(categoryList);
-=======
-        // Load categories only if they haven't been loaded yet
-        if (!viewModel.areCategoriesLoaded()) {
-            categoriesAdapter.setLoading(true);
-            viewModel.loadCategories();
-        } else {
-            // Categories already loaded, just update the adapter
-            Map<String, Integer> existingCategories = viewModel.getCategories().getValue();
-            if (existingCategories != null && !existingCategories.isEmpty()) {
-                List<String> categoryList = new ArrayList<>(existingCategories.keySet());
-                List<String> visibleCategories = new ArrayList<>();
-                visibleCategories.add("All");
-                
-                // Add up to 5 categories (excluding "All")
-                int addedCategories = 0;
-                for (String category : categoryList) {
-                    if (!category.equals("All") && addedCategories < 5) {
-                        visibleCategories.add(category);
-                        addedCategories++;
-                    }
-                }
-                
-                // Add "More" if there are additional categories
-                if (categoryList.size() > visibleCategories.size()) {
-                    visibleCategories.add("More");
-                }
-                
-                categoriesAdapter.updateCategories(visibleCategories);
-                
-                String selectedCategory = viewModel.getSelectedCategory();
-                if (selectedCategory != null) {
-                    categoriesAdapter.updateSelectedCategory(selectedCategory);
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
+                    categoriesAdapter.updateCategories(categoryObjects);
                 }
             }
         }
     }
 
-    private void showCategoriesBottomSheet(List<String> categories) {
-        if (categories == null || categories.isEmpty()) {
-            Log.d(TAG, "No categories to show in bottom sheet");
-            return;
-        }
-
-        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
+    private void showCategoriesBottomSheet(List<Category> remainingCategories) {
+        // Use BottomSheetDialog for better appearance and behavior
+        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext(), R.style.BottomSheetDialogTheme);
         View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_categories, null);
         bottomSheetDialog.setContentView(bottomSheetView);
 
-        // Set rounded corners
-        bottomSheetView.setBackgroundResource(R.drawable.rounded_corners_bg);
-
+        // Get views
         RecyclerView categoriesRecyclerView = bottomSheetView.findViewById(R.id.categoriesRecyclerView);
+        TextView titleView = bottomSheetView.findViewById(R.id.title);
+        TextView subtitleView = bottomSheetView.findViewById(R.id.subtitle);
 
-        // Get remaining categories (after the first 5)
-        List<String> bottomSheetCategories = new ArrayList<>();
-        int visibleCategoriesCount = Math.min(5, categories.size());
-        
-        // Add all categories except the first 5 and exclude "More"
-        for (int i = visibleCategoriesCount; i < categories.size(); i++) {
-            String category = categories.get(i);
-            if (!category.equals("More")) {
-                bottomSheetCategories.add(category);
-            }
+        // Set the title and subtitle with template counts
+        int totalTemplates = 0;
+        for (Category category : remainingCategories) {
+            totalTemplates += category.getTemplateCount();
         }
+        titleView.setText("All Categories");
+        subtitleView.setText(String.format("Browse %d categories with %d templates", 
+                remainingCategories.size(), totalTemplates));
 
-        // Sort categories alphabetically
-        Collections.sort(bottomSheetCategories);
-
-        Log.d(TAG, "Showing " + bottomSheetCategories.size() + " remaining categories in bottom sheet");
-
-        CategoriesAdapter bottomSheetAdapter = new CategoriesAdapter(requireContext());
-        GridLayoutManager gridLayoutManager = new GridLayoutManager(requireContext(), 3);
+        // Set up the grid for categories
+        BottomSheetCategoriesAdapter bottomSheetAdapter = new BottomSheetCategoriesAdapter(requireContext());
+        GridLayoutManager gridLayoutManager = new GridLayoutManager(requireContext(), 2);
         categoriesRecyclerView.setLayoutManager(gridLayoutManager);
-        categoriesRecyclerView.setPadding(16, 16, 16, 16);
-        categoriesRecyclerView.setClipToPadding(false);
-        categoriesRecyclerView.setBackgroundResource(R.drawable.rounded_corners_bg);
         categoriesRecyclerView.setAdapter(bottomSheetAdapter);
-        bottomSheetAdapter.updateCategories(bottomSheetCategories);
+        
+        // Apply item decoration for spacing
+        int spacingInPixels = getResources().getDimensionPixelSize(R.dimen.grid_spacing);
+        categoriesRecyclerView.addItemDecoration(new GridSpacingItemDecoration(2, spacingInPixels, true));
+        
+        // Set the current selected category
+        String selectedCategory = viewModel.getSelectedCategory();
+        bottomSheetAdapter.setSelectedCategory(selectedCategory);
+        
+        // Update with categories
+        bottomSheetAdapter.updateCategories(remainingCategories);
 
+        // Set click listener
         bottomSheetAdapter.setOnCategoryClickListener((category, position) -> {
-            Log.d(TAG, "Selected category from bottom sheet: " + category);
-            viewModel.setCategory(category);
-            categoriesAdapter.updateSelectedCategory(category);
-            bottomSheetDialog.dismiss();
+            String categoryId = category.getId();
+            String categoryName = category.getName();
+            
+            if ("All".equals(categoryName) || categoryId == null) {
+                viewModel.setCategory(null);
+            } else {
+                viewModel.setCategory(categoryName);
+                
+                // Show loading indicator for selected category
+                showCategoryLoadingSnackbar(categoryName);
+            }
+            
+            // Update the main adapter with the new selection
+            categoriesAdapter.updateSelectedCategory(categoryId);
+            
+            // Dismiss the bottom sheet with a slight delay for better UX
+            new Handler().postDelayed(bottomSheetDialog::dismiss, 150);
         });
 
+        // Set behavior for expanded state
+        BottomSheetBehavior<View> behavior = BottomSheetBehavior.from((View) bottomSheetView.getParent());
+        behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+        
+        // Show the sheet
         bottomSheetDialog.show();
     }
 
@@ -741,22 +697,29 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         });
     }
 
-    private void updateChipStates() {
-        SortOption currentSortOption = viewModel.getCurrentSortOption();
+    /**
+     * Update chip selections based on current sort and time filter
+     */
+    private void updateChipSelections() {
+        if (binding == null) return;
+        
+        // Get current states
+        SortOption currentSort = viewModel.getCurrentSortOption();
         TimeFilter currentTimeFilter = viewModel.getCurrentTimeFilter();
-
-        binding.chipTrending.setChecked(currentSortOption == SortOption.TRENDING);
-        binding.chipNewest.setChecked(currentSortOption == SortOption.NEWEST);
-        binding.chipOldest.setChecked(currentSortOption == SortOption.OLDEST);
-        binding.chipMostUsed.setChecked(currentSortOption == SortOption.MOST_USED);
-
+        
+        // Update sort chips
+        binding.chipTrending.setChecked(currentSort == SortOption.TRENDING);
+        binding.chipNewest.setChecked(currentSort == SortOption.NEWEST);
+        binding.chipOldest.setChecked(currentSort == SortOption.OLDEST);
+        binding.chipMostUsed.setChecked(currentSort == SortOption.MOST_USED);
+        
+        // Update time filter chips
         binding.chipAllTime.setChecked(currentTimeFilter == TimeFilter.ALL);
         binding.chipToday.setChecked(currentTimeFilter == TimeFilter.TODAY);
         binding.chipThisWeek.setChecked(currentTimeFilter == TimeFilter.THIS_WEEK);
         binding.chipThisMonth.setChecked(currentTimeFilter == TimeFilter.THIS_MONTH);
-        binding.chipThisYear.setChecked(currentTimeFilter == TimeFilter.THIS_YEAR);
     }
-
+    
     private void showFilterBottomSheet() {
         // Get the bottom sheet view directly from the binding
         View bottomSheetView = binding.filterBottomSheet.getRoot();
@@ -843,7 +806,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             viewModel.setTimeFilter(selectedTimeFilter);
             
             // Update chip selections
-            updateChipStates();
+            updateChipSelections();
             
             // Hide the bottom sheet
             bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
@@ -857,7 +820,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             viewModel.setCategory(null);
             
             // Update UI
-            updateChipStates();
+            updateChipSelections();
             
             // Hide the bottom sheet
             bottomSheetBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
@@ -867,55 +830,6 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
     }
 
-<<<<<<< HEAD
-    private void showCategoriesBottomSheet(List<Category> remainingCategories) {
-        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
-        View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_categories, null);
-        bottomSheetDialog.setContentView(bottomSheetView);
-
-        // Set rounded corners
-        bottomSheetView.setBackgroundResource(R.drawable.rounded_corners_bg);
-
-        RecyclerView categoriesRecyclerView = bottomSheetView.findViewById(R.id.categoriesRecyclerView);
-
-        Log.d(TAG, "Showing " + remainingCategories.size() + " categories in bottom sheet");
-
-        // Use a different instance of CategoriesAdapter to avoid conflicts
-        CategoriesAdapter bottomSheetAdapter = new CategoriesAdapter(requireContext());
-        GridLayoutManager gridLayoutManager = new GridLayoutManager(requireContext(), 3);
-        categoriesRecyclerView.setLayoutManager(gridLayoutManager);
-        
-        // Add padding and rounded corners to the RecyclerView
-        categoriesRecyclerView.setPadding(16, 16, 16, 16);
-        categoriesRecyclerView.setClipToPadding(false);
-        categoriesRecyclerView.setBackgroundResource(R.drawable.rounded_corners_bg);
-        categoriesRecyclerView.setAdapter(bottomSheetAdapter);
-        
-        // Use the remaining categories directly - they are already Category objects
-        bottomSheetAdapter.updateCategories(remainingCategories);
-
-        bottomSheetAdapter.setOnCategoryClickListener((category, position) -> {
-            Log.d(TAG, "Selected category from bottom sheet: " + category.getName());
-            
-            String categoryId = category.getId();
-            String categoryName = category.getName();
-            
-            if ("All".equals(categoryName) || categoryId == null) {
-                viewModel.setCategory(null);
-            } else {
-                viewModel.setCategory(categoryName);
-            }
-            
-            categoriesAdapter.updateSelectedCategory(categoryId);
-            bottomSheetDialog.dismiss();
-        });
-
-        bottomSheetDialog.show();
-    }
-
-
-=======
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
     private void setupRecyclerView() {
         adapter = new RecommendedTemplateAdapter(this);
         layoutManager = new GridLayoutManager(requireContext(), 1);
@@ -1267,7 +1181,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                     
                     // Add count if available
                     if (categories.containsKey(name)) {
-                        category.setCount(categories.get(name));
+                        category.setTemplateCount(categories.get(name));
                     }
                     
                     categoryList.add(category);
@@ -1445,18 +1359,6 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             }
         });
         
-<<<<<<< HEAD
-=======
-        // Observe category icons
-        categoryIconRepository.getCategoryIcons().observe(getViewLifecycleOwner(), categoryIcons -> {
-            Log.d(TAG, "Received " + (categoryIcons != null ? categoryIcons.size() : 0) + " category icons");
-            // Force refresh of categories adapter if we have categories
-            if (categoriesAdapter != null && categoriesAdapter.getItemCount() > 0) {
-                categoriesAdapter.notifyDataSetChanged();
-            }
-        });
-        
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
         // Observe new templates indicator
         viewModel.getHasNewTemplates().observe(getViewLifecycleOwner(), hasNew -> {
             binding.refreshIndicator.setVisibility(hasNew ? View.VISIBLE : View.GONE);
@@ -1485,20 +1387,20 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
 
     @Override
     public void onTemplateClick(Template template) {
-        if (template == null) return;
+        if (template == null || template.getId() == null) return;
+        navigateToTemplateDetail(template.getId());
+    }
+    
+    /**
+     * Navigate to template detail screen
+     * @param templateId Template ID to navigate to
+     */
+    private void navigateToTemplateDetail(String templateId) {
+        if (!isAdded()) return;
         
-        // Mark the template as viewed
-        viewModel.markTemplateAsViewed(template.getId());
-        
-        // Save the current scroll position
-        int position = layoutManager.findFirstVisibleItemPosition();
-        if (position >= 0) {
-            viewModel.saveScrollPosition(position);
-        }
-        
-        // Navigate to the template detail screen
+        // Navigate directly since ads are disabled
         Bundle args = new Bundle();
-        args.putString("templateId", template.getId());
+        args.putString("templateId", templateId);
         Navigation.findNavController(requireView()).navigate(R.id.action_home_to_template_detail, args);
     }
 
@@ -1520,169 +1422,54 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
      * Ensure that the categories section is visible with proper state
      */
     private void ensureCategoriesVisible() {
-        if (binding.categoriesRecyclerView != null) {
-            binding.categoriesRecyclerView.setVisibility(View.VISIBLE);
-            
-            Log.d(TAG, "Categories RecyclerView visibility: " + 
-                  (binding.categoriesRecyclerView.getVisibility() == View.VISIBLE ? "VISIBLE" : "NOT VISIBLE"));
-            
             if (binding.categoriesRecyclerView.getAdapter() == null) {
                 Log.d(TAG, "Categories RecyclerView adapter is null, setting adapter");
                 binding.categoriesRecyclerView.setAdapter(categoriesAdapter);
             }
             
             if (categoriesAdapter != null) {
-                // Show loading state while checking for data
-                categoriesAdapter.setLoading(true);
+            // Show loading state while checking for data
+            categoriesAdapter.setLoading(true);
+            
+            Map<String, Integer> categoriesMap = viewModel.getCategories().getValue();
+            if (categoriesMap != null && !categoriesMap.isEmpty()) {
+                categoriesAdapter.setLoading(false);
                 
-<<<<<<< HEAD
-                // Save existing selection if any
-                String currentSelectedCategory = categoriesAdapter.getSelectedCategoryId();
-                int currentSelectedPosition = categoriesAdapter.getSelectedPosition();
+                // Create a list of Category objects
+                List<Category> categoryObjectList = new ArrayList<>();
+                // Add "All" category first
+                categoryObjectList.add(createCategory(null, "All", null));
                 
-                // Only load categories if adapter is completely empty or has just "All"
-                if (categoriesAdapter.getItemCount() <= 1 && viewModel != null) {
-                    // First try to get categories from TemplateRepository directly
-                    TemplateRepository repo = TemplateRepository.getInstance();
-                    Map<String, Integer> repoCategories = repo.getCategories().getValue();
-                    
-                    if (repoCategories != null && !repoCategories.isEmpty()) {
-                        Log.d(TAG, "Updating categories adapter with " + repoCategories.size() + " categories from repository");
-                        
-                        // Convert categories map to list for the adapter
-                        List<String> categoryNames = new ArrayList<>(repoCategories.keySet());
-                        
-                        // Add "All" category if it doesn't exist
-                        if (!categoryNames.contains("All")) {
-                            categoryNames.add(0, "All");
-                        }
-                        
-                        // Convert to Category objects
-                        List<Category> categoryList = new ArrayList<>();
-                        for (String name : categoryNames) {
-                            Category category = createCategory(
-                                "All".equals(name) ? null : name.toLowerCase(),
-                                name,
-                                null
-                            );
-                            
-                            // Add count if available
-                            if (repoCategories.containsKey(name)) {
-                                category.setCount(repoCategories.get(name));
-                            }
-                            
-                            categoryList.add(category);
-                        }
-                        
-                        // Prevent category changes during this update
-                        categoriesAdapter.preventCategoryChanges(true);
-                        try {
-                            // Update the adapter
-                            categoriesAdapter.updateCategories(categoryList);
-                            
-                            // Restore selected category - try multiple sources in order of priority
-                            String selectedCategory = null;
-                            
-                            // 1. Previously selected category from adapter if it exists
-                            if (currentSelectedCategory != null && !currentSelectedCategory.equals("All") &&
-                                    categoryNames.contains(currentSelectedCategory)) {
-                                selectedCategory = currentSelectedCategory;
-                                Log.d(TAG, "Restoring selection from adapter: " + selectedCategory);
-                            } 
-                            // 2. Category from ViewModel if present
-                            else if (viewModel.getSelectedCategory() != null) {
-                                selectedCategory = viewModel.getSelectedCategory();
-                                Log.d(TAG, "Restoring selection from ViewModel: " + selectedCategory);
-                            }
-                            
-                            // Update the selection in the adapter
-                            if (selectedCategory != null) {
-                                categoriesAdapter.updateSelectedCategory(selectedCategory);
-                            } else {
-                                // Default to "All"
-                                categoriesAdapter.setSelectedPosition(0);
-                            }
-                        } finally {
-                            categoriesAdapter.preventCategoryChanges(false);
-                        }
-                    } 
-                    else {
-                        // If no categories in repository directly, try from ViewModel
-                        Map<String, Integer> categories = viewModel.getCategories().getValue();
-                        if (categories != null && !categories.isEmpty()) {
-                            Log.d(TAG, "Updating categories adapter with " + categories.size() + " categories from ViewModel");
-                            
-                            // Convert categories map to list for the adapter
-                            List<String> categoryNames = new ArrayList<>(categories.keySet());
-                            
-                            // Add "All" category if it doesn't exist
-                            if (!categoryNames.contains("All")) {
-                                categoryNames.add(0, "All");
-                            }
-                            
-                            // Convert to Category objects
-                            List<Category> categoryList = new ArrayList<>();
-                            for (String name : categoryNames) {
-                                Category category = createCategory(
-                                    "All".equals(name) ? null : name.toLowerCase(),
-                                    name,
-                                    null
-                                );
-                                
-                                // Add count if available
-                                if (categories.containsKey(name)) {
-                                    category.setCount(categories.get(name));
-                                }
-                                
-                                categoryList.add(category);
-                            }
-                            
-                            // Prevent category changes during this update
-                            categoriesAdapter.preventCategoryChanges(true);
-                            try {
-                                // Update the adapter
-                                categoriesAdapter.updateCategories(categoryList);
-                                
-                                // Restore selected category - try multiple sources in order of priority
+                // Convert map entries to Category objects
+                for (Map.Entry<String, Integer> entry : categoriesMap.entrySet()) {
+                    String name = entry.getKey();
+                    if (!"All".equalsIgnoreCase(name)) {
+                        Category category = createCategory(name.toLowerCase(), name, null);
+                        category.setTemplateCount(entry.getValue());
+                        categoryObjectList.add(category);
+                    }
+                }
+                
+                // Add More category explicitly if there are more than 3 categories (All + 2 others)
+                if (categoryObjectList.size() > 3) {
+                    Category moreCategory = createCategory("more", "More", null);
+                    moreCategory.setDisplayOrder(1000); // High number to ensure it's last
+                    if (!categoryObjectList.contains(moreCategory)) {
+                        categoryObjectList.add(moreCategory);
+                        Log.d(TAG, "Adding 'More' category explicitly");
+                    }
+                }
+
+                // Update adapter with properly typed list
+                categoriesAdapter.updateCategories(categoryObjectList);
+                
                                 String selectedCategory = viewModel.getSelectedCategory();
                                 if (selectedCategory != null) {
                                     categoriesAdapter.updateSelectedCategory(selectedCategory);
-                                } else {
-                                    // Default to "All"
-                                    categoriesAdapter.setSelectedPosition(0);
-                                }
-                            } finally {
-                                categoriesAdapter.preventCategoryChanges(false);
                             }
                         } else {
-                            // If no categories are available in both repo and ViewModel, force load them
-                            Log.d(TAG, "No categories available, forcing reload");
-                            viewModel.forceReloadCategories();
-                            
-                            // Add only "All" category as a fallback if adapter is empty
-                            List<Category> fallbackList = new ArrayList<>();
-                            fallbackList.add(createCategory(null, "All", null));
-                            categoriesAdapter.updateCategories(fallbackList);
-                        }
-=======
-                Map<String, Integer> categories = viewModel.getCategories().getValue();
-                if (categories != null && !categories.isEmpty()) {
-                    categoriesAdapter.setLoading(false);
-                    List<String> categoryList = new ArrayList<>(categories.keySet());
-                    if (!categoryList.contains("All")) {
-                        categoryList.add(0, "All");
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
-                    }
-                    categoriesAdapter.updateCategories(categoryList);
-                    
-                    String selectedCategory = viewModel.getSelectedCategory();
-                    if (selectedCategory != null) {
-                        categoriesAdapter.updateSelectedCategory(selectedCategory);
-                    }
-                } else {
-                    // Load categories if none are available
-                    viewModel.loadCategories();
-                }
+                // Load categories if none are available
+                viewModel.loadCategories();
             }
         }
     }
@@ -1818,20 +1605,72 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
      * Helper method to create a Category object
      */
     private Category createCategory(String id, String name, String iconUrl) {
-        // If no icon URL is provided, try to get it from the repository
-        if ((iconUrl == null || iconUrl.isEmpty()) && categoryIconRepository != null) {
-            // Use the category name to get an icon URL
-            String resolvedIconUrl = categoryIconRepository.getCategoryIconUrl(name);
-            if (resolvedIconUrl != null && !resolvedIconUrl.isEmpty()) {
-                Log.d(TAG, "Found icon URL for '" + name + "': " + resolvedIconUrl);
-                iconUrl = resolvedIconUrl;
-            } else {
-                Log.d(TAG, "No icon URL found for '" + name + "' in repository");
-            }
+        CategoryIcon icon = null;
+        if (iconUrl != null && !iconUrl.isEmpty()) {
+            icon = new CategoryIcon(null, name, iconUrl);
+        }
+        return new Category(id, name, icon);
+    }
+
+    private void showCategoryLoadingSnackbar(String category) {
+        if (category == null || category.isEmpty()) {
+            return;
         }
         
-        // Use the constructor with essential fields
-        return new Category(id, name, iconUrl);
+        try {
+            Snackbar snackbar = Snackbar.make(
+                binding.getRoot(),
+                "Loading " + category + " templates...",
+                Snackbar.LENGTH_SHORT
+            );
+            
+            // Store in ViewModel to allow dismissal if needed
+            viewModel.setCurrentSnackbar(snackbar);
+            
+            // Show the snackbar
+            snackbar.show();
+        } catch (Exception e) {
+            Log.e(TAG, "Error showing snackbar: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Grid spacing decoration for the category grid
+     */
+    private class GridSpacingItemDecoration extends RecyclerView.ItemDecoration {
+        private final int spanCount;
+        private final int spacing;
+        private final boolean includeEdge;
+
+        public GridSpacingItemDecoration(int spanCount, int spacing, boolean includeEdge) {
+            this.spanCount = spanCount;
+            this.spacing = spacing;
+            this.includeEdge = includeEdge;
+        }
+
+        @Override
+        public void getItemOffsets(@NonNull Rect outRect, @NonNull View view, 
+                                  @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
+            int position = parent.getChildAdapterPosition(view);
+            int column = position % spanCount;
+
+            if (includeEdge) {
+                outRect.left = spacing - column * spacing / spanCount;
+                outRect.right = (column + 1) * spacing / spanCount;
+
+                if (position < spanCount) {
+                    outRect.top = spacing;
+                }
+                outRect.bottom = spacing;
+            } else {
+                outRect.left = column * spacing / spanCount;
+                outRect.right = spacing - (column + 1) * spacing / spanCount;
+                if (position >= spanCount) {
+                    outRect.top = spacing;
+                }
+            }
+        }
     }
 }
+
 

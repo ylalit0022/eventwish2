@@ -61,4 +61,16 @@ public interface AdUnitDao {
         deleteAdUnitsByType(adType);
         insertAdUnits(adUnits);
     }
+
+    @Query("SELECT * FROM ad_units")
+    List<AdUnitEntity> getAdUnitsSync();
+
+    @Query("SELECT * FROM ad_units WHERE adType = :adType")
+    List<AdUnitEntity> getAdUnitsByTypeSync(String adType);
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    void insertAdUnitsSync(List<AdUnitEntity> adUnits);
+
+    @Query("DELETE FROM ad_units")
+    void deleteAllSync();
 } 

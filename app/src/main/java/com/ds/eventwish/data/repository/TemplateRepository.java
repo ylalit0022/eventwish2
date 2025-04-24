@@ -14,15 +14,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import android.content.Context;
-<<<<<<< HEAD
 import android.content.SharedPreferences;
 import android.util.Log;
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
-=======
-import com.google.gson.JsonObject;
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
 
 public class TemplateRepository {
     private static final String TAG = "TemplateRepository";
@@ -64,14 +61,10 @@ public class TemplateRepository {
 
     private TemplateRepository() {
         apiService = ApiClient.getClient();
-<<<<<<< HEAD
         templates.postValue(new ArrayList<>());
         categories.postValue(new HashMap<>());
-=======
-        templates.setValue(new ArrayList<>());
         // Initialize with default categories
         ensureDefaultCategories(null);
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
     }
 
     /**
@@ -99,7 +92,6 @@ public class TemplateRepository {
     }
 
     /**
-<<<<<<< HEAD
      * Load categories from SharedPreferences on initialization
      */
     private void loadCategoriesFromPrefs() {
@@ -153,7 +145,10 @@ public class TemplateRepository {
             Log.d(TAG, "Saved " + categoriesToSave.size() + " categories to SharedPreferences");
         } catch (Exception e) {
             Log.e(TAG, "Error saving categories to SharedPreferences", e);
-=======
+        }
+    }
+
+    /**
      * Ensure we have at least default categories available
      */
     private void ensureDefaultCategories(Map<String, Integer> categoryMap) {
@@ -164,7 +159,7 @@ public class TemplateRepository {
         // If we received categories from server, use them
         if (!categoryMap.isEmpty()) {
             android.util.Log.d("TemplateRepository", "Using server categories: " + categoryMap.size());
-            categories.setValue(categoryMap);
+            categories.postValue(categoryMap);
             return;
         }
         
@@ -173,8 +168,7 @@ public class TemplateRepository {
         if (currentCategories == null || currentCategories.isEmpty()) {
             categoryMap.putAll(defaultCategories);
             android.util.Log.d("TemplateRepository", "Using default categories as fallback: " + defaultCategories.size());
-            categories.setValue(categoryMap);
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
+            categories.postValue(categoryMap);
         }
     }
 
@@ -300,7 +294,6 @@ public class TemplateRepository {
             
             // Only clear templates if we're not filtering by category or if this is the initial load
             if (currentCategory == null || templates.getValue() == null || templates.getValue().isEmpty()) {
-<<<<<<< HEAD
                 if (templates.getValue() != null) {
                     templates.getValue().clear();
                     // Notify observers of the empty list to clear the UI
@@ -308,9 +301,6 @@ public class TemplateRepository {
                 } else {
                     templates.postValue(new ArrayList<>());
                 }
-=======
-                templates.setValue(new ArrayList<>());
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
             }
         }
         
@@ -361,7 +351,6 @@ public class TemplateRepository {
                         currentList.addAll(templateResponse.getTemplates());
                     }
                     
-<<<<<<< HEAD
                     // Log all template IDs for debugging
                     for (Template template : templateResponse.getTemplates()) {
                         Log.d(TAG, "Template: " + template.getTitle() + 
@@ -370,13 +359,9 @@ public class TemplateRepository {
                     }
                     
                     templates.postValue(currentList);
-=======
-                    templates.setValue(currentList);
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
                     
                     // Handle categories with persistence
                     Map<String, Integer> categoryMap = templateResponse.getCategories();
-<<<<<<< HEAD
                     if (categoryMap == null) {
                         Log.d(TAG, "Categories map is null, using empty map");
                         categoryMap = new HashMap<>();
@@ -397,27 +382,15 @@ public class TemplateRepository {
                     currentPage++;
                 } else {
                     error.postValue("Failed to load templates");
-=======
-                    if (categoryMap != null && !categoryMap.isEmpty()) {
-                        android.util.Log.d("TemplateRepository", "Received " + categoryMap.size() + " categories from server");
-                        categories.setValue(categoryMap);
-                    }
-                    
-                    hasMorePages = templateResponse.isHasMore();
-                    currentPage++;
-                } else {
-                    error.setValue("Failed to load templates");
                     // Only use default categories if we have none
                     if (categories.getValue() == null || categories.getValue().isEmpty()) {
                         ensureDefaultCategories(null);
                     }
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
                 }
             }
 
             @Override
             public void onFailure(Call<TemplateResponse> call, Throwable t) {
-<<<<<<< HEAD
                 // Clear the current call reference if it matches this call
                 if (currentCall != null && currentCall.equals(call)) {
                     currentCall = null;
@@ -430,13 +403,10 @@ public class TemplateRepository {
                     Log.e(TAG, "API call failed: " + t.getMessage(), t);
                     loading.postValue(false);
                     error.postValue(t.getMessage());
-=======
-                loading.setValue(false);
-                error.setValue(t.getMessage());
-                // Only use default categories if we have none
-                if (categories.getValue() == null || categories.getValue().isEmpty()) {
-                    ensureDefaultCategories(null);
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
+                    // Only use default categories if we have none
+                    if (categories.getValue() == null || categories.getValue().isEmpty()) {
+                        ensureDefaultCategories(null);
+                    }
                 }
             }
         });
@@ -470,16 +440,12 @@ public class TemplateRepository {
         hasMorePages = true;
         
         // Clear templates
-<<<<<<< HEAD
         if (templates.getValue() != null) {
             templates.getValue().clear();
             templates.postValue(new ArrayList<>());
         } else {
             templates.postValue(new ArrayList<>());
         }
-=======
-        templates.setValue(new ArrayList<>());
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
         
         // Cancel any ongoing requests
         cancelCurrentCall();
@@ -490,12 +456,8 @@ public class TemplateRepository {
         // Reset loading state
         loading.postValue(false);
         
-<<<<<<< HEAD
-        // Restore categories if they were available
-        if (currentCategories != null && !currentCategories.isEmpty()) {
-            Log.d(TAG, "Restoring " + currentCategories.size() + " categories after cache clear");
-            categories.postValue(currentCategories);
-        }
+        // Restore categories with defaults if needed
+        ensureDefaultCategories(currentCategories);
     }
 
     /**
@@ -506,10 +468,6 @@ public class TemplateRepository {
             Log.d(TAG, "Cancelling template detail API call");
             currentTemplateCall.cancel();
         }
-=======
-        // Restore categories with defaults if needed
-        ensureDefaultCategories(currentCategories);
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
     }
 
     /**
@@ -590,7 +548,6 @@ public class TemplateRepository {
             // Use postValue to trigger observer updates with existing data
             categories.postValue(new HashMap<>(currentCategories));
         } else {
-<<<<<<< HEAD
             // Add a guard to prevent infinite recursion
             SharedPreferences prefs = appContext != null ? 
                 appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE) : null;
@@ -601,12 +558,9 @@ public class TemplateRepository {
                 loadCategoriesFromPrefs();
             } else {
                 Log.d(TAG, "No categories available in memory or SharedPreferences");
+                // Ensure we have at least default categories
+                ensureDefaultCategories(null);
             }
-=======
-            android.util.Log.d("TemplateRepository", "No categories available to notify observers");
-            // Ensure we have at least default categories
-            ensureDefaultCategories(null);
->>>>>>> bccc711c1823d8686d1a06372169169277f3650d
         }
     }
 
@@ -634,13 +588,13 @@ public class TemplateRepository {
                     }
                     
                     // Update categories immediately
-                    categories.setValue(categoryMap);
+                    categories.postValue(categoryMap);
                     callback.onSuccess(categoryMap);
                 } else {
                     // Only use defaults if we have no categories
                     if (categories.getValue() == null || categories.getValue().isEmpty()) {
                         Map<String, Integer> defaultCats = new HashMap<>(defaultCategories);
-                        categories.setValue(defaultCats);
+                        categories.postValue(defaultCats);
                         callback.onSuccess(defaultCats);
                     } else {
                         callback.onError("Failed to load categories");
@@ -653,7 +607,7 @@ public class TemplateRepository {
                 // Only use defaults if we have no categories
                 if (categories.getValue() == null || categories.getValue().isEmpty()) {
                     Map<String, Integer> defaultCats = new HashMap<>(defaultCategories);
-                    categories.setValue(defaultCats);
+                    categories.postValue(defaultCats);
                     callback.onSuccess(defaultCats);
                 } else {
                     callback.onError(t.getMessage());

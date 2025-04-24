@@ -114,6 +114,11 @@ public class Category {
         this.isVisible = true;
     }
     
+    @Ignore
+    public Category(String name) {
+        this.name = name;
+    }
+    
     public String getId() {
         return id;
     }

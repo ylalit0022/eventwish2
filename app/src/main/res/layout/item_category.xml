@@ -8,7 +8,11 @@
     android:orientation="horizontal"
     android:background="@drawable/bg_category_selector"
     android:gravity="center"
-    android:padding="6dp">
+    android:padding="8dp"
+    android:stateListAnimator="@animator/category_state_list_animator"
+    android:elevation="1dp"
+    android:clickable="true"
+    android:focusable="true">
 
 
     <ImageView

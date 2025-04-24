@@ -81,6 +81,10 @@ public interface ApiService {
     @GET("categoryIcons")
     Call<CategoryIconResponse> getCategoryIcons();
 
+    // Get a single category icon by ID
+    @GET("categoryIcons/{id}")
+    Call<CategoryIcon> getCategoryIconById(@Path("id") String id);
+
     // Server time endpoint
     @GET("server/time")
     Call<ServerTimeResponse> getServerTime();

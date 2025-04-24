@@ -24,27 +24,16 @@ public class AdConstants {
      * Request settings
      */
     public static class RequestSettings {
-        public static final long MIN_REQUEST_INTERVAL = 60000; // 1 minute
+        public static final long MIN_REQUEST_INTERVAL = 5000; // 5 seconds
         public static final int MAX_RETRY_COUNT = 3;
         public static final long RETRY_BACKOFF_MS = 1000; // 1 second
-    }
-    
-    /**
-     * Test ad unit IDs
-     */
-    public static class TestAdUnits {
-        public static final String BANNER_TEST_ID = "ca-app-pub-3940256099942544/6300978111";
-        public static final String INTERSTITIAL_TEST_ID = "ca-app-pub-3940256099942544/1033173712";
-        public static final String REWARDED_TEST_ID = "ca-app-pub-3940256099942544/5224354917";
-        public static final String NATIVE_ADVANCED_TEST_ID = "ca-app-pub-3940256099942544/2247696110";
-        public static final String APP_OPEN_TEST_ID = "ca-app-pub-3940256099942544/9257395921";
     }
     
     /**
      * SharedPreferences keys
      */
     public static class Preferences {
-        public static final String PREF_FILE = "admob_preferences";
+        public static final String PREF_FILE = "ad_prefs";
         public static final String CACHED_AD_UNITS = "cached_ad_units";
         public static final String LAST_AD_FETCH_TIME = "last_ad_fetch_time";
         public static final String TEST_MODE_ENABLED = "test_mode_enabled";
@@ -60,6 +49,9 @@ public class AdConstants {
         public static final String API_KEY = "x-api-key";
         public static final String DEVICE_ID = "x-device-id";
         public static final String APP_SIGNATURE = "x-app-signature";
+        
+        // Header format constants
+        public static final String BEARER_PREFIX = "Bearer ";
     }
     
     /**
@@ -70,9 +62,22 @@ public class AdConstants {
         public static final String SECRET_KEY = "c1ce47afeff9fa8b7b1aa165562cb915b448007f8b5c863bac496b265b0518f3";
         
         // The working app signature - verified to work with the server
-        public static final String APP_SIGNATURE = "app_sig_1";
+        public static final String APP_SIGNATURE = "c1ce47afeff9fa8b7b1aa165562cb915";
         
         // App package name for signature generation
         public static final String APP_PACKAGE = "com.ds.eventwish";
+    }
+
+    /**
+     * Error messages
+     */
+    public static class Errors {
+        public static final String NOT_INITIALIZED = "Ad Manager initialization required";
+        public static final String SDK_NOT_INITIALIZED = "Ad SDK initialization failed";
+        public static final String ADS_DISABLED = "Ad display is currently disabled";
+        public static final String NO_AD_UNITS = "No ad units available";
+        public static final String NO_MATCHING_AD_UNIT = "No matching ad configuration found for type: ";
+        public static final String NULL_CONTEXT = "Invalid application context";
+        public static final String NO_API_KEY = "Missing API configuration";
     }
 } 

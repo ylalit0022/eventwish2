@@ -2,6 +2,8 @@ package com.ds.eventwish.data.repository;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Base64;
 import android.util.Log;
 
@@ -35,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import retrofit2.Call;
@@ -55,12 +58,12 @@ public class AdMobRepository {
     private SecureTokenManager secureTokenManager;
     private DeviceUtils deviceUtils;
     private AdUnitDao adUnitDao;
-    private Executor executor;
+    private ExecutorService executor;
     
-    private final MutableLiveData<List<AdUnit>> adUnitsLiveData = new MutableLiveData<>();
-    private final MutableLiveData<Map<String, AdMobResponse.AdStatus>> adStatusLiveData = new MutableLiveData<>();
-    private final MutableLiveData<Boolean> isLoadingLiveData = new MutableLiveData<>(false);
-    private final MutableLiveData<String> errorLiveData = new MutableLiveData<>();
+    private final MutableLiveData<List<AdUnit>> _adUnits = new MutableLiveData<>();
+    private final MutableLiveData<Map<String, AdMobResponse.AdStatus>> _adStatus = new MutableLiveData<>();
+    private final MutableLiveData<Boolean> _isLoading = new MutableLiveData<>(false);
+    private final MutableLiveData<String> _error = new MutableLiveData<>();
     
     private long lastRequestTime = 0;
     private int retryCount = 0;
@@ -151,7 +154,7 @@ public class AdMobRepository {
      * @return LiveData containing ad units
      */
     public LiveData<List<AdUnit>> getAdUnits() {
-        return adUnitsLiveData;
+        return _adUnits;
     }
 
     /**
@@ -159,7 +162,7 @@ public class AdMobRepository {
      * @return LiveData containing ad status
      */
     public LiveData<Map<String, AdMobResponse.AdStatus>> getAdStatus() {
-        return adStatusLiveData;
+        return _adStatus;
     }
 
     /**
@@ -167,7 +170,7 @@ public class AdMobRepository {
      * @return LiveData containing loading state
      */
     public LiveData<Boolean> isLoading() {
-        return isLoadingLiveData;
+        return _isLoading;
     }
 
     /**
@@ -175,7 +178,7 @@ public class AdMobRepository {
      * @return LiveData containing error messages
      */
     public LiveData<String> getError() {
-        return errorLiveData;
+        return _error;
     }
 
     /**
@@ -188,7 +191,7 @@ public class AdMobRepository {
             return;
         }
         
-        isLoadingLiveData.setValue(true);
+        _isLoading.setValue(true);
         lastRequestTime = System.currentTimeMillis();
         
         Map<String, String> headers = prepareHeaders();
@@ -197,7 +200,7 @@ public class AdMobRepository {
         call.enqueue(new Callback<AdMobResponse>() {
             @Override
             public void onResponse(@NonNull Call<AdMobResponse> call, @NonNull Response<AdMobResponse> response) {
-                isLoadingLiveData.setValue(false);
+                _isLoading.setValue(false);
                 
                 if (response.isSuccessful() && response.body() != null) {
                     AdMobResponse.AdMobData data = response.body().getData();
@@ -218,23 +221,23 @@ public class AdMobRepository {
                                 }
                             });
                             
-                            adUnitsLiveData.setValue(adUnits);
+                            _adUnits.setValue(adUnits);
                             Log.d(TAG, "Successfully fetched and saved " + adUnits.size() + " ad units");
                         } else {
-                            adUnitsLiveData.setValue(Collections.emptyList());
+                            _adUnits.setValue(Collections.emptyList());
                             Log.d(TAG, "Successfully fetched ad units, but list is null");
                         }
                     } else {
                         String error = "Response successful but data is null";
                         Log.e(TAG, error);
-                        errorLiveData.setValue(error);
+                        updateError(error);
                     }
                 } else {
                     try {
                         String errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
                         String error = "Failed to fetch ad units: " + response.code() + " - " + errorBody;
                         Log.e(TAG, error);
-                        errorLiveData.setValue(error);
+                        updateError(error);
                         
                         // Load from database as fallback
                         loadFromDatabase(adType);
@@ -246,10 +249,10 @@ public class AdMobRepository {
             
             @Override
             public void onFailure(@NonNull Call<AdMobResponse> call, @NonNull Throwable t) {
-                isLoadingLiveData.setValue(false);
+                _isLoading.setValue(false);
                 String error = "Network error when fetching ad units: " + t.getMessage();
                 Log.e(TAG, error, t);
-                errorLiveData.setValue(error);
+                updateError(error);
                 
                 // Load from database as fallback
                 loadFromDatabase(adType);
@@ -275,10 +278,10 @@ public class AdMobRepository {
                 for (AdUnitEntity entity : entities) {
                     adUnits.add(entity.toAdUnit());
                 }
-                adUnitsLiveData.setValue(adUnits);
+                _adUnits.setValue(adUnits);
                 Log.d(TAG, "Loaded " + adUnits.size() + " ad units from database");
             } else {
-                adUnitsLiveData.setValue(Collections.emptyList());
+                _adUnits.setValue(Collections.emptyList());
                 Log.d(TAG, "No ad units found in database");
             }
         });
@@ -336,8 +339,20 @@ public class AdMobRepository {
      * @return Highest priority ad unit or null if none found
      */
     public AdUnit getHighestPriorityAdUnit(String adType) {
-        AdUnitEntity entity = adUnitDao.getHighestPriorityAdUnit(adType);
-        return entity != null ? entity.toAdUnit() : null;
+        if (adType == null) {
+            Log.e(TAG, "getHighestPriorityAdUnit: adType is null");
+            return null;
+        }
+
+        try {
+            return executor.submit(() -> {
+                AdUnitEntity entity = adUnitDao.getHighestPriorityAdUnit(adType);
+                return entity != null ? entity.toAdUnit() : null;
+            }).get();
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting highest priority ad unit for type " + adType, e);
+            return null;
+        }
     }
 
     /**
@@ -373,7 +388,7 @@ public class AdMobRepository {
             return;
         }
         
-        isLoadingLiveData.setValue(true);
+        _isLoading.setValue(true);
         lastRequestTime = System.currentTimeMillis();
         
         Map<String, String> headers = prepareHeaders();
@@ -382,28 +397,28 @@ public class AdMobRepository {
         call.enqueue(new Callback<AdMobResponse>() {
             @Override
             public void onResponse(@NonNull Call<AdMobResponse> call, @NonNull Response<AdMobResponse> response) {
-                isLoadingLiveData.setValue(false);
+                _isLoading.setValue(false);
                 
                 if (response.isSuccessful() && response.body() != null) {
                     AdMobResponse.AdMobData data = response.body().getData();
                     if (data != null) {
                         Map<String, AdMobResponse.AdStatus> adStatus = data.getAdStatus();
                         if (adStatus != null) {
-                            adStatusLiveData.setValue(adStatus);
+                            updateAdStatus(adStatus);
                             Log.d(TAG, "Successfully fetched ad status for " + adStatus.size() + " ad units");
                         } else {
-                            adStatusLiveData.setValue(Collections.emptyMap());
+                            updateAdStatus(Collections.emptyMap());
                             Log.d(TAG, "Successfully fetched ad status, but map is null");
                         }
                     } else {
-                        adStatusLiveData.setValue(Collections.emptyMap());
+                        updateAdStatus(Collections.emptyMap());
                         Log.d(TAG, "Successfully fetched ad status, but data is null");
                     }
                     
                     // Reset retry count on success
                     retryCount = 0;
                 } else {
-                    errorLiveData.setValue("Failed to fetch ad status: " + response.message());
+                    updateError("Failed to fetch ad status: " + response.message());
                     Log.e(TAG, "Failed to fetch ad status: " + response.code() + " " + response.message());
                     
                     // Handle retry if needed
@@ -413,8 +428,8 @@ public class AdMobRepository {
 
             @Override
             public void onFailure(@NonNull Call<AdMobResponse> call, @NonNull Throwable t) {
-                isLoadingLiveData.setValue(false);
-                errorLiveData.setValue("Network error: " + t.getMessage());
+                _isLoading.setValue(false);
+                updateError("Network error: " + t.getMessage());
                 Log.e(TAG, "Network error fetching ad status", t);
                 
                 // Handle retry if needed
@@ -427,16 +442,84 @@ public class AdMobRepository {
      * Record impression
      * @param adUnitId Ad unit ID
      * @param context Context data
-     * @param callback Response callback
+     * @param callback Response callback (optional)
      */
     public void recordImpression(String adUnitId, Map<String, Object> context, Callback<JsonObject> callback) {
         if (apiService == null) {
-            Log.e(TAG, "Cannot record impression: API service not initialized");
+            String error = "Cannot record impression: API service not initialized";
+            Log.e(TAG, "❌ " + error);
             if (callback != null) {
-                callback.onFailure(null, new IllegalStateException("API service not initialized"));
+                callback.onFailure(null, new IllegalStateException(error));
             }
             return;
         }
+
+        // Validate API key before making request
+        String apiKey = getApiKey();
+        if (apiKey == null || apiKey.isEmpty()) {
+            String error = "Cannot record impression: API key is missing";
+            Log.e(TAG, "❌ " + error);
+            if (callback != null) {
+                callback.onFailure(null, new IllegalStateException(error));
+            }
+            return;
+        }
+
+        // Prepare headers early so we can use them in the callback
+        final Map<String, String> headers = prepareHeaders();
+        if (!headers.containsKey(AdConstants.Headers.API_KEY)) {
+            String error = "Cannot record impression: API key header is missing";
+            Log.e(TAG, "❌ " + error);
+            if (callback != null) {
+                callback.onFailure(null, new IllegalStateException(error));
+            }
+            return;
+        }
+
+        // Create empty callback if none provided
+        final Callback<JsonObject> finalCallback = callback != null ? callback : new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                if (response.isSuccessful()) {
+                    Log.d(TAG, "✅ Impression recorded successfully for ad unit: " + adUnitId);
+                } else {
+                    String errorMsg;
+                    switch (response.code()) {
+                        case 401:
+                            String authHeader = headers.get(AdConstants.Headers.API_KEY);
+                            errorMsg = "Authentication failed (401):\n" +
+                                     "- API Key: " + (apiKey.isEmpty() ? "Missing" : "Present") + "\n" +
+                                     "- Bearer Token: " + (authHeader != null && authHeader.startsWith("Bearer") ? "Present" : "Missing") + "\n" +
+                                     "Please check API key configuration and format";
+                            break;
+                        case 403:
+                            errorMsg = "Authorization failed (403):\n" +
+                                     "- App Signature: " + (headers.get(AdConstants.Headers.APP_SIGNATURE) != null ? "Present" : "Missing") + "\n" +
+                                     "Please verify app signature";
+                            break;
+                        case 404:
+                            errorMsg = "Endpoint not found (404) - Please check server configuration";
+                            break;
+                        default:
+                            errorMsg = "Failed to record impression: " + response.code();
+                    }
+                    Log.e(TAG, "❌ " + errorMsg);
+
+                    // Try to get more details from error body
+                    try {
+                        String errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
+                        Log.e(TAG, "Error details: " + errorBody);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Could not read error body", e);
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<JsonObject> call, Throwable t) {
+                Log.e(TAG, "❌ Network error recording impression", t);
+            }
+        };
         
         try {
             // Create request body
@@ -469,15 +552,16 @@ public class AdMobRepository {
                 }
             }
             
+            // Log request details
+            Log.d(TAG, "📤 Sending impression request for ad unit: " + adUnitId);
+            Log.d(TAG, "🔑 Request headers: API Key present: " + (headers.containsKey(AdConstants.Headers.API_KEY)));
+            
             // Make API call
-            Map<String, String> headers = prepareHeaders();
             Call<JsonObject> call = apiService.recordImpression(headers, requestBody);
-            call.enqueue(callback);
+            call.enqueue(finalCallback);
         } catch (Exception e) {
-            Log.e(TAG, "Error recording impression", e);
-            if (callback != null) {
-                callback.onFailure(null, e);
-            }
+            Log.e(TAG, "❌ Error preparing impression request", e);
+            finalCallback.onFailure(null, e);
         }
     }
 
@@ -616,36 +700,48 @@ public class AdMobRepository {
     private Map<String, String> prepareHeaders() {
         Map<String, String> headers = new HashMap<>();
         
+        // Add API key first (most important)
+        String apiKey = getApiKey();
+        if (apiKey != null && !apiKey.isEmpty()) {
+            headers.put(AdConstants.Headers.API_KEY, apiKey); // Remove Bearer prefix
+            Log.d(TAG, "Using API key: " + apiKey);
+        } else {
+            Log.e(TAG, "❌ No API key available from SecureTokenManager");
+        }
+        
         // Add device ID
         String deviceId = deviceUtils != null ? deviceUtils.getDeviceId() : null;
         if (deviceId == null) {
             deviceId = preferences.getString("device_id", null);
         }
         
-        if (deviceId != null) {
+        if (deviceId != null && !deviceId.isEmpty()) {
             headers.put(AdConstants.Headers.DEVICE_ID, deviceId);
             Log.d(TAG, "Using device ID: " + deviceId);
         } else {
-            Log.w(TAG, "No device ID available for headers");
+            Log.w(TAG, "⚠️ No device ID available");
         }
         
-        // Add API key
-        String apiKey = null;
-        if (secureTokenManager != null) {
-            apiKey = secureTokenManager.getApiKey();
-            if (apiKey != null) {
-                headers.put(AdConstants.Headers.API_KEY, apiKey);
-                Log.d(TAG, "Using API key: " + apiKey);
-            } else {
-                Log.w(TAG, "No API key available from SecureTokenManager");
+        // Add app signature
+        String signature = AdConstants.Signature.APP_SIGNATURE;
+        if (signature != null && !signature.isEmpty()) {
+            headers.put(AdConstants.Headers.APP_SIGNATURE, signature);
+            Log.d(TAG, "Using app signature: " + signature);
+        }
+        
+        // Add content type
+        headers.put("Content-Type", "application/json");
+        
+        // Log complete headers for debugging (mask sensitive data)
+        StringBuilder headerLog = new StringBuilder("Request Headers:\n");
+        for (Map.Entry<String, String> entry : headers.entrySet()) {
+            String value = entry.getValue();
+            if (entry.getKey().equals(AdConstants.Headers.API_KEY)) {
+                value = value.substring(0, Math.min(value.length(), 10)) + "...";
             }
-        } else {
-            Log.w(TAG, "SecureTokenManager is null, cannot get API key");
+            headerLog.append(entry.getKey()).append(": ").append(value).append("\n");
         }
-        
-        // Add app signature - use the verified signature that works with the server
-        headers.put(AdConstants.Headers.APP_SIGNATURE, AdConstants.Signature.APP_SIGNATURE);
-        Log.d(TAG, "Using app signature: " + AdConstants.Signature.APP_SIGNATURE);
+        Log.d(TAG, headerLog.toString());
         
         return headers;
     }
@@ -661,7 +757,7 @@ public class AdMobRepository {
             Log.d(TAG, "Retrying in " + delay + "ms (attempt " + retryCount + " of " + AdConstants.RequestSettings.MAX_RETRY_COUNT + ")");
             
             // Use a Handler to retry after delay
-            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
                 fetchAdUnits(adType);
             }, delay);
         } else {
@@ -682,11 +778,28 @@ public class AdMobRepository {
      * Clear all cached data
      */
     public void clearCache() {
+        Log.d(TAG, "=== Clearing AdMob Repository Cache ===");
+        
+        // Clear shared preferences
         preferences.edit()
             .remove(AdConstants.Preferences.CACHED_AD_UNITS)
             .remove(AdConstants.Preferences.LAST_AD_FETCH_TIME)
             .apply();
-        Log.d(TAG, "Cleared ad cache");
+            
+        // Clear database
+        executor.execute(() -> {
+            try {
+                adUnitDao.deleteAllAdUnits();
+                Log.d(TAG, "Successfully cleared ad units from database");
+            } catch (Exception e) {
+                Log.e(TAG, "Error clearing ad units from database", e);
+            }
+        });
+        
+        // Clear live data
+        _adUnits.setValue(Collections.emptyList());
+        
+        Log.d(TAG, "Ad cache cleared successfully");
     }
 
     /**
@@ -722,7 +835,7 @@ public class AdMobRepository {
                 Type listType = new TypeToken<ArrayList<AdUnit>>(){}.getType();
                 List<AdUnit> cachedAdUnits = gson.fromJson(cachedJson, listType);
                 if (cachedAdUnits != null && !cachedAdUnits.isEmpty()) {
-                    adUnitsLiveData.setValue(cachedAdUnits);
+                    _adUnits.setValue(cachedAdUnits);
                     Log.d(TAG, "Loaded " + cachedAdUnits.size() + " cached ad units");
                 }
             } catch (Exception e) {
@@ -749,60 +862,106 @@ public class AdMobRepository {
      * @param adType Ad type to filter by, or null for all types
      */
     public void fetchAdUnitsWithFallback(String adType) {
-        isLoadingLiveData.setValue(true);
-        lastRequestTime = System.currentTimeMillis();
-        
+        Log.d(TAG, "=== Fetching Ad Units with Fallback ===");
+        Log.d(TAG, "Requested Ad Type: " + adType);
+
+        String apiKey = getApiKey();
+        if (apiKey == null || apiKey.isEmpty()) {
+            Log.e(TAG, "No API key available from SecureTokenManager");
+            // Load from database as fallback
+            loadAdUnitsFromDatabase();
+            return;
+        }
+
+        // Prepare headers
         Map<String, String> headers = prepareHeaders();
-        Call<AdMobResponse> call = apiService.getAdUnits(headers, adType);
         
-        call.enqueue(new Callback<AdMobResponse>() {
-            @Override
-            public void onResponse(@NonNull Call<AdMobResponse> call, @NonNull Response<AdMobResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    // Process successful response
-                    processAdUnitsResponse(response);
-                } else {
-                    // API error
-                    isLoadingLiveData.setValue(false);
-                    errorLiveData.setValue("Error: " + response.code());
-                    Log.e(TAG, "API error: " + response.code());
+        // Start API request
+        Log.d(TAG, "Starting API request for ad units");
+        apiService.getAdUnits(headers, adType)
+            .enqueue(new Callback<AdMobResponse>() {
+                @Override
+                public void onResponse(Call<AdMobResponse> call, Response<AdMobResponse> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        AdMobResponse adMobResponse = response.body();
+                        AdMobResponse.AdMobData data = adMobResponse.getData();
+                        
+                        if (data != null && data.getAdUnits() != null) {
+                            Log.d(TAG, "API request successful, received " + data.getAdUnits().size() + " ad units");
+
+                            // Save to database
+                            if (!data.getAdUnits().isEmpty()) {
+                                executor.execute(() -> {
+                                    try {
+                                        List<AdUnitEntity> entities = new ArrayList<>();
+                                        for (AdUnit unit : data.getAdUnits()) {
+                                            entities.add(AdUnitEntity.fromAdUnit(unit));
+                                        }
+                                        adUnitDao.insertAdUnits(entities);
+                                        Log.d(TAG, "Successfully saved ad units to database");
+                                        // Reload from database to update LiveData
+                                        loadAdUnitsFromDatabase();
+                                    } catch (Exception e) {
+                                        Log.e(TAG, "Error saving ad units to database", e);
+                                    }
+                                });
+                            } else {
+                                Log.w(TAG, "API response contained no ad units");
+                                loadAdUnitsFromDatabase();
+                            }
+                        } else {
+                            Log.w(TAG, "API response data or ad units is null");
+                            loadAdUnitsFromDatabase();
+                        }
+                    } else {
+                        Log.e(TAG, "API request failed with code: " + response.code());
+                        loadAdUnitsFromDatabase();
+                    }
                 }
-            }
-            
-            @Override
-            public void onFailure(@NonNull Call<AdMobResponse> call, @NonNull Throwable t) {
-                isLoadingLiveData.setValue(false);
-                errorLiveData.setValue("Network error: " + t.getMessage());
-                Log.e(TAG, "Network error", t);
+
+                @Override
+                public void onFailure(Call<AdMobResponse> call, Throwable t) {
+                    Log.e(TAG, "API request failed", t);
+                    loadAdUnitsFromDatabase();
+                }
+            });
+    }
+
+    private void loadAdUnitsFromDatabase() {
+        Log.d(TAG, "Loading ad units from database");
+        
+        // Execute database query on background thread
+        executor.execute(() -> {
+            try {
+                // Get entities directly from DAO
+                List<AdUnitEntity> entities = adUnitDao.getAdUnitsSync();
+                
+                if (entities != null) {
+                    List<AdUnit> adUnits = new ArrayList<>();
+                    for (AdUnitEntity entity : entities) {
+                        adUnits.add(entity.toAdUnit());
+                    }
+                    
+                    // Post value on main thread
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        _adUnits.setValue(adUnits);
+                        Log.d(TAG, "Loaded " + adUnits.size() + " ad units from database");
+                    });
+                } else {
+                    // Post empty list on main thread
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        _adUnits.setValue(new ArrayList<>());
+                        Log.d(TAG, "No ad units found in database");
+                    });
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error loading ad units from database", e);
+                // Post empty list on error
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    _adUnits.setValue(new ArrayList<>());
+                });
             }
         });
-    }
-    
-    /**
-     * Process successful ad units response
-     * @param response API response
-     */
-    private void processAdUnitsResponse(Response<AdMobResponse> response) {
-        isLoadingLiveData.setValue(false);
-        
-        if (response.body() != null) {
-            AdMobResponse.AdMobData data = response.body().getData();
-            if (data != null) {
-                List<AdUnit> adUnits = data.getAdUnits();
-                if (adUnits != null) {
-                    adUnitsLiveData.setValue(adUnits);
-                    // Cache the ad units
-                    cacheAdUnits(adUnits);
-                    Log.d(TAG, "Successfully fetched " + adUnits.size() + " ad units");
-                } else {
-                    adUnitsLiveData.setValue(Collections.emptyList());
-                    Log.d(TAG, "Successfully fetched ad units, but list is null");
-                }
-            } else {
-                adUnitsLiveData.setValue(Collections.emptyList());
-                Log.d(TAG, "API response success but data is null");
-            }
-        }
     }
 
     /**
@@ -983,5 +1142,80 @@ public class AdMobRepository {
      */
     public AdUnitDao getAdUnitDao() {
         return adUnitDao;
+    }
+
+    /**
+     * Get API key from SecureTokenManager
+     * @return API key or null if not available
+     */
+    public String getApiKey() {
+        if (secureTokenManager != null) {
+            String apiKey = secureTokenManager.getApiKey();
+            if (apiKey != null && !apiKey.isEmpty()) {
+                return apiKey;
+            }
+            Log.w(TAG, "No API key available from SecureTokenManager");
+        } else {
+            Log.w(TAG, "SecureTokenManager is null");
+        }
+        return null;
+    }
+
+    private void saveAdUnits(List<AdUnitEntity> adUnits) {
+        if (adUnits == null || adUnits.isEmpty()) {
+            Log.w(TAG, "No ad units to save");
+            return;
+        }
+
+        executor.execute(() -> {
+            try {
+                // Delete existing ad units and insert new ones in a transaction
+                adUnitDao.deleteAllSync();
+                adUnitDao.insertAdUnitsSync(adUnits);
+                
+                // Convert entities to models before posting to LiveData
+                List<AdUnit> models = new ArrayList<>();
+                for (AdUnitEntity entity : adUnits) {
+                    models.add(entity.toAdUnit());
+                }
+                
+                // Post the updated list to LiveData on the main thread
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    _adUnits.postValue(models);
+                    Log.d(TAG, "Successfully saved " + adUnits.size() + " ad units");
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Error saving ad units: " + e.getMessage());
+                // Try to load existing ad units from database as fallback
+                try {
+                    List<AdUnitEntity> existingAdUnits = adUnitDao.getAdUnitsSync();
+                    if (!existingAdUnits.isEmpty()) {
+                        // Convert entities to models before posting
+                        List<AdUnit> existingModels = new ArrayList<>();
+                        for (AdUnitEntity entity : existingAdUnits) {
+                            existingModels.add(entity.toAdUnit());
+                        }
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            _adUnits.postValue(existingModels);
+                            Log.d(TAG, "Loaded " + existingAdUnits.size() + " existing ad units as fallback");
+                        });
+                    }
+                } catch (Exception dbError) {
+                    Log.e(TAG, "Failed to load existing ad units: " + dbError.getMessage());
+                }
+            }
+        });
+    }
+
+    private void setLoading(boolean loading) {
+        new Handler(Looper.getMainLooper()).post(() -> _isLoading.postValue(loading));
+    }
+
+    private void updateAdStatus(Map<String, AdMobResponse.AdStatus> status) {
+        new Handler(Looper.getMainLooper()).post(() -> _adStatus.postValue(status));
+    }
+
+    private void updateError(String error) {
+        new Handler(Looper.getMainLooper()).post(() -> _error.postValue(error));
     }
 } 
