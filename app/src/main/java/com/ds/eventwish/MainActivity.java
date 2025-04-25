@@ -54,6 +54,8 @@ import com.ds.eventwish.ui.settings.SettingsActivity;
 import com.ds.eventwish.ui.viewmodel.SharedViewModel;
 import com.ds.eventwish.ui.connectivity.InternetConnectivityChecker;
 import com.ds.eventwish.ui.viewmodel.AppUpdateManager;
+import com.ds.eventwish.R;
+import com.ds.eventwish.ads.AdDemoActivity;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -344,8 +346,10 @@ public class MainActivity extends AppCompatActivity {
         int id = item.getItemId();
         
         if (id == R.id.action_settings) {
-            // Handle settings action
             startActivity(new Intent(this, SettingsActivity.class));
+            return true;
+        } else if (id == R.id.action_test_ads) {
+            startActivity(new Intent(this, AdDemoActivity.class));
             return true;
         }
         

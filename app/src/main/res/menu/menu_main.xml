@@ -12,7 +12,8 @@
     
     <item
         android:id="@+id/action_test_ads"
+        android:icon="@drawable/ic_ads"
         android:orderInCategory="101"
         android:title="@string/action_test_ads"
-        app:showAsAction="never" />
+        app:showAsAction="ifRoom" />
 </menu> 

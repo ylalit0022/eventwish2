@@ -302,15 +302,37 @@ public interface ApiService {
 
     // AdMob endpoints
     /**
-     * Get ad units
-     * @param headers Headers with authentication data
-     * @param adType Type of ads to filter by (optional)
-     * @return AdMobResponse containing ad units
+     * Get ad units with required headers
+     * Required headers:
+     * - x-api-key
+     * - x-app-signature
+     * - x-device-id
+     * 
+     * @param adType Type of ad (app_open, banner, interstitial, rewarded)
+     * @return Response containing ad units
      */
     @GET("admob/units")
-    Call<AdMobResponse> getAdUnits(
-        @HeaderMap Map<String, String> headers,
-        @Query("type") String adType
+    Call<JsonObject> getAdUnits(
+        @Query("adType") String adType,
+        @retrofit2.http.Header("x-api-key") String apiKey,
+        @retrofit2.http.Header("x-app-signature") String appSignature,
+        @retrofit2.http.Header("x-device-id") String deviceId
+    );
+
+    /**
+     * Get all ad units with required headers
+     * Required headers:
+     * - x-api-key
+     * - x-app-signature
+     * - x-device-id
+     * 
+     * @return Response containing all ad units
+     */
+    @GET("admob/units")
+    Call<JsonObject> getAllAdUnits(
+        @retrofit2.http.Header("x-api-key") String apiKey,
+        @retrofit2.http.Header("x-app-signature") String appSignature,
+        @retrofit2.http.Header("x-device-id") String deviceId
     );
 
     /**

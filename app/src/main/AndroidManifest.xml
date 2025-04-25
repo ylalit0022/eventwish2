@@ -173,6 +173,18 @@
 <!--            </intent-filter>-->
 <!--        </activity>-->
 
+        <activity
+            android:name=".ads.AdDemoActivity"
+            android:exported="true"
+            android:label="AdMob Demo"
+            android:icon="@drawable/ic_ads"
+            android:theme="@style/Theme.MaterialComponents.Light.DarkActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <meta-data
             android:name="preloaded_fonts"
             android:resource="@array/preloaded_fonts" />
