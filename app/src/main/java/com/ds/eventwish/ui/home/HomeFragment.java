@@ -39,6 +39,8 @@ import com.ds.eventwish.ui.home.adapter.RecommendedTemplateAdapter;
 import com.ds.eventwish.ui.home.adapter.CategoriesAdapter;
 import com.ds.eventwish.data.repository.CategoryIconRepository;
 import com.ds.eventwish.data.repository.TemplateRepository;
+import com.ds.eventwish.data.remote.ApiClient;
+import com.ds.eventwish.data.remote.ApiService;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
 import java.util.ArrayList;
@@ -65,6 +67,9 @@ import java.util.Collections;
 import android.graphics.Rect;
 import android.os.Handler;
 
+import com.ds.eventwish.ads.InterstitialAdManager;
+import com.ds.eventwish.ads.AdMobRepository;
+
 public class HomeFragment extends BaseFragment implements RecommendedTemplateAdapter.TemplateClickListener {
     private static final String TAG = "HomeFragment";
     
@@ -83,6 +88,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     private boolean isResumed = false;
     private OnBackPressedCallback backPressedCallback;
     private int lastScrollPosition = 0;
+    private InterstitialAdManager interstitialAdManager;
+    private boolean isAdLoading = false;
+    private Template pendingTemplate = null;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -175,6 +183,11 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         // Initialize the TemplateRepository to ensure categories are loaded
         TemplateRepository.init(requireContext());
         Log.d(TAG, "TemplateRepository initialized in onCreate");
+
+        // Initialize InterstitialAdManager
+        ApiService apiService = ApiClient.getClient();
+        interstitialAdManager = new InterstitialAdManager(requireContext());
+        Log.d(TAG, "InterstitialAdManager initialized in onCreate");
 
         // Handle back press for exit confirmation
         backPressedCallback = new OnBackPressedCallback(true) {
@@ -311,6 +324,63 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 }
             });
         }
+
+        // Load interstitial ad if not already loaded or loading
+        if (!interstitialAdManager.isAdLoaded() && !isAdLoading) {
+            isAdLoading = true;
+            interstitialAdManager.loadAd(new InterstitialAdManager.InterstitialAdCallback() {
+                @Override
+                public void onAdLoaded() {
+                    isAdLoading = false;
+                    Log.d(TAG, "Interstitial ad loaded successfully");
+                    
+                    // If there's a pending template, show the ad now
+                    if (pendingTemplate != null) {
+                        showAdAndNavigate(pendingTemplate);
+                        pendingTemplate = null;
+                    }
+                }
+
+                @Override
+                public void onAdFailedToLoad(String error) {
+                    isAdLoading = false;
+                    Log.e(TAG, "Failed to load interstitial ad: " + error);
+                    
+                    // If there's a pending template, navigate directly
+                    if (pendingTemplate != null) {
+                        navigateToTemplateDetail(pendingTemplate.getId());
+                        pendingTemplate = null;
+                    }
+                }
+
+                @Override
+                public void onAdShown() {
+                    Log.d(TAG, "Interstitial ad shown");
+                }
+
+                @Override
+                public void onAdDismissed() {
+                    Log.d(TAG, "Interstitial ad dismissed");
+                    // Load the next ad after this one is dismissed
+                    loadNextAd();
+                }
+
+                @Override
+                public void onAdClicked() {
+                    Log.d(TAG, "Interstitial ad clicked");
+                }
+
+                @Override
+                public void onAdShowFailed(String error) {
+                    Log.e(TAG, "Failed to show interstitial ad: " + error);
+                    // If there's a pending template, navigate directly
+                    if (pendingTemplate != null) {
+                        navigateToTemplateDetail(pendingTemplate.getId());
+                        pendingTemplate = null;
+                    }
+                }
+            });
+        }
     }
 
     @Override
@@ -378,6 +448,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         super.onDestroyView();
         if (backPressedCallback != null) {
             backPressedCallback.remove();
+        }
+        if (interstitialAdManager != null) {
+            interstitialAdManager.destroy();
         }
         binding = null;
     }
@@ -1387,8 +1460,13 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
 
     @Override
     public void onTemplateClick(Template template) {
-        if (template == null || template.getId() == null) return;
-        navigateToTemplateDetail(template.getId());
+        if (template == null || template.getId() == null) {
+            Log.e(TAG, "Invalid template clicked");
+            return;
+        }
+
+        // Show ad before navigating to template detail
+        showAdAndNavigate(template);
     }
     
     /**
@@ -1669,6 +1747,136 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                     outRect.top = spacing;
                 }
             }
+        }
+    }
+
+    private void showAdAndNavigate(Template template) {
+        if (interstitialAdManager != null) {
+            if (!interstitialAdManager.isAdLoaded() && !isAdLoading) {
+                isAdLoading = true;
+                pendingTemplate = template;
+                interstitialAdManager.loadAd(new InterstitialAdManager.InterstitialAdCallback() {
+                    @Override
+                    public void onAdLoaded() {
+                        isAdLoading = false;
+                        if (pendingTemplate != null) {
+                            showAdAndNavigate(pendingTemplate);
+                        }
+                    }
+
+                    @Override
+                    public void onAdFailedToLoad(String error) {
+                        isAdLoading = false;
+                        // Navigate directly if ad fails to load
+                        if (pendingTemplate != null) {
+                            navigateToTemplateDetail(pendingTemplate.getId());
+                            pendingTemplate = null;
+                        }
+                    }
+
+                    @Override
+                    public void onAdShown() {
+                        // Ad is being shown
+                    }
+
+                    @Override
+                    public void onAdDismissed() {
+                        // Navigate after ad is dismissed
+                        if (pendingTemplate != null) {
+                            navigateToTemplateDetail(pendingTemplate.getId());
+                            pendingTemplate = null;
+                        }
+                    }
+
+                    @Override
+                    public void onAdClicked() {
+                        // Ad was clicked
+                    }
+
+                    @Override
+                    public void onAdShowFailed(String error) {
+                        // Navigate directly if ad fails to show
+                        if (pendingTemplate != null) {
+                            navigateToTemplateDetail(pendingTemplate.getId());
+                            pendingTemplate = null;
+                        }
+                    }
+                });
+            } else if (interstitialAdManager.isAdLoaded()) {
+                pendingTemplate = template;
+                interstitialAdManager.showAd(requireActivity(), new InterstitialAdManager.InterstitialAdCallback() {
+                    @Override
+                    public void onAdLoaded() {}
+
+                    @Override
+                    public void onAdFailedToLoad(String error) {
+                        // Navigate directly if ad fails to load
+                        if (pendingTemplate != null) {
+                            navigateToTemplateDetail(pendingTemplate.getId());
+                            pendingTemplate = null;
+                        }
+                    }
+
+                    @Override
+                    public void onAdShown() {}
+
+                    @Override
+                    public void onAdDismissed() {
+                        // Navigate after ad is dismissed
+                        if (pendingTemplate != null) {
+                            navigateToTemplateDetail(pendingTemplate.getId());
+                            pendingTemplate = null;
+                        }
+                    }
+
+                    @Override
+                    public void onAdClicked() {}
+
+                    @Override
+                    public void onAdShowFailed(String error) {
+                        // Navigate directly if ad fails to show
+                        if (pendingTemplate != null) {
+                            navigateToTemplateDetail(pendingTemplate.getId());
+                            pendingTemplate = null;
+                        }
+                    }
+                });
+            } else {
+                // Navigate directly if ad is not ready
+                navigateToTemplateDetail(template.getId());
+            }
+        } else {
+            // Navigate directly if ad manager is not available
+            navigateToTemplateDetail(template.getId());
+        }
+    }
+
+    private void loadNextAd() {
+        if (interstitialAdManager != null && !isAdLoading) {
+            isAdLoading = true;
+            interstitialAdManager.loadAd(new InterstitialAdManager.InterstitialAdCallback() {
+                @Override
+                public void onAdLoaded() {
+                    isAdLoading = false;
+                }
+
+                @Override
+                public void onAdFailedToLoad(String error) {
+                    isAdLoading = false;
+                }
+
+                @Override
+                public void onAdShown() {}
+
+                @Override
+                public void onAdDismissed() {}
+
+                @Override
+                public void onAdClicked() {}
+
+                @Override
+                public void onAdShowFailed(String error) {}
+            });
         }
     }
 }

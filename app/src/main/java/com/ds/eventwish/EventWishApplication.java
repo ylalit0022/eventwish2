@@ -40,6 +40,8 @@ import com.ds.eventwish.data.repository.FestivalRepository;
 import com.ds.eventwish.data.repository.TemplateRepository;
 import com.ds.eventwish.data.repository.ResourceRepository;
 import com.ds.eventwish.utils.AppExecutors;
+import com.ds.eventwish.ads.AdMobManager;
+import com.ds.eventwish.ads.AppOpenManager;
 
 public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
@@ -67,6 +69,8 @@ public class EventWishApplication extends Application implements Configuration.P
     
     // Activity tracking
     private int runningActivities = 0;
+
+    private AppOpenManager appOpenManager;
 
     /**
      * Get the application instance
@@ -96,6 +100,13 @@ public class EventWishApplication extends Application implements Configuration.P
             
             // Register user in background
             registerUserInBackground();
+            
+            // Initialize AdMob
+            AdMobManager.init(this);
+
+            // Initialize app open ads
+            appOpenManager = new AppOpenManager(this);
+            appOpenManager.fetchAd(); // Pre-fetch first ad
             
             Log.d(TAG, "EventWish application started successfully");
         } catch (Exception e) {
@@ -388,6 +399,9 @@ public class EventWishApplication extends Application implements Configuration.P
             festivalRepository = FestivalRepository.getInstance(this);
             templateRepository = TemplateRepository.getInstance();
             resourceRepository = ResourceRepository.getInstance(this);
+            
+            // Initialize UserRepository
+            userRepository = UserRepository.getInstance(this);
             
             // Schedule notifications
             scheduleNotifications();

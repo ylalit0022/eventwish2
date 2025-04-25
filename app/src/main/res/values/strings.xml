@@ -166,7 +166,7 @@
     <string name="error_button_login">Log In</string>
     
     <string name="error_icon_description">Error icon</string>
-
+    
     <!-- Offline Indicator -->
     <string name="offline_message">You\'re offline. Some features may be unavailable.</string>
     <string name="offline_icon_description">Offline indicator icon</string>
@@ -366,4 +366,9 @@
     <string name="error_http">HTTP error %1$d occurred. Please try again.</string>
     <string name="error_ssl">SSL/TLS error occurred. Please try again.</string>
     <string name="error_unknown">An unknown error occurred. Please try again.</string>
+
+    <string name="ad_demo_loading_ad">Loading ad...</string>
+    <string name="ad_demo_ad_loaded">Ad loaded successfully</string>
+    <string name="ad_demo_ad_failed">Failed to load ad: %1$s</string>
+    <string name="ad_demo_ad_failed_to_show">Failed to show ad: %1$s</string>
 </resources>

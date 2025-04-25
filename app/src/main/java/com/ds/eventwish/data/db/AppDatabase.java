@@ -15,6 +15,8 @@ import com.ds.eventwish.data.converter.DateConverter;
 import com.ds.eventwish.data.model.Category;
 import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.data.model.Template;
+import com.ds.eventwish.data.local.entity.AdUnitEntity;
+import com.ds.eventwish.data.local.dao.AdUnitDao;
 
 /**
  * Main database class for the application.
@@ -24,7 +26,8 @@ import com.ds.eventwish.data.model.Template;
     entities = {
         Template.class,
         SharedWish.class,
-        Category.class
+        Category.class,
+        AdUnitEntity.class
     },
     version = 1,
     exportSchema = true
@@ -44,6 +47,7 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract TemplateDao templateDao();
     public abstract SharedWishDao sharedWishDao();
     public abstract CategoryDao categoryDao();
+    public abstract AdUnitDao adUnitDao();
     
     /**
      * Get the singleton database instance

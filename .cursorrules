@@ -284,81 +284,55 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 
 # Scratchpad
 
-## Current Task: Implement Direct Server Communication for Ad Units
+## Current Task: Implement Ads Display in App
 
-### Analysis of test_admob_api.js
-1. Server Configuration:
-   - Base URL: https://eventwish2.onrender.com/api
-   - Endpoint: /admob/units
-   - Query parameter: adType (app_open, banner, interstitial, rewarded)
+### Updated Implementation Plan
+[X] 1. Create AdMobManager
+    - Created singleton class
+    - Added initialization logic
+    - Added ad unit fetching from repository
+    - Added error handling and logging
+    - Implemented interstitial ad support
 
-2. Required Headers:
-   - x-api-key: ew_dev_c1ce47afeff9fa8b7b1aa165562cb915
-   - x-app-signature: app_sig_1
-   - x-device-id: [device-specific hash]
-   - Content-Type: application/json
+[X] 2. Implement Native Ads
+    - Created NativeAdManager helper
+    - Created reusable NativeAdView layout
+    - Added loading and display logic
+    - Added proper cleanup and lifecycle management
+    - Added native ad container to main activity
+    - Integrated native ads in MainActivity
 
-### Implementation Plan
-[X] 1. Create directory structure
-[X] 2. Update ApiService interface
-    - Add /admob/units endpoint with proper headers
-    - Support query parameter for ad type
-    - Define response model for raw server response
+[X] 3. Implement App Open Ads
+    - Created AppOpenManager
+    - Added lifecycle handling
+    - Added loading logic
+    - Added cold start handling
+    - Integrated with application class
 
-[X] 3. Create XML resources for logging
-    - Add string resources for all log messages
-    - Include raw response display format
-    - Add debug log message templates
+[ ] 4. Integration Testing
+    - Test interstitial ads in HomeFragment
+    - Test native ads in main activity
+    - Test app open ads on cold start
+    - Verify error handling and logging
+    - Test server hibernation scenarios
 
-[X] 4. Implement direct server communication
-    - Create AdMobRepository with no caching
-    - Add logging for all steps (request, response, errors)
-    - Handle server errors (503 during hibernation)
-    - Display raw response in logs
+### Next Steps
+1. First Priority:
+   - Begin integration testing
+   - Test native ad loading and display
+   - Test app open ad cold start
 
-[X] 5. Create test activity
-    - Add UI for testing different ad types
-    - Show raw server responses
-    - Display all headers and request details
-    - Log all steps of the process
+2. Second Priority:
+   - Test interstitial ads in fragments
+   - Test error handling scenarios
+   - Test server hibernation
 
-### Technical Details
-1. API Endpoint Structure:
-   ```
-   GET /admob/units?adType={type}
-   Headers:
-   - x-api-key
-   - x-app-signature
-   - x-device-id
-   ```
+3. Testing Priority:
+   - Test native ad integration
+   - Test app open timing
+   - Test interstitial display
 
-2. Ad Types:
-   - app_open
-   - banner
-   - interstitial
-   - rewarded
-
-3. Response Format:
-   ```json
-   {
-     "success": boolean,
-     "message": string,
-     "data": [AdUnit]
-   }
-   ```
-
-### Progress Tracking
-- Current Status: All tasks completed
-- Next Step: Test the implementation with the AdDemoActivity
-
-# Lessons
-
-## Server Communication
-- Always include required headers (x-api-key, x-app-signature, x-device-id)
-- Handle server hibernation (503 errors)
-- Log raw responses for debugging
-- Don't cache responses, fetch directly from server
-- Use proper ad type values as shown in test script
-- Use proper query parameter name (adType instead of type)
-- Return JsonObject for flexibility in handling responses
-- Add comprehensive logging for debugging
+Would you like me to:
+1. Begin integration testing of the ad implementations?
+2. Add more error handling or logging?
+3. Make any improvements to the existing implementations?

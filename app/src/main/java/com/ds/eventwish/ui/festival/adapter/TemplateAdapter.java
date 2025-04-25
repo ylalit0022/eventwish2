@@ -69,7 +69,7 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.Templa
 
         public TemplateViewHolder(@NonNull View itemView) {
             super(itemView);
-            thumbnailImage = itemView.findViewById(R.id.thumbnailImage);
+            thumbnailImage = itemView.findViewById(R.id.template_image);
             titleText = itemView.findViewById(R.id.titleText);
             categoryText = itemView.findViewById(R.id.categoryText);
 

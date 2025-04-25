@@ -19,25 +19,18 @@
         android:layout_marginBottom="16dp"/>
 
     <Button
-        android:id="@+id/fetchButton"
+        android:id="@+id/showAdButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Fetch Ad Unit"
+        android:text="Show Ad"
+        android:enabled="false"
         android:layout_marginBottom="16dp"/>
 
-    <ScrollView
+    <TextView
+        android:id="@+id/statusText"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1">
-
-        <TextView
-            android:id="@+id/responseText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="14sp"
-            android:fontFamily="monospace"
-            android:textIsSelectable="true"/>
-
-    </ScrollView>
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:layout_marginTop="16dp"/>
 
 </LinearLayout> 

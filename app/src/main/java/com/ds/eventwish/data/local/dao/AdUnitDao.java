@@ -28,6 +28,9 @@ public interface AdUnitDao {
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insertAdUnits(List<AdUnitEntity> adUnits);
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    void insert(AdUnitEntity adUnit);
     
     @Update
     void updateAdUnits(List<AdUnitEntity> adUnits);
@@ -39,7 +42,13 @@ public interface AdUnitDao {
     void deleteAdUnitsByType(String adType);
     
     @Query("SELECT * FROM ad_units WHERE adType = :adType ORDER BY targetingPriority DESC LIMIT 1")
-    AdUnitEntity getHighestPriorityAdUnit(String adType);
+    LiveData<AdUnitEntity> getHighestPriorityAdUnit(String adType);
+
+    @Query("SELECT * FROM ad_units WHERE adType = :type AND status = 1 AND canShow = 1 ORDER BY targetingPriority DESC LIMIT 1")
+    LiveData<AdUnitEntity> getActiveAdUnitByType(String type);
+
+    @Query("SELECT * FROM ad_units WHERE status = 1 AND canShow = 1")
+    LiveData<List<AdUnitEntity>> getAllActiveAdUnits();
     
     @Query("SELECT COUNT(*) FROM ad_units WHERE adType = :adType")
     int getAdUnitCountByType(String adType);

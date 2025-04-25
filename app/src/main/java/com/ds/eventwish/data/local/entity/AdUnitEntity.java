@@ -2,42 +2,76 @@ package com.ds.eventwish.data.local.entity;
 
 import androidx.annotation.NonNull;
 import androidx.room.Entity;
+import androidx.room.Ignore;
 import androidx.room.PrimaryKey;
 import androidx.room.TypeConverters;
 
-import com.ds.eventwish.data.local.converter.MapTypeConverter;
-import com.ds.eventwish.data.model.ads.AdUnit;
+import com.ds.eventwish.data.db.Converters;
+import com.google.gson.annotations.SerializedName;
 
+import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 @Entity(tableName = "ad_units")
+@TypeConverters(Converters.class)
 public class AdUnitEntity {
     @PrimaryKey
     @NonNull
     private String id;
     
     private String adName;
-    private String adUnitCode;
     private String adType;
-    private boolean status;
-    
-    @TypeConverters(MapTypeConverter.class)
+    private String adUnitCode;
+    private int status;  // Using int for boolean (0/1)
     private Map<String, Object> targetingCriteria;
-    
+    private List<String> targetSegments;
     private int targetingPriority;
-    
-    @TypeConverters(MapTypeConverter.class)
     private Map<String, String> parameters;
     
+    // Analytics fields
+    private int impressions;
+    private int clicks;
+    private double ctr;
+    private double revenue;
+
+    // Display settings
     private int maxImpressionsPerDay;
     private int minIntervalBetweenAds;
     private int cooldownPeriod;
+
+    // Device specific fields
     private boolean canShow;
     private String reason;
     private String nextAvailable;
-    private long lastUpdated;
+    private Date lastShown;
+    private int impressionsToday;
+    private Date cooldownUntil;
 
-    // Getters and setters
+    // Timestamps
+    private Date createdAt;
+    private Date updatedAt;
+
+    // Default constructor for Room
+    public AdUnitEntity() {
+    }
+
+    // Constructor with required fields
+    @Ignore
+    public AdUnitEntity(@NonNull String id, String adName, String adType, String adUnitCode, 
+                       int status, int targetingPriority) {
+        this.id = id;
+        this.adName = adName;
+        this.adType = adType;
+        this.adUnitCode = adUnitCode;
+        this.status = status;
+        this.targetingPriority = targetingPriority;
+        this.canShow = true;
+        this.impressionsToday = 0;
+        this.createdAt = new Date();
+        this.updatedAt = new Date();
+    }
+
     @NonNull
     public String getId() {
         return id;
@@ -55,14 +89,6 @@ public class AdUnitEntity {
         this.adName = adName;
     }
 
-    public String getAdUnitCode() {
-        return adUnitCode;
-    }
-
-    public void setAdUnitCode(String adUnitCode) {
-        this.adUnitCode = adUnitCode;
-    }
-
     public String getAdType() {
         return adType;
     }
@@ -71,11 +97,19 @@ public class AdUnitEntity {
         this.adType = adType;
     }
 
-    public boolean isStatus() {
+    public String getAdUnitCode() {
+        return adUnitCode;
+    }
+
+    public void setAdUnitCode(String adUnitCode) {
+        this.adUnitCode = adUnitCode;
+    }
+
+    public int getStatus() {
         return status;
     }
 
-    public void setStatus(boolean status) {
+    public void setStatus(int status) {
         this.status = status;
     }
 
@@ -85,6 +119,14 @@ public class AdUnitEntity {
 
     public void setTargetingCriteria(Map<String, Object> targetingCriteria) {
         this.targetingCriteria = targetingCriteria;
+    }
+
+    public List<String> getTargetSegments() {
+        return targetSegments;
+    }
+
+    public void setTargetSegments(List<String> targetSegments) {
+        this.targetSegments = targetSegments;
     }
 
     public int getTargetingPriority() {
@@ -101,6 +143,38 @@ public class AdUnitEntity {
 
     public void setParameters(Map<String, String> parameters) {
         this.parameters = parameters;
+    }
+
+    public int getImpressions() {
+        return impressions;
+    }
+
+    public void setImpressions(int impressions) {
+        this.impressions = impressions;
+    }
+
+    public int getClicks() {
+        return clicks;
+    }
+
+    public void setClicks(int clicks) {
+        this.clicks = clicks;
+    }
+
+    public double getCtr() {
+        return ctr;
+    }
+
+    public void setCtr(double ctr) {
+        this.ctr = ctr;
+    }
+
+    public double getRevenue() {
+        return revenue;
+    }
+
+    public void setRevenue(double revenue) {
+        this.revenue = revenue;
     }
 
     public int getMaxImpressionsPerDay() {
@@ -151,62 +225,77 @@ public class AdUnitEntity {
         this.nextAvailable = nextAvailable;
     }
 
-    public long getLastUpdated() {
-        return lastUpdated;
+    public Date getLastShown() {
+        return lastShown;
     }
 
-    public void setLastUpdated(long lastUpdated) {
-        this.lastUpdated = lastUpdated;
+    public void setLastShown(Date lastShown) {
+        this.lastShown = lastShown;
     }
 
-    // Convert to AdUnit model
-    public AdUnit toAdUnit() {
-        AdUnit adUnit = new AdUnit();
-        adUnit.setId(id);
-        adUnit.setAdName(adName);
-        adUnit.setAdUnitCode(adUnitCode);
-        adUnit.setAdType(adType);
-        adUnit.setStatus(status);
-        adUnit.setTargetingCriteria(targetingCriteria);
-        adUnit.setTargetingPriority(targetingPriority);
-        adUnit.setParameters(parameters);
-        
-        AdUnit.DisplaySettings displaySettings = new AdUnit.DisplaySettings();
-        displaySettings.setMaxImpressionsPerDay(maxImpressionsPerDay);
-        displaySettings.setMinIntervalBetweenAds(minIntervalBetweenAds);
-        displaySettings.setCooldownPeriod(cooldownPeriod);
-        adUnit.setDisplaySettings(displaySettings);
-        
-        adUnit.setCanShow(canShow);
-        adUnit.setReason(reason);
-        adUnit.setNextAvailable(nextAvailable);
-        
-        return adUnit;
+    public int getImpressionsToday() {
+        return impressionsToday;
     }
 
-    // Create from AdUnit model
-    public static AdUnitEntity fromAdUnit(AdUnit adUnit) {
-        AdUnitEntity entity = new AdUnitEntity();
-        entity.setId(adUnit.getId());
-        entity.setAdName(adUnit.getAdName());
-        entity.setAdUnitCode(adUnit.getAdUnitCode());
-        entity.setAdType(adUnit.getAdType());
-        entity.setStatus(adUnit.isStatus());
-        entity.setTargetingCriteria(adUnit.getTargetingCriteria());
-        entity.setTargetingPriority(adUnit.getTargetingPriority());
-        entity.setParameters(adUnit.getParameters());
-        
-        if (adUnit.getDisplaySettings() != null) {
-            entity.setMaxImpressionsPerDay(adUnit.getDisplaySettings().getMaxImpressionsPerDay());
-            entity.setMinIntervalBetweenAds(adUnit.getDisplaySettings().getMinIntervalBetweenAds());
-            entity.setCooldownPeriod(adUnit.getDisplaySettings().getCooldownPeriod());
-        }
-        
-        entity.setCanShow(adUnit.isCanShow());
-        entity.setReason(adUnit.getReason());
-        entity.setNextAvailable(adUnit.getNextAvailable());
-        entity.setLastUpdated(System.currentTimeMillis());
-        
-        return entity;
+    public void setImpressionsToday(int impressionsToday) {
+        this.impressionsToday = impressionsToday;
+    }
+
+    public Date getCooldownUntil() {
+        return cooldownUntil;
+    }
+
+    public void setCooldownUntil(Date cooldownUntil) {
+        this.cooldownUntil = cooldownUntil;
+    }
+
+    public Date getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Date createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Date getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Date updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public String getAdUnitId() {
+        return adUnitCode;
+    }
+
+    public void setAdUnitId(String adUnitId) {
+        this.adUnitCode = adUnitId;
+    }
+
+    public void setPriority(int priority) {
+        this.targetingPriority = priority;
+    }
+
+    @Override
+    public String toString() {
+        return "AdUnitEntity{" +
+                "id='" + id + '\'' +
+                ", adName='" + adName + '\'' +
+                ", adType='" + adType + '\'' +
+                ", adUnitCode='" + adUnitCode + '\'' +
+                ", status=" + status +
+                ", targetingPriority=" + targetingPriority +
+                ", impressions=" + impressions +
+                ", clicks=" + clicks +
+                ", ctr=" + ctr +
+                ", revenue=" + revenue +
+                ", canShow=" + canShow +
+                ", impressionsToday=" + impressionsToday +
+                (reason != null ? ", reason='" + reason + '\'' : "") +
+                (nextAvailable != null ? ", nextAvailable='" + nextAvailable + '\'' : "") +
+                (lastShown != null ? ", lastShown=" + lastShown : "") +
+                (cooldownUntil != null ? ", cooldownUntil=" + cooldownUntil : "") +
+                '}';
     }
 } 
