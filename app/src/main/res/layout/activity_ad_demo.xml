@@ -6,31 +6,41 @@
     android:padding="16dp">
 
     <TextView
-        android:layout_width="wrap_content"
+        android:id="@+id/statusText"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Select Ad Type:"
-        android:textSize="16sp"
-        android:layout_marginBottom="8dp"/>
+        android:layout_marginBottom="16dp"
+        android:gravity="center"
+        android:textSize="16sp" />
 
     <Spinner
         android:id="@+id/adTypeSpinner"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"/>
+        android:layout_marginBottom="16dp" />
 
     <Button
         android:id="@+id/showAdButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
         android:text="Show Ad"
-        android:enabled="false"
-        android:layout_marginBottom="16dp"/>
+        android:visibility="gone" />
 
-    <TextView
-        android:id="@+id/statusText"
+    <FrameLayout
+        android:id="@+id/bannerAdContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textSize="14sp"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginBottom="16dp"
+        android:minHeight="50dp"
+        android:visibility="gone" />
+
+    <FrameLayout
+        android:id="@+id/nativeAdContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:minHeight="300dp"
+        android:visibility="gone" />
 
 </LinearLayout> 
