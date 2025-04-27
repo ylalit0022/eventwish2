@@ -409,3 +409,96 @@ com.ds.eventwish.ads/
 4. [ ] Begin individual ad type implementations
 
 Would you like me to start implementing any of these components?
+
+## Scratchpad - Category Icon Issue Analysis
+
+## Current Issue
+- Category icons not showing up in the app
+- Template schema in server treats categoryIcon as string but should be an object
+- Need to align client-side and server-side models
+
+## File Analysis
+
+### Client Side (Android)
+1. Category.java:
+   - Has CategoryIcon field with proper TypeConverter
+   - Uses proper model structure
+
+2. CategoryIcon.java:
+   - Complex model with proper JSON handling
+   - Has id, category, categoryIcon fields
+   - Handles various icon URL formats and edge cases
+
+3. Template.java (Android):
+   - Has CategoryIcon field with proper TypeConverter
+   - Properly structured for icon handling
+
+### Server Side
+1. CategoryIcon.js (Model):
+   - Simple schema with category and categoryIcon fields
+   - categoryIcon is validated as URL string
+
+2. Template.js (Model):
+   - Issue: categoryIcon field is ObjectId reference
+   - But treated as string in responses
+   - Missing proper population of categoryIcon object
+
+3. Support Files:
+   - categoryIconServer.js: Handles icon CRUD operations
+   - insertCategoryIcons.js: Sample data insertion
+   - insertNewCategoryIcons.js: New icon insertion logic
+
+## Root Cause
+1. Schema Mismatch:
+   - Server: categoryIcon is ObjectId reference
+   - Client: Expects full CategoryIcon object
+   - Missing population step in API responses
+
+2. Data Flow Issues:
+   - Server not populating CategoryIcon references
+   - Template responses sending raw ObjectId instead of resolved object
+
+## Action Plan
+
+[ ] 1. Fix Template Schema
+    - Update Template.js to properly define categoryIcon reference
+    - Add proper population in queries
+
+[ ] 2. Update API Routes
+    - Modify template routes to populate categoryIcon
+    - Ensure proper object resolution
+
+[ ] 3. Fix Data Insertion
+    - Update insertion scripts to handle proper references
+    - Validate existing data
+
+[ ] 4. Testing
+    - Test API responses
+    - Verify client-side rendering
+    - Check icon loading in app
+
+## Implementation Steps
+
+1. Template Schema Fix:
+```javascript
+categoryIcon: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'CategoryIcon',
+    required: false
+}
+```
+
+2. API Population:
+```javascript
+Template.findById(id).populate('categoryIcon')
+```
+
+3. Response Handling:
+- Ensure proper object transformation
+- Handle null/missing icons gracefully
+
+4. Data Validation:
+- Check existing records
+- Update references if needed
+
+Would you like me to start implementing these fixes?
