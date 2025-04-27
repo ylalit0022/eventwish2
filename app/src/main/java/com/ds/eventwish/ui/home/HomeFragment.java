@@ -1428,7 +1428,45 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         viewModel.getError().observe(getViewLifecycleOwner(), error -> {
             if (error != null && !error.isEmpty()) {
                 Log.e(TAG, "Error: " + error);
-                Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show();
+                String userMessage;
+                if (error.contains("504")) {
+                    userMessage = "Server timeout. Please check your internet connection and try again.";
+                } else if (error.contains("404")) {
+                    userMessage = "Content not found. Please refresh and try again.";
+                } else if (error.contains("403")) {
+                    userMessage = "Access denied. Please check your permissions.";
+                } else if (error.contains("500")) {
+                    userMessage = "Server error. Please try again later.";
+                } else if (error.toLowerCase().contains("timeout") || error.toLowerCase().contains("failed to connect")) {
+                    userMessage = "Connection timeout. Please check your internet and try again.";
+                } else {
+                    userMessage = error;
+                }
+                
+                // Show error in retry layout
+                binding.retryLayout.setVisibility(View.VISIBLE);
+                binding.templatesRecyclerView.setVisibility(View.GONE);
+                TextView errorText = binding.retryLayout.findViewById(R.id.errorText);
+                if (errorText != null) {
+                    errorText.setText(userMessage);
+                }
+                
+                // Setup retry button
+                Button retryButton = binding.retryLayout.findViewById(R.id.retryButton);
+                if (retryButton != null) {
+                    retryButton.setOnClickListener(v -> {
+                        binding.retryLayout.setVisibility(View.GONE);
+                        binding.templatesRecyclerView.setVisibility(View.VISIBLE);
+                        viewModel.loadTemplates(true);
+                    });
+                }
+                
+                // Also show a toast for immediate feedback
+                Toast.makeText(requireContext(), userMessage, Toast.LENGTH_SHORT).show();
+            } else {
+                // Hide retry layout if there's no error
+                binding.retryLayout.setVisibility(View.GONE);
+                binding.templatesRecyclerView.setVisibility(View.VISIBLE);
             }
         });
         
