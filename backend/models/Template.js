@@ -48,23 +48,53 @@ const templateSchema = new mongoose.Schema({
     toJSON: {
         virtuals: true,
         transform: function(doc, ret) {
-            ret.id = ret._id;
+            // Ensure _id exists and is properly converted
+            if (!ret.id && ret._id) {
+                ret.id = ret._id.toString();
+            }
+            
+            // If somehow both id and _id are missing, this is an error
+            if (!ret.id && !ret._id) {
+                console.error('Template missing ID:', ret);
+                throw new Error('Template document missing ID');
+            }
+            
             delete ret._id;
             delete ret.__v;
             
             // Transform categoryIcon if it exists
             if (ret.categoryIcon && typeof ret.categoryIcon === 'object') {
                 ret.categoryIcon = {
-                    id: ret.categoryIcon._id || ret.categoryIcon.id,
+                    id: ret.categoryIcon._id ? ret.categoryIcon._id.toString() : ret.categoryIcon.id,
                     category: ret.categoryIcon.category,
                     categoryIcon: ret.categoryIcon.categoryIcon,
                     iconType: ret.categoryIcon.iconType || 'URL',
                     resourceName: ret.categoryIcon.resourceName || ''
                 };
             }
+            
+            // Ensure required fields are present
+            if (!ret.title) {
+                console.error('Template missing title:', ret);
+                throw new Error('Template document missing title');
+            }
+            
+            if (!ret.category) {
+                console.error('Template missing category:', ret);
+                throw new Error('Template document missing category');
+            }
+            
             return ret;
         }
     }
+});
+
+// Add a pre-save middleware to ensure ID is set
+templateSchema.pre('save', function(next) {
+    if (!this._id) {
+        this._id = new mongoose.Types.ObjectId();
+    }
+    next();
 });
 
 templateSchema.plugin(require('mongoose-autopopulate'));
