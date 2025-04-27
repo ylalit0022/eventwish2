@@ -371,4 +371,8 @@
     <string name="ad_demo_ad_loaded">Ad loaded successfully</string>
     <string name="ad_demo_ad_failed">Failed to load ad: %1$s</string>
     <string name="ad_demo_ad_failed_to_show">Failed to show ad: %1$s</string>
+
+    <!-- Native Ad Strings -->
+    <string name="error_icon">Error Icon</string>
+    <string name="ad_sponsored">Sponsored</string>
 </resources>

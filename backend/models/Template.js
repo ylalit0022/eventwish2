@@ -33,31 +33,34 @@ const templateSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'CategoryIcon',
         required: false,
-        autopopulate: true,
         validate: {
-            validator: function(v) {
-                return v === null || mongoose.Types.ObjectId.isValid(v);
+            validator: async function(v) {
+                if (!v) return true; // Allow null/undefined
+                const CategoryIcon = mongoose.model('CategoryIcon');
+                const icon = await CategoryIcon.findById(v);
+                return icon !== null;
             },
-            message: props => `${props.value} is not a valid ObjectId!`
-        },
-        get: function(v) {
-            if (v && typeof v === 'object' && v.categoryIcon) {
-                return v;
-            }
-            return null;
+            message: props => `CategoryIcon with ID ${props.value} does not exist!`
         }
     }
 }, {
     timestamps: true,
     toJSON: {
         virtuals: true,
-        getters: true,
         transform: function(doc, ret) {
-            if (ret.categoryIcon) {
-                if (typeof ret.categoryIcon === 'object' && ret.categoryIcon.categoryIcon) {
-                    return ret;
-                }
-                ret.categoryIcon = null;
+            ret.id = ret._id;
+            delete ret._id;
+            delete ret.__v;
+            
+            // Transform categoryIcon if it exists
+            if (ret.categoryIcon && typeof ret.categoryIcon === 'object') {
+                ret.categoryIcon = {
+                    id: ret.categoryIcon._id || ret.categoryIcon.id,
+                    category: ret.categoryIcon.category,
+                    categoryIcon: ret.categoryIcon.categoryIcon,
+                    iconType: ret.categoryIcon.iconType || 'URL',
+                    resourceName: ret.categoryIcon.resourceName || ''
+                };
             }
             return ret;
         }
@@ -66,12 +69,9 @@ const templateSchema = new mongoose.Schema({
 
 templateSchema.plugin(require('mongoose-autopopulate'));
 
-templateSchema.pre('find', function() {
+templateSchema.pre(/^find/, function(next) {
     this.populate('categoryIcon');
-});
-
-templateSchema.pre('findOne', function() {
-    this.populate('categoryIcon');
+    next();
 });
 
 module.exports = mongoose.model('Template', templateSchema, 'templates');

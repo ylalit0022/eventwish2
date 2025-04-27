@@ -560,9 +560,10 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false));
         binding.categoriesRecyclerView.setAdapter(categoriesAdapter);
         
-        // Initialize with just the "All" category
+        // Initialize with just the "All" category with proper icon
         List<Category> initialCategories = new ArrayList<>();
-        initialCategories.add(createCategory(null, "All", null));
+        Category allCategory = createCategory(null, "All", null);
+        initialCategories.add(allCategory);
         categoriesAdapter.updateCategories(initialCategories);
         
         // Set up click listeners
@@ -598,22 +599,33 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 
                 // Convert string list to Category list
                 List<Category> categoryObjectList = new ArrayList<>();
-                for (String name : categoryList) {
-                    categoryObjectList.add(createCategory(
-                        "All".equals(name) ? null : name.toLowerCase(),
-                        name,
-                        null
-                    ));
-                }
                 
-                // Add More category explicitly if there are more than 3 categories (All + 2 others)
+                // Add "All" category first
+                categoryObjectList.add(createCategory(null, "All", null));
+                
+                // Add other categories
+                for (String name : categoryList) {
+                    if (!"All".equalsIgnoreCase(name)) {
+                        String normalizedName = normalizeCategory(name);
+                        String iconUrl = categoryIconRepository.getCategoryIconUrl(normalizedName);
+                        Category category = createCategory(
+                            normalizedName,
+                            name,
+                            iconUrl
+                        );
+                        // Set template count
+                        if (categoriesMap.containsKey(name)) {
+                            category.setTemplateCount(categoriesMap.get(name));
+                        }
+                        categoryObjectList.add(category);
+                    }
+                }
+
+                // Add More category explicitly if there are more than 3 categories
                 if (categoryObjectList.size() > 3) {
                     Category moreCategory = createCategory("more", "More", null);
                     moreCategory.setDisplayOrder(1000); // High number to ensure it's last
-                    if (!categoryObjectList.contains(moreCategory)) {
-                        categoryObjectList.add(moreCategory);
-                        Log.d(TAG, "Adding 'More' category explicitly");
-                    }
+                    categoryObjectList.add(moreCategory);
                 }
 
                 // Update adapter with category objects
@@ -628,44 +640,6 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 viewModel.loadCategories();
             }
         });
-        
-        // Immediately load categories from server
-        if (viewModel != null) {
-            // Force load categories from server right away
-            Log.d(TAG, "Immediately loading categories from server");
-            viewModel.forceReloadCategories();
-            
-            // Check if categories are already loaded, if so update the UI
-            if (viewModel.areCategoriesLoaded()) {
-                Map<String, Integer> categories = viewModel.getCategories().getValue();
-                if (categories != null && !categories.isEmpty()) {
-                    Log.d(TAG, "Categories already available, updating UI...");
-                    
-                    // Convert to list
-                    List<String> categoryList = new ArrayList<>(categories.keySet());
-                    if (!categoryList.contains("All")) {
-                        categoryList.add(0, "All");
-                    }
-                    
-                    // Convert strings to Category objects
-                    List<Category> categoryObjects = new ArrayList<>();
-                    for (String name : categoryList) {
-                        Category category = createCategory(
-                            "All".equals(name) ? null : name.toLowerCase(),
-                            name,
-                            null
-                        );
-                        // Set count if available
-                        if (!"All".equals(name) && categories.containsKey(name)) {
-                            category.setTemplateCount(categories.get(name));
-                        }
-                        categoryObjects.add(category);
-                    }
-                    
-                    categoriesAdapter.updateCategories(categoryObjects);
-                }
-            }
-        }
     }
 
     private void showCategoriesBottomSheet(List<Category> remainingCategories) {
@@ -1560,23 +1534,29 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 for (Map.Entry<String, Integer> entry : categoriesMap.entrySet()) {
                     String name = entry.getKey();
                     if (!"All".equalsIgnoreCase(name)) {
-                        Category category = createCategory(name.toLowerCase(), name, null);
-                        category.setTemplateCount(entry.getValue());
+                        String normalizedName = normalizeCategory(name);
+                        String iconUrl = categoryIconRepository.getCategoryIconUrl(normalizedName);
+                        Category category = createCategory(
+                            normalizedName,
+                            name,
+                            iconUrl
+                        );
+                        // Set template count
+                        if (categoriesMap.containsKey(name)) {
+                            category.setTemplateCount(categoriesMap.get(name));
+                        }
                         categoryObjectList.add(category);
                     }
                 }
                 
-                // Add More category explicitly if there are more than 3 categories (All + 2 others)
+                // Add More category explicitly if there are more than 3 categories
                 if (categoryObjectList.size() > 3) {
                     Category moreCategory = createCategory("more", "More", null);
                     moreCategory.setDisplayOrder(1000); // High number to ensure it's last
-                    if (!categoryObjectList.contains(moreCategory)) {
-                        categoryObjectList.add(moreCategory);
-                        Log.d(TAG, "Adding 'More' category explicitly");
-                    }
+                    categoryObjectList.add(moreCategory);
                 }
 
-                // Update adapter with properly typed list
+                // Update adapter with category objects
                 categoriesAdapter.updateCategories(categoryObjectList);
                 
                                 String selectedCategory = viewModel.getSelectedCategory();
@@ -1718,14 +1698,31 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     }
 
     /**
-     * Helper method to create a Category object
+     * Helper method to create a Category object with proper icon handling
      */
     private Category createCategory(String id, String name, String iconUrl) {
+        // Normalize category name for consistent lookup
+        String normalizedName = normalizeCategory(name);
+        
+        // Get icon from repository if not provided
+        if (iconUrl == null && categoryIconRepository != null) {
+            iconUrl = categoryIconRepository.getCategoryIconUrl(normalizedName);
+        }
+        
         CategoryIcon icon = null;
         if (iconUrl != null && !iconUrl.isEmpty()) {
-            icon = new CategoryIcon(null, name, iconUrl);
+            icon = new CategoryIcon(id, normalizedName, iconUrl);
         }
+        
         return new Category(id, name, icon);
+    }
+
+    /**
+     * Normalize a category name for consistent lookup
+     */
+    private String normalizeCategory(String category) {
+        if (category == null) return "";
+        return category.toLowerCase().trim();
     }
 
     private void showCategoryLoadingSnackbar(String category) {
