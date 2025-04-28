@@ -328,10 +328,14 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
                 return;
             }
             
+            Log.d(TAG, "Loading icon for category: " + category.getName());
+            
             if (category.getIcon() == null) {
                 Log.w(TAG, "Null icon object for category: " + category.getName());
                 return;
             }
+            
+            Log.d(TAG, "Category icon object found: " + category.getIcon().toString());
             
             if (category.getIcon().getCategoryIcon() == null) {
                 Log.w(TAG, "Null getCategoryIcon() for category: " + category.getName());
@@ -343,6 +347,8 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
                 Log.w(TAG, "Empty icon URL for category: " + category.getName());
                 return;
             }
+            
+            Log.d(TAG, "Loading icon URL: " + imageUrl + " for category: " + category.getName());
             
             // Enhanced Glide request with better error handling and caching
             RequestOptions requestOptions = new RequestOptions()
