@@ -102,6 +102,11 @@
     <string name="created_format">Created: %s</string>
     <string name="code_format">Code: %s</string>
     <string name="share_url_format">https://eventwish2.onrender.com/wish/%s</string>
+    <string name="reuse_template">Reuse Template</string>
+    <string name="reuse_template_description">Reuse this template</string>
+    <string name="cannot_reuse_template_missing_data">Cannot reuse template: missing data</string>
+    <string name="cannot_reuse_template_missing_id">Cannot reuse template: template ID not available</string>
+    <string name="error_opening_template">Error opening template: %s</string>
 
     <!-- Help -->
     <string name="help_and_support">Help &amp; Support</string>
@@ -371,4 +376,8 @@
     <string name="ad_demo_ad_loaded">Ad loaded successfully</string>
     <string name="ad_demo_ad_failed">Failed to load ad: %1$s</string>
     <string name="ad_demo_ad_failed_to_show">Failed to show ad: %1$s</string>
+
+    <!-- Ad-related strings -->
+    <string name="error_icon">Error icon</string>
+    <string name="ad_sponsored">Sponsored</string>
 </resources>

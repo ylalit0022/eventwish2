@@ -179,6 +179,14 @@
             app:destination="@id/navigation_home"
             app:popUpTo="@id/navigation_home"
             app:popUpToInclusive="true" />
+            
+        <action
+            android:id="@+id/action_shared_wish_to_template_detail"
+            app:destination="@id/navigation_template_detail"
+            app:enterAnim="@anim/nav_default_enter_anim"
+            app:exitAnim="@anim/nav_default_exit_anim"
+            app:popEnterAnim="@anim/nav_default_pop_enter_anim"
+            app:popExitAnim="@anim/nav_default_pop_exit_anim" />
     </fragment>
 
     <fragment
@@ -203,6 +211,14 @@
         <deepLink
             android:id="@+id/deepLink_custom"
             app:uri="eventwish://wish/{shortCode}" />
+            
+        <action
+            android:id="@+id/action_resource_to_template_detail"
+            app:destination="@id/navigation_template_detail"
+            app:enterAnim="@anim/nav_default_enter_anim"
+            app:exitAnim="@anim/nav_default_exit_anim"
+            app:popEnterAnim="@anim/nav_default_pop_enter_anim"
+            app:popExitAnim="@anim/nav_default_pop_exit_anim" />
     </fragment>
 
     <action

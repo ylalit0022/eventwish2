@@ -22,6 +22,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.activity.OnBackPressedCallback;
 import androidx.navigation.Navigation;
 import androidx.navigation.NavController;
+import androidx.navigation.NavDirections;
 
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.response.WishResponse;
@@ -34,6 +35,7 @@ import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.utils.SocialShareUtil;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.gson.Gson;
 
 import android.content.Intent;
@@ -281,6 +283,9 @@ public class SharedWishFragment extends Fragment {
 
         // Add analytics button click listener
         binding.analyticsButton.setOnClickListener(v -> showAnalyticsBottomSheet());
+        
+        // Add reuse template button click listener
+        binding.reuseTemplateButton.setOnClickListener(v -> reuseTemplate());
     }
 
     private void loadWishContent(WishResponse wish) {
@@ -896,5 +901,41 @@ public class SharedWishFragment extends Fragment {
         
         // Stop analytics tracking
         stopAnalyticsTracking();
+    }
+
+    /**
+     * Navigate to the template detail fragment to reuse the template
+     */
+    private void reuseTemplate() {
+        if (currentWish == null) {
+            Toast.makeText(requireContext(), getString(R.string.cannot_reuse_template_missing_data), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        // Get the template ID
+        String templateId = null;
+        if (currentWish.getTemplateId() != null) {
+            templateId = currentWish.getTemplateId();
+        } else if (currentWish.getTemplate() != null && currentWish.getTemplate().getId() != null) {
+            templateId = currentWish.getTemplate().getId();
+        }
+        
+        if (templateId == null || templateId.isEmpty()) {
+            Toast.makeText(requireContext(), getString(R.string.cannot_reuse_template_missing_id), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        Log.d(TAG, "Reusing template with ID: " + templateId);
+        
+        try {
+            // Navigate to TemplateDetailFragment
+            NavController navController = Navigation.findNavController(requireView());
+            NavDirections action = SharedWishFragmentDirections.actionSharedWishToTemplateDetail(templateId);
+            navController.navigate(action);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error navigating to template detail: " + e.getMessage(), e);
+            Toast.makeText(requireContext(), getString(R.string.error_opening_template, e.getMessage()), Toast.LENGTH_SHORT).show();
+        }
     }
 }

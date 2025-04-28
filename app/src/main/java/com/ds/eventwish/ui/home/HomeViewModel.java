@@ -718,4 +718,23 @@ public class HomeViewModel extends ViewModel {
         categoriesLoaded = false;
         loadCategories();
     }
+
+    /**
+     * Clear the error state in the repository
+     * Call this when returning to the fragment if templates are already loaded
+     */
+    public void clearErrorState() {
+        if (repository != null) {
+            repository.clearError();
+        }
+    }
+
+    /**
+     * Check if templates are currently loaded
+     * @return true if templates are loaded, false otherwise
+     */
+    public boolean hasLoadedTemplates() {
+        List<Template> loadedTemplates = getTemplates().getValue();
+        return loadedTemplates != null && !loadedTemplates.isEmpty();
+    }
 }

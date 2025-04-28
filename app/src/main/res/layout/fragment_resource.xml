@@ -63,4 +63,17 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <!-- Add FloatingActionButton for reusing the template -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/reuseTemplateButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:contentDescription="@string/reuse_template_description"
+        app:backgroundTint="@color/design_default_color_primary"
+        app:tint="@android:color/white"
+        app:srcCompat="@drawable/ic_refresh"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

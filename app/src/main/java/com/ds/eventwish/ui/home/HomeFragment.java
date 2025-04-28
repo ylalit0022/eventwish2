@@ -69,6 +69,7 @@ import android.os.Handler;
 
 import com.ds.eventwish.ads.InterstitialAdManager;
 import com.ds.eventwish.ads.AdMobRepository;
+import com.ds.eventwish.data.repository.UserRepository;
 
 public class HomeFragment extends BaseFragment implements RecommendedTemplateAdapter.TemplateClickListener {
     private static final String TAG = "HomeFragment";
@@ -227,6 +228,19 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         isResumed = true;
         
         Log.d(TAG, "onResume called" + (wasInBackground ? " (returning from background)" : ""));
+        
+        // Clear error state if templates are already loaded
+        // This prevents showing retry UI when templates are already available
+        if (viewModel != null && viewModel.hasLoadedTemplates()) {
+            Log.d(TAG, "Templates already loaded, clearing error state");
+            viewModel.clearErrorState();
+            
+            // Make sure retry layout is hidden and templates are visible
+            if (binding != null) {
+                binding.retryLayout.setVisibility(View.GONE);
+                binding.templatesRecyclerView.setVisibility(View.VISIBLE);
+            }
+        }
         
         // Check if we're coming back from another fragment
         if (wasInBackground) {
@@ -578,6 +592,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             } else {
                 viewModel.setCategory(categoryName);
                 
+                // Track category click in UserRepository
+                UserRepository.getInstance(requireContext()).trackCategoryClick(categoryName);
+                
                 // Show loading Snackbar when selecting a category
                 showCategoryLoadingSnackbar(categoryName);
             }
@@ -714,6 +731,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 viewModel.setCategory(null);
             } else {
                 viewModel.setCategory(categoryName);
+                
+                // Track category click in UserRepository
+                UserRepository.getInstance(requireContext()).trackCategoryClick(categoryName);
                 
                 // Show loading indicator for selected category
                 showCategoryLoadingSnackbar(categoryName);
@@ -1455,8 +1475,14 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 Button retryButton = binding.retryLayout.findViewById(R.id.retryButton);
                 if (retryButton != null) {
                     retryButton.setOnClickListener(v -> {
+                        // Clear the error state immediately to prevent it from showing again
+                        viewModel.clearErrorState();
+                        
+                        // Hide retry layout and show templates
                         binding.retryLayout.setVisibility(View.GONE);
                         binding.templatesRecyclerView.setVisibility(View.VISIBLE);
+                        
+                        // Force reload templates
                         viewModel.loadTemplates(true);
                     });
                 }
@@ -1498,12 +1524,19 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
 
     @Override
     public void onTemplateClick(Template template) {
-        if (template == null || template.getId() == null) {
-            Log.e(TAG, "Invalid template clicked");
+        if (template == null) {
+            Log.e(TAG, "Null template clicked");
             return;
         }
-
-        // Show ad before navigating to template detail
+        
+        Log.d(TAG, "Template clicked: " + template.getTitle());
+        
+        // Track template view
+        if (template.getCategory() != null) {
+            UserRepository.getInstance(requireContext()).trackCategoryClick(template.getCategory());
+        }
+        
+        // Show ad if available, otherwise navigate directly
         showAdAndNavigate(template);
     }
     

@@ -95,23 +95,9 @@ public class BottomSheetCategoriesAdapter extends RecyclerView.Adapter<BottomShe
         
         // Handle click
         holder.itemView.setOnClickListener(v -> {
-            if (listener != null) {
-                // Add click animation
-                v.animate()
-                    .scaleX(0.95f)
-                    .scaleY(0.95f)
-                    .setDuration(100)
-                    .withEndAction(() -> {
-                        v.animate()
-                            .scaleX(1f)
-                            .scaleY(1f)
-                            .setDuration(100)
-                            .start();
-                            
-                        // Notify listener
-                        listener.onCategoryClick(category, holder.getAdapterPosition());
-                    })
-                    .start();
+            int adapterPosition = holder.getAdapterPosition();
+            if (adapterPosition != RecyclerView.NO_POSITION && listener != null) {
+                listener.onCategoryClick(category, adapterPosition);
             }
         });
     }

@@ -25,6 +25,7 @@ import androidx.navigation.Navigation;
 import com.ds.eventwish.MainActivity;
 import com.ds.eventwish.R;
 import com.ds.eventwish.databinding.FragmentTemplateDetailBinding;
+import com.ds.eventwish.data.repository.UserRepository;
 import com.ds.eventwish.ui.render.TemplateRenderer;
 import com.ds.eventwish.utils.AnalyticsUtils;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -547,39 +548,31 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
 
     private void setupObservers() {
         viewModel.getTemplate().observe(getViewLifecycleOwner(), template -> {
-            if (template != null && binding != null && isAdded()) {
-                binding.loadingView.setVisibility(View.GONE);
-                binding.contentLayout.setVisibility(View.VISIBLE);
+            if (template != null) {
+                // Initialize template renderer with the correct constructor
+                templateRenderer = new TemplateRenderer(binding.webView, this);
+                
+                // Track template category view
+                if (template.getCategory() != null) {
+                    UserRepository.getInstance(requireContext()).trackCategoryClick(template.getCategory());
+                }
+                
+                // Render template using the correct method
                 templateRenderer.renderTemplate(template);
-                
-                // Call our display refresh method after a short delay
-                mainHandler.postDelayed(this::refreshWebViewDisplay, 300);
-                
-                // Restore any previously entered names
-                String savedRecipient = viewModel.getRecipientName();
-                String savedSender = viewModel.getSenderName();
-                if (savedRecipient != null && !savedRecipient.isEmpty()) {
-                    binding.recipientNameInput.setText(savedRecipient);
-                }
-                if (savedSender != null && !savedSender.isEmpty()) {
-                    binding.senderNameInput.setText(savedSender);
-                }
-                
-                // Start analytics tracking for real-time viewers
-                startAnalyticsTracking();
             }
         });
-
-        viewModel.getError().observe(getViewLifecycleOwner(), error -> {
-            if (error != null && binding != null && isAdded()) {
-                binding.loadingView.setVisibility(View.GONE);
-                showError(error);
-            }
-        });
-
+        
+        // Observe loading state - use the existing binding fields
         viewModel.isLoading().observe(getViewLifecycleOwner(), isLoading -> {
             if (binding != null && isAdded()) {
                 binding.loadingView.setVisibility(isLoading ? View.VISIBLE : View.GONE);
+            }
+        });
+        
+        // Observe error messages - use the existing error handling
+        viewModel.getError().observe(getViewLifecycleOwner(), error -> {
+            if (error != null && !error.isEmpty() && binding != null && isAdded()) {
+                showError(error);
             }
         });
 

@@ -17,13 +17,22 @@ import com.google.gson.JsonObject;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
+
+import com.ds.eventwish.data.local.AppDatabase;
+import com.ds.eventwish.data.local.dao.CategoryClickDao;
+import com.ds.eventwish.data.local.dao.UserDao;
+import com.ds.eventwish.data.local.entity.CategoryClickEntity;
+import com.ds.eventwish.data.local.entity.UserEntity;
+import com.ds.eventwish.util.AppExecutors;
 
 /**
  * Repository class for managing user registration and activity tracking
@@ -88,6 +97,9 @@ public class UserRepository {
         if (!prefs.contains(PREF_DEVICE_ID)) {
             generateAndSaveDeviceId();
         }
+        
+        // Create a dummy user if needed
+        createDummyUserIfNeeded();
     }
     
     /**
@@ -324,7 +336,13 @@ public class UserRepository {
      * @param category The category the template belongs to
      */
     public void trackTemplateView(String templateId, String category) {
+        // Record template view on server
         recordTemplateView(templateId, category);
+        
+        // Also track the category click locally
+        if (category != null && !category.isEmpty()) {
+            trackCategoryClick(category);
+        }
     }
     
     /**
@@ -397,5 +415,165 @@ public class UserRepository {
      */
     public LiveData<Boolean> getActivityUpdateStatus() {
         return isUpdatingActivity;
+    }
+    
+    /**
+     * Track category click for the current user
+     * @param category Category name that was clicked
+     */
+    public void trackCategoryClick(String category) {
+        if (category == null || category.isEmpty() || "All".equalsIgnoreCase(category)) {
+            Log.d(TAG, "Skipping category click tracking for null, empty, or 'All' category");
+            return;
+        }
+        
+        // Update server-side activity tracking
+        updateUserActivity(category);
+        
+        // Run all database operations on a background thread
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            try {
+                // Get the current authenticated user
+                UserEntity currentUser = getUserEntityFromDatabase();
+                if (currentUser == null) {
+                    Log.e(TAG, "Cannot track category click: No authenticated user found");
+                    return;
+                }
+                
+                // Get AppDatabase instance
+                AppDatabase db = AppDatabase.getInstance(context);
+                CategoryClickDao categoryClickDao = db.categoryClickDao();
+                
+                // Check if this category click already exists
+                CategoryClickEntity existingClick = categoryClickDao.getByUserAndCategory(
+                        currentUser.getUid(), category);
+                
+                if (existingClick != null) {
+                    // Increment click count and update last clicked time
+                    existingClick.incrementClickCount();
+                    int updatedRows = categoryClickDao.update(existingClick);
+                    Log.d(TAG, "Updated category click count for '" + category + "' to " + 
+                            existingClick.getClickCount() + ", rows updated: " + updatedRows);
+                } else {
+                    // Create new category click
+                    CategoryClickEntity newClick = new CategoryClickEntity(
+                            currentUser.getUid(), category);
+                    long rowId = categoryClickDao.insert(newClick);
+                    Log.d(TAG, "Inserted new category click for '" + category + "' with ID: " + rowId);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error tracking category click", e);
+            }
+        });
+    }
+    
+    /**
+     * Get top clicked categories for the current user
+     * @param limit Maximum number of categories to return
+     * @return List of category click entities
+     */
+    public List<CategoryClickEntity> getTopClickedCategories(int limit) {
+        UserEntity currentUser = getUserEntityFromDatabase();
+        if (currentUser == null) {
+            Log.e(TAG, "Cannot get top clicked categories: No authenticated user found");
+            return new ArrayList<>();
+        }
+        
+        try {
+            AppDatabase db = AppDatabase.getInstance(context);
+            CategoryClickDao categoryClickDao = db.categoryClickDao();
+            return categoryClickDao.getTopCategoriesByUser(currentUser.getUid(), limit);
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting top clicked categories", e);
+            return new ArrayList<>();
+        }
+    }
+    
+    /**
+     * Get all category clicks for the current user
+     * @return LiveData list of category click entities
+     */
+    public LiveData<List<CategoryClickEntity>> getCategoryClicksLive() {
+        UserEntity currentUser = getUserEntityFromDatabase();
+        if (currentUser == null) {
+            Log.e(TAG, "Cannot get category clicks: No authenticated user found");
+            return new MutableLiveData<>(new ArrayList<>());
+        }
+        
+        try {
+            AppDatabase db = AppDatabase.getInstance(context);
+            CategoryClickDao categoryClickDao = db.categoryClickDao();
+            return categoryClickDao.getAllByUserLive(currentUser.getUid());
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting category clicks", e);
+            return new MutableLiveData<>(new ArrayList<>());
+        }
+    }
+    
+    /**
+     * Get total clicks for the current user
+     * @return Total number of clicks
+     */
+    public int getTotalCategoryClicks() {
+        UserEntity currentUser = getUserEntityFromDatabase();
+        if (currentUser == null) {
+            Log.e(TAG, "Cannot get total clicks: No authenticated user found");
+            return 0;
+        }
+        
+        try {
+            AppDatabase db = AppDatabase.getInstance(context);
+            CategoryClickDao categoryClickDao = db.categoryClickDao();
+            return categoryClickDao.getTotalClicksByUser(currentUser.getUid());
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting total clicks", e);
+            return 0;
+        }
+    }
+    
+    /**
+     * Get the current authenticated user entity from database
+     * @return UserEntity or null if not found
+     */
+    private UserEntity getUserEntityFromDatabase() {
+        try {
+            AppDatabase db = AppDatabase.getInstance(context);
+            UserDao userDao = db.userDao();
+            return userDao.getCurrentUser();
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting current user", e);
+            return null;
+        }
+    }
+    
+    /**
+     * Create a dummy user if no authenticated user exists
+     */
+    private void createDummyUserIfNeeded() {
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            try {
+                AppDatabase db = AppDatabase.getInstance(context);
+                UserDao userDao = db.userDao();
+                
+                // Check if we have an authenticated user
+                UserEntity currentUser = userDao.getCurrentUser();
+                
+                if (currentUser == null) {
+                    // No authenticated user, create a dummy one
+                    String deviceId = getDeviceId();
+                    if (deviceId != null && !deviceId.isEmpty()) {
+                        UserEntity dummyUser = new UserEntity(deviceId);
+                        dummyUser.setAuthenticated(true);
+                        dummyUser.setLastLoginTime(System.currentTimeMillis());
+                        
+                        // Insert the user
+                        long result = userDao.insert(dummyUser);
+                        Log.d(TAG, "Created dummy user with ID: " + deviceId + ", result: " + result);
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error creating dummy user", e);
+            }
+        });
     }
 } 

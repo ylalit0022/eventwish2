@@ -19,6 +19,7 @@ import androidx.annotation.Nullable;
 import androidx.core.graphics.ColorUtils;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.NavController;
 import androidx.navigation.NavDirections;
 import androidx.navigation.Navigation;
 import com.ds.eventwish.MainActivity;
@@ -103,6 +104,7 @@ public class ResourceFragment extends Fragment {
     private Handler autoHideHandler = new Handler();
     private Runnable autoHideRunnable;
     private static final int AUTO_HIDE_DELAY_MILLIS = 3000;
+    private WishResponse currentWish;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -184,6 +186,7 @@ public class ResourceFragment extends Fragment {
         setupRetryButton();
         setupFullScreenToggle();
         setupTouchListener();
+        setupReuseButton();
         
         // Enable full screen mode by default
         enableFullScreenMode();
@@ -446,6 +449,21 @@ public class ResourceFragment extends Fragment {
     }
 
     private void setupWebViewContent(WishResponse wishResponse) {
+        if (wishResponse == null) {
+            Log.e(TAG, "setupWebViewContent: wishResponse is null");
+            showError("Failed to load wish: empty response");
+            return;
+        }
+
+        // Store the wish response for reuse functionality
+        currentWish = wishResponse;
+        
+        // Show reuse button if we have valid template data
+        if ((wishResponse.getTemplateId() != null && !wishResponse.getTemplateId().isEmpty()) || 
+            (wishResponse.getTemplate() != null && wishResponse.getTemplate().getId() != null)) {
+            binding.reuseTemplateButton.setVisibility(View.VISIBLE);
+        }
+
         if (binding != null && binding.webView != null && wishResponse != null) {
             binding.contentLayout.setVisibility(View.VISIBLE);
             
@@ -675,6 +693,45 @@ public class ResourceFragment extends Fragment {
         } else {
             Log.e(TAG, "loadWish: Cannot load wish with null or empty shortCode");
             showError("Invalid wish code");
+        }
+    }
+
+    private void setupReuseButton() {
+        binding.reuseTemplateButton.setOnClickListener(v -> reuseTemplate());
+        // Hide button initially until we have template data
+        binding.reuseTemplateButton.setVisibility(View.GONE);
+    }
+
+    private void reuseTemplate() {
+        if (currentWish == null) {
+            Toast.makeText(requireContext(), getString(R.string.cannot_reuse_template_missing_data), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        // Get the template ID
+        String templateId = null;
+        if (currentWish.getTemplateId() != null) {
+            templateId = currentWish.getTemplateId();
+        } else if (currentWish.getTemplate() != null && currentWish.getTemplate().getId() != null) {
+            templateId = currentWish.getTemplate().getId();
+        }
+        
+        if (templateId == null || templateId.isEmpty()) {
+            Toast.makeText(requireContext(), getString(R.string.cannot_reuse_template_missing_id), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        Log.d(TAG, "Reusing template with ID: " + templateId);
+        
+        try {
+            // Navigate to TemplateDetailFragment using action ID from nav_graph.xml
+            NavController navController = Navigation.findNavController(requireView());
+            Bundle args = new Bundle();
+            args.putString("templateId", templateId);
+            navController.navigate(R.id.action_resource_to_template_detail, args);
+        } catch (Exception e) {
+            Log.e(TAG, "Error navigating to template detail: " + e.getMessage(), e);
+            Toast.makeText(requireContext(), getString(R.string.error_opening_template, e.getMessage()), Toast.LENGTH_SHORT).show();
         }
     }
 }

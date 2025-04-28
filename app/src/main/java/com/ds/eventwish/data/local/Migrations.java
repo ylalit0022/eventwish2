@@ -118,6 +118,29 @@ public class Migrations {
     };
     
     /**
+     * Migration from version 4 to 5
+     * - Added category_clicks table for click tracking
+     */
+    public static final Migration MIGRATION_4_5 = new Migration(4, 5) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS `category_clicks` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`userId` TEXT NOT NULL, " +
+                "`categoryName` TEXT NOT NULL, " +
+                "`clickCount` INTEGER NOT NULL, " +
+                "`lastClickedAt` INTEGER NOT NULL)"
+            );
+            
+            database.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS `index_category_clicks_userId_categoryName` " +
+                "ON `category_clicks` (`userId`, `categoryName`)"
+            );
+        }
+    };
+    
+    /**
      * Keep a reference to the expected schema for engagement_data
      * This aids in debugging migration issues
      */

@@ -193,6 +193,15 @@ public class TemplateRepository {
         return error;
     }
 
+    /**
+     * Clear any current error state
+     * This is useful when navigating back to a fragment where errors should be reset
+     */
+    public void clearError() {
+        Log.d(TAG, "Clearing error state");
+        error.postValue(null);
+    }
+
     public LiveData<Boolean> getLoading() {
         return loading;
     }
