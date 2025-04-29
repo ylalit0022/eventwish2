@@ -404,10 +404,17 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:clipToPadding="false"
-                android:paddingHorizontal="16dp"
-                android:background="@color/white"
-                android:paddingBottom="16dp"
-                app:layout_behavior="@string/appbar_scrolling_view_behavior"/>
+                android:paddingBottom="80dp"
+                android:scrollbars="vertical"
+                app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+
+            <!-- Sponsored Ad View at bottom of the templates -->
+            <com.ds.eventwish.ui.ads.SponsoredAdView
+                android:id="@+id/sponsoredAdView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom"
+                android:layout_marginBottom="80dp"/>
 
             <TextView
                 android:id="@+id/emptyView"

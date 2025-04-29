@@ -49,6 +49,7 @@ import android.content.pm.PackageManager;
 import com.google.firebase.analytics.FirebaseAnalytics;
 import androidx.annotation.NonNull;
 import java.util.concurrent.Executor;
+import com.ds.eventwish.ui.ads.SponsoredAdManagerFactory;
 
 public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
@@ -120,6 +121,10 @@ public class EventWishApplication extends Application implements Configuration.P
             // Initialize app open ads
             appOpenManager = new AppOpenManager(this);
             appOpenManager.fetchAd(); // Pre-fetch first ad
+            
+            // Initialize Sponsored Ads
+            SponsoredAdManagerFactory.init(this);
+            Log.d(TAG, "SponsoredAdManagerFactory initialized");
             
             Log.d(TAG, "EventWish application started successfully");
         } catch (Exception e) {

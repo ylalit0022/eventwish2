@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const { seedAdMobData } = require('../models/AdMobSample');
 const { seedCoinsData } = require('../models/CoinsSample');
+const seedSponsoredAds = require('./seedSponsoredAds');
 const path = require('path');
 const fs = require('fs');
 
@@ -33,6 +34,9 @@ async function seedAllData() {
     
     console.log('\n=== Seeding Coins Data ===');
     await seedCoinsData();
+    
+    console.log('\n=== Seeding Sponsored Ads Data ===');
+    await seedSponsoredAds();
     
     console.log('\n=== All seeding completed successfully! ===');
     

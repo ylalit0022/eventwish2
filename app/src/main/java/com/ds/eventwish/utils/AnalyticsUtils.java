@@ -50,6 +50,8 @@ public class AnalyticsUtils {
     public static final String EVENT_SHARE_BUTTON_CLICK = "share_button_click";
     public static final String EVENT_SOCIAL_SHARE = "social_share";
     public static final String EVENT_DEVICE_INFO = "device_info";
+    public static final String EVENT_SPONSORED_AD_IMPRESSION = "sponsored_ad_impression";
+    public static final String EVENT_SPONSORED_AD_CLICK = "sponsored_ad_click";
     
     // Param keys
     public static final String PARAM_TEMPLATE_ID = "template_id";
@@ -76,6 +78,9 @@ public class AnalyticsUtils {
     public static final String PARAM_SCREEN_DENSITY = "screen_density";
     public static final String PARAM_SCREEN_SIZE_DP = "screen_size_dp";
     public static final String PARAM_TIMESTAMP = "timestamp";
+    public static final String PARAM_AD_ID = "ad_id";
+    public static final String PARAM_AD_TITLE = "ad_title";
+    public static final String PARAM_AD_LOCATION = "ad_location";
     
     private static String sessionId;
     private static FirebaseAnalytics firebaseAnalytics;
@@ -988,6 +993,62 @@ public class AnalyticsUtils {
             Bundle params = new Bundle();
             params.putBoolean("analytics_enabled", enabled);
             firebaseAnalytics.logEvent("analytics_status_changed", params);
+        }
+    }
+
+    /**
+     * Track sponsored ad impression
+     * @param adId The ID of the ad that was displayed
+     * @param adTitle The title of the ad
+     * @param location The location where the ad was displayed
+     */
+    public static void trackAdImpression(String adId, String adTitle, String location) {
+        if (!analyticsEnabled || firebaseAnalytics == null) {
+            logDebug("Analytics disabled or not initialized. Skipping ad impression tracking.");
+            return;
+        }
+        
+        try {
+            Bundle params = new Bundle();
+            params.putString(PARAM_AD_ID, adId);
+            params.putString(PARAM_AD_TITLE, adTitle);
+            params.putString(PARAM_AD_LOCATION, location);
+            params.putString(PARAM_SESSION_ID, sessionId);
+            params.putLong(PARAM_TIMESTAMP, System.currentTimeMillis());
+            
+            firebaseAnalytics.logEvent(EVENT_SPONSORED_AD_IMPRESSION, params);
+            logDebug("Tracked ad impression: " + adTitle + " (ID: " + adId + ") at " + location);
+            eventCounter++;
+        } catch (Exception e) {
+            Log.e(TAG, "Error tracking ad impression", e);
+        }
+    }
+    
+    /**
+     * Track sponsored ad click
+     * @param adId The ID of the ad that was clicked
+     * @param adTitle The title of the ad
+     * @param location The location where the ad was displayed
+     */
+    public static void trackAdClick(String adId, String adTitle, String location) {
+        if (!analyticsEnabled || firebaseAnalytics == null) {
+            logDebug("Analytics disabled or not initialized. Skipping ad click tracking.");
+            return;
+        }
+        
+        try {
+            Bundle params = new Bundle();
+            params.putString(PARAM_AD_ID, adId);
+            params.putString(PARAM_AD_TITLE, adTitle);
+            params.putString(PARAM_AD_LOCATION, location);
+            params.putString(PARAM_SESSION_ID, sessionId);
+            params.putLong(PARAM_TIMESTAMP, System.currentTimeMillis());
+            
+            firebaseAnalytics.logEvent(EVENT_SPONSORED_AD_CLICK, params);
+            logDebug("Tracked ad click: " + adTitle + " (ID: " + adId + ") at " + location);
+            eventCounter++;
+        } catch (Exception e) {
+            Log.e(TAG, "Error tracking ad click", e);
         }
     }
 } 

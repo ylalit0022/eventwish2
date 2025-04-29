@@ -295,131 +295,81 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 
 # Scratchpad
 
-## Current Task: Implement Ads in Main App
+## Current Task: Implement Sponsored Ads
 
-### Analysis of Current State
-[X] Ad Demo Implementation Complete
-    - Interstitial ads working
-    - Native ads working
-    - App Open ads working
-    - Banner and Rewarded ads documented
-[X] Reviewed existing ad infrastructure
-    - AdUnit.java: Complex model for server-side ad configuration
-    - AdUnitResponse.java: API response wrapper
+### Analysis of Current Task
+[X] Added sponsored ads API endpoints to ApiService interface
+    - GET endpoint for fetching sponsored ads
+    - POST endpoints for tracking impressions and clicks
+    - Using device ID for tracking
 
-### Implementation Plan (Updated)
+[X] Created/Updated model classes
+    - SponsoredAd.java with impression_count and click_count fields
+    - SponsoredAdResponse.java wrapper for API responses
+    - Proper GSON annotations and null-safety
 
-1. [ ] Core Ad Infrastructure
-    - [ ] Create AdManager singleton class
-        - Use existing AdUnit model for configuration
-        - Implement caching of AdUnitResponse
-        - Add methods to fetch/refresh ad units from server
-        - Track ad states using AdUnit analytics fields
-    - [ ] Move AdConstants to core package
-        - Define constants for ad types matching AdUnit.adType
-        - Add timeout and retry configurations
-    - [ ] Create AdCallback interfaces
-        - Include methods for all AdUnit analytics events
-        - Add error handling with AdUnitResponse message support
-    - [ ] Implement error handling and logging
-        - Log all AdUnit state changes
-        - Track impression/click/revenue data
+[X] Implemented repository and ViewModel
+    - SponsoredAdRepository for data handling
+    - SponsoredAdViewModel for UI logic
+    - Proper error handling and logging
 
-2. [ ] App Open Ads Integration
-    - [ ] Move AppOpenManager to core
-        - Use AdUnit configuration for targeting
-        - Implement AdUnit analytics tracking
-    - [ ] Integrate with Application class
-    - [ ] Add lifecycle monitoring
-    - [ ] Add cold start detection
-    - [ ] Add proper error handling
+[X] Created custom UI components
+    - SponsoredAdView custom view for displaying ads
+    - Layout XML with placeholder and error states
+    - Proper resource strings and drawables
 
-3. [ ] Interstitial Ads Integration
-    - [ ] Create InterstitialAdManager
-        - Support multiple ad units from server
-        - Track performance metrics per unit
-    - [ ] Add preloading mechanism
-        - Use AdUnit targeting for load decisions
-    - [ ] Implement show/hide logic
-    - [ ] Add callback handling
-    - [ ] Add retry mechanism
+[X] Built infrastructure
+    - SponsoredAdManagerFactory for centralized management
+    - Singleton pattern with proper initialization
+    - Registration of ad views with central manager
 
-4. [ ] Native Ads Integration
-    - [ ] Create NativeAdManager
-        - Support custom layouts per AdUnit
-        - Handle different native ad formats
-    - [ ] Create reusable NativeAdView
-        - Match layout to AdUnit requirements
-        - Support dynamic styling
-    - [ ] Add caching mechanism
-    - [ ] Implement lifecycle handling
-    - [ ] Add error recovery
+[X] Added analytics integration
+    - AnalyticsUtils methods for impression and click tracking
+    - Privacy-compliant implementation
+    - Detailed debugging information
 
-5. [ ] Banner Ads Integration
-    - [ ] Create BannerAdManager
-        - Support adaptive banners
-        - Use AdUnit size configurations
-    - [ ] Add adaptive banner support
-    - [ ] Implement auto-refresh
-    - [ ] Add size optimization
+[X] Integrated with main app
+    - Added to HomeFragment and example usage fragment
+    - Proper lifecycle handling (init/cleanup)
+    - Integrated with application initialization
 
-6. [ ] Ad Unit Management
-    - [ ] Create AdUnitProvider class
-        - Handle AdUnitResponse parsing
-        - Implement local Room database
-        - Add refresh mechanism
-    - [ ] Implement ad unit validation
-    - [ ] Add error handling
-    - [ ] Add refresh mechanism
+### Implementation Details
+1. API Integration
+   - Added three endpoints to ApiService:
+     - getSponsoredAds(): Fetches active sponsored ads
+     - recordSponsoredAdImpression(): Tracks when an ad is viewed
+     - recordSponsoredAdClick(): Tracks when a user clicks an ad
 
-7. [ ] Analytics and Monitoring
-    - [ ] Add ad performance tracking
-        - Use AdUnit analytics fields
-        - Implement server sync
-    - [ ] Implement error reporting
-    - [ ] Add load time monitoring
-    - [ ] Track user interactions
+2. Data Models
+   - SponsoredAd model with fields:
+     - id, imageUrl, redirectUrl, status, startDate, endDate
+     - location, priority, title, description
+     - clickCount, impressionCount (server metrics)
+   - SponsoredAdResponse wrapper with success, ads, message, error fields
+   - Comprehensive null-safety and error handling
 
-8. [ ] Testing and Validation
-    - [ ] Create test ad units
-    - [ ] Add unit tests
-    - [ ] Add integration tests
-    - [ ] Test error scenarios
+3. UI Components
+   - SponsoredAdView as a custom FrameLayout
+   - Cardview-based layout with image, title, description
+   - "Sponsored" label for transparency
+   - Click handling with proper tracking
 
-### File Structure (Updated)
-```
-com.ds.eventwish.ads/
-├── core/
-│   ├── AdManager.java              # Singleton main manager
-│   ├── AdConstants.java            # Constants and configurations
-│   ├── AdCallback.java            # Callback interfaces
-│   └── AdUnitProvider.java        # Ad unit management
-├── managers/
-│   ├── AppOpenManager.java        # App open ad handling
-│   ├── InterstitialManager.java   # Interstitial ad handling
-│   ├── NativeAdManager.java       # Native ad handling
-│   └── BannerManager.java         # Banner ad handling
-├── ui/
-│   ├── NativeAdView.java          # Custom native ad view
-│   └── BannerAdView.java          # Custom banner view
-├── data/
-│   ├── model/
-│   │   ├── AdUnit.java           # Existing ad unit model
-│   │   └── AdUnitResponse.java   # Existing response wrapper
-│   └── repository/
-│       └── AdRepository.java      # Room database integration
-└── utils/
-    ├── AdAnalytics.java           # Analytics utilities
-    └── AdErrorHandler.java        # Error handling utilities
-```
+4. Management
+   - SponsoredAdManagerFactory singleton to coordinate
+   - Centralized ad loading to reduce network calls
+   - Registration system for multiple ad placements
+
+5. Analytics
+   - Impression tracking when ads are displayed
+   - Click tracking when users interact
+   - Session and device information for better targeting
 
 ### Next Steps
-1. [ ] Create AdManager singleton
-2. [ ] Implement AdUnitProvider
-3. [ ] Set up Room database for ad unit caching
-4. [ ] Begin individual ad type implementations
-
-Would you like me to start implementing any of these components?
+1. [ ] Test with server-side implementation
+2. [ ] Add adaptive sizing for different screen sizes
+3. [ ] Add caching to reduce server load
+4. [ ] Implement A/B testing capabilities
+5. [ ] Create remote configuration for ad behavior
 
 ## Scratchpad - Category Icon Issue Analysis
 

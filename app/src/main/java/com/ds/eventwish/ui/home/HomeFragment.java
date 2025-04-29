@@ -71,6 +71,7 @@ import com.ds.eventwish.ads.InterstitialAdManager;
 import com.ds.eventwish.ads.AdMobRepository;
 import com.ds.eventwish.data.repository.UserRepository;
 import com.ds.eventwish.utils.AnalyticsUtils;
+import com.ds.eventwish.ui.ads.SponsoredAdView;
 
 public class HomeFragment extends BaseFragment implements RecommendedTemplateAdapter.TemplateClickListener {
     private static final String TAG = "HomeFragment";
@@ -95,6 +96,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     private Template pendingTemplate = null;
     private int templateClickCount = 0;
     private static final int AD_SHOW_THRESHOLD = 3; // Show ad after every 3 template clicks
+    private SponsoredAdView sponsoredAdView;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -402,6 +404,11 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 }
             });
         }
+
+        // Refresh sponsored ads when the fragment resumes
+        if (sponsoredAdView != null) {
+            sponsoredAdView.refreshAds();
+        }
     }
 
     @Override
@@ -474,6 +481,12 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             interstitialAdManager.destroy();
         }
         binding = null;
+        
+        // Cleanup sponsored ad view
+        if (sponsoredAdView != null) {
+            sponsoredAdView.cleanup();
+            sponsoredAdView = null;
+        }
     }
 
     private void setupUI() {
@@ -570,6 +583,13 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             showFilterBottomSheet();
             return true;
         });
+
+        // Initialize sponsored ad view at the bottom of home screen
+        sponsoredAdView = binding.sponsoredAdView;
+        if (sponsoredAdView != null) {
+            sponsoredAdView.initialize("home_bottom", getViewLifecycleOwner(), requireActivity());
+            Log.d(TAG, "Initialized sponsored ad view");
+        }
     }
 
     private void setupCategoriesAdapter() {

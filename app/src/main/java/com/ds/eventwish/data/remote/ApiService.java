@@ -10,6 +10,7 @@ import com.ds.eventwish.data.model.response.TemplateResponse;
 import com.ds.eventwish.data.model.response.WishResponse;
 import com.ds.eventwish.data.model.ServerTimeResponse;
 import com.ds.eventwish.data.model.response.AdMobResponse;
+import com.ds.eventwish.data.model.response.SponsoredAdResponse;
 
 import java.util.List;
 import java.util.Map;
@@ -382,4 +383,36 @@ public interface ApiService {
      */
     @POST("admob/engagement")
     Call<JsonObject> trackEngagement(@HeaderMap Map<String, String> headers, @Body JsonObject body);
+    
+    // Sponsored Ads endpoints
+    /**
+     * Get active sponsored ads for display
+     * @return Response containing list of sponsored ads
+     */
+    @GET("sponsored-ads")
+    Call<SponsoredAdResponse> getSponsoredAds();
+    
+    /**
+     * Record impression when a sponsored ad is viewed
+     * @param id The ID of the sponsored ad
+     * @param deviceId The device ID for tracking
+     * @return Response indicating success or failure
+     */
+    @POST("sponsored-ads/viewed/{id}")
+    Call<JsonObject> recordSponsoredAdImpression(
+        @Path("id") String id,
+        @retrofit2.http.Header("x-device-id") String deviceId
+    );
+    
+    /**
+     * Record click when a sponsored ad is clicked
+     * @param id The ID of the sponsored ad
+     * @param deviceId The device ID for tracking
+     * @return Response indicating success or failure
+     */
+    @POST("sponsored-ads/clicked/{id}")
+    Call<JsonObject> recordSponsoredAdClick(
+        @Path("id") String id,
+        @retrofit2.http.Header("x-device-id") String deviceId
+    );
 }

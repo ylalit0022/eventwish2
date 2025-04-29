@@ -1,0 +1,596 @@
+# Scratchpad
+
+## Custom Sponsored Ad Banner Implementation
+
+### Analysis of Requirements
+- Need to implement custom sponsored banner ads without Firebase/AdMob
+- Ads should display below the category section in the Android app
+- Each ad needs tracking for clicks and impressions
+- System must use Node.js + MongoDB only
+
+### MongoDB Schema Design
+1. SponsoredAd Schema:
+   ```
+   {
+     "_id": ObjectId,
+     "image_url": "https://yourdomain.com/banner1.jpg",
+     "redirect_url": "https://sponsor-website.com",
+     "status": true,
+     "start_date": "2025-04-29T00:00:00Z",
+     "end_date": "2025-05-15T23:59:59Z",
+     "location": "home_top",
+     "priority": 1,
+     "click_count": 0,
+     "impression_count": 0
+   }
+   ```
+
+### Implementation Status
+
+[X] 1. Backend Implementation
+   [X] Create SponsoredAd model
+   [X] Create API routes:
+      [X] GET /api/sponsored-ads - Get active ads
+      [X] POST /api/sponsored-ads/viewed/:id - Track impression
+      [X] POST /api/sponsored-ads/clicked/:id - Track click
+   [X] Create controller for sponsored ads
+   [X] Register routes in server.js
+
+[X] 2. Android Implementation (Documentation)
+   [X] Create SponsoredAd model class (documentation)
+   [X] Create SponsoredAdRepository (documentation)
+   [X] Add API service methods (documentation)
+   [X] Create UI components (documentation)
+   [X] Implement ad loading below categories (documentation)
+   [X] Implement click and impression tracking (documentation)
+
+### Backend File Structure
+```
+models/
+  - SponsoredAd.js (✓)
+  
+controllers/
+  - sponsoredAdController.js (✓)
+  
+routes/
+  - sponsoredAds.js (✓)
+
+scripts/
+  - seedSponsoredAds.js (✓)
+
+tools/
+  - test-sponsored-ads.js (✓)
+```
+
+### Android File Structure (Documentation)
+```
+com.ds.eventwish.data.model/
+  - SponsoredAd.java (✓)
+  - SponsoredAdResponse.java (✓)
+  
+com.ds.eventwish.data.repository/
+  - SponsoredAdRepository.java (✓)
+  
+com.ds.eventwish.data.api/
+  - ApiService.java (update) (✓)
+  
+com.ds.eventwish.ui/
+  - SponsoredAdView.java (✓)
+
+res/layout/
+  - view_sponsored_ad.xml (✓)
+```
+
+### Additional Components
+[X] Create seed script for sample sponsored ads
+[X] Create directory structure for ad images
+[X] Create documentation for Android implementation
+[X] Create test script for API endpoints
+
+### Summary
+- ✅ Implemented the SponsoredAd model with proper schema and validation
+- ✅ Created API routes for ad retrieval and tracking
+- ✅ Implemented impression and click tracking with device ID support
+- ✅ Created seed script for sample data
+- ✅ Provided comprehensive Android implementation documentation
+- ✅ Added stats endpoint for ad performance monitoring
+- ✅ Added testing script for API validation
+
+### Testing Instructions
+
+1. Start the server:
+   ```
+   npm run dev
+   ```
+
+2. Seed the database with sample ads:
+   ```
+   npm run seed:sponsored-ads
+   ```
+
+3. Test the API endpoints:
+   ```
+   npm run test:sponsored-ads get
+   npm run test:sponsored-ads impression <adId>
+   npm run test:sponsored-ads click <adId>
+   npm run test:sponsored-ads stats <adId>
+   ```
+
+4. Deploy the changes to your backend server.
+
+5. Follow the instructions in README_SPONSORED_ADS.md to implement the Android client.
+
+6. Add the SponsoredAdView below the category section in your layout.
+
+7. Test the implementation to ensure ads appear below categories and tracking works correctly.
+
+### Next Steps
+1. Create a web admin interface for ad management
+2. Implement more sophisticated ad targeting based on user behavior
+3. Add analytics dashboard for ad performance monitoring 
+
+## Android Client Implementation for Sponsored Ads
+
+### Requirements
+- Display custom banner ads below the category section
+- Load ad images from the server
+- Track impressions when ads are displayed
+- Track clicks when users tap on ads
+- Open redirect URLs in browser when clicked
+- Handle error cases gracefully
+
+### Implementation Plan
+
+[ ] 1. Create Data Models
+   [ ] Create SponsoredAd.java model class
+   [ ] Create SponsoredAdResponse.java wrapper class
+
+[ ] 2. Update API Service
+   [ ] Add getSponsoredAds endpoint method
+   [ ] Add recordAdImpression endpoint method
+   [ ] Add recordAdClick endpoint method
+
+[ ] 3. Create Repository Layer
+   [ ] Create SponsoredAdRepository class
+   [ ] Implement method to fetch ads from API
+   [ ] Implement methods to track impressions and clicks
+   [ ] Add error handling and retry logic
+
+[ ] 4. Create UI Components
+   [ ] Create view_sponsored_ad.xml layout
+   [ ] Create SponsoredAdView custom view
+   [ ] Implement ad loading and display logic
+   [ ] Add click handling to open URLs
+
+[ ] 5. Integrate into HomeFragment
+   [ ] Add SponsoredAdView below categories section
+   [ ] Initialize and load ads
+
+[ ] 6. Add Analytics
+   [ ] Track ad impression events
+   [ ] Track ad click events
+   [ ] Log any errors or failures
+
+### File Structure
+```
+com.ds.eventwish.data.model/
+  - SponsoredAd.java
+  - SponsoredAdResponse.java
+  
+com.ds.eventwish.data.api/
+  - ApiService.java (update)
+  
+com.ds.eventwish.data.repository/
+  - SponsoredAdRepository.java
+  
+com.ds.eventwish.ui.common/
+  - SponsoredAdView.java
+  
+res/layout/
+  - view_sponsored_ad.xml
+  
+com.ds.eventwish.ui.home/
+  - HomeFragment.java (update)
+```
+
+### Step 1: Create SponsoredAd.java
+```java
+package com.ds.eventwish.data.model;
+
+import com.google.gson.annotations.SerializedName;
+import java.util.Date;
+
+public class SponsoredAd {
+    @SerializedName("id")
+    private String id;
+    
+    @SerializedName("image_url")
+    private String imageUrl;
+    
+    @SerializedName("redirect_url")
+    private String redirectUrl;
+    
+    @SerializedName("status")
+    private boolean status;
+    
+    @SerializedName("start_date")
+    private Date startDate;
+    
+    @SerializedName("end_date")
+    private Date endDate;
+    
+    @SerializedName("location")
+    private String location;
+    
+    @SerializedName("priority")
+    private int priority;
+    
+    @SerializedName("title")
+    private String title;
+    
+    @SerializedName("description")
+    private String description;
+    
+    // Getters
+    public String getId() { return id; }
+    public String getImageUrl() { return imageUrl; }
+    public String getRedirectUrl() { return redirectUrl; }
+    public boolean isStatus() { return status; }
+    public Date getStartDate() { return startDate; }
+    public Date getEndDate() { return endDate; }
+    public String getLocation() { return location; }
+    public int getPriority() { return priority; }
+    public String getTitle() { return title; }
+    public String getDescription() { return description; }
+}
+```
+
+### Step 2: Create SponsoredAdResponse.java
+```java
+package com.ds.eventwish.data.model;
+
+import com.google.gson.annotations.SerializedName;
+import java.util.List;
+
+public class SponsoredAdResponse {
+    @SerializedName("success")
+    private boolean success;
+    
+    @SerializedName("ads")
+    private List<SponsoredAd> ads;
+    
+    @SerializedName("message")
+    private String message;
+    
+    // Getters
+    public boolean isSuccess() { return success; }
+    public List<SponsoredAd> getAds() { return ads; }
+    public String getMessage() { return message; }
+}
+```
+
+### Step 3: Update ApiService.java
+```java
+// Add these methods to the existing ApiService interface
+@GET("sponsored-ads")
+Call<SponsoredAdResponse> getSponsoredAds(@Query("location") String location);
+
+@POST("sponsored-ads/viewed/{id}")
+Call<BaseResponse> recordAdImpression(@Path("id") String id, @Header("x-device-id") String deviceId);
+
+@POST("sponsored-ads/clicked/{id}")
+Call<BaseResponse> recordAdClick(@Path("id") String id, @Header("x-device-id") String deviceId);
+```
+
+### Step 4: Create SponsoredAdRepository.java
+```java
+package com.ds.eventwish.data.repository;
+
+import android.content.Context;
+import android.util.Log;
+
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MutableLiveData;
+
+import com.ds.eventwish.data.api.ApiClient;
+import com.ds.eventwish.data.api.ApiService;
+import com.ds.eventwish.data.model.BaseResponse;
+import com.ds.eventwish.data.model.SponsoredAd;
+import com.ds.eventwish.data.model.SponsoredAdResponse;
+import com.ds.eventwish.utils.DeviceUtils;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
+public class SponsoredAdRepository {
+    private static final String TAG = "SponsoredAdRepository";
+    private final ApiService apiService;
+    private final MutableLiveData<List<SponsoredAd>> sponsoredAdsLiveData = new MutableLiveData<>();
+    private final String deviceId;
+
+    public SponsoredAdRepository(Context context) {
+        apiService = ApiClient.getClient().create(ApiService.class);
+        deviceId = DeviceUtils.getDeviceId(context);
+    }
+
+    public LiveData<List<SponsoredAd>> getSponsoredAds(String location) {
+        fetchSponsoredAds(location);
+        return sponsoredAdsLiveData;
+    }
+
+    private void fetchSponsoredAds(String location) {
+        apiService.getSponsoredAds(location).enqueue(new Callback<SponsoredAdResponse>() {
+            @Override
+            public void onResponse(Call<SponsoredAdResponse> call, Response<SponsoredAdResponse> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    sponsoredAdsLiveData.postValue(response.body().getAds());
+                    Log.d(TAG, "Fetched " + response.body().getAds().size() + " sponsored ads");
+                } else {
+                    sponsoredAdsLiveData.postValue(new ArrayList<>());
+                    Log.e(TAG, "Error fetching sponsored ads: " + 
+                        (response.body() != null ? response.body().getMessage() : "Unknown error"));
+                }
+            }
+
+            @Override
+            public void onFailure(Call<SponsoredAdResponse> call, Throwable t) {
+                sponsoredAdsLiveData.postValue(new ArrayList<>());
+                Log.e(TAG, "Network error fetching sponsored ads", t);
+            }
+        });
+    }
+
+    public void recordImpression(String adId) {
+        apiService.recordAdImpression(adId, deviceId).enqueue(new Callback<BaseResponse>() {
+            @Override
+            public void onResponse(Call<BaseResponse> call, Response<BaseResponse> response) {
+                Log.d(TAG, "Ad impression recorded for ad: " + adId);
+            }
+
+            @Override
+            public void onFailure(Call<BaseResponse> call, Throwable t) {
+                Log.e(TAG, "Failed to record ad impression", t);
+            }
+        });
+    }
+
+    public void recordClick(String adId) {
+        apiService.recordAdClick(adId, deviceId).enqueue(new Callback<BaseResponse>() {
+            @Override
+            public void onResponse(Call<BaseResponse> call, Response<BaseResponse> response) {
+                Log.d(TAG, "Ad click recorded for ad: " + adId);
+            }
+
+            @Override
+            public void onFailure(Call<BaseResponse> call, Throwable t) {
+                Log.e(TAG, "Failed to record ad click", t);
+            }
+        });
+    }
+}
+```
+
+### Step 5: Create view_sponsored_ad.xml
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="2dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/sponsored_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:layout_margin="4dp"
+                android:text="Sponsored"
+                android:textColor="@android:color/darker_gray"
+                android:textSize="10sp" />
+
+            <ImageView
+                android:id="@+id/ad_image"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter" />
+
+            <TextView
+                android:id="@+id/ad_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="8dp"
+                android:gravity="center"
+                android:textColor="@android:color/black"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                tools:text="Special Offer"
+                tools:visibility="visible" />
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+</merge>
+```
+
+### Step 6: Create SponsoredAdView.java
+```java
+package com.ds.eventwish.ui.common;
+
+import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
+import android.util.AttributeSet;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.lifecycle.LifecycleOwner;
+
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
+import com.bumptech.glide.request.RequestOptions;
+import com.ds.eventwish.R;
+import com.ds.eventwish.data.model.SponsoredAd;
+import com.ds.eventwish.data.repository.SponsoredAdRepository;
+import com.ds.eventwish.utils.AnalyticsUtils;
+
+public class SponsoredAdView extends FrameLayout {
+    private ImageView adImageView;
+    private TextView adTitleView;
+    private SponsoredAdRepository repository;
+    private SponsoredAd currentAd;
+
+    public SponsoredAdView(@NonNull Context context) {
+        super(context);
+        init(context);
+    }
+
+    public SponsoredAdView(@NonNull Context context, @Nullable AttributeSet attrs) {
+        super(context, attrs);
+        init(context);
+    }
+
+    public SponsoredAdView(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
+        super(context, attrs, defStyleAttr);
+        init(context);
+    }
+
+    private void init(Context context) {
+        LayoutInflater.from(context).inflate(R.layout.view_sponsored_ad, this, true);
+        repository = new SponsoredAdRepository(context);
+        
+        adImageView = findViewById(R.id.ad_image);
+        adTitleView = findViewById(R.id.ad_title);
+        
+        setVisibility(GONE); // Hide until we have an ad to show
+    }
+
+    public void loadAd(String location) {
+        if (getContext() instanceof LifecycleOwner) {
+            repository.getSponsoredAds(location).observe(
+                (LifecycleOwner) getContext(),
+                ads -> {
+                    if (ads != null && !ads.isEmpty()) {
+                        // Show the first ad (highest priority)
+                        displayAd(ads.get(0));
+                    } else {
+                        setVisibility(GONE);
+                    }
+                }
+            );
+        }
+    }
+
+    private void displayAd(SponsoredAd ad) {
+        currentAd = ad;
+        
+        // Load image with Glide
+        RequestOptions options = new RequestOptions()
+            .placeholder(R.drawable.placeholder_image)
+            .error(R.drawable.error_image);
+            
+        Glide.with(getContext())
+            .load(ad.getImageUrl())
+            .apply(options)
+            .transition(DrawableTransitionOptions.withCrossFade())
+            .into(adImageView);
+            
+        // Set title if available
+        if (ad.getTitle() != null && !ad.getTitle().isEmpty()) {
+            adTitleView.setText(ad.getTitle());
+            adTitleView.setVisibility(VISIBLE);
+        } else {
+            adTitleView.setVisibility(GONE);
+        }
+        
+        // Show the ad view
+        setVisibility(VISIBLE);
+        
+        // Record impression
+        repository.recordImpression(ad.getId());
+        
+        // Track impression in analytics
+        if (AnalyticsUtils.getInstance() != null) {
+            AnalyticsUtils.getInstance().trackAdImpression(ad.getId(), ad.getTitle(), "sponsored");
+        }
+        
+        // Set click listener
+        setOnClickListener(v -> {
+            try {
+                // Record click
+                repository.recordClick(ad.getId());
+                
+                // Track click in analytics
+                if (AnalyticsUtils.getInstance() != null) {
+                    AnalyticsUtils.getInstance().trackAdClick(ad.getId(), ad.getTitle(), "sponsored");
+                }
+                
+                // Open browser with redirect URL
+                Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(ad.getRedirectUrl()));
+                getContext().startActivity(browserIntent);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
+}
+```
+
+### Step 7: Update HomeFragment.java
+```java
+// In the HomeFragment's onViewCreated method, add:
+SponsoredAdView sponsoredAdView = view.findViewById(R.id.sponsored_ad_view);
+sponsoredAdView.loadAd("category_below");
+```
+
+### Step 8: Update fragment_home.xml to include SponsoredAdView
+```xml
+<!-- Add this below your category RecyclerView -->
+<com.ds.eventwish.ui.common.SponsoredAdView
+    android:id="@+id/sponsored_ad_view"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="8dp"
+    android:layout_marginBottom="8dp" />
+```
+
+### Testing Steps
+1. Run the app and verify the sponsored ad appears below categories
+2. Check that image loads correctly
+3. Verify that clicking the ad opens the browser with correct URL
+4. Check server logs to confirm impression and click events are recorded
+5. Test error handling by temporarily disabling network
+
+### Edge Cases to Handle
+- No active ads available
+- Network errors during ad loading
+- Failed image loading
+- Missing or malformed ad data
+
+### Performance Considerations
+- Use Glide's caching for efficient image loading
+- Implement proper error handling to prevent crashes
+- Consider pre-fetching ads for quicker display
+- Use a placeholder image while loading `

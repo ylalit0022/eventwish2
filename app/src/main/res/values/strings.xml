@@ -403,4 +403,9 @@
     <string name="ad_in_cooldown">Please wait %d seconds before watching another ad</string>
     <string name="ad_failed_to_show">Failed to show ad</string>
     <string name="ad_failed_to_show_with_reason">Failed to show ad: %s</string>
+
+    <!-- Sponsored Ads Strings -->
+    <string name="sponsored">Sponsored</string>
+    <string name="sponsored_ad_image">Advertisement Image</string>
+    <string name="ad_error_loading">Could not load advertisement</string>
 </resources>
