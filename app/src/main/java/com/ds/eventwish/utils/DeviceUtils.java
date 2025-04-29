@@ -10,6 +10,7 @@ import android.util.Base64;
 import android.util.Log;
 
 import com.ds.eventwish.util.SecureTokenManager;
+import com.ds.eventwish.EventWishApplication;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -343,5 +344,59 @@ public class DeviceUtils {
         
         // Otherwise, generate a new one
         return getUniqueDeviceId(context);
+    }
+
+    /**
+     * Get the device brand
+     * @return Device brand
+     */
+    public static String getDeviceBrand() {
+        return Build.BRAND;
+    }
+
+    /**
+     * Get the Android version
+     * @return Android version
+     */
+    public static String getAndroidVersion() {
+        return Build.VERSION.RELEASE;
+    }
+
+    /**
+     * Get the app version name
+     * @return App version name
+     */
+    public static String getAppVersionName() {
+        try {
+            Context context = EventWishApplication.getAppContext();
+            if (context != null) {
+                PackageInfo packageInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
+                return packageInfo.versionName;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting app version name", e);
+        }
+        return "unknown";
+    }
+
+    /**
+     * Get the app version code
+     * @return App version code
+     */
+    public static int getAppVersionCode() {
+        try {
+            Context context = EventWishApplication.getAppContext();
+            if (context != null) {
+                PackageInfo packageInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    return (int) packageInfo.getLongVersionCode();
+                } else {
+                    return packageInfo.versionCode;
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting app version code", e);
+        }
+        return 0;
     }
 } 

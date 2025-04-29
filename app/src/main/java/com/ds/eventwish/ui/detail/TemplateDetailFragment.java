@@ -512,6 +512,14 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
                 String recipientName = binding.recipientNameInput.getText().toString();
                 String senderName = binding.senderNameInput.getText().toString();
                 
+                // Track share button click
+                String templateId = viewModel.getTemplateId();
+                AnalyticsUtils.trackShareButtonClick(
+                    "shareButton", 
+                    "TemplateDetailFragment", 
+                    templateId
+                );
+                
                 // Update the customized HTML before saving
                 if (templateRenderer != null) {
                     String customizedHtml = templateRenderer.getCustomizedHtml();

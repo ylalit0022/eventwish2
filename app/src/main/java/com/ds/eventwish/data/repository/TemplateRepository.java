@@ -59,12 +59,20 @@ public class TemplateRepository {
         void onError(String message);
     }
 
-    private TemplateRepository() {
+    private TemplateRepository(Context context) {
+        if (context != null) {
+            this.appContext = context.getApplicationContext();
+        }
         apiService = ApiClient.getClient();
         templates.postValue(new ArrayList<>());
         categories.postValue(new HashMap<>());
         // Initialize with default categories
         ensureDefaultCategories(null);
+        
+        // Load categories if context is available
+        if (appContext != null) {
+            loadCategoriesFromPrefs();
+        }
     }
 
     /**
@@ -73,21 +81,38 @@ public class TemplateRepository {
      * @return The repository instance
      */
     public static synchronized TemplateRepository init(Context context) {
+        if (context == null) {
+            throw new IllegalArgumentException("Context cannot be null when initializing TemplateRepository");
+        }
+        
         if (instance == null) {
-            instance = new TemplateRepository();
-            instance.appContext = context.getApplicationContext();
-            instance.loadCategoriesFromPrefs();
+            instance = new TemplateRepository(context);
         } else if (instance.appContext == null) {
+            // If instance exists but has no context, update it
             instance.appContext = context.getApplicationContext();
             instance.loadCategoriesFromPrefs();
         }
+        
         return instance;
     }
 
+    /**
+     * Get the singleton instance of TemplateRepository
+     * @return TemplateRepository instance
+     * @throws IllegalStateException if init(Context) has not been called first
+     */
     public static synchronized TemplateRepository getInstance() {
         if (instance == null) {
-            instance = new TemplateRepository();
+            Log.e(TAG, "TemplateRepository.getInstance() called before initialization");
+            // Create a default instance without context, but log a warning
+            instance = new TemplateRepository(null);
+            Log.w(TAG, "Creating TemplateRepository with no context - functionality will be limited");
         }
+        
+        if (instance.appContext == null) {
+            Log.w(TAG, "TemplateRepository instance has no context - call init(Context) to enable full functionality");
+        }
+        
         return instance;
     }
 

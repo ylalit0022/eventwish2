@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -31,6 +32,8 @@ import com.ds.eventwish.utils.DeepLinkUtil;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.gson.Gson;
+import com.ds.eventwish.utils.AnalyticsUtils;
+import com.ds.eventwish.ads.AdMobManager;
 
 // Stub Palette class
 class Palette {
@@ -105,6 +108,9 @@ public class ResourceFragment extends Fragment {
     private Runnable autoHideRunnable;
     private static final int AUTO_HIDE_DELAY_MILLIS = 3000;
     private WishResponse currentWish;
+    
+    // Add AdMobManager reference
+    private AdMobManager adMobManager;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -118,6 +124,14 @@ public class ResourceFragment extends Fragment {
                 hideBottomNav();
             }
         };
+        
+        // Initialize AdMobManager
+        try {
+            adMobManager = AdMobManager.getInstance();
+            Log.d(TAG, "AdMobManager initialized successfully");
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "Error initializing AdMobManager: " + e.getMessage());
+        }
     }
 
     @Override
@@ -131,6 +145,13 @@ public class ResourceFragment extends Fragment {
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         Log.d(TAG, "onViewCreated: View created");
+
+        // Track screen view for analytics - Add try-catch to prevent crashes
+        try {
+            AnalyticsUtils.trackScreenView("ResourceFragment", ResourceFragment.class.getName());
+        } catch (Exception e) {
+            Log.e(TAG, "Error tracking screen view: " + e.getMessage());
+        }
 
         // Get bottom navigation from activity
         if (getActivity() instanceof MainActivity) {
@@ -190,6 +211,9 @@ public class ResourceFragment extends Fragment {
         
         // Enable full screen mode by default
         enableFullScreenMode();
+        
+        // Show interstitial ad after a short delay
+        showInterstitialAdWithDelay();
     }
     
     private boolean isComingFromExternalSource() {
@@ -732,6 +756,76 @@ public class ResourceFragment extends Fragment {
         } catch (Exception e) {
             Log.e(TAG, "Error navigating to template detail: " + e.getMessage(), e);
             Toast.makeText(requireContext(), getString(R.string.error_opening_template, e.getMessage()), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * Show an interstitial ad after a short delay to let the UI load first
+     */
+    private void showInterstitialAdWithDelay() {
+        if (adMobManager == null) {
+            try {
+                // Try one more time to initialize the ad manager
+                adMobManager = AdMobManager.getInstance();
+                Log.d(TAG, "Re-initialized AdMobManager successfully");
+            } catch (IllegalStateException e) {
+                Log.e(TAG, "Cannot show interstitial ad: AdMobManager not available: " + e.getMessage());
+                return;
+            }
+        }
+        
+        // Use a delay that's long enough for the fragment to fully initialize
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            try {
+                if (!isAdded() || getActivity() == null) {
+                    Log.e(TAG, "Cannot show interstitial ad: Fragment not attached to activity");
+                    return;
+                }
+                
+                Log.d(TAG, "Attempting to show interstitial ad");
+                
+                // Verify ad is ready first
+                if (adMobManager.isInterstitialAdReady()) {
+                    boolean adShown = adMobManager.showInterstitialAd(getActivity());
+                    
+                    if (adShown) {
+                        Log.d(TAG, "Interstitial ad shown successfully");
+                    } else {
+                        Log.e(TAG, "Interstitial ad failed to show despite being ready");
+                    }
+                } else {
+                    Log.d(TAG, "Interstitial ad not ready yet, will try again later");
+                    
+                    // Try again after a longer delay
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                        try {
+                            if (isAdded() && getActivity() != null && adMobManager != null) {
+                                boolean adShown = adMobManager.showInterstitialAd(getActivity());
+                                Log.d(TAG, "Second attempt to show interstitial ad: " + (adShown ? "successful" : "failed"));
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error in second attempt to show interstitial ad: " + e.getMessage());
+                        }
+                    }, 3000); // Try again after 3 seconds
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error showing interstitial ad: " + e.getMessage());
+            }
+        }, 2000); // 2 second initial delay
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        
+        // Force dispatch analytics events to ensure they're sent to Firebase - Add try-catch to prevent crashes
+        try {
+            AnalyticsUtils.forceDispatchEvents();
+            
+            // Re-track screen view on resume to ensure it's recorded
+            AnalyticsUtils.trackScreenView("ResourceFragment", ResourceFragment.class.getName());
+        } catch (Exception e) {
+            Log.e(TAG, "Error in analytics tracking on resume: " + e.getMessage());
         }
     }
 }

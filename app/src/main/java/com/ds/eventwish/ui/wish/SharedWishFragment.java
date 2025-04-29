@@ -57,6 +57,11 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonArray;
 import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.data.remote.ApiService;
+import com.ds.eventwish.data.model.response.BaseResponse;
+import com.ds.eventwish.ads.RewardedAdManager;
+import com.google.android.gms.ads.OnUserEarnedRewardListener;
+import android.os.CountDownTimer;
+import com.google.android.material.snackbar.Snackbar;
 
 public class SharedWishFragment extends Fragment {
     private SharedPrefsManager prefsManager;
@@ -67,6 +72,12 @@ public class SharedWishFragment extends Fragment {
     private WishResponse currentWish;
     private OnBackPressedCallback backPressCallback;
     private JsonObject analyticsData;
+    
+    // Rewarded ad manager
+    private RewardedAdManager rewardedAdManager;
+    private boolean isRewardedAdLoading = false;
+    private boolean rewardedAdWatched = false;
+    private CountDownTimer cooldownTimer;
     
     // Analytics tracking
     private static final long ANALYTICS_HEARTBEAT_INTERVAL = 30000; // 30 seconds
@@ -94,6 +105,9 @@ public class SharedWishFragment extends Fragment {
         prefsManager = new SharedPrefsManager(requireContext());
         viewModel = new ViewModelProvider(this).get(SharedWishViewModel.class);
 
+        // Initialize rewarded ad manager
+        rewardedAdManager = new RewardedAdManager(requireContext());
+        
         // Get the short code from arguments
         if (getArguments() != null) {
             shortCode = SharedWishFragmentArgs.fromBundle(getArguments()).getShortCode();
@@ -123,6 +137,9 @@ public class SharedWishFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        // Track screen view for analytics
+        AnalyticsUtils.trackScreenView("SharedWishFragment", SharedWishFragment.class.getName());
+
         // Initialize WebView
         setupWebView();
 
@@ -131,6 +148,14 @@ public class SharedWishFragment extends Fragment {
 
         // Set up observers
         setupObservers();
+        
+        // Preload rewarded ad
+        loadRewardedAd();
+        
+        // Show the watch ad button
+        if (binding != null && binding.watchAdButton != null) {
+            binding.watchAdButton.setVisibility(View.VISIBLE);
+        }
 
         // Load the wish
         if (shortCode != null && !shortCode.isEmpty()) {
@@ -279,7 +304,16 @@ public class SharedWishFragment extends Fragment {
     }
 
     private void setupClickListeners() {
+        // Configure share button to be initially disabled
+        binding.shareButton.setEnabled(false);
+        binding.shareButton.setAlpha(0.5f);
+        binding.shareLockIcon.setVisibility(View.VISIBLE);
+        
+        // Set up click listeners
         binding.shareButton.setOnClickListener(v -> shareWish());
+        
+        // Add watch rewarded ad button click listener
+        binding.watchAdButton.setOnClickListener(v -> showRewardedAd());
 
         // Add analytics button click listener
         binding.analyticsButton.setOnClickListener(v -> showAnalyticsBottomSheet());
@@ -400,39 +434,302 @@ public class SharedWishFragment extends Fragment {
         }
     }
 
+    /**
+     * Load a rewarded ad
+     */
+    private void loadRewardedAd() {
+        if (rewardedAdManager == null || isRewardedAdLoading) {
+            return;
+        }
+        
+        isRewardedAdLoading = true;
+        Log.d(TAG, "Loading rewarded ad");
+        
+        rewardedAdManager.loadAd(new RewardedAdManager.RewardedAdCallback() {
+            @Override
+            public void onAdLoaded() {
+                isRewardedAdLoading = false;
+                Log.d(TAG, "Rewarded ad loaded successfully");
+                
+                // Enable watch ad button
+                if (binding != null && !rewardedAdWatched) {
+                    binding.watchAdButton.setEnabled(true);
+                    binding.watchAdButtonText.setText(R.string.watch_ad_to_share);
+                }
+            }
+
+            @Override
+            public void onAdFailedToLoad(String error) {
+                isRewardedAdLoading = false;
+                Log.e(TAG, "Rewarded ad failed to load: " + error);
+                
+                // Disable watch ad button
+                if (binding != null) {
+                    binding.watchAdButton.setEnabled(false);
+                    binding.watchAdButtonText.setText(R.string.ad_not_available);
+                }
+            }
+
+            @Override
+            public void onAdOpened() {
+                Log.d(TAG, "Rewarded ad opened");
+            }
+
+            @Override
+            public void onAdClosed() {
+                Log.d(TAG, "Rewarded ad closed");
+                
+                // Preload next ad
+                loadRewardedAd();
+                
+                // Start cooldown timer if applicable
+                if (rewardedAdManager.isInCooldownPeriod() && binding != null) {
+                    startCooldownTimer(rewardedAdManager.getRemainingCooldownMs());
+                }
+            }
+
+            @Override
+            public void onUserEarnedReward(String type, int amount) {
+                Log.d(TAG, "User earned reward: " + amount + " " + type);
+                rewardedAdWatched = true;
+                
+                // Update UI to show share options
+                if (binding != null) {
+                    binding.watchAdButton.setEnabled(false);
+                    binding.watchAdButtonText.setText(R.string.ad_watched);
+                    
+                    // Unlock share button
+                    binding.shareButton.setEnabled(true);
+                    binding.shareButton.setAlpha(1.0f);
+                    binding.shareLockIcon.setVisibility(View.GONE);
+                }
+                
+                // Show success message
+                Snackbar.make(binding.getRoot(), 
+                    "Thanks for watching! You can now share.", 
+                    Snackbar.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onAdShowFailed(String error) {
+                Log.e(TAG, "Rewarded ad failed to show: " + error);
+                
+                // Enable button for retry
+                if (binding != null) {
+                    binding.watchAdButton.setEnabled(true);
+                    binding.watchAdButtonText.setText(R.string.retry_watch_ad);
+                }
+                
+                // Show error message
+                Snackbar.make(binding.getRoot(), R.string.ad_failed_to_show, Snackbar.LENGTH_SHORT).show();
+            }
+        });
+    }
+    
+    /**
+     * Show the rewarded ad
+     */
+    private void showRewardedAd() {
+        if (rewardedAdManager == null) {
+            Log.e(TAG, "Rewarded ad manager is null");
+            return;
+        }
+        
+        // Check if in cooldown period
+        if (rewardedAdManager.isInCooldownPeriod()) {
+            long remainingMs = rewardedAdManager.getRemainingCooldownMs();
+            startCooldownTimer(remainingMs);
+            return;
+        }
+        
+        // Check if ad is loaded
+        if (!rewardedAdManager.isAdLoaded()) {
+            Log.d(TAG, "Rewarded ad not loaded yet");
+            binding.watchAdButton.setEnabled(false);
+            binding.watchAdButtonText.setText(R.string.loading_ad);
+            
+            // Try to load the ad
+            loadRewardedAd();
+            return;
+        }
+        
+        // Show the ad
+        OnUserEarnedRewardListener rewardListener = reward -> {
+            // Mark as watched and unlock sharing
+            Log.d(TAG, "User earned reward via listener: " + reward.getAmount() + " " + reward.getType());
+            rewardedAdWatched = true;
+            
+            // Update UI to unlock share button
+            if (binding != null) {
+                binding.watchAdButton.setEnabled(false);
+                binding.watchAdButtonText.setText(R.string.ad_watched);
+                
+                // Unlock share button
+                binding.shareButton.setEnabled(true);
+                binding.shareButton.setAlpha(1.0f);
+                binding.shareLockIcon.setVisibility(View.GONE);
+                
+                // Show success message
+                Snackbar.make(binding.getRoot(), 
+                    "Thanks for watching! You can now share.", 
+                    Snackbar.LENGTH_SHORT).show();
+            }
+        };
+        
+        // Disable button temporarily
+        binding.watchAdButton.setEnabled(false);
+        
+        boolean adShown = rewardedAdManager.showAd(requireActivity(), rewardListener, 
+            new RewardedAdManager.RewardedAdCallback() {
+                @Override
+                public void onAdLoaded() {}
+
+                @Override
+                public void onAdFailedToLoad(String error) {
+                    binding.watchAdButton.setEnabled(true);
+                    binding.watchAdButtonText.setText(R.string.retry_watch_ad);
+                }
+
+                @Override
+                public void onAdOpened() {}
+
+                @Override
+                public void onAdClosed() {
+                    // Will be handled in main callback
+                }
+
+                @Override
+                public void onUserEarnedReward(String type, int amount) {
+                    // Also handle reward here as a backup
+                    Log.d(TAG, "User earned reward via callback: " + amount + " " + type);
+                    rewardedAdWatched = true;
+                    
+                    // Update UI to unlock share button
+                    if (binding != null) {
+                        binding.watchAdButton.setEnabled(false);
+                        binding.watchAdButtonText.setText(R.string.ad_watched);
+                        
+                        // Unlock share button
+                        binding.shareButton.setEnabled(true);
+                        binding.shareButton.setAlpha(1.0f);
+                        binding.shareLockIcon.setVisibility(View.GONE);
+                    }
+                }
+
+                @Override
+                public void onAdShowFailed(String error) {
+                    binding.watchAdButton.setEnabled(true);
+                    binding.watchAdButtonText.setText(R.string.retry_watch_ad);
+                    
+                    Snackbar.make(binding.getRoot(), 
+                        getString(R.string.ad_failed_to_show_with_reason, error), 
+                        Snackbar.LENGTH_SHORT).show();
+                }
+            });
+        
+        if (!adShown) {
+            binding.watchAdButton.setEnabled(true);
+            binding.watchAdButtonText.setText(R.string.retry_watch_ad);
+        }
+    }
+    
+    /**
+     * Start a cooldown timer for rewarded ads
+     * @param remainingMs Milliseconds remaining in cooldown
+     */
+    private void startCooldownTimer(long remainingMs) {
+        // Cancel any existing timer
+        if (cooldownTimer != null) {
+            cooldownTimer.cancel();
+        }
+        
+        // Create new timer
+        cooldownTimer = new CountDownTimer(remainingMs, 1000) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                if (binding != null) {
+                    int secondsRemaining = (int) (millisUntilFinished / 1000);
+                    binding.watchAdButton.setEnabled(false);
+                    binding.watchAdButtonText.setText(getString(R.string.ad_cooldown_remaining, secondsRemaining));
+                }
+            }
+
+            @Override
+            public void onFinish() {
+                if (binding != null) {
+                    binding.watchAdButton.setEnabled(true);
+                    binding.watchAdButtonText.setText(R.string.watch_ad_to_share);
+                }
+            }
+        };
+        
+        // Start the timer
+        cooldownTimer.start();
+        
+        // Show cooldown message
+        int secondsRemaining = (int) (remainingMs / 1000);
+        Snackbar.make(binding.getRoot(), 
+            getString(R.string.ad_in_cooldown, secondsRemaining), 
+            Snackbar.LENGTH_SHORT).show();
+    }
+
+    /**
+     * Share wish with validation for rewarded ad watch status
+     */
     private void shareWish() {
+        // Check if wish is loaded
         if (currentWish == null) {
             Toast.makeText(requireContext(), "Cannot share wish: missing data", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Create bottom sheet dialog
+        // Track share button click
+        String templateId = null;
+        if (currentWish.getTemplateId() != null) {
+            templateId = currentWish.getTemplateId();
+        } else if (currentWish.getTemplate() != null && currentWish.getTemplate().getId() != null) {
+            templateId = currentWish.getTemplate().getId();
+        }
+        
+        AnalyticsUtils.trackShareButtonClick(
+            "shareButton", 
+            "SharedWishFragment", 
+            templateId
+        );
+        
+        // Generate share URL
+        String shareUrl = getString(R.string.share_url_format, currentWish.getShortCode());
+        
+        // Create and show the bottom sheet
         BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
         View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_share, null);
         bottomSheetDialog.setContentView(bottomSheetView);
-
-        // Get share URL
-        String shareUrl = getString(R.string.share_url_format, currentWish.getShortCode());
-
-        // Set up click listeners for share options
+        
+        // Add click listeners to the social media buttons
         bottomSheetView.findViewById(R.id.whatsappShare).setOnClickListener(v -> {
             final String shareText = getString(R.string.share_wish_text_whatsapp, shareUrl);
             handleShareVia(SHARE_VIA_WHATSAPP);
             bottomSheetDialog.dismiss();
         });
-
+        
         bottomSheetView.findViewById(R.id.facebookShare).setOnClickListener(v -> {
             final String shareText = getString(R.string.share_wish_text_facebook, shareUrl);
             handleShareVia(SHARE_VIA_FACEBOOK);
             bottomSheetDialog.dismiss();
         });
-
+        
         bottomSheetView.findViewById(R.id.twitterShare).setOnClickListener(v -> {
             final String shareText = getString(R.string.share_wish_text_twitter, shareUrl);
             handleShareVia(SHARE_VIA_TWITTER);
             bottomSheetDialog.dismiss();
         });
-
+        
+        bottomSheetView.findViewById(R.id.instagramShare).setOnClickListener(v -> {
+            final String shareText = getString(R.string.share_wish_text_instagram, shareUrl);
+            handleShareVia(SHARE_VIA_INSTAGRAM);
+            bottomSheetDialog.dismiss();
+        });
+        
         bottomSheetView.findViewById(R.id.emailShare).setOnClickListener(v -> {
             final String shareText = getString(R.string.share_wish_text_email, shareUrl);
             handleShareVia(SHARE_VIA_EMAIL);
@@ -459,6 +756,52 @@ public class SharedWishFragment extends Fragment {
         // Show the bottom sheet dialog
         bottomSheetDialog.show();
         Log.d(TAG, "Share bottom sheet dialog shown");
+    }
+
+    /**
+     * Track sharing event
+     * @param platform The platform used for sharing
+     */
+    private void trackShare(String platform) {
+        try {
+            // Track sharing via platform to analytics - now using AnalyticsUtils
+            String templateId = null;
+            if (currentWish.getTemplateId() != null) {
+                templateId = currentWish.getTemplateId();
+            } else if (currentWish.getTemplate() != null && currentWish.getTemplate().getId() != null) {
+                templateId = currentWish.getTemplate().getId();
+            }
+            
+            // Use our AnalyticsUtils implementation
+            AnalyticsUtils.trackSocialShare(platform, templateId, true);
+            
+            // Send the share event to the server for analytics tracking
+            if (shortCode != null && !shortCode.isEmpty()) {
+                ApiService apiService = ApiClient.getClient();
+                
+                // Create a JsonObject for the platform parameter
+                JsonObject platformBody = new JsonObject();
+                platformBody.addProperty("platform", platform);
+                
+                apiService.trackWishShare(shortCode, platformBody.toString()).enqueue(new Callback<BaseResponse<Void>>() {
+                    @Override
+                    public void onResponse(Call<BaseResponse<Void>> call, Response<BaseResponse<Void>> response) {
+                        if (response.isSuccessful()) {
+                            Log.d(TAG, "Successfully tracked share event on server");
+                        } else {
+                            Log.e(TAG, "Failed to track share event on server: " + response.code());
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<BaseResponse<Void>> call, Throwable t) {
+                        Log.e(TAG, "Error tracking share event", t);
+                    }
+                });
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error tracking share", e);
+        }
     }
 
     /**
@@ -490,7 +833,7 @@ public class SharedWishFragment extends Fragment {
         sharedWish.setCustomizedHtml(currentWish.getCustomizedHtml());
         sharedWish.setCssContent(currentWish.getCssContent());
         sharedWish.setJsContent(currentWish.getJsContent());
-
+        
         // Set preview URL from template or from the wish
         if (currentWish.getPreviewUrl() != null && !currentWish.getPreviewUrl().isEmpty()) {
             sharedWish.setPreviewUrl(currentWish.getPreviewUrl());
@@ -644,42 +987,6 @@ public class SharedWishFragment extends Fragment {
     }
 
     /**
-     * Track a share event
-     * @param platform The platform used for sharing
-     */
-    private void trackShare(String platform) {
-        if (shortCode == null || shortCode.isEmpty()) return;
-
-        try {
-            // Create a JSON object with the platform
-            JsonObject platformJson = new JsonObject();
-            platformJson.addProperty("platform", platform);
-
-            // Get the API service
-            ApiService apiService = ApiClient.getClient();
-
-            // Make the API call
-            apiService.updateSharedWishPlatform(shortCode, platformJson).enqueue(new Callback<JsonObject>() {
-                @Override
-                public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
-                    if (response.isSuccessful()) {
-                        Log.d(TAG, "Successfully tracked share via " + platform);
-                    } else {
-                        Log.e(TAG, "Failed to track share: " + response.code());
-                    }
-                }
-
-                @Override
-                public void onFailure(Call<JsonObject> call, Throwable t) {
-                    Log.e(TAG, "Error tracking share: " + t.getMessage());
-                }
-            });
-        } catch (Exception e) {
-            Log.e(TAG, "Error tracking share: " + e.getMessage());
-        }
-    }
-
-    /**
      * Show analytics bottom sheet
      */
     private void showAnalyticsBottomSheet() {
@@ -781,6 +1088,65 @@ public class SharedWishFragment extends Fragment {
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+        
+        // Resume analytics tracking if needed
+        if (shortCode != null && !isTracking && currentWish != null) {
+            startAnalyticsTracking();
+        }
+        
+        // Check rewarded ad status and update UI accordingly
+        updateRewardedAdButtonState();
+        
+        // Force dispatch analytics events to ensure they're sent to Firebase
+        AnalyticsUtils.forceDispatchEvents();
+    }
+    
+    /**
+     * Update the rewarded ad button state based on current conditions
+     */
+    private void updateRewardedAdButtonState() {
+        if (binding == null || rewardedAdManager == null) {
+            return;
+        }
+        
+        // Check if ad is loaded
+        if (rewardedAdManager.isAdLoaded()) {
+            if (!rewardedAdWatched && !rewardedAdManager.isInCooldownPeriod()) {
+                binding.watchAdButton.setEnabled(true);
+                binding.watchAdButtonText.setText(R.string.watch_ad_to_share);
+            } else if (rewardedAdWatched) {
+                binding.watchAdButton.setEnabled(false);
+                binding.watchAdButtonText.setText(R.string.ad_watched);
+            }
+        } else {
+            // Check if in cooldown period
+            if (rewardedAdManager.isInCooldownPeriod()) {
+                long remainingMs = rewardedAdManager.getRemainingCooldownMs();
+                startCooldownTimer(remainingMs);
+            } else if (!isRewardedAdLoading && !rewardedAdWatched) {
+                binding.watchAdButton.setEnabled(false);
+                binding.watchAdButtonText.setText(R.string.loading_ad);
+                loadRewardedAd();
+            }
+        }
+    }
+    
+    @Override
+    public void onPause() {
+        super.onPause();
+        
+        // Stop analytics tracking
+        stopAnalyticsTracking();
+        
+        // Cancel cooldown timer if running
+        if (cooldownTimer != null) {
+            cooldownTimer.cancel();
+        }
+    }
+    
+    @Override
     public void onDestroyView() {
         super.onDestroyView();
         
@@ -788,6 +1154,12 @@ public class SharedWishFragment extends Fragment {
         stopAnalyticsTracking();
         
         binding = null;
+        
+        // Cancel cooldown timer if running
+        if (cooldownTimer != null) {
+            cooldownTimer.cancel();
+            cooldownTimer = null;
+        }
     }
 
     @Override
@@ -804,6 +1176,12 @@ public class SharedWishFragment extends Fragment {
         
         // Clear handlers
         mainHandler.removeCallbacksAndMessages(null);
+        
+        // Clean up ad manager
+        if (rewardedAdManager != null) {
+            rewardedAdManager.destroy();
+            rewardedAdManager = null;
+        }
     }
 
     /**
@@ -883,24 +1261,6 @@ public class SharedWishFragment extends Fragment {
         
         isTracking = false;
         Log.d(TAG, "Stopped analytics tracking for shared wish: " + shortCode + ", duration: " + durationSeconds + "s");
-    }
-    
-    @Override
-    public void onResume() {
-        super.onResume();
-        
-        // Resume analytics tracking if needed
-        if (shortCode != null && !isTracking && currentWish != null) {
-            startAnalyticsTracking();
-        }
-    }
-    
-    @Override
-    public void onPause() {
-        super.onPause();
-        
-        // Stop analytics tracking
-        stopAnalyticsTracking();
     }
 
     /**

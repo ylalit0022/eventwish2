@@ -89,9 +89,27 @@ public class EnhancedTemplateRepository {
         if (instance == null) {
             synchronized (EnhancedTemplateRepository.class) {
                 if (instance == null) {
+                    if (context == null) {
+                        throw new IllegalStateException("Context cannot be null when initializing EnhancedTemplateRepository");
+                    }
+                    // Make sure ResourceRepository is initialized first with context
+                    ResourceRepository.getInstance(context);
                     instance = new EnhancedTemplateRepository(context.getApplicationContext());
                 }
             }
+        }
+        return instance;
+    }
+    
+    /**
+     * Get the singleton instance of EnhancedTemplateRepository
+     * This method should only be called after initialization with context
+     * @return EnhancedTemplateRepository instance
+     * @throws IllegalStateException if getInstance(Context) has not been called first
+     */
+    public static EnhancedTemplateRepository getInstance() {
+        if (instance == null) {
+            throw new IllegalStateException("EnhancedTemplateRepository must be initialized with getInstance(Context) before calling getInstance()");
         }
         return instance;
     }
@@ -101,8 +119,12 @@ public class EnhancedTemplateRepository {
      * @param context Application context
      */
     private EnhancedTemplateRepository(Context context) {
-        this.context = context;
-        this.resourceRepository = ResourceRepository.getInstance(context);
+        if (context == null) {
+            throw new IllegalArgumentException("Context cannot be null");
+        }
+        this.context = context.getApplicationContext();
+        // Use the parameterless getInstance() after ensuring initialization
+        this.resourceRepository = ResourceRepository.getInstance();
         this.resourceCache = ResourceCache.getInstance(context);
         this.apiService = ApiClient.getClient();
         this.executors = AppExecutors.getInstance();

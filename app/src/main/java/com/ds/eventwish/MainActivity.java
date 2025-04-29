@@ -13,11 +13,13 @@ import android.os.Handler;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.MenuItem;
+import android.view.Menu;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -56,6 +58,13 @@ import com.ds.eventwish.ui.connectivity.InternetConnectivityChecker;
 import com.ds.eventwish.ui.viewmodel.AppUpdateManager;
 import com.ds.eventwish.R;
 import com.ds.eventwish.ads.AdDemoActivity;
+import com.ds.eventwish.utils.AnalyticsUtils;
+import com.ds.eventwish.utils.AnalyticsConsentManager;
+import com.ds.eventwish.ui.history.SharedPrefsManager;
+import com.ds.eventwish.utils.FirebaseCrashManager;
+import com.ds.eventwish.utils.PerformanceTracker;
+import com.google.firebase.analytics.FirebaseAnalytics;
+import com.google.firebase.perf.metrics.Trace;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -73,98 +82,243 @@ public class MainActivity extends AppCompatActivity {
     private FestivalViewModel festivalViewModel;
     private String currentFragmentTag = "";
     private boolean isFirstLaunch = true;
+    private boolean isFirstAnalyticsTracking = true;
     private ApiClient apiClient;
     private AppUpdateManager appUpdateManager;
+    private AppUpdateChecker appUpdateChecker;
     private InternetConnectivityChecker connectivityChecker;
     private boolean isConnected = true;
     private SharedViewModel sharedViewModel;
+    private SharedPrefsManager prefsManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        binding = ActivityMainBinding.inflate(getLayoutInflater());
-        setContentView(binding.getRoot());
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            Window window = getWindow();
-            window.setNavigationBarColor(Color.TRANSPARENT);
-        }
-
-        setupPermissionLauncher();
-        checkAndRequestPermissions();
-
-        reminderDao = new ReminderDao(this);
-        ReminderViewModelFactory factory = new ReminderViewModelFactory(reminderDao, this);
-        viewModel = new ViewModelProvider(this, factory).get(ReminderViewModel.class);
-
-        setupNavigation();
-        setupBadge();
-        handleIntent(getIntent());
-
-        // Initialize notification channels
-        NotificationHelper.createNotificationChannels(this);
-
-        // Request notification permission if needed
-        NotificationHelper.requestNotificationPermission(this, NOTIFICATION_PERMISSION_REQUEST_CODE);
-
-        // Initialize view model
-        festivalViewModel = new ViewModelProvider(this).get(FestivalViewModel.class);
-
-        // Clear all cache on first launch
-        if (isFirstLaunch) {
-            FestivalRepository.getInstance(this).clearAllCache();
-            isFirstLaunch = false;
-        }
-
-        // Initialize API client
-        apiClient = new ApiClient();
+        // Start app load trace
+        Trace appStartupTrace = PerformanceTracker.startPerformanceTrace("app_startup");
         
-        // Setup app update checker
-        appUpdateManager = AppUpdateManager.getInstance(this);
-        appUpdateManager.checkForUpdate();
-        
-        // Setup connectivity checker
-        connectivityChecker = new InternetConnectivityChecker(this);
-        connectivityChecker.observe(this, isNetworkConnected -> {
-            if (isConnected && !isNetworkConnected) {
-                // Just disconnected
-                showConnectivityMessage(false);
-            } else if (!isConnected && isNetworkConnected) {
-                // Just reconnected
-                showConnectivityMessage(true);
+        try {
+            binding = ActivityMainBinding.inflate(getLayoutInflater());
+            setContentView(binding.getRoot());
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                Window window = getWindow();
+                window.setNavigationBarColor(Color.TRANSPARENT);
             }
-            isConnected = isNetworkConnected;
-        });
 
-        // Log app started
-        Log.d(TAG, "MainActivity created");
+            // Initialize shared preferences manager
+            prefsManager = new SharedPrefsManager(this);
 
-        // Set up view model
-        sharedViewModel = new ViewModelProvider(this).get(SharedViewModel.class);
-        
-        // Initialize services
-        connectivityChecker = new InternetConnectivityChecker(this);
-        appUpdateManager = AppUpdateManager.getInstance(this);
-        
-        // Setup UI components
-        setupNavigation();
-        
-        // Check for updates
-        appUpdateManager.checkForUpdate();
-        
-        // Monitor network connectivity
-        connectivityChecker.getConnectionStatus().observe(this, isConnected -> {
-            if (isConnected) {
-                hideOfflineMessage();
-            } else {
-                showOfflineMessage();
+            setupPermissionLauncher();
+            checkAndRequestPermissions();
+
+            reminderDao = new ReminderDao(this);
+            ReminderViewModelFactory factory = new ReminderViewModelFactory(reminderDao, this);
+            viewModel = new ViewModelProvider(this, factory).get(ReminderViewModel.class);
+
+            setupNavigation();
+            setupBadge();
+            handleIntent(getIntent());
+
+            // Initialize notification channels
+            NotificationHelper.createNotificationChannels(this);
+
+            // Request notification permission if needed
+            NotificationHelper.requestNotificationPermission(this, NOTIFICATION_PERMISSION_REQUEST_CODE);
+
+            // Initialize view model
+            festivalViewModel = new ViewModelProvider(this).get(FestivalViewModel.class);
+
+            // Clear all cache on first launch
+            if (isFirstLaunch) {
+                FestivalRepository.getInstance(this).clearAllCache();
+                isFirstLaunch = false;
             }
-        });
-        
-        // Handle intent (deep links)
-        if (getIntent() != null) {
-            DeepLinkHandler.handleDeepLink(this, getIntent());
+
+            // Initialize API client
+            apiClient = new ApiClient();
+            
+            // Setup app update checking
+            appUpdateManager = AppUpdateManager.getInstance(this);
+            // Initialize the new AppUpdateChecker
+            appUpdateChecker = new AppUpdateChecker(this);
+            // Check for updates - including forced updates
+            appUpdateChecker.checkForUpdate();
+            
+            // Setup connectivity checker
+            connectivityChecker = new InternetConnectivityChecker(this);
+            connectivityChecker.observe(this, isNetworkConnected -> {
+                if (isConnected && !isNetworkConnected) {
+                    // Just disconnected
+                    showConnectivityMessage(false);
+                } else if (!isConnected && isNetworkConnected) {
+                    // Just reconnected
+                    showConnectivityMessage(true);
+                }
+                isConnected = isNetworkConnected;
+            });
+
+            // Log app started
+            Log.d(TAG, "MainActivity created");
+
+            // Set up view model
+            sharedViewModel = new ViewModelProvider(this).get(SharedViewModel.class);
+            
+            // Initialize services
+            connectivityChecker = new InternetConnectivityChecker(this);
+            appUpdateManager = AppUpdateManager.getInstance(this);
+            
+            // Setup UI components
+            setupNavigation();
+            
+            // Check for updates
+            appUpdateManager.checkForUpdate();
+            
+            // Monitor network connectivity
+            connectivityChecker.getConnectionStatus().observe(this, isConnected -> {
+                if (isConnected) {
+                    hideOfflineMessage();
+                } else {
+                    showOfflineMessage();
+                }
+            });
+            
+            // Handle intent (deep links)
+            if (getIntent() != null) {
+                DeepLinkHandler.handleDeepLink(this, getIntent());
+            }
+
+            // Initialize analytics based on user consent
+            initializeAnalytics();
+            
+            // Set custom keys for crash reports
+            FirebaseCrashManager.setCustomKey("main_activity_initialized", true);
+        } catch (Exception e) {
+            Log.e(TAG, "Error during onCreate", e);
+            FirebaseCrashManager.logException(e);
+        } finally {
+            // Stop app load trace
+            PerformanceTracker.stopPerformanceTrace(appStartupTrace, "app_startup");
+        }
+    }
+
+    /**
+     * Initialize analytics and show consent dialog if needed
+     */
+    private void initializeAnalytics() {
+        try {
+            // Initialize analytics with current consent status
+            AnalyticsConsentManager.initializeAnalytics(this);
+            
+            // Track app open event if analytics is enabled
+            if (AnalyticsUtils.isAnalyticsEnabled()) {
+                AnalyticsUtils.trackAppOpen();
+            }
+            
+            // Show consent dialog if it hasn't been shown before
+            // Use a slight delay to ensure UI is fully loaded
+            if (AnalyticsConsentManager.shouldShowConsentDialog(this)) {
+                new Handler().postDelayed(() -> {
+                    AnalyticsConsentManager.showConsentDialog(this);
+                }, 1000);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing analytics", e);
+        }
+    }
+
+    private void initializeUI(Bundle savedInstanceState) {
+        try {
+            binding = ActivityMainBinding.inflate(getLayoutInflater());
+            setContentView(binding.getRoot());
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                Window window = getWindow();
+                window.setNavigationBarColor(Color.TRANSPARENT);
+            }
+
+            setupPermissionLauncher();
+            checkAndRequestPermissions();
+
+            reminderDao = new ReminderDao(this);
+            ReminderViewModelFactory factory = new ReminderViewModelFactory(reminderDao, this);
+            viewModel = new ViewModelProvider(this, factory).get(ReminderViewModel.class);
+
+            setupNavigation();
+            setupBadge();
+            handleIntent(getIntent());
+
+            // Initialize notification channels
+            NotificationHelper.createNotificationChannels(this);
+
+            // Request notification permission if needed
+            NotificationHelper.requestNotificationPermission(this, NOTIFICATION_PERMISSION_REQUEST_CODE);
+
+            // Initialize view model
+            festivalViewModel = new ViewModelProvider(this).get(FestivalViewModel.class);
+
+            // Clear all cache on first launch
+            if (isFirstLaunch) {
+                FestivalRepository.getInstance(this).clearAllCache();
+                isFirstLaunch = false;
+            }
+
+            // Initialize API client
+            apiClient = new ApiClient();
+            
+            // Setup app update checking
+            appUpdateManager = AppUpdateManager.getInstance(this);
+            // Initialize the new AppUpdateChecker
+            appUpdateChecker = new AppUpdateChecker(this);
+            // Check for updates - including forced updates
+            appUpdateChecker.checkForUpdate();
+            
+            // Setup connectivity checker
+            connectivityChecker = new InternetConnectivityChecker(this);
+            connectivityChecker.observe(this, isNetworkConnected -> {
+                if (isConnected && !isNetworkConnected) {
+                    // Just disconnected
+                    showConnectivityMessage(false);
+                } else if (!isConnected && isNetworkConnected) {
+                    // Just reconnected
+                    showConnectivityMessage(true);
+                }
+                isConnected = isNetworkConnected;
+            });
+
+            // Log app started
+            Log.d(TAG, "MainActivity created");
+
+            // Set up view model
+            sharedViewModel = new ViewModelProvider(this).get(SharedViewModel.class);
+            
+            // Initialize services
+            connectivityChecker = new InternetConnectivityChecker(this);
+            appUpdateManager = AppUpdateManager.getInstance(this);
+            
+            // Setup UI components
+            setupNavigation();
+            
+            // Check for updates
+            appUpdateManager.checkForUpdate();
+            
+            // Monitor network connectivity
+            connectivityChecker.getConnectionStatus().observe(this, isConnected -> {
+                if (isConnected) {
+                    hideOfflineMessage();
+                } else {
+                    showOfflineMessage();
+                }
+            });
+            
+            // Handle intent (deep links)
+            if (getIntent() != null) {
+                DeepLinkHandler.handleDeepLink(this, getIntent());
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing UI", e);
+            FirebaseCrashManager.logException(e);
         }
     }
 
@@ -259,6 +413,39 @@ public class MainActivity extends AppCompatActivity {
                     itemId == R.id.navigation_profile) {
                     // Pop back stack to the start destination of the current tab
                     navController.popBackStack(itemId, false);
+                }
+            });
+            
+            // Track navigation destination changes for analytics
+            navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
+                // Get the destination ID's string representation for analytics
+                try {
+                    String destinationName = getResources().getResourceName(destination.getId());
+                    if (destinationName != null) {
+                        // Extract just the name part (after the slash)
+                        int slashIndex = destinationName.lastIndexOf('/');
+                        if (slashIndex >= 0 && slashIndex < destinationName.length() - 1) {
+                            destinationName = destinationName.substring(slashIndex + 1);
+                        }
+                        
+                        // Track screen view through NavController
+                        AnalyticsUtils.trackScreenView(
+                            MainActivity.this,
+                            "NavDestination_" + destinationName, 
+                            "navigation.destination"
+                        );
+                        
+                        Log.d(TAG, "Navigation change: " + destinationName);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error tracking navigation change", e);
+                }
+                
+                if (destination.getId() == R.id.navigation_reminder) {
+                    // Reset badge when navigating to reminders tab
+                    if (reminderBadge != null) {
+                        reminderBadge.setVisible(false);
+                    }
                 }
             });
             
@@ -363,6 +550,11 @@ public class MainActivity extends AppCompatActivity {
             connectivityChecker.cleanup();
         }
         
+        // Clean up AppUpdateChecker (it implements DefaultLifecycleObserver, but we'll call it manually)
+        if (appUpdateChecker != null) {
+            appUpdateChecker.onDestroy(this);
+        }
+        
         super.onDestroy();
     }
 
@@ -370,11 +562,37 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         
-        // Check for updates
-        if (appUpdateManager != null) {
-            appUpdateManager.resumeUpdateIfNeeded();
+        try {
+            // Only track MainActivity screen if this is first launch
+            // (fragments will track their own navigation)
+            if (isFirstAnalyticsTracking) {
+                AnalyticsUtils.trackScreenView(this, "MainActivity", MainActivity.class.getName());
+                isFirstAnalyticsTracking = false;
+            }
+            
+            // Record user session
+            AnalyticsUtils.setUserProperty("last_activity", "MainActivity");
+            AnalyticsUtils.setUserProperty("app_foreground", "true");
+            
+            // Check badge count
+            showReminderBadgeIfNeeded();
+            
+            // Check for app updates
+            if (appUpdateManager != null) {
+                appUpdateManager.checkForUpdate();
+            }
+            
+            // Resume update checking with new AppUpdateChecker
+            if (appUpdateChecker != null) {
+                appUpdateChecker.resumeUpdates();
+            }
+            
+            // Log activity resumed
+            Log.d(TAG, "MainActivity resumed");
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onResume", e);
+            FirebaseCrashManager.logException(e);
         }
-        appUpdateManager.registerListener(this);
     }
 
     @Override
@@ -397,12 +615,15 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        
-        // Cleanup
-        if (apiClient != null) {
-            // Special handling for API client
+        try {
+            // Update analytics when app goes to background
+            AnalyticsUtils.setUserProperty("app_foreground", "false");
+            AnalyticsUtils.setUserProperty("last_pause_time", String.valueOf(System.currentTimeMillis()));
+            
+            Log.d(TAG, "MainActivity paused");
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onPause", e);
         }
-        appUpdateManager.unregisterListener();
     }
 
     /**
@@ -448,5 +669,38 @@ public class MainActivity extends AppCompatActivity {
         if (binding.offlineMessage.getVisibility() == View.VISIBLE) {
             binding.offlineMessage.setVisibility(View.GONE);
         }
+    }
+
+    /**
+     * Handle search functionality
+     */
+    private void handleSearch(String query) {
+        if (query != null && !query.isEmpty()) {
+            try {
+                // Trace search operation
+                PerformanceTracker.startTrace("search_operation");
+                
+                // Existing search code...
+                
+                // Track search analytics
+                AnalyticsUtils.trackSearch(query, /* result count */ 0);
+                
+                // Stop trace
+                PerformanceTracker.stopTrace("search_operation");
+                
+            } catch (Exception e) {
+                Log.e(TAG, "Error during search", e);
+                FirebaseCrashManager.logException(e);
+                
+                // Track error
+                AnalyticsUtils.trackContentLoadError("Search error: " + e.getMessage(), null);
+            }
+        }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
     }
 }

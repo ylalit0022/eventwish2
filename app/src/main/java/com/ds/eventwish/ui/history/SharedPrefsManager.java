@@ -25,6 +25,8 @@ public class SharedPrefsManager {
     private static final String TAG = "SharedPrefsManager";
     private static final String PREF_NAME = "wish_history";
     private static final String KEY_HISTORY = "history_items";
+    private static final String KEY_ANALYTICS_CONSENT = "analytics_consent";
+    private static final String KEY_ANALYTICS_CONSENT_SHOWN = "analytics_consent_shown";
     private final SharedPreferences prefs;
     private final Gson gson;
     private final Context context;
@@ -163,5 +165,38 @@ public class SharedPrefsManager {
         } catch (Exception e) {
             Log.e(TAG, "Error printing debug history", e);
         }
+    }
+    
+    /**
+     * Check if analytics consent has been given
+     * @return true if consent was given, false otherwise
+     */
+    public boolean hasAnalyticsConsent() {
+        return prefs.getBoolean(KEY_ANALYTICS_CONSENT, false);
+    }
+    
+    /**
+     * Set analytics consent status
+     * @param consent true to enable analytics, false to disable
+     */
+    public void setAnalyticsConsent(boolean consent) {
+        prefs.edit().putBoolean(KEY_ANALYTICS_CONSENT, consent).apply();
+        Log.d(TAG, "Analytics consent set to: " + consent);
+    }
+    
+    /**
+     * Check if analytics consent dialog has been shown
+     * @return true if consent dialog was shown, false otherwise
+     */
+    public boolean hasShownAnalyticsConsent() {
+        return prefs.getBoolean(KEY_ANALYTICS_CONSENT_SHOWN, false);
+    }
+    
+    /**
+     * Set that analytics consent dialog has been shown
+     */
+    public void setAnalyticsConsentShown() {
+        prefs.edit().putBoolean(KEY_ANALYTICS_CONSENT_SHOWN, true).apply();
+        Log.d(TAG, "Analytics consent dialog marked as shown");
     }
 }

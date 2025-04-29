@@ -70,6 +70,7 @@ import android.os.Handler;
 import com.ds.eventwish.ads.InterstitialAdManager;
 import com.ds.eventwish.ads.AdMobRepository;
 import com.ds.eventwish.data.repository.UserRepository;
+import com.ds.eventwish.utils.AnalyticsUtils;
 
 public class HomeFragment extends BaseFragment implements RecommendedTemplateAdapter.TemplateClickListener {
     private static final String TAG = "HomeFragment";
@@ -92,6 +93,8 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     private InterstitialAdManager interstitialAdManager;
     private boolean isAdLoading = false;
     private Template pendingTemplate = null;
+    private int templateClickCount = 0;
+    private static final int AD_SHOW_THRESHOLD = 3; // Show ad after every 3 template clicks
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -178,12 +181,24 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         super.onCreate(savedInstanceState);
 
         // Initialize the CategoryIconRepository
-        categoryIconRepository = CategoryIconRepository.getInstance();
-        Log.d(TAG, "CategoryIconRepository initialized in onCreate");
+        try {
+            categoryIconRepository = CategoryIconRepository.getInstance(requireContext());
+            Log.d(TAG, "CategoryIconRepository initialized in onCreate");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to initialize CategoryIconRepository", e);
+            // Use default implementation if available
+            categoryIconRepository = CategoryIconRepository.getInstance();
+        }
         
         // Initialize the TemplateRepository to ensure categories are loaded
-        TemplateRepository.init(requireContext());
-        Log.d(TAG, "TemplateRepository initialized in onCreate");
+        try {
+            TemplateRepository.init(requireContext());
+            Log.d(TAG, "TemplateRepository initialized in onCreate");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to initialize TemplateRepository", e);
+            // Fallback to getInstance()
+            TemplateRepository.getInstance();
+        }
 
         // Initialize InterstitialAdManager
         ApiService apiService = ApiClient.getClient();
@@ -224,22 +239,14 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     public void onResume() {
         super.onResume();
         
-        // Mark fragment as resumed
+        // No need to duplicate tracking code here as it's now in BaseFragment
+        
         isResumed = true;
         
-        Log.d(TAG, "onResume called" + (wasInBackground ? " (returning from background)" : ""));
-        
-        // Clear error state if templates are already loaded
-        // This prevents showing retry UI when templates are already available
-        if (viewModel != null && viewModel.hasLoadedTemplates()) {
-            Log.d(TAG, "Templates already loaded, clearing error state");
-            viewModel.clearErrorState();
-            
-            // Make sure retry layout is hidden and templates are visible
-            if (binding != null) {
-                binding.retryLayout.setVisibility(View.GONE);
-                binding.templatesRecyclerView.setVisibility(View.VISIBLE);
-            }
+        // If templates are already loaded, clear any error state
+        if (viewModel.getTemplates().getValue() != null && 
+            !viewModel.getTemplates().getValue().isEmpty()) {
+            hideError();
         }
         
         // Check if we're coming back from another fragment
@@ -590,11 +597,17 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             
             if ("All".equals(categoryName) || categoryId == null) {
                 viewModel.setCategory(null);
+                
+                // Track "All" category click
+                AnalyticsUtils.trackCategoryClick("All");
             } else {
                 viewModel.setCategory(categoryName);
                 
                 // Track category click in UserRepository
                 UserRepository.getInstance(requireContext()).trackCategoryClick(categoryName);
+                
+                // Also track in Analytics
+                AnalyticsUtils.trackCategoryClick(categoryName);
                 
                 // Show loading Snackbar when selecting a category
                 showCategoryLoadingSnackbar(categoryName);
@@ -703,11 +716,17 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             
             if ("All".equals(categoryName) || categoryId == null) {
                 viewModel.setCategory(null);
+                
+                // Track "All" category click
+                AnalyticsUtils.trackCategoryClick("All");
             } else {
                 viewModel.setCategory(categoryName);
                 
                 // Track category click in UserRepository
                 UserRepository.getInstance(requireContext()).trackCategoryClick(categoryName);
+                
+                // Also track in Analytics
+                AnalyticsUtils.trackCategoryClick(categoryName);
                 
                 // Show loading indicator for selected category
                 showCategoryLoadingSnackbar(categoryName);
@@ -1505,13 +1524,31 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         
         Log.d(TAG, "Template clicked: " + template.getTitle());
         
-        // Track template view
+        // Track template view with enhanced method
+        AnalyticsUtils.trackTemplateView(
+            template.getId(),
+            template.getTitle(),
+            template.getCategory()
+        );
+        
+        // Track category click if template has a category
         if (template.getCategory() != null) {
             UserRepository.getInstance(requireContext()).trackCategoryClick(template.getCategory());
         }
         
-        // Show ad if available, otherwise navigate directly
-        showAdAndNavigate(template);
+        // Increment template click counter
+        templateClickCount++;
+        
+        // Decide whether to show ad based on click counter
+        if (templateClickCount >= AD_SHOW_THRESHOLD) {
+            // Show ad if available, otherwise navigate directly
+            showAdAndNavigate(template);
+            // Reset counter after showing ad
+            templateClickCount = 0;
+        } else {
+            // Navigate directly without showing ad
+            navigateToTemplateDetail(template.getId());
+        }
     }
     
     /**
@@ -1845,6 +1882,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                     @Override
                     public void onAdShown() {
                         // Ad is being shown
+                        Log.d(TAG, "Interstitial ad shown");
                     }
 
                     @Override
@@ -1853,12 +1891,15 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                         if (pendingTemplate != null) {
                             navigateToTemplateDetail(pendingTemplate.getId());
                             pendingTemplate = null;
+                            // Preload next ad
+                            loadNextAd();
                         }
                     }
 
                     @Override
                     public void onAdClicked() {
                         // Ad was clicked
+                        Log.d(TAG, "Interstitial ad clicked");
                     }
 
                     @Override
@@ -1886,7 +1927,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                     }
 
                     @Override
-                    public void onAdShown() {}
+                    public void onAdShown() {
+                        Log.d(TAG, "Interstitial ad shown");
+                    }
 
                     @Override
                     public void onAdDismissed() {
@@ -1894,11 +1937,15 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                         if (pendingTemplate != null) {
                             navigateToTemplateDetail(pendingTemplate.getId());
                             pendingTemplate = null;
+                            // Preload next ad
+                            loadNextAd();
                         }
                     }
 
                     @Override
-                    public void onAdClicked() {}
+                    public void onAdClicked() {
+                        Log.d(TAG, "Interstitial ad clicked");
+                    }
 
                     @Override
                     public void onAdShowFailed(String error) {

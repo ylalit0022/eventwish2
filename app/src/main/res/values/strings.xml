@@ -33,6 +33,11 @@
     <string name="settings_notifications_description">Get notified about upcoming events and reminders</string>
     <string name="settings_version">App Version</string>
     <string name="settings_privacy_policy">Privacy Policy</string>
+    <string name="settings_analytics">Analytics</string>
+    <string name="settings_enable_analytics">Enable Analytics</string>
+    <string name="settings_analytics_description">Help us improve the app by sharing anonymous usage data</string>
+    <string name="settings_analytics_disabled">Analytics is now disabled</string>
+    <string name="settings_analytics_enabled">Analytics is now enabled</string>
     <string name="cancel">Cancel</string>
     <string name="category_icon">Category Icon</string>
     <string name="update">Update</string>
@@ -142,6 +147,7 @@
     <!-- App Updates -->
     <string name="update_available">Update Available</string>
     <string name="update_message">A new version of EventWish is available. Please update to the latest version to enjoy new features and improvements.</string>
+    <string name="force_update_message">A critical update is required to continue using EventWish. Please update to the latest version now.</string>
     <string name="update_now">Update Now</string>
     <string name="later">Later</string>
 
@@ -219,7 +225,6 @@
     <string name="insufficient_coins">Feature Locked</string>
     <string name="not_enough_coins">This feature is currently locked.</string>
     <string name="coins_icon_description">Premium icon</string>
-    <string name="reward_earned_message">Feature unlocked successfully!</string>
     <string name="reward_success">Congratulations! Feature unlocked!</string>
     <string name="reward_error">Failed to show ad. Please try again.</string>
     <string name="ad_failed">Ad failed to load. Please try again.</string>
@@ -380,4 +385,22 @@
     <!-- Ad-related strings / Native Ad Strings -->
     <string name="error_icon">Error Icon</string>
     <string name="ad_sponsored">Sponsored</string>
+
+    <!-- New strings for analytics consent dialog -->
+    <string name="analytics_consent_title">Analytics Collection</string>
+    <string name="analytics_consent_message">Help us improve the app by sharing anonymous usage data</string>
+    <string name="analytics_consent_details">Data collected includes device information, app usage, and interaction patterns. No personal information is collected. You can change this setting anytime.</string>
+    <string name="analytics_consent_accept">Accept</string>
+    <string name="analytics_consent_decline">Decline</string>
+
+    <!-- Rewarded Ad Strings -->
+    <string name="watch_ad_to_share">Watch Ad to Share</string>
+    <string name="ad_not_available">Ad Not Available</string>
+    <string name="ad_watched">Ad Watched ✓</string>
+    <string name="retry_watch_ad">Retry Ad</string>
+    <string name="loading_ad">Loading Ad…</string>
+    <string name="ad_cooldown_remaining">Wait %d seconds</string>
+    <string name="ad_in_cooldown">Please wait %d seconds before watching another ad</string>
+    <string name="ad_failed_to_show">Failed to show ad</string>
+    <string name="ad_failed_to_show_with_reason">Failed to show ad: %s</string>
 </resources>

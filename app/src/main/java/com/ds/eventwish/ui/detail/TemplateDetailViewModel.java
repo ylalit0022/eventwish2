@@ -69,6 +69,14 @@ public class TemplateDetailViewModel extends ViewModel {
     public String getSenderName() {
         return senderName;
     }
+
+    /**
+     * Get the template ID
+     * @return The template ID
+     */
+    public String getTemplateId() {
+        return templateId;
+    }
     
     public void setCustomizedHtml(String html) {
         this.customizedHtml = html;

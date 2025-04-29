@@ -2,6 +2,10 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.navigation.safeargs)
+    // Apply Google services plugin
+    id 'com.google.gms.google-services'
+    // Apply Firebase Crashlytics plugin
+    id 'com.google.firebase.crashlytics'
 }
 
 def secretsFile = rootProject.file("secrets.properties")
@@ -162,4 +166,22 @@ dependencies {
 
     // CircleImageView dependency
     implementation 'de.hdodenhof:circleimageview:3.1.0'
+
+    // Firebase BoM
+    implementation platform('com.google.firebase:firebase-bom:32.7.0')
+    
+    // Firebase Analytics (analytics)
+    implementation 'com.google.firebase:firebase-analytics'
+    implementation 'com.google.firebase:firebase-analytics-ktx'
+    
+    // Firebase Crashlytics (crash reporting)
+    implementation 'com.google.firebase:firebase-crashlytics'
+    implementation 'com.google.firebase:firebase-crashlytics-ktx'
+    
+    // Firebase Performance Monitoring
+    implementation 'com.google.firebase:firebase-perf'
+    implementation 'com.google.firebase:firebase-perf-ktx'
+    
+    // Firebase core (with explicit version)
+    implementation 'com.google.firebase:firebase-core:21.1.1'
 }

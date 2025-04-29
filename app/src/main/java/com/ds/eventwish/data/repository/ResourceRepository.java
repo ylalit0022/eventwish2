@@ -85,9 +85,25 @@ public class ResourceRepository {
         if (instance == null) {
             synchronized (ResourceRepository.class) {
                 if (instance == null) {
+                    if (context == null) {
+                        throw new IllegalStateException("Context cannot be null when initializing ResourceRepository");
+                    }
                     instance = new ResourceRepository(context.getApplicationContext());
                 }
             }
+        }
+        return instance;
+    }
+    
+    /**
+     * Get the singleton instance of ResourceRepository
+     * This method should only be called after initialization with context
+     * @return ResourceRepository instance
+     * @throws IllegalStateException if getInstance(Context) has not been called first
+     */
+    public static ResourceRepository getInstance() {
+        if (instance == null) {
+            throw new IllegalStateException("ResourceRepository must be initialized with getInstance(Context) before calling getInstance()");
         }
         return instance;
     }
@@ -97,6 +113,9 @@ public class ResourceRepository {
      * @param context Application context
      */
     private ResourceRepository(Context context) {
+        if (context == null) {
+            throw new IllegalArgumentException("Context cannot be null");
+        }
         this.context = context.getApplicationContext();
         ResourceDatabase database = ResourceDatabase.getInstance(context);
         resourceDao = database.resourceDao();

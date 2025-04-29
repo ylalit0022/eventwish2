@@ -61,6 +61,18 @@ public interface ApiService {
     @GET("wishes/{shortCode}/analytics")
     Call<JsonObject> getWishAnalytics(@Path("shortCode") String shortCode);
 
+    /**
+     * Track sharing of wish via specific platform
+     * @param shortCode The shortcode of the wish
+     * @param platform The platform used for sharing
+     * @return Response
+     */
+    @POST("wishes/{shortCode}/track-share")
+    Call<BaseResponse<Void>> trackWishShare(
+        @Path("shortCode") String shortCode, 
+        @Body String platform
+    );
+
     @GET("wishes/my")
     Call<List<SharedWish>> getMyWishes();
 

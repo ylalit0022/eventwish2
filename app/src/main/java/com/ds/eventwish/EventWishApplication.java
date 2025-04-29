@@ -42,6 +42,13 @@ import com.ds.eventwish.data.repository.ResourceRepository;
 import com.ds.eventwish.utils.AppExecutors;
 import com.ds.eventwish.ads.AdMobManager;
 import com.ds.eventwish.ads.AppOpenManager;
+import com.ds.eventwish.utils.FirebaseCrashManager;
+import com.ds.eventwish.utils.PerformanceTracker;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import com.google.firebase.analytics.FirebaseAnalytics;
+import androidx.annotation.NonNull;
+import java.util.concurrent.Executor;
 
 public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
@@ -92,11 +99,17 @@ public class EventWishApplication extends Application implements Configuration.P
         Log.d(TAG, "EventWish application starting...");
         
         try {
+            // Verify Firebase project configuration
+            verifyFirebaseProject();
+            
             // Initialize services
             initializeServices();
             
             // Register activity lifecycle callbacks
             registerActivityLifecycleCallbacks(this);
+            
+            // Register fragment lifecycle callbacks to track navigation
+            registerFragmentLifecycleCallbacks();
             
             // Register user in background
             registerUserInBackground();
@@ -279,6 +292,15 @@ public class EventWishApplication extends Application implements Configuration.P
             // Initialize Analytics
             AnalyticsUtils.init(this);
             
+            Log.d(TAG, "Firebase Analytics initialized");
+            
+            // Verify Firebase Analytics is properly initialized
+            if (com.google.firebase.analytics.FirebaseAnalytics.getInstance(this) != null) {
+                Log.d(TAG, "Firebase Analytics instance successfully obtained");
+            } else {
+                Log.e(TAG, "Failed to get Firebase Analytics instance - this may cause tracking issues");
+            }
+            
             // Create notification channels
             createNotificationChannels();
             
@@ -356,60 +378,133 @@ public class EventWishApplication extends Application implements Configuration.P
     }
 
     /**
-     * Initialize all the services for the application
+     * Initialize all required services
      */
     private void initializeServices() {
         try {
+            // Log start of service initialization
             Log.d(TAG, "Initializing application services...");
             
-            // AppExecutors first, as many other services depend on it
-            appExecutors = AppExecutors.getInstance();
-            
-            // Initialize Time Utils
-            timeUtils = new TimeUtils();
+            // Initialize performance tracking (must be done early)
+            PerformanceTracker.init(this);
             
             // Create notification channels
             createNotificationChannels();
             
-            // Initialize Secure Token Manager first - must call init() before getInstance()
+            // Initialize Firebase first to enable crash reporting for initialization
+            FirebaseCrashManager.init(this);
+            
+            // Initialize API client
+            com.ds.eventwish.data.remote.ApiClient.init(this);
+            apiService = com.ds.eventwish.data.remote.ApiClient.getClient();
+            
+            // Initialize executors with proper parameters
+            appExecutors = AppExecutors.getInstance();
+            
+            // Initialize security - this must be done before other services that need it
             SecureTokenManager.init(this);
             secureTokenManager = SecureTokenManager.getInstance();
             
-            // Save the API key if not already saved
-            if (secureTokenManager.getApiKey() == null) {
-                Log.d(TAG, "Saving API key to SecureTokenManager");
-                secureTokenManager.saveApiKey("ew_dev_c1ce47afeff9fa8b7b1aa165562cb915");
-            }
-            
-            // Initialize Device Utils - depends on SecureTokenManager for device ID storage
+            // Initialize device utils
             DeviceUtils.init(this);
             deviceUtils = DeviceUtils.getInstance();
             
-            // Initialize API Client - depends on both SecureTokenManager and DeviceUtils
-            ApiClient.init(this);
-            apiService = ApiClient.getClient();
+            // Initialize time utilities
+            timeUtils = new TimeUtils();
             
-            // Initialize Category Icon Repository
-            categoryIconRepository = CategoryIconRepository.getInstance(this);
+            // Initialize analytics
+            AnalyticsUtils.init(this);
             
-            // Initialize Token Repository - no need to store a reference
-            TokenRepository.getInstance(this, apiService);
+            // Enable debug mode for analytics in debug builds
+            if (BuildConfig.DEBUG) {
+                AnalyticsUtils.setDebugMode(true);
+                
+                // Set metadata tag to enable debug analytics
+                try {
+                    FirebaseAnalytics.getInstance(this).setAnalyticsCollectionEnabled(true);
+                    
+                    // Add special debug parameter to force data collection
+                    Bundle debugParams = new Bundle();
+                    debugParams.putBoolean("debug_mode", true);
+                    debugParams.putString("app_version", BuildConfig.VERSION_NAME);
+                    debugParams.putString("device_model", android.os.Build.MODEL);
+                    debugParams.putLong("startup_time", System.currentTimeMillis());
+                    FirebaseAnalytics.getInstance(this).logEvent("debug_analytics_startup", debugParams);
+                    
+                    Log.d(TAG, "Firebase Analytics debug mode enabled");
+                } catch (Exception e) {
+                    Log.e(TAG, "Error enabling Firebase Analytics debug mode", e);
+                }
+            }
+            
+            // Track detailed device information
+            AnalyticsUtils.trackDeviceInfo(this);
             
             // Initialize repositories
-            festivalRepository = FestivalRepository.getInstance(this);
-            templateRepository = TemplateRepository.getInstance();
-            resourceRepository = ResourceRepository.getInstance(this);
+            initializeRepositories();
             
-            // Initialize UserRepository
-            userRepository = UserRepository.getInstance(this);
+            // Set initial analytics user properties
+            setInitialAnalyticsUserProperties();
             
-            // Schedule notifications
-            scheduleNotifications();
+            // Verify Analytics tracking
+            AnalyticsUtils.verifyConfiguration(this);
             
-            Log.d(TAG, "Application services initialized successfully");
+            // Force dispatch analytics events to verify data is being sent
+            AnalyticsUtils.forceDispatchEvents();
             
+            // Initialize all fragments
+            initializeComponents();
+            
+            // Clear database cache
+            clearDatabaseCache();
+            
+            // Schedule worker threads
+            scheduleWorkers();
+            
+            // Restore pending reminders
+            restorePendingReminders();
+            
+            Log.d(TAG, "Service initialization complete");
         } catch (Exception e) {
-            Log.e(TAG, "Error initializing application services", e);
+            Log.e(TAG, "Error initializing services", e);
+            FirebaseCrashManager.logException(e);
+        }
+    }
+
+    /**
+     * Set initial analytics user properties for better segmentation
+     */
+    private void setInitialAnalyticsUserProperties() {
+        try {
+            // Set user properties for analytics
+            AnalyticsUtils.setUserProperty("device_model", DeviceUtils.getDeviceModel());
+            AnalyticsUtils.setUserProperty("os_version", DeviceUtils.getAndroidVersion());
+            AnalyticsUtils.setUserProperty("app_version", DeviceUtils.getAppVersionName());
+            
+            // Get a unique identifier for the user
+            String deviceId = DeviceUtils.getDeviceId(this);
+            if (deviceId != null && !deviceId.isEmpty()) {
+                // Set the user ID for analytics - this is critical for user tracking
+                AnalyticsUtils.setUserId(deviceId);
+                
+                // Set additional user properties
+                AnalyticsUtils.setUserProperty("user_type", "app_user");
+                AnalyticsUtils.setUserProperty("install_date", String.valueOf(System.currentTimeMillis()));
+                
+                // Also set for Crashlytics
+                FirebaseCrashManager.setUserId(deviceId);
+            } else {
+                Log.e(TAG, "Failed to get device ID for analytics user identification");
+            }
+            
+            Log.d(TAG, "Initial analytics user properties set");
+        } catch (Exception e) {
+            Log.e(TAG, "Error setting initial analytics user properties", e);
+            try {
+                FirebaseCrashManager.logException(e);
+            } catch (Exception ignored) {
+                // Ignore if Crashlytics not initialized
+            }
         }
     }
 
@@ -449,36 +544,35 @@ public class EventWishApplication extends Application implements Configuration.P
     
     @Override
     public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+        // Initialize activity tracking
         Log.d(TAG, "Activity created: " + activity.getClass().getSimpleName());
     }
 
     @Override
     public void onActivityStarted(Activity activity) {
-        if (runningActivities == 0) {
-            Log.d(TAG, "App went to foreground");
-        }
+        // Track app coming to foreground
         runningActivities++;
+        currentActivity = activity;
+        
+        // Track screen views for analytics
+        if (activity != null) {
+            String screenName = activity.getClass().getSimpleName();
+            AnalyticsUtils.trackScreenView(activity, screenName, activity.getClass().getName());
+        }
     }
 
     @Override
     public void onActivityResumed(Activity activity) {
         currentActivity = activity;
-        runningActivities++;
         
-        // If the app is now in the foreground
-        if (runningActivities == 1) {
-            Log.d(TAG, "App entered foreground");
-        }
-        
-        // Update user's last online status
-        if (userRepository != null) {
-            userRepository.updateUserActivity(null);
-        }
+        // Start performance trace for activity display
+        PerformanceTracker.startTrace("activity_display_" + activity.getClass().getSimpleName());
     }
 
     @Override
     public void onActivityPaused(Activity activity) {
-        Log.d(TAG, "Activity paused: " + activity.getClass().getSimpleName());
+        // Stop performance trace for activity display
+        PerformanceTracker.stopTrace("activity_display_" + activity.getClass().getSimpleName());
     }
 
     @Override
@@ -509,5 +603,156 @@ public class EventWishApplication extends Application implements Configuration.P
 
     public SecureTokenManager getSecureTokenManager() {
         return secureTokenManager;
+    }
+
+    /**
+     * Verify Firebase project configuration
+     * This will log the Firebase project details from google-services.json
+     */
+    private void verifyFirebaseProject() {
+        try {
+            Log.d(TAG, "======= FIREBASE PROJECT VERIFICATION =======");
+            
+            // Get the Application meta-data
+            ApplicationInfo appInfo = getPackageManager().getApplicationInfo(
+                    getPackageName(), PackageManager.GET_META_DATA);
+            
+            if (appInfo.metaData != null) {
+                // Try to get project info from metadata
+                String gcmDefaultSenderId = appInfo.metaData.getString("com.google.android.gms.version");
+                String googleAppId = appInfo.metaData.getString("google_app_id");
+                String firebaseProjectId = appInfo.metaData.getString("project_id");
+                
+                Log.d(TAG, "Package Name: " + getPackageName());
+                Log.d(TAG, "GCM Sender ID: " + gcmDefaultSenderId);
+                Log.d(TAG, "Google App ID: " + googleAppId);
+                Log.d(TAG, "Firebase Project ID: " + firebaseProjectId);
+                
+                // Get Firebase instance to verify it's working
+                if (FirebaseAnalytics.getInstance(this) != null) {
+                    Log.d(TAG, "Firebase Analytics instance successfully created");
+                }
+            } else {
+                Log.e(TAG, "No metadata found in the AndroidManifest");
+            }
+            
+            Log.d(TAG, "======= END FIREBASE PROJECT VERIFICATION =======");
+        } catch (Exception e) {
+            Log.e(TAG, "Error verifying Firebase project", e);
+        }
+    }
+
+    /**
+     * Register fragment lifecycle callbacks to track navigation
+     */
+    private void registerFragmentLifecycleCallbacks() {
+        try {
+            androidx.fragment.app.FragmentManager.FragmentLifecycleCallbacks fragmentCallbacks = 
+                new androidx.fragment.app.FragmentManager.FragmentLifecycleCallbacks() {
+                    @Override
+                    public void onFragmentResumed(@NonNull androidx.fragment.app.FragmentManager fm, 
+                                                 @NonNull androidx.fragment.app.Fragment fragment) {
+                        super.onFragmentResumed(fm, fragment);
+                        
+                        // Track the fragment view
+                        String fragmentName = fragment.getClass().getSimpleName();
+                        // Get the activity associated with the fragment for proper context
+                        Activity activity = fragment.getActivity();
+                        if (activity != null) {
+                            AnalyticsUtils.trackScreenView(activity, fragmentName, fragment.getClass().getName());
+                        } else {
+                            // Fall back to the old method if no activity is available
+                            AnalyticsUtils.trackScreenView(fragmentName, fragment.getClass().getName());
+                        }
+                        
+                        Log.d(TAG, "Fragment navigation: " + fragmentName);
+                    }
+                };
+                
+            // Register the callback with all activities that use fragments
+            registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
+                @Override
+                public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+                    if (activity instanceof androidx.fragment.app.FragmentActivity) {
+                        ((androidx.fragment.app.FragmentActivity) activity)
+                            .getSupportFragmentManager()
+                            .registerFragmentLifecycleCallbacks(fragmentCallbacks, true);
+                        
+                        Log.d(TAG, "Registered fragment tracking for: " + activity.getClass().getSimpleName());
+                    }
+                }
+                
+                @Override
+                public void onActivityStarted(Activity activity) {}
+                
+                @Override
+                public void onActivityResumed(Activity activity) {}
+                
+                @Override
+                public void onActivityPaused(Activity activity) {}
+                
+                @Override
+                public void onActivityStopped(Activity activity) {}
+                
+                @Override
+                public void onActivitySaveInstanceState(Activity activity, Bundle outState) {}
+                
+                @Override
+                public void onActivityDestroyed(Activity activity) {}
+            });
+            
+            Log.d(TAG, "Fragment lifecycle callbacks registered successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Error registering fragment lifecycle callbacks", e);
+        }
+    }
+
+    /**
+     * Initialize all repositories
+     */
+    private void initializeRepositories() {
+        try {
+            Log.d(TAG, "Initializing repositories in proper sequence...");
+            
+            // First initialize repositories that don't depend on others
+            // Initialize ResourceRepository first as others may depend on it
+            ResourceRepository.getInstance(this);
+            resourceRepository = ResourceRepository.getInstance();
+            Log.d(TAG, "✅ ResourceRepository initialized");
+            
+            // Initialize UserRepository next as it handles authentication
+            userRepository = UserRepository.getInstance(this);
+            Log.d(TAG, "✅ UserRepository initialized");
+            
+            // Initialize FestivalRepository
+            festivalRepository = FestivalRepository.getInstance(this);
+            Log.d(TAG, "✅ FestivalRepository initialized");
+            
+            // Initialize CategoryIconRepository which depends on ResourceRepository
+            categoryIconRepository = CategoryIconRepository.getInstance(this);
+            Log.d(TAG, "✅ CategoryIconRepository initialized");
+            
+            // Initialize TemplateRepository last as it may depend on other repositories
+            TemplateRepository.init(this);
+            templateRepository = TemplateRepository.getInstance();
+            Log.d(TAG, "✅ TemplateRepository initialized");
+            
+            Log.d(TAG, "✅ All repositories initialized successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error initializing repositories", e);
+            FirebaseCrashManager.logException(e);
+        }
+    }
+
+    /**
+     * Main thread executor for AppExecutors
+     */
+    private static class MainThreadExecutor implements Executor {
+        private final Handler mainThreadHandler = new Handler(Looper.getMainLooper());
+
+        @Override
+        public void execute(Runnable command) {
+            mainThreadHandler.post(command);
+        }
     }
 }

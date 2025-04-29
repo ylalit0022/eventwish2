@@ -23,6 +23,16 @@
     </PreferenceCategory>
 
     <PreferenceCategory
+        android:title="@string/settings_analytics">
+
+        <SwitchPreferenceCompat
+            android:key="enable_analytics"
+            android:title="@string/settings_enable_analytics"
+            android:summary="@string/settings_analytics_description"
+            android:defaultValue="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
         android:title="@string/settings_about">
 
         <Preference
