@@ -1,0 +1,42 @@
+commit 607e7a62a048cd50bff9dde335922da00e21f396
+Author: User <user@example.com>
+Date:   Wed Apr 30 00:39:59 2025 +0530
+
+    sponseradview and remove object refrence from server template table
+
+.cursorrules
+adb-function.ps1
+adb.bat
+app/src/main/java/com/ds/eventwish/EventWishApplication.java
+app/src/main/java/com/ds/eventwish/data/model/SponsoredAd.java
+app/src/main/java/com/ds/eventwish/data/model/response/SponsoredAdResponse.java
+app/src/main/java/com/ds/eventwish/data/remote/ApiService.java
+app/src/main/java/com/ds/eventwish/data/repository/SponsoredAdRepository.java
+app/src/main/java/com/ds/eventwish/ui/ads/SponsoredAdFragment.java
+app/src/main/java/com/ds/eventwish/ui/ads/SponsoredAdManagerFactory.java
+app/src/main/java/com/ds/eventwish/ui/ads/SponsoredAdView.java
+app/src/main/java/com/ds/eventwish/ui/ads/SponsoredAdViewModel.java
+app/src/main/java/com/ds/eventwish/ui/home/HomeFragment.java
+app/src/main/java/com/ds/eventwish/utils/AnalyticsUtils.java
+app/src/main/res/drawable/error_image.xml
+app/src/main/res/drawable/placeholder_image.xml
+app/src/main/res/drawable/sponsored_label_background.xml
+app/src/main/res/layout/fragment_home.xml
+app/src/main/res/layout/fragment_sponsored_ad.xml
+app/src/main/res/layout/view_sponsored_ad.xml
+app/src/main/res/values/strings.xml
+backend/.cursorrules
+backend/README_SPONSORED_ADS.md
+backend/controllers/sponsoredAdController.js
+backend/models/SponsoredAd.js
+backend/node_modules/.package-lock.json
+backend/package-lock.json
+backend/package.json
+backend/routes/sponsoredAds.js
+backend/scripts/seed-all.js
+backend/scripts/seedSponsoredAds.js
+backend/server.js
+backend/tools/test-sponsored-ads.js
+com/ds/eventwish/data/model/SponsoredAd.java
+com/ds/eventwish/data/model/SponsoredAdResponse.java
+0

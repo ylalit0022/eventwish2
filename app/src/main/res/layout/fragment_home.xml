@@ -12,276 +12,321 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@android:color/transparent"
-        app:elevation="0dp"
-        app:layout_scrollFlags="scroll|enterAlways|snap">
+        app:elevation="0dp">
 
-        <RelativeLayout
+        <!-- Header section (stays visible) -->
+        <com.google.android.material.appbar.CollapsingToolbarLayout
+            android:id="@+id/collapsingToolbarLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@color/white"
-            android:padding="16dp"
-            android:clipChildren="true"
-            android:clipToPadding="false"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="0dp">
-
-            <LinearLayout
-                android:id="@+id/headerIconsLayout"
+            app:layout_scrollFlags="scroll|exitUntilCollapsed|snap"
+            app:contentScrim="@color/white">
+            
+            <RelativeLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:background="@color/white"
+                android:padding="16dp"
+                android:clipChildren="true"
+                android:clipToPadding="false"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="0dp"
+                app:layout_collapseMode="parallax"
+                app:layout_collapseParallaxMultiplier="0.7">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:id="@+id/headerIconsLayout"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="EventWish"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/purple_700"
-                    android:layout_marginStart="16dp"
-                    android:layout_marginEnd="16dp"
-                    android:layout_weight="1"/>
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
 
-                <FrameLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp">
-                    
-                    <ImageView
-                        android:id="@+id/refreshIcon"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@drawable/ic_refresh"
-                        app:tint="@android:color/black"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:clickable="true"
-                        android:focusable="true"/>
-                        
-                    <View
-                        android:id="@+id/refreshIndicator"
-                        android:layout_width="10dp"
-                        android:layout_height="10dp"
-                        android:background="@drawable/red_dot_indicator"
-                        android:layout_gravity="top|end"
-                        android:visibility="gone"/>
-                </FrameLayout>
-
-                <FrameLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="9dp">
-                    
-                    <ImageView
-                        android:id="@+id/notificationIcon"
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@drawable/ic_notification"
-                        app:tint="@android:color/black"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:clickable="true"
-                        android:focusable="true"/>
-    
                     <TextView
-                        android:id="@+id/notificationBadge"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_gravity="top|end"
-                        android:layout_marginTop="0dp"
-                        android:layout_marginEnd="0dp"
-                        android:background="@drawable/notification_badge_background"
-                        android:gravity="center"
-                        android:textColor="@android:color/white"
-                        android:textSize="10sp"
-                        android:minWidth="16dp"
-                        android:minHeight="16dp"
-                        android:visibility="gone"
-                        tools:text="3"
-                        tools:visibility="visible" />
-                </FrameLayout>
+                        android:text="EventWish"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/purple_700"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
+                        android:layout_weight="1"/>
 
-                <ImageView
-                    android:id="@+id/filterIcon"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_filter"
-                    app:tint="@android:color/black"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:layout_marginStart="16dp"/>
-                    
-                <ImageView
-                    android:id="@+id/fullscreenToggleIcon"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_fullscreen"
-                    app:tint="@android:color/black"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:layout_marginStart="16dp"
-                    android:contentDescription="Toggle fullscreen mode"/>
-            </LinearLayout>
+                    <FrameLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="16dp">
+                        
+                        <ImageView
+                            android:id="@+id/refreshIcon"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@drawable/ic_refresh"
+                            app:tint="@android:color/black"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:clickable="true"
+                            android:focusable="true"/>
+                            
+                        <View
+                            android:id="@+id/refreshIndicator"
+                            android:layout_width="10dp"
+                            android:layout_height="10dp"
+                            android:background="@drawable/red_dot_indicator"
+                            android:layout_gravity="top|end"
+                            android:visibility="gone"/>
+                    </FrameLayout>
 
-            <!-- Filter Chips Section -->
-            <HorizontalScrollView
-                android:id="@+id/filterChipsScrollView"
-                android:layout_width="match_parent"
-                android:layout_height="45dp"
-                android:padding="2dp"
-                android:layout_below="@id/headerIconsLayout"
-                android:layout_marginTop="8dp"
-                android:visibility="visible"
-                android:scrollbars="none">
+                    <FrameLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="9dp">
+                        
+                        <ImageView
+                            android:id="@+id/notificationIcon"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@drawable/ic_notification"
+                            app:tint="@android:color/black"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:clickable="true"
+                            android:focusable="true"/>
+        
+                        <TextView
+                            android:id="@+id/notificationBadge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="top|end"
+                            android:layout_marginTop="0dp"
+                            android:layout_marginEnd="0dp"
+                            android:background="@drawable/notification_badge_background"
+                            android:gravity="center"
+                            android:textColor="@android:color/white"
+                            android:textSize="10sp"
+                            android:minWidth="16dp"
+                            android:minHeight="16dp"
+                            android:visibility="gone"
+                            tools:text="3"
+                            tools:visibility="visible" />
+                    </FrameLayout>
 
-                <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/chipGroupSort"
-                    android:layout_width="wrap_content"
+                    <ImageView
+                        android:id="@+id/filterIcon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_filter"
+                        app:tint="@android:color/black"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:layout_marginStart="16dp"/>
+                        
+                    <ImageView
+                        android:id="@+id/fullscreenToggleIcon"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_fullscreen"
+                        app:tint="@android:color/black"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:layout_marginStart="16dp"
+                        android:contentDescription="Toggle fullscreen mode"/>
+                </LinearLayout>
+
+                <!-- Filter Chips Section -->
+                <HorizontalScrollView
+                    android:id="@+id/filterChipsScrollView"
+                    android:layout_width="match_parent"
+                    android:layout_height="45dp"
+                    android:padding="2dp"
+                    android:layout_below="@id/headerIconsLayout"
+                    android:layout_marginTop="8dp"
+                    android:visibility="visible"
+                    android:scrollbars="none">
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chipGroupSort"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:singleSelection="true"
+                        app:singleLine="true">
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipTrending"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="10sp"
+                            android:text="Trending"
+                            android:checked="true"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipNewest"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="10sp"
+                            android:text="Newest"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipOldest"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="10sp"
+                            android:text="Oldest"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipMostUsed"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="10sp"
+                            android:text="Most Used"/>
+                    </com.google.android.material.chip.ChipGroup>
+                </HorizontalScrollView>
+
+                <!-- Time Filter Chips -->
+                <HorizontalScrollView
+                    android:id="@+id/timeFilterScrollView"
+                    android:layout_width="match_parent"
+                    android:layout_height="45dp"
+                    android:padding="2dp"
+                    android:layout_below="@id/filterChipsScrollView"
+                    android:visibility="visible"
+                    android:scrollbars="none">
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chipGroupTimeFilter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:singleSelection="true"
+                        app:singleLine="true">
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipAllTime"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="All Time"
+                            android:textSize="10sp"
+                            android:checked="true"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipToday"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="10sp"
+                            android:text="Today"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipThisWeek"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="10sp"
+                            android:text="This Week"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipThisMonth"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="10sp"
+                            android:text="This Month"/>
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipThisYear"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="10sp"
+                            android:text="This Year"/>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/advancedFilterButton"
+                            style="@style/Widget.MaterialComponents.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Advanced"
+                            android:textSize="10sp"
+                            android:minHeight="30dp" />
+                    </com.google.android.material.chip.ChipGroup>
+                </HorizontalScrollView>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    app:singleSelection="true"
-                    app:singleLine="true">
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipTrending"
-                        style="@style/Widget.MaterialComponents.Chip.Choice"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="10sp"
-                        android:text="Trending"
-                        android:checked="true"/>
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipNewest"
-                        style="@style/Widget.MaterialComponents.Chip.Choice"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="10sp"
-                        android:text="Newest"/>
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipOldest"
-                        style="@style/Widget.MaterialComponents.Chip.Choice"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="10sp"
-                        android:text="Oldest"/>
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipMostUsed"
-                        style="@style/Widget.MaterialComponents.Chip.Choice"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="10sp"
-                        android:text="Most Used"/>
-                </com.google.android.material.chip.ChipGroup>
-            </HorizontalScrollView>
-
-            <!-- Time Filter Chips -->
-            <HorizontalScrollView
-                android:id="@+id/timeFilterScrollView"
-                android:layout_width="match_parent"
-                android:layout_height="45dp"
-                android:padding="2dp"
-                android:layout_below="@id/filterChipsScrollView"
-                android:visibility="visible"
-                android:scrollbars="none">
-
-                <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/chipGroupTimeFilter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:singleSelection="true"
-                    app:singleLine="true">
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipAllTime"
-                        style="@style/Widget.MaterialComponents.Chip.Choice"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="All Time"
-                        android:textSize="10sp"
-                        android:checked="true"/>
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipToday"
-                        style="@style/Widget.MaterialComponents.Chip.Choice"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="10sp"
-                        android:text="Today"/>
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipThisWeek"
-                        style="@style/Widget.MaterialComponents.Chip.Choice"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="10sp"
-                        android:text="This Week"/>
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipThisMonth"
-                        style="@style/Widget.MaterialComponents.Chip.Choice"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="10sp"
-                        android:text="This Month"/>
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chipThisYear"
-                        style="@style/Widget.MaterialComponents.Chip.Choice"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="10sp"
-                        android:text="This Year"/>
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/advancedFilterButton"
-                        style="@style/Widget.MaterialComponents.Button.TextButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Advanced"
-                        android:textSize="10sp"
-                        android:minHeight="30dp" />
-                </com.google.android.material.chip.ChipGroup>
-            </HorizontalScrollView>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_margin="5dp"
-                android:layout_below="@id/timeFilterScrollView">
-
-                <TextView
-                    android:layout_width="100dp"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/icon_category_bg_platinum_grey"
-                    android:text="Categories"
-                    android:textSize="14sp"
-                    android:padding="5dp"
+                    android:orientation="vertical"
                     android:layout_margin="5dp"
-                    android:textColor="@color/purple_700"
-                    android:textStyle="bold"/>
+                    android:layout_below="@id/timeFilterScrollView">
 
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="@drawable/icon_circle" />
+                    <TextView
+                        android:layout_width="100dp"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/icon_category_bg_platinum_grey"
+                        android:text="Categories"
+                        android:textSize="14sp"
+                        android:padding="5dp"
+                        android:layout_margin="5dp"
+                        android:textColor="@color/purple_700"
+                        android:textStyle="bold"/>
 
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/categoriesRecyclerView"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:clipToPadding="false"
-                    android:paddingStart="2dp"
-                    android:paddingEnd="2dp"
-                    android:paddingTop="8dp"
-                    android:paddingBottom="8dp" />
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@drawable/icon_circle" />
 
-            </LinearLayout>
-        </RelativeLayout>
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/categoriesRecyclerView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:clipToPadding="false"
+                        android:paddingStart="2dp"
+                        android:paddingEnd="2dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp" />
+
+                    <!-- Sponsored Ad View right after categories -->
+                    <com.ds.eventwish.ui.ads.SponsoredAdView
+                        android:id="@+id/sponsoredAdView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:layout_marginBottom="16dp"
+                        android:layout_marginStart="8dp"
+                        android:layout_marginEnd="8dp" 
+                        android:background="#F6F6F6"
+                        android:elevation="4dp"
+                        android:visibility="visible"
+                        android:clickable="true"
+                        android:focusable="true"/>
+
+                    <!-- Divider after sponsored ad -->
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="2dp"
+                        android:background="@color/purple_500"
+                        android:layout_marginTop="4dp"
+                        android:layout_marginBottom="8dp"
+                        android:layout_marginStart="4dp"
+                        android:layout_marginEnd="4dp"/>
+
+                </LinearLayout>
+            </RelativeLayout>
+            
+            <!-- This is the toolbar that will stay visible when collapsed -->
+            <androidx.appcompat.widget.Toolbar
+                android:id="@+id/toolbar"
+                android:layout_width="match_parent"
+                android:layout_height="?attr/actionBarSize"
+                android:background="@color/white"
+                app:layout_collapseMode="pin"
+                android:visibility="invisible"/>
+                
+        </com.google.android.material.appbar.CollapsingToolbarLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
     <!-- Floating Exit Fullscreen Button -->
@@ -407,14 +452,6 @@
                 android:paddingBottom="80dp"
                 android:scrollbars="vertical"
                 app:layout_behavior="@string/appbar_scrolling_view_behavior" />
-
-            <!-- Sponsored Ad View at bottom of the templates -->
-            <com.ds.eventwish.ui.ads.SponsoredAdView
-                android:id="@+id/sponsoredAdView"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="bottom"
-                android:layout_marginBottom="80dp"/>
 
             <TextView
                 android:id="@+id/emptyView"
