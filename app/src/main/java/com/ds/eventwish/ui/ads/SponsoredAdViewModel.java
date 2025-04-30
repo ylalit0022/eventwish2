@@ -51,11 +51,13 @@ public class SponsoredAdViewModel extends AndroidViewModel {
      * @return LiveData containing the selected ad
      */
     public LiveData<SponsoredAd> getAdForLocation(String location) {
+        Log.d(TAG, "Getting sponsored ad for location: " + location);
         LiveData<List<SponsoredAd>> adsForLocation = repository.getAdsByLocation(location);
         
         // Add source to mediator LiveData
         selectedAdLiveData.addSource(adsForLocation, ads -> {
             if (ads != null && !ads.isEmpty()) {
+                Log.d(TAG, "Found " + ads.size() + " ads for location: " + location);
                 // Select best ad based on priority or random if multiple with same priority
                 SponsoredAd selectedAd = selectBestAd(ads);
                 selectedAdLiveData.setValue(selectedAd);
@@ -63,6 +65,10 @@ public class SponsoredAdViewModel extends AndroidViewModel {
                 
                 // Record impression when ad is selected for display
                 if (selectedAd != null) {
+                    Log.d(TAG, "Selected ad for display: " + selectedAd.getId() + 
+                          ", title: " + selectedAd.getTitle() + 
+                          ", priority: " + selectedAd.getPriority());
+                          
                     repository.recordImpression(selectedAd.getId());
                     
                     // Track impression via analytics
@@ -73,6 +79,8 @@ public class SponsoredAdViewModel extends AndroidViewModel {
                     );
                     
                     Log.d(TAG, "Recording impression for ad: " + selectedAd.getId() + " at location: " + location);
+                } else {
+                    Log.w(TAG, "No valid ad selected despite having " + ads.size() + " ads for location: " + location);
                 }
             } else {
                 selectedAdLiveData.setValue(null);
@@ -91,6 +99,7 @@ public class SponsoredAdViewModel extends AndroidViewModel {
      */
     private SponsoredAd selectBestAd(List<SponsoredAd> ads) {
         if (ads == null || ads.isEmpty()) {
+            Log.d(TAG, "No ads provided for selection");
             return null;
         }
         
@@ -98,24 +107,33 @@ public class SponsoredAdViewModel extends AndroidViewModel {
         int highestPriority = -1;
         Date now = new Date();
         
+        Log.d(TAG, "Selecting best ad from " + ads.size() + " candidates");
+        
         // Find ads with highest priority that are currently active
         for (SponsoredAd ad : ads) {
             if (!ad.isStatus()) {
+                Log.d(TAG, "Skipping inactive ad: " + ad.getId());
                 continue; // Skip inactive ads
             }
             
             // Check if ad is within its date range
             if (ad.getStartDate() != null && ad.getStartDate().after(now)) {
+                Log.d(TAG, "Skipping ad not started yet: " + ad.getId() + ", starts: " + ad.getStartDate());
                 continue; // Ad not started yet
             }
             
             if (ad.getEndDate() != null && ad.getEndDate().before(now)) {
+                Log.d(TAG, "Skipping expired ad: " + ad.getId() + ", ended: " + ad.getEndDate());
                 continue; // Ad expired
             }
             
+            Log.d(TAG, "Considering ad: " + ad.getId() + ", priority: " + ad.getPriority() + 
+                   ", current highest: " + highestPriority);
+                   
             if (ad.getPriority() > highestPriority) {
                 highestPriority = ad.getPriority();
                 bestAd = ad;
+                Log.d(TAG, "New highest priority ad: " + ad.getId() + ", priority: " + ad.getPriority());
             }
         }
         
@@ -129,22 +147,29 @@ public class SponsoredAdViewModel extends AndroidViewModel {
                 }
             }
             
+            Log.d(TAG, "Found " + count + " ads with priority " + topPriority);
+            
             if (count > 1) {
                 // Multiple ads with same priority, pick randomly
                 Random random = new Random();
                 int randomIndex = random.nextInt(count);
                 int currentIndex = 0;
                 
+                Log.d(TAG, "Selecting random ad from " + count + " with same priority, random index: " + randomIndex);
+                
                 for (SponsoredAd ad : ads) {
                     if (ad.isStatus() && ad.getPriority() == topPriority) {
                         if (currentIndex == randomIndex) {
                             bestAd = ad;
+                            Log.d(TAG, "Randomly selected ad: " + ad.getId());
                             break;
                         }
                         currentIndex++;
                     }
                 }
             }
+        } else {
+            Log.w(TAG, "No valid ads found among " + ads.size() + " candidates");
         }
         
         return bestAd;

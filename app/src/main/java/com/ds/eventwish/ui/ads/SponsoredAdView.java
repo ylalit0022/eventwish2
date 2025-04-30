@@ -80,6 +80,7 @@ public class SponsoredAdView extends FrameLayout {
      */
     public void initialize(String location, LifecycleOwner lifecycleOwner, ViewModelStoreOwner viewModelStoreOwner) {
         this.location = location;
+        Log.d(TAG, "Initializing sponsored ad view for location: " + location);
         
         try {
             // Get ViewModel from the factory
@@ -87,30 +88,35 @@ public class SponsoredAdView extends FrameLayout {
             
             // Register this view with the factory
             SponsoredAdManagerFactory.getInstance().registerAdView(location, this);
+            Log.d(TAG, "Registered ad view for location: " + location + " with AdManagerFactory");
             
             // Observe ad for the specified location
             viewModel.getAdForLocation(location).observe(lifecycleOwner, ad -> {
                 if (ad != null) {
+                    Log.d(TAG, "Received ad from ViewModel for location: " + location + 
+                          ", id: " + ad.getId() + ", title: " + ad.getTitle());
                     loadAd(ad);
                 } else {
+                    Log.d(TAG, "No ad received from ViewModel for location: " + location);
                     setVisibility(GONE);
                 }
             });
             
             // Observe loading state for UX feedback
             viewModel.getLoadingState().observe(lifecycleOwner, isLoading -> {
+                Log.d(TAG, "Ad loading state changed: " + isLoading + " for location: " + location);
                 // You could show a loading indicator here if needed
             });
             
             // Observe errors
             viewModel.getError().observe(lifecycleOwner, error -> {
                 if (error != null && !error.isEmpty()) {
-                    Log.e(TAG, "Error loading sponsored ad: " + error);
+                    Log.e(TAG, "Error loading sponsored ad: " + error + " for location: " + location);
                     setVisibility(GONE);
                 }
             });
         } catch (IllegalStateException e) {
-            Log.e(TAG, "Failed to initialize sponsored ad view: " + e.getMessage());
+            Log.e(TAG, "Failed to initialize sponsored ad view: " + e.getMessage(), e);
             setVisibility(GONE);
         }
     }
@@ -120,26 +126,45 @@ public class SponsoredAdView extends FrameLayout {
      * @param ad The ad to display
      */
     private void loadAd(SponsoredAd ad) {
+        if (ad == null) {
+            Log.e(TAG, "Attempted to load null ad");
+            setVisibility(GONE);
+            return;
+        }
+        
         this.currentAd = ad;
+        Log.d(TAG, "Loading sponsored ad: id=" + ad.getId() + 
+              ", title=" + ad.getTitle() + 
+              ", imageUrl=" + ad.getImageUrl() + 
+              ", location=" + location);
         
         // Set text content
         adTitle.setText(ad.getTitle());
+        adTitle.setVisibility(ad.getTitle() != null && !ad.getTitle().isEmpty() ? VISIBLE : GONE);
+        
         adDescription.setText(ad.getDescription());
+        adDescription.setVisibility(ad.getDescription() != null && !ad.getDescription().isEmpty() ? VISIBLE : GONE);
         
         // Load image with Glide
-        Glide.with(getContext())
-            .load(ad.getImageUrl())
-            .apply(new RequestOptions()
-                .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .centerCrop()
-                .placeholder(R.drawable.placeholder_image)
-                .error(R.drawable.error_image))
-            .into(adImage);
+        if (ad.getImageUrl() != null && !ad.getImageUrl().isEmpty()) {
+            Log.d(TAG, "Loading ad image from URL: " + ad.getImageUrl());
+            Glide.with(getContext())
+                .load(ad.getImageUrl())
+                .apply(new RequestOptions()
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .centerCrop()
+                    .placeholder(R.drawable.placeholder_image)
+                    .error(R.drawable.error_image))
+                .into(adImage);
+        } else {
+            Log.w(TAG, "Ad has no image URL: " + ad.getId());
+            adImage.setImageResource(R.drawable.placeholder_image);
+        }
         
         // Show the view
         setVisibility(VISIBLE);
         
-        Log.d(TAG, "Loaded sponsored ad: " + ad.getTitle() + " at location: " + location);
+        Log.d(TAG, "Successfully displayed sponsored ad: " + ad.getTitle() + " at location: " + location);
     }
     
     /**

@@ -131,11 +131,36 @@ public class SponsoredAdResponse {
      */
     @Override
     public String toString() {
-        return "SponsoredAdResponse{" +
-                "success=" + success +
-                ", adCount=" + getAdCount() +
-                ", message='" + message + '\'' +
-                ", error='" + error + '\'' +
-                '}';
+        StringBuilder sb = new StringBuilder();
+        sb.append("SponsoredAdResponse{")
+                .append("success=").append(success)
+                .append(", adCount=").append(getAdCount())
+                .append(", message='").append(message).append('\'')
+                .append(", error='").append(error).append('\'');
+        
+        if (ads != null && !ads.isEmpty()) {
+            sb.append(", ads=[");
+            for (int i = 0; i < ads.size(); i++) {
+                SponsoredAd ad = ads.get(i);
+                sb.append("\n  {")
+                  .append("id='").append(ad.getId()).append('\'')
+                  .append(", title='").append(ad.getTitle()).append('\'')
+                  .append(", location='").append(ad.getLocation()).append('\'')
+                  .append(", priority=").append(ad.getPriority())
+                  .append(", status=").append(ad.isStatus())
+                  .append(", impressions=").append(ad.getImpressionCount())
+                  .append(", clicks=").append(ad.getClickCount())
+                  .append("}");
+                if (i < ads.size() - 1) {
+                    sb.append(",");
+                }
+            }
+            sb.append("\n]");
+        } else {
+            sb.append(", ads=[]");
+        }
+        
+        sb.append('}');
+        return sb.toString();
     }
 } 

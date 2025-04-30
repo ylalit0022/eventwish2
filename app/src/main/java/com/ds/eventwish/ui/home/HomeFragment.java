@@ -587,8 +587,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         // Initialize sponsored ad view at the bottom of home screen
         sponsoredAdView = binding.sponsoredAdView;
         if (sponsoredAdView != null) {
-            sponsoredAdView.initialize("home_bottom", getViewLifecycleOwner(), requireActivity());
-            Log.d(TAG, "Initialized sponsored ad view");
+            // Use "category_below" location instead of "home_bottom" to match server ad
+            sponsoredAdView.initialize("category_below", getViewLifecycleOwner(), requireActivity());
+            Log.d(TAG, "Initialized sponsored ad view with location: category_below");
         }
     }
 
