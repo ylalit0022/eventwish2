@@ -298,66 +298,86 @@ sponsoredAdSchema.statics.getActiveAds = async function(location = null, deviceI
 // Methods
 sponsoredAdSchema.methods.recordImpression = async function(deviceId = null) {
   try {
+    // Skip recording if deviceId is not provided
+    if (!deviceId) {
+      this.impression_count += 1;
+      return this.save();
+    }
+    
+    // Ensure Maps and Objects are initialized
+    if (!this.device_impressions) {
+      this.device_impressions = new Map();
+      this.markModified('device_impressions');
+    }
+    
+    if (!this.device_daily_impressions) {
+      this.device_daily_impressions = {};
+      this.markModified('device_daily_impressions');
+    }
+    
+    // Get current impression counts
+    const currentTotalCount = this.device_impressions instanceof Map 
+      ? (this.device_impressions.get(deviceId) || 0)
+      : 0;
+    
+    // Get daily impression count
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    // Initialize device data if not exists
+    if (!this.device_daily_impressions[deviceId]) {
+      this.device_daily_impressions[deviceId] = {};
+    }
+    
+    // Get today's count
+    const dailyData = this.device_daily_impressions[deviceId];
+    const todayCount = dailyData[today] || 0;
+    
+    // Check total frequency cap
+    if (this.frequency_cap > 0 && currentTotalCount >= this.frequency_cap) {
+      console.log(`Impression skipped: Ad ${this._id} reached total frequency cap (${currentTotalCount}/${this.frequency_cap}) for device ${deviceId}`);
+      return this; // Return without saving - cap reached
+    }
+    
+    // Check daily frequency cap
+    if (this.daily_frequency_cap > 0 && todayCount >= this.daily_frequency_cap) {
+      console.log(`Impression skipped: Ad ${this._id} reached daily frequency cap (${todayCount}/${this.daily_frequency_cap}) for device ${deviceId}`);
+      return this; // Return without saving - daily cap reached
+    }
+    
+    // If we get here, we can record the impression
     this.impression_count += 1;
     
-    if (deviceId) {
-      // Ensure Maps and Objects are initialized
-      if (!this.device_impressions) {
-        this.device_impressions = new Map();
-        this.markModified('device_impressions');
-      }
-      
-      if (!this.device_daily_impressions) {
-        this.device_daily_impressions = {};
-        this.markModified('device_daily_impressions');
-      }
-      
-      // Record total impressions for this device
-      const currentCount = this.device_impressions instanceof Map 
-        ? (this.device_impressions.get(deviceId) || 0)
-        : 0;
-      
-      if (this.device_impressions instanceof Map) {
-        this.device_impressions.set(deviceId, currentCount + 1);
-        this.markModified('device_impressions');
-      } else {
-        // If somehow it's not a Map, try to reinitialize
-        console.error(`device_impressions is not a Map. Type: ${typeof this.device_impressions}. Reinitializing...`);
-        this.device_impressions = new Map();
-        this.device_impressions.set(deviceId, 1);
-        this.markModified('device_impressions');
-      }
-      
-      // Record daily impressions
-      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-      
-      // Initialize device data if not exists
-      if (!this.device_daily_impressions[deviceId]) {
-        this.device_daily_impressions[deviceId] = {};
-      }
-      
-      // Increment today's count
-      const dailyData = this.device_daily_impressions[deviceId];
-      const todayCount = dailyData[today] || 0;
-      dailyData[today] = todayCount + 1;
-      
-      // Clean up old daily impressions (older than 30 days)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
-      
-      for (const dateKey in dailyData) {
-        if (dateKey < thirtyDaysAgoStr) {
-          delete dailyData[dateKey];
-        }
-      }
-      
-      // Mark the object as modified
-      this.markModified('device_daily_impressions');
-      
-      // Log impression details for debugging
-      console.log(`Recorded impression for ad ${this._id}, device ${deviceId}: total=${currentCount + 1}, today=${todayCount + 1}`);
+    // Record total impressions for this device
+    if (this.device_impressions instanceof Map) {
+      this.device_impressions.set(deviceId, currentTotalCount + 1);
+      this.markModified('device_impressions');
+    } else {
+      // If somehow it's not a Map, try to reinitialize
+      console.error(`device_impressions is not a Map. Type: ${typeof this.device_impressions}. Reinitializing...`);
+      this.device_impressions = new Map();
+      this.device_impressions.set(deviceId, 1);
+      this.markModified('device_impressions');
     }
+    
+    // Increment today's count
+    dailyData[today] = todayCount + 1;
+    
+    // Clean up old daily impressions (older than 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
+    
+    for (const dateKey in dailyData) {
+      if (dateKey < thirtyDaysAgoStr) {
+        delete dailyData[dateKey];
+      }
+    }
+    
+    // Mark the object as modified
+    this.markModified('device_daily_impressions');
+    
+    // Log impression details for debugging
+    console.log(`Recorded impression for ad ${this._id}, device ${deviceId}: total=${currentTotalCount + 1}, today=${todayCount + 1}`);
     
     return this.save();
   } catch (error) {
