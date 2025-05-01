@@ -61,7 +61,9 @@ const templateSchema = new mongoose.Schema({
                 }
             }
             
-            ret.id = ret._id;
+            // Ensure id is always a string - this is critical for Android navigation
+            ret.id = ret._id ? ret._id.toString() : '';
+            
             delete ret._id;
             delete ret.__v;
             return ret;
