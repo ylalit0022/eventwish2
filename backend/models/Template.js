@@ -35,7 +35,7 @@ const templateSchema = new mongoose.Schema({
         required: false,
         validate: {
             validator: function(v) {
-                return mongoose.Types.ObjectId.isValid(v);
+                return v === null || v === undefined || mongoose.Types.ObjectId.isValid(v);
             },
             message: props => `${props.value} is not a valid ObjectId!`
         }
@@ -45,17 +45,32 @@ const templateSchema = new mongoose.Schema({
     toJSON: {
         virtuals: true,
         transform: function(doc, ret) {
-            if (ret.categoryIcon && typeof ret.categoryIcon === 'object' && ret.categoryIcon._id) {
-                // If the categoryIcon is fully populated, leave it as is
-                // This ensures the client receives the full object
-                // Already transformed by CategoryIcon's own toJSON method
-            } else if (ret.categoryIcon && typeof ret.categoryIcon === 'string') {
-                // If it's just a string ID but not populated, leave as is
-                // This would be an ObjectId string
+            // Ensure the populated categoryIcon is preserved in the JSON output
+            if (ret.categoryIcon) {
+                if (typeof ret.categoryIcon === 'object' && ret.categoryIcon._id) {
+                    // If categoryIcon is a populated object, ensure it has both _id and id fields
+                    if (!ret.categoryIcon.id && ret.categoryIcon._id) {
+                        ret.categoryIcon.id = ret.categoryIcon._id.toString();
+                    }
+                } else if (typeof ret.categoryIcon === 'string') {
+                    // If it's just a string ID but not populated, leave as is
+                    // This would be an ObjectId string
+                } else if (ret.categoryIcon instanceof mongoose.Types.ObjectId) {
+                    // Handle ObjectId type (not as common)
+                    ret.categoryIcon = ret.categoryIcon.toString();
+                }
             }
+            
+            ret.id = ret._id;
+            delete ret._id;
+            delete ret.__v;
             return ret;
         }
     }
 });
+
+// Create index for faster category lookups
+templateSchema.index({ category: 1, status: 1 });
+templateSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('Template', templateSchema, 'templates');

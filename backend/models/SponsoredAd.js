@@ -82,17 +82,17 @@ const sponsoredAdSchema = new mongoose.Schema({
   device_impressions: {
     type: Map,
     of: Number,
-    default: {}
+    default: () => new Map()
   },
   device_clicks: {
     type: Map,
     of: Number,
-    default: {}
+    default: () => new Map()
   },
   device_daily_impressions: {
     type: Map,
     of: Object,
-    default: {}
+    default: () => new Map()
   },
   title: {
     type: String,
@@ -162,8 +162,21 @@ sponsoredAdSchema.statics.getActiveAds = async function(location = null, deviceI
         // Get impression metrics for this device
         const totalImpressions = ad.device_impressions.get(deviceId) || 0;
         
-        // Get daily impressions for today - updated to handle object instead of Map
-        const dailyImpressions = ad.device_daily_impressions.get(deviceId) || {};
+        // Get daily impressions for today
+        let dailyImpressions = {};
+        try {
+          dailyImpressions = ad.device_daily_impressions.get(deviceId) || {};
+          // If dailyImpressions is not an object (could happen with older data), initialize it
+          if (typeof dailyImpressions !== 'object' || dailyImpressions === null) {
+            console.error(`Invalid dailyImpressions for ad ${ad._id}, device ${deviceId}: type=${typeof dailyImpressions}, value=`, dailyImpressions);
+            dailyImpressions = {};
+          }
+        } catch (dailyError) {
+          console.error(`Error accessing daily impressions for ad ${ad._id}, device ${deviceId}:`, dailyError);
+          console.error(dailyError.stack);
+          dailyImpressions = {};
+        }
+        
         const todayImpressions = dailyImpressions[today] || 0;
         
         // Calculate remaining available impressions
@@ -187,6 +200,7 @@ sponsoredAdSchema.statics.getActiveAds = async function(location = null, deviceI
         };
       } catch (error) {
         console.error(`Error processing ad metrics for ad ${ad._id}:`, error);
+        console.error(error.stack);
         // Return ad without metrics in case of error
         return {
           ...ad.toObject(),
@@ -203,11 +217,13 @@ sponsoredAdSchema.statics.getActiveAds = async function(location = null, deviceI
       try {
         // Skip ads with errors in metrics
         if (ad.metrics && ad.metrics.error) {
+          console.log(`Ad ${ad._id} filtered: metrics error - ${ad.metrics.message}`);
           return false;
         }
         
         // If ad is deleted or inactive, skip it
         if (!ad.status) {
+          console.log(`Ad ${ad._id} filtered: inactive status`);
           return false;
         }
         
@@ -232,6 +248,7 @@ sponsoredAdSchema.statics.getActiveAds = async function(location = null, deviceI
         return true; // Ad is under frequency caps
       } catch (error) {
         console.error(`Error filtering ad ${ad._id}:`, error);
+        console.error(error.stack);
         return false; // Skip ad if there's an error
       }
     });
@@ -260,6 +277,7 @@ sponsoredAdSchema.statics.getActiveAds = async function(location = null, deviceI
     return sortedAds;
   } catch (error) {
     console.error(`Error in getActiveAds:`, error);
+    console.error(error.stack);
     return []; // Return empty array in case of error
   }
 };
@@ -290,7 +308,7 @@ sponsoredAdSchema.methods.recordImpression = async function(deviceId = null) {
       let dailyImpressions = this.device_daily_impressions.get(deviceId);
       
       // If dailyImpressions doesn't exist or is not an object, create it
-      if (!dailyImpressions || typeof dailyImpressions !== 'object') {
+      if (!dailyImpressions || typeof dailyImpressions !== 'object' || dailyImpressions === null) {
         dailyImpressions = {};
       }
       
@@ -314,11 +332,11 @@ sponsoredAdSchema.methods.recordImpression = async function(deviceId = null) {
       
       // Log impression details for debugging
       console.log(`Recorded impression for ad ${this._id}, device ${deviceId}: total=${currentCount + 1}, today=${todayCount + 1}`);
+      
+      // Use markModified to tell Mongoose that these Maps have been updated
+      this.markModified('device_impressions');
+      this.markModified('device_daily_impressions');
     }
-    
-    // Use markModified to tell Mongoose that these Maps have been updated
-    this.markModified('device_impressions');
-    this.markModified('device_daily_impressions');
     
     return this.save();
   } catch (error) {
