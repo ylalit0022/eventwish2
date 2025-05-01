@@ -407,7 +407,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
 
         // Refresh sponsored ads when the fragment resumes
         if (sponsoredAdView != null) {
-            sponsoredAdView.refreshAds();
+            // Use our category-based targeting method instead of simple refresh
+            refreshSponsoredAdForCurrentCategory();
+            Log.d(TAG, "Refreshed sponsored ads with category targeting on resume");
         }
     }
 
@@ -590,6 +592,16 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             // Use "category_below" location instead of "home_bottom" to match server ad
             sponsoredAdView.initialize("category_below", getViewLifecycleOwner(), requireActivity());
             Log.d(TAG, "Initialized sponsored ad view with location: category_below");
+            
+            // Observe the selected category to refresh targeted ads when category changes
+            viewModel.getSortOption().observe(getViewLifecycleOwner(), sortOption -> {
+                refreshSponsoredAdForCurrentCategory();
+            });
+            
+            // Also refresh ads when time filter changes as user may be looking for specific content
+            viewModel.getTimeFilter().observe(getViewLifecycleOwner(), timeFilter -> {
+                refreshSponsoredAdForCurrentCategory();
+            });
         }
     }
 
@@ -636,6 +648,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             
             // Update selected category without changing the category list
             categoriesAdapter.updateSelectedCategory(categoryId);
+            
+            // Refresh sponsored ad when category changes
+            refreshSponsoredAdForCurrentCategory();
         });
 
         categoriesAdapter.setOnMoreClickListener(this::showCategoriesBottomSheet);
@@ -2013,6 +2028,37 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 @Override
                 public void onAdShowFailed(String error) {}
             });
+        }
+    }
+
+    /**
+     * Refresh sponsored ad based on current category selection
+     * Targets ads more effectively by using category information
+     */
+    private void refreshSponsoredAdForCurrentCategory() {
+        if (sponsoredAdView == null) return;
+        
+        String currentCategory = viewModel.getSelectedCategory();
+        String adLocation = currentCategory != null ? 
+                            "category_" + currentCategory.toLowerCase().replace(" ", "_") : 
+                            "category_below";
+        
+        // Fall back to general location if category-specific location is too long
+        if (adLocation.length() > 30) {
+            adLocation = "category_below";
+        }
+        
+        Log.d(TAG, "Refreshing sponsored ad for category: " + 
+                   (currentCategory != null ? currentCategory : "All") + 
+                   " using location: " + adLocation);
+        
+        // First try category-specific ad location
+        sponsoredAdView.initialize(adLocation, getViewLifecycleOwner(), requireActivity());
+        
+        // Ensure ad is visible after category change
+        if (sponsoredAdView.getVisibility() != View.VISIBLE) {
+            Log.d(TAG, "Setting sponsored ad view to visible");
+            sponsoredAdView.setVisibility(View.VISIBLE);
         }
     }
 }

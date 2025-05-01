@@ -2,6 +2,7 @@ package com.ds.eventwish.data.repository;
 
 import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
@@ -32,6 +33,23 @@ public class SponsoredAdRepository {
     
     public SponsoredAdRepository() {
         this.apiService = ApiClient.getClient();
+    }
+    
+    /**
+     * Callback interface for sponsored ad operations
+     */
+    public interface SponsoredAdCallback {
+        /**
+         * Called when the operation is successful
+         * @param ads List of sponsored ads (may be empty)
+         */
+        void onSuccess(@NonNull List<SponsoredAd> ads);
+        
+        /**
+         * Called when the operation fails
+         * @param message Error message
+         */
+        void onError(@NonNull String message);
     }
     
     /**
@@ -91,6 +109,66 @@ public class SponsoredAdRepository {
     }
     
     /**
+     * Get all active sponsored ads from the server with callback
+     * @param callback Callback for handling response
+     */
+    public void getSponsoredAds(SponsoredAdCallback callback) {
+        loadingLiveData.setValue(true);
+        
+        apiService.getSponsoredAds().enqueue(new Callback<SponsoredAdResponse>() {
+            @Override
+            public void onResponse(Call<SponsoredAdResponse> call, Response<SponsoredAdResponse> response) {
+                loadingLiveData.postValue(false);
+                
+                if (response.isSuccessful() && response.body() != null) {
+                    SponsoredAdResponse adResponse = response.body();
+                    Log.d(TAG, "Sponsored ads API response: " + adResponse.toString());
+                    
+                    if (adResponse.isSuccess() && adResponse.getAds() != null) {
+                        List<SponsoredAd> ads = adResponse.getAds();
+                        sponsoredAdsLiveData.postValue(ads);
+                        callback.onSuccess(ads);
+                        Log.d(TAG, "Loaded " + ads.size() + " sponsored ads");
+                    } else {
+                        String errorMsg = adResponse.getMessage() != null ? 
+                                adResponse.getMessage() : "No ads available";
+                        errorLiveData.postValue(errorMsg);
+                        callback.onError(errorMsg);
+                        Log.w(TAG, "Error loading sponsored ads: " + 
+                               (adResponse.getError() != null ? adResponse.getError() : adResponse.getMessage()));
+                    }
+                } else {
+                    String errorMsg = "Error fetching sponsored ads: HTTP " + response.code();
+                    try {
+                        if (response.errorBody() != null) {
+                            String errorBody = response.errorBody().string();
+                            errorMsg += " - " + errorBody;
+                            Log.e(TAG, "Error response body: " + errorBody);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error parsing error response", e);
+                    }
+                    
+                    errorLiveData.postValue(errorMsg);
+                    callback.onError(errorMsg);
+                    Log.e(TAG, errorMsg);
+                }
+            }
+            
+            @Override
+            public void onFailure(Call<SponsoredAdResponse> call, Throwable t) {
+                loadingLiveData.postValue(false);
+                String errorMsg = "Network error: " + t.getMessage();
+                errorLiveData.postValue(errorMsg);
+                callback.onError(errorMsg);
+                Log.e(TAG, "Network error fetching sponsored ads", t);
+                Log.e(TAG, "Request URL: " + call.request().url());
+                Log.e(TAG, "Request headers: " + call.request().headers());
+            }
+        });
+    }
+    
+    /**
      * Record an impression for a sponsored ad
      * @param adId The ID of the ad that was viewed
      */
@@ -131,6 +209,53 @@ public class SponsoredAdRepository {
     }
     
     /**
+     * Record an impression for a sponsored ad with callback
+     * @param adId The ID of the ad that was viewed
+     * @param callback Callback for handling response
+     */
+    public void recordAdImpression(String adId, SponsoredAdCallback callback) {
+        String deviceId = DeviceUtils.getDeviceId(EventWishApplication.getAppContext());
+        if (deviceId == null || adId == null) {
+            String errorMsg = "Cannot record impression - missing deviceId or adId";
+            Log.e(TAG, errorMsg);
+            callback.onError(errorMsg);
+            return;
+        }
+        
+        Log.d(TAG, "Recording impression for ad: " + adId + " with deviceId: " + deviceId);
+        apiService.recordSponsoredAdImpression(adId, deviceId).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "Successfully recorded impression for ad: " + adId + 
+                          ", response: " + response.body().toString());
+                    callback.onSuccess(new ArrayList<>()); // Empty list for success
+                } else {
+                    String errorMsg = "Failed to record impression for ad: " + adId + ", code: " + response.code();
+                    try {
+                        if (response.errorBody() != null) {
+                            String errorBody = response.errorBody().string();
+                            errorMsg += " - " + errorBody;
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error parsing impression error response", e);
+                    }
+                    Log.e(TAG, errorMsg);
+                    callback.onError(errorMsg);
+                }
+            }
+            
+            @Override
+            public void onFailure(Call<JsonObject> call, Throwable t) {
+                String errorMsg = "Network error recording impression for ad: " + adId + " - " + t.getMessage();
+                Log.e(TAG, errorMsg, t);
+                Log.e(TAG, "Impression request URL: " + call.request().url());
+                callback.onError(errorMsg);
+            }
+        });
+    }
+    
+    /**
      * Record a click for a sponsored ad
      * @param adId The ID of the ad that was clicked
      */
@@ -166,6 +291,53 @@ public class SponsoredAdRepository {
             public void onFailure(Call<JsonObject> call, Throwable t) {
                 Log.e(TAG, "Network error recording click for ad: " + adId, t);
                 Log.e(TAG, "Click request URL: " + call.request().url());
+            }
+        });
+    }
+    
+    /**
+     * Record a click for a sponsored ad with callback
+     * @param adId The ID of the ad that was clicked
+     * @param callback Callback for handling response
+     */
+    public void recordAdClick(String adId, SponsoredAdCallback callback) {
+        String deviceId = DeviceUtils.getDeviceId(EventWishApplication.getAppContext());
+        if (deviceId == null || adId == null) {
+            String errorMsg = "Cannot record click - missing deviceId or adId";
+            Log.e(TAG, errorMsg);
+            callback.onError(errorMsg);
+            return;
+        }
+        
+        Log.d(TAG, "Recording click for ad: " + adId + " with deviceId: " + deviceId);
+        apiService.recordSponsoredAdClick(adId, deviceId).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "Successfully recorded click for ad: " + adId + 
+                          ", response: " + response.body().toString());
+                    callback.onSuccess(new ArrayList<>()); // Empty list for success
+                } else {
+                    String errorMsg = "Failed to record click for ad: " + adId + ", code: " + response.code();
+                    try {
+                        if (response.errorBody() != null) {
+                            String errorBody = response.errorBody().string();
+                            errorMsg += " - " + errorBody;
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error parsing click error response", e);
+                    }
+                    Log.e(TAG, errorMsg);
+                    callback.onError(errorMsg);
+                }
+            }
+            
+            @Override
+            public void onFailure(Call<JsonObject> call, Throwable t) {
+                String errorMsg = "Network error recording click for ad: " + adId + " - " + t.getMessage();
+                Log.e(TAG, errorMsg, t);
+                Log.e(TAG, "Click request URL: " + call.request().url());
+                callback.onError(errorMsg);
             }
         });
     }

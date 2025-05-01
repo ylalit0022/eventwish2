@@ -1,239 +1,371 @@
 package com.ds.eventwish.ui.ads;
 
-import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
-import androidx.lifecycle.MediatorLiveData;
 import androidx.lifecycle.MutableLiveData;
+import androidx.lifecycle.ViewModel;
 
 import com.ds.eventwish.data.model.SponsoredAd;
 import com.ds.eventwish.data.repository.SponsoredAdRepository;
 import com.ds.eventwish.utils.AnalyticsUtils;
 
-import java.util.Date;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Random;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
- * ViewModel to handle sponsored ads in UI components
+ * ViewModel for sponsored ads
  */
-public class SponsoredAdViewModel extends AndroidViewModel {
+public class SponsoredAdViewModel extends ViewModel {
     private static final String TAG = "SponsoredAdViewModel";
     
     private final SponsoredAdRepository repository;
-    private final MediatorLiveData<SponsoredAd> selectedAdLiveData = new MediatorLiveData<>();
-    private final MutableLiveData<Boolean> adLoadedLiveData = new MutableLiveData<>(false);
     
-    public SponsoredAdViewModel(@NonNull Application application) {
-        super(application);
+    // LiveData for different locations
+    private final Map<String, MutableLiveData<SponsoredAd>> adsByLocation = new HashMap<>();
+    
+    // LiveData for loading state and errors
+    private final MutableLiveData<Boolean> loadingState = new MutableLiveData<>(false);
+    private final MutableLiveData<String> error = new MutableLiveData<>("");
+    
+    // Cache for ads by location
+    private final Map<String, SponsoredAd> adCache = new HashMap<>();
+    
+    // Cache expiration
+    private long lastFetchTime = 0;
+    private static final long CACHE_EXPIRATION_MS = TimeUnit.MINUTES.toMillis(30); // 30 minutes
+    
+    // Track failed attempts to avoid excessive retries
+    private int failedAttempts = 0;
+    private static final int MAX_RETRY_ATTEMPTS = 3;
+    private boolean isRetryScheduled = false;
+    
+    public SponsoredAdViewModel() {
         repository = new SponsoredAdRepository();
+        Log.d(TAG, "SponsoredAdViewModel created");
         
-        // Initialize ads when ViewModel is created
+        // Initial fetch
         fetchSponsoredAds();
     }
     
     /**
-     * Fetch sponsored ads from the repository
-     */
-    public void fetchSponsoredAds() {
-        repository.getSponsoredAds();
-    }
-    
-    /**
-     * Get sponsored ads for a specific location and select the best one to display
-     * @param location The location to get ads for (e.g., "home_bottom")
-     * @return LiveData containing the selected ad
+     * Get ad for a specific location
+     * @param location The location identifier
+     * @return LiveData with SponsoredAd for the location
      */
     public LiveData<SponsoredAd> getAdForLocation(String location) {
-        Log.d(TAG, "Getting sponsored ad for location: " + location);
-        LiveData<List<SponsoredAd>> adsForLocation = repository.getAdsByLocation(location);
-        
-        // Add source to mediator LiveData
-        selectedAdLiveData.addSource(adsForLocation, ads -> {
-            if (ads != null && !ads.isEmpty()) {
-                Log.d(TAG, "Found " + ads.size() + " ads for location: " + location);
-                // Select best ad based on priority or random if multiple with same priority
-                SponsoredAd selectedAd = selectBestAd(ads);
-                selectedAdLiveData.setValue(selectedAd);
-                adLoadedLiveData.setValue(true);
-                
-                // Record impression when ad is selected for display
-                if (selectedAd != null) {
-                    Log.d(TAG, "Selected ad for display: " + selectedAd.getId() + 
-                          ", title: " + selectedAd.getTitle() + 
-                          ", priority: " + selectedAd.getPriority());
-                          
-                    repository.recordImpression(selectedAd.getId());
-                    
-                    // Track impression via analytics
-                    AnalyticsUtils.getInstance().trackAdImpression(
-                        selectedAd.getId(), 
-                        selectedAd.getTitle(), 
-                        location
-                    );
-                    
-                    Log.d(TAG, "Recording impression for ad: " + selectedAd.getId() + " at location: " + location);
-                } else {
-                    Log.w(TAG, "No valid ad selected despite having " + ads.size() + " ads for location: " + location);
-                }
+        if (!adsByLocation.containsKey(location)) {
+            MutableLiveData<SponsoredAd> newLiveData = new MutableLiveData<>();
+            adsByLocation.put(location, newLiveData);
+            
+            // Check cache first
+            if (adCache.containsKey(location)) {
+                newLiveData.setValue(adCache.get(location));
+                Log.d(TAG, "Returned cached ad for location: " + location);
             } else {
-                selectedAdLiveData.setValue(null);
-                adLoadedLiveData.setValue(false);
-                Log.d(TAG, "No ads available for location: " + location);
+                // Try to find best matching ad based on location pattern
+                findBestMatchingAd(location);
             }
-        });
+            
+            // If cache is expired, fetch fresh data
+            if (System.currentTimeMillis() - lastFetchTime > CACHE_EXPIRATION_MS) {
+                fetchSponsoredAds();
+            }
+        }
         
-        return selectedAdLiveData;
+        return adsByLocation.get(location);
     }
     
     /**
-     * Select the best ad from a list based on priority and validity
-     * @param ads List of ads to select from
-     * @return The selected ad or null if none valid
+     * Try to find the best matching ad for a location pattern
+     * For example, if we have category_birthday but no exact match,
+     * we might fall back to category_below or home_ad
+     * 
+     * @param location The requested location
      */
-    private SponsoredAd selectBestAd(List<SponsoredAd> ads) {
-        if (ads == null || ads.isEmpty()) {
-            Log.d(TAG, "No ads provided for selection");
-            return null;
+    private void findBestMatchingAd(String location) {
+        // Early return if we don't have any ads cached
+        if (adCache.isEmpty()) {
+            Log.d(TAG, "No ads in cache to match for location: " + location);
+            return;
         }
         
-        SponsoredAd bestAd = null;
-        int highestPriority = -1;
-        Date now = new Date();
-        
-        Log.d(TAG, "Selecting best ad from " + ads.size() + " candidates");
-        
-        // Find ads with highest priority that are currently active
-        for (SponsoredAd ad : ads) {
-            if (!ad.isStatus()) {
-                Log.d(TAG, "Skipping inactive ad: " + ad.getId());
-                continue; // Skip inactive ads
-            }
-            
-            // Check if ad is within its date range
-            if (ad.getStartDate() != null && ad.getStartDate().after(now)) {
-                Log.d(TAG, "Skipping ad not started yet: " + ad.getId() + ", starts: " + ad.getStartDate());
-                continue; // Ad not started yet
-            }
-            
-            if (ad.getEndDate() != null && ad.getEndDate().before(now)) {
-                Log.d(TAG, "Skipping expired ad: " + ad.getId() + ", ended: " + ad.getEndDate());
-                continue; // Ad expired
-            }
-            
-            Log.d(TAG, "Considering ad: " + ad.getId() + ", priority: " + ad.getPriority() + 
-                   ", current highest: " + highestPriority);
-                   
-            if (ad.getPriority() > highestPriority) {
-                highestPriority = ad.getPriority();
-                bestAd = ad;
-                Log.d(TAG, "New highest priority ad: " + ad.getId() + ", priority: " + ad.getPriority());
-            }
+        // First try exact match
+        if (adCache.containsKey(location)) {
+            adsByLocation.get(location).setValue(adCache.get(location));
+            Log.d(TAG, "Found exact match for location: " + location);
+            return;
         }
         
-        // If multiple ads have the same highest priority, select one randomly
-        if (bestAd != null) {
-            final int topPriority = highestPriority;
-            int count = 0;
-            for (SponsoredAd ad : ads) {
-                if (ad.isStatus() && ad.getPriority() == topPriority) {
-                    count++;
+        // Extract category parts if this is a category-based location
+        String categoryPattern = null;
+        if (location.startsWith("category_")) {
+            categoryPattern = "category_";
+        }
+        
+        // Look for fallback location matches
+        String bestMatch = null;
+        
+        if (categoryPattern != null) {
+            // Try to find any category ad
+            for (String cachedLocation : adCache.keySet()) {
+                if (cachedLocation.startsWith(categoryPattern)) {
+                    bestMatch = cachedLocation;
+                    break;
                 }
             }
             
-            Log.d(TAG, "Found " + count + " ads with priority " + topPriority);
-            
-            if (count > 1) {
-                // Multiple ads with same priority, pick randomly
-                Random random = new Random();
-                int randomIndex = random.nextInt(count);
-                int currentIndex = 0;
-                
-                Log.d(TAG, "Selecting random ad from " + count + " with same priority, random index: " + randomIndex);
-                
-                for (SponsoredAd ad : ads) {
-                    if (ad.isStatus() && ad.getPriority() == topPriority) {
-                        if (currentIndex == randomIndex) {
-                            bestAd = ad;
-                            Log.d(TAG, "Randomly selected ad: " + ad.getId());
-                            break;
-                        }
-                        currentIndex++;
-                    }
+            // If no category match, try general locations
+            if (bestMatch == null) {
+                if (adCache.containsKey("category_below")) {
+                    bestMatch = "category_below";
+                } else if (adCache.containsKey("home_bottom")) {
+                    bestMatch = "home_bottom";
+                } else if (!adCache.isEmpty()) {
+                    // Just use the first available ad
+                    bestMatch = adCache.keySet().iterator().next();
                 }
             }
         } else {
-            Log.w(TAG, "No valid ads found among " + ads.size() + " candidates");
-        }
-        
-        return bestAd;
-    }
-    
-    /**
-     * Handle click on a sponsored ad
-     * @param ad The ad that was clicked
-     * @param context Context for launching intent
-     * @return true if the click was handled successfully
-     */
-    public boolean handleAdClick(SponsoredAd ad, Context context) {
-        if (ad == null || context == null) {
-            return false;
-        }
-        
-        try {
-            // Record the click
-            repository.recordClick(ad.getId());
-            
-            // Track via analytics
-            AnalyticsUtils.getInstance().trackAdClick(ad.getId(), ad.getTitle(), ad.getLocation());
-            
-            // Open the redirect URL
-            String url = ad.getRedirectUrl();
-            if (url != null && !url.isEmpty()) {
-                if (!url.startsWith("http://") && !url.startsWith("https://")) {
-                    url = "https://" + url;
-                }
-                
-                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                context.startActivity(intent);
-                return true;
+            // For non-category locations, try some common fallbacks
+            if (adCache.containsKey("home_bottom")) {
+                bestMatch = "home_bottom";
+            } else if (adCache.containsKey("category_below")) {
+                bestMatch = "category_below";
+            } else if (!adCache.isEmpty()) {
+                // Just use the first available ad
+                bestMatch = adCache.keySet().iterator().next();
             }
-            
-            return false;
-        } catch (Exception e) {
-            Log.e(TAG, "Error handling ad click", e);
-            return false;
+        }
+        
+        // If we found a match, use it
+        if (bestMatch != null) {
+            adsByLocation.get(location).setValue(adCache.get(bestMatch));
+            Log.d(TAG, "Using fallback ad from location '" + bestMatch + "' for requested location: " + location);
+        } else {
+            Log.d(TAG, "No suitable ad found for location: " + location);
         }
     }
     
     /**
-     * Check if an ad is loaded and available
-     * @return LiveData of ad loaded state
-     */
-    public LiveData<Boolean> isAdLoaded() {
-        return adLoadedLiveData;
-    }
-    
-    /**
-     * Get loading state from repository
-     * @return LiveData of loading state
+     * Get loading state
+     * @return LiveData with loading state
      */
     public LiveData<Boolean> getLoadingState() {
-        return repository.getLoadingState();
+        return loadingState;
     }
     
     /**
-     * Get error state from repository
-     * @return LiveData of error message
+     * Get error
+     * @return LiveData with error message
      */
     public LiveData<String> getError() {
-        return repository.getError();
+        return error;
+    }
+    
+    /**
+     * Fetch sponsored ads from repository
+     */
+    public void fetchSponsoredAds() {
+        // Skip if already loading or too many failed attempts
+        if (loadingState.getValue() != null && loadingState.getValue()) {
+            Log.d(TAG, "Already loading sponsored ads, skipping duplicate request");
+            return;
+        }
+        
+        if (failedAttempts >= MAX_RETRY_ATTEMPTS && isRetryScheduled) {
+            Log.d(TAG, "Too many failed attempts (" + failedAttempts + "), skipping fetch");
+            return;
+        }
+        
+        loadingState.setValue(true);
+        error.setValue("");
+        
+        repository.getSponsoredAds(new SponsoredAdRepository.SponsoredAdCallback() {
+            @Override
+            public void onSuccess(@NonNull List<SponsoredAd> ads) {
+                Log.d(TAG, "Successfully fetched " + ads.size() + " sponsored ads");
+                loadingState.setValue(false);
+                failedAttempts = 0;
+                isRetryScheduled = false;
+                lastFetchTime = System.currentTimeMillis();
+                
+                // Clear old cache
+                adCache.clear();
+                
+                // Process and organize ads
+                processAds(ads);
+            }
+            
+            @Override
+            public void onError(@NonNull String message) {
+                Log.e(TAG, "Error fetching sponsored ads: " + message);
+                loadingState.setValue(false);
+                error.setValue(message);
+                failedAttempts++;
+                
+                // Retry after delay if not too many attempts
+                if (failedAttempts < MAX_RETRY_ATTEMPTS && !isRetryScheduled) {
+                    isRetryScheduled = true;
+                    // Add exponential backoff
+                    long delayMs = (long) Math.pow(2, failedAttempts) * 1000;
+                    
+                    Log.d(TAG, "Scheduling retry in " + (delayMs / 1000) + " seconds (attempt " + failedAttempts + ")");
+                    
+                    // Since we can't use Handler directly in ViewModel, we'll use our own mechanism
+                    new Thread(() -> {
+                        try {
+                            Thread.sleep(delayMs);
+                            isRetryScheduled = false;
+                            fetchSponsoredAds();
+                        } catch (InterruptedException e) {
+                            Log.e(TAG, "Retry thread interrupted", e);
+                        }
+                    }).start();
+                }
+            }
+        });
+    }
+    
+    /**
+     * Process and organize ads by location
+     * @param ads List of sponsored ads from server
+     */
+    private void processAds(List<SponsoredAd> ads) {
+        Map<String, List<SponsoredAd>> adsByLocationTemp = new HashMap<>();
+        
+        // First pass: organize ads by location
+        for (SponsoredAd ad : ads) {
+            String location = ad.getLocation();
+            if (location == null || location.isEmpty()) {
+                // Skip ads without a location
+                continue;
+            }
+            
+            // Normalize location
+            location = location.toLowerCase().trim();
+            
+            if (!adsByLocationTemp.containsKey(location)) {
+                adsByLocationTemp.put(location, new ArrayList<>());
+            }
+            adsByLocationTemp.get(location).add(ad);
+        }
+        
+        // Second pass: select the highest priority ad for each location
+        for (Map.Entry<String, List<SponsoredAd>> entry : adsByLocationTemp.entrySet()) {
+            String location = entry.getKey();
+            List<SponsoredAd> locationAds = entry.getValue();
+            
+            if (locationAds.isEmpty()) {
+                continue;
+            }
+            
+            // Sort by priority (higher number = higher priority)
+            locationAds.sort((a, b) -> Integer.compare(b.getPriority(), a.getPriority()));
+            
+            // Use the highest priority ad
+            SponsoredAd selectedAd = locationAds.get(0);
+            
+            // Update cache
+            adCache.put(location, selectedAd);
+            
+            // Update LiveData if we have observers
+            if (adsByLocation.containsKey(location)) {
+                adsByLocation.get(location).setValue(selectedAd);
+            }
+            
+            Log.d(TAG, "Selected ad " + selectedAd.getId() + " with priority " + 
+                       selectedAd.getPriority() + " for location " + location);
+        }
+        
+        // Third pass: update all LiveData objects that didn't get a direct match
+        for (String location : adsByLocation.keySet()) {
+            if (!adCache.containsKey(location)) {
+                // Try to find a match
+                findBestMatchingAd(location);
+            }
+        }
+    }
+    
+    /**
+     * Handle ad click
+     * @param ad The ad that was clicked
+     * @param context Context to open URL
+     */
+    public void handleAdClick(SponsoredAd ad, Context context) {
+        if (ad == null || context == null) {
+            Log.e(TAG, "Cannot handle click - ad or context is null");
+            return;
+        }
+        
+        // Record click in factory for local stats
+        SponsoredAdManagerFactory.getInstance().recordClick(ad.getLocation());
+        
+        // Send click to server
+        repository.recordAdClick(ad.getId(), new SponsoredAdRepository.SponsoredAdCallback() {
+            @Override
+            public void onSuccess(@NonNull List<SponsoredAd> ads) {
+                Log.d(TAG, "Successfully recorded click for ad: " + ad.getId());
+            }
+            
+            @Override
+            public void onError(@NonNull String message) {
+                Log.e(TAG, "Error recording click for ad " + ad.getId() + ": " + message);
+            }
+        });
+        
+        // Open URL
+        String redirectUrl = ad.getRedirectUrl();
+        if (redirectUrl != null && !redirectUrl.isEmpty()) {
+            try {
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(redirectUrl));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(intent);
+                Log.d(TAG, "Opened URL for ad: " + redirectUrl);
+            } catch (Exception e) {
+                Log.e(TAG, "Error opening URL for ad: " + e.getMessage());
+            }
+        }
+    }
+    
+    /**
+     * Track impression for an ad
+     * @param ad The ad that was viewed
+     */
+    public void trackImpression(SponsoredAd ad) {
+        if (ad == null) {
+            Log.e(TAG, "Cannot track impression - ad is null");
+            return;
+        }
+        
+        // Record impression in factory for local stats
+        SponsoredAdManagerFactory.getInstance().recordImpression(ad.getLocation());
+        
+        // Send impression to server
+        repository.recordAdImpression(ad.getId(), new SponsoredAdRepository.SponsoredAdCallback() {
+            @Override
+            public void onSuccess(@NonNull List<SponsoredAd> ads) {
+                Log.d(TAG, "Successfully recorded impression for ad: " + ad.getId());
+            }
+            
+            @Override
+            public void onError(@NonNull String message) {
+                Log.e(TAG, "Error recording impression for ad " + ad.getId() + ": " + message);
+            }
+        });
+    }
+    
+    @Override
+    protected void onCleared() {
+        super.onCleared();
+        // Clean up resources
+        Log.d(TAG, "SponsoredAdViewModel cleared");
     }
 } 

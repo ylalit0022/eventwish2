@@ -1,6 +1,8 @@
 package com.ds.eventwish.ui.ads;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -21,12 +23,16 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.request.RequestOptions;
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.SponsoredAd;
+import com.ds.eventwish.utils.AnalyticsUtils;
 
 /**
  * Custom view for displaying sponsored ads in the UI
  */
 public class SponsoredAdView extends FrameLayout {
     private static final String TAG = "SponsoredAdView";
+    
+    // Minimum time in milliseconds that an ad must be visible to count as an impression
+    private static final long IMPRESSION_THRESHOLD_MS = 1000; // 1 second
     
     private CardView cardContainer;
     private ImageView adImage;
@@ -37,6 +43,26 @@ public class SponsoredAdView extends FrameLayout {
     private SponsoredAdViewModel viewModel;
     private SponsoredAd currentAd;
     private String location;
+    
+    // Variables for impression tracking
+    private boolean impressionTracked = false;
+    private boolean isFullyVisible = false;
+    private long visibilityStartTime = 0;
+    private final Handler visibilityHandler = new Handler(Looper.getMainLooper());
+    private final Runnable impressionRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (isFullyVisible && currentAd != null && !impressionTracked) {
+                long visibilityDuration = System.currentTimeMillis() - visibilityStartTime;
+                if (visibilityDuration >= IMPRESSION_THRESHOLD_MS) {
+                    trackImpression();
+                } else {
+                    // Schedule another check
+                    visibilityHandler.postDelayed(this, IMPRESSION_THRESHOLD_MS - visibilityDuration);
+                }
+            }
+        }
+    };
     
     public SponsoredAdView(@NonNull Context context) {
         super(context);
@@ -68,8 +94,82 @@ public class SponsoredAdView extends FrameLayout {
         cardContainer.setOnClickListener(v -> {
             if (viewModel != null && currentAd != null) {
                 viewModel.handleAdClick(currentAd, getContext());
+                // Also track click in analytics
+                AnalyticsUtils.trackAdClick("sponsored_ad", currentAd.getId(), location);
             }
         });
+        
+        // Add visibility listener for impression tracking
+        addOnAttachStateChangeListener(new OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View view) {
+                // Reset impression tracking state when view is attached
+                resetImpressionTracking();
+                checkVisibility();
+            }
+
+            @Override
+            public void onViewDetachedFromWindow(View view) {
+                // Clean up any pending callbacks
+                visibilityHandler.removeCallbacks(impressionRunnable);
+                isFullyVisible = false;
+            }
+        });
+    }
+    
+    @Override
+    protected void onVisibilityChanged(@NonNull View changedView, int visibility) {
+        super.onVisibilityChanged(changedView, visibility);
+        checkVisibility();
+    }
+    
+    @Override
+    protected void onWindowVisibilityChanged(int visibility) {
+        super.onWindowVisibilityChanged(visibility);
+        checkVisibility();
+    }
+    
+    private void checkVisibility() {
+        boolean wasFullyVisible = isFullyVisible;
+        
+        // A view is fully visible if it's attached to window, visible, and has non-zero size
+        isFullyVisible = getVisibility() == VISIBLE && 
+                isAttachedToWindow() && 
+                getWidth() > 0 && 
+                getHeight() > 0 &&
+                getAlpha() > 0.9f &&
+                getWindowVisibility() == VISIBLE;
+        
+        // Handle visibility state changes
+        if (isFullyVisible && !wasFullyVisible) {
+            // View just became visible
+            visibilityStartTime = System.currentTimeMillis();
+            visibilityHandler.postDelayed(impressionRunnable, IMPRESSION_THRESHOLD_MS);
+            Log.d(TAG, "Ad view became visible, starting impression timer: " + location);
+            
+        } else if (!isFullyVisible && wasFullyVisible) {
+            // View just became invisible
+            visibilityHandler.removeCallbacks(impressionRunnable);
+            Log.d(TAG, "Ad view became invisible, cancelling impression timer: " + location);
+        }
+    }
+    
+    private void resetImpressionTracking() {
+        impressionTracked = false;
+        isFullyVisible = false;
+        visibilityStartTime = 0;
+        visibilityHandler.removeCallbacks(impressionRunnable);
+    }
+    
+    private void trackImpression() {
+        if (currentAd != null && viewModel != null && !impressionTracked) {
+            impressionTracked = true;
+            viewModel.trackImpression(currentAd);
+            Log.d(TAG, "Tracked impression for ad: " + currentAd.getId() + " at location: " + location);
+            
+            // Also track in analytics
+            AnalyticsUtils.trackAdImpression("sponsored_ad", currentAd.getId(), location);
+        }
     }
     
     /**
@@ -81,6 +181,9 @@ public class SponsoredAdView extends FrameLayout {
     public void initialize(String location, LifecycleOwner lifecycleOwner, ViewModelStoreOwner viewModelStoreOwner) {
         this.location = location;
         Log.d(TAG, "Initializing sponsored ad view for location: " + location);
+        
+        // Reset impression tracking state when initializing with new location
+        resetImpressionTracking();
         
         try {
             // Get ViewModel from the factory
@@ -132,6 +235,13 @@ public class SponsoredAdView extends FrameLayout {
             return;
         }
         
+        // Check if we're loading the same ad - no need to reset tracking if so
+        boolean isSameAd = currentAd != null && currentAd.getId().equals(ad.getId());
+        if (!isSameAd) {
+            // Reset impression tracking when loading a different ad
+            resetImpressionTracking();
+        }
+        
         this.currentAd = ad;
         Log.d(TAG, "Loading sponsored ad: id=" + ad.getId() + 
               ", title=" + ad.getTitle() + 
@@ -164,6 +274,9 @@ public class SponsoredAdView extends FrameLayout {
         // Show the view
         setVisibility(VISIBLE);
         
+        // Check visibility to start impression tracking
+        checkVisibility();
+        
         Log.d(TAG, "Successfully displayed sponsored ad: " + ad.getTitle() + " at location: " + location);
     }
     
@@ -180,6 +293,9 @@ public class SponsoredAdView extends FrameLayout {
      * Cleanup method to be called when the view is no longer needed
      */
     public void cleanup() {
+        // Remove any pending impression tracking
+        visibilityHandler.removeCallbacks(impressionRunnable);
+        
         if (location != null) {
             try {
                 SponsoredAdManagerFactory.getInstance().unregisterAdView(location);

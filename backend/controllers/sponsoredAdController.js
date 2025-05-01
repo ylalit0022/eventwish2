@@ -16,18 +16,54 @@ exports.getActiveAds = async (req, res) => {
   try {
     const location = req.query.location || null;
     const limit = parseInt(req.query.limit) || 10;
+    const deviceId = req.headers['x-device-id'] || req.query.deviceId || null;
     
-    const ads = await SponsoredAd.getActiveAds(location);
+    // Log device ID if present
+    if (deviceId) {
+      logger.debug(`Device ID for ad request: ${deviceId}`);
+    } else {
+      logger.debug('No device ID provided for ad request');
+    }
     
-    // Limit the number of ads returned based on priority
+    // Get active ads with frequency capping
+    const ads = await SponsoredAd.getActiveAds(location, deviceId);
+    logger.debug(`Found ${ads.length} active ads for location: ${location || 'all'}`);
+    
+    // Limit the number of ads returned
     const limitedAds = ads.slice(0, limit);
+    
+    // Get count of ads that were filtered out due to frequency capping
+    const filteredCount = deviceId ? ads.filter(ad => 
+      ad.metrics && (ad.metrics.is_frequency_capped || ad.metrics.is_daily_frequency_capped)
+    ).length : 0;
+    
+    // Remove internal metrics before sending response
+    const cleanedAds = limitedAds.map(ad => {
+      // Extract metrics for the response summary
+      const metrics = ad.metrics;
+      // Remove metrics from the individual ad objects
+      const cleanAd = { ...ad };
+      delete cleanAd.metrics;
+      delete cleanAd.weightedScore;
+      return cleanAd;
+    });
     
     res.json({
       success: true,
-      ads: limitedAds
+      ads: cleanedAds,
+      stats: {
+        total_count: ads.length,
+        returned_count: limitedAds.length,
+        filtered_by_frequency_cap: filteredCount,
+        device_id: deviceId ? deviceId.substring(0, 8) + '...' : null // For debugging, partial ID only
+      },
+      message: deviceId ? 
+        `Ads filtered for device, showing ${limitedAds.length} of ${ads.length} active ads` : 
+        `Showing ${limitedAds.length} of ${ads.length} active ads`
     });
   } catch (error) {
     logger.error(`Error in getActiveAds: ${error.message}`);
+    logger.error(error.stack);
     res.status(500).json({
       success: false,
       message: 'Failed to get active ads',
