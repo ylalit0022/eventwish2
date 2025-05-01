@@ -37,14 +37,24 @@ const categoryIconSchema = new mongoose.Schema({
     toJSON: {
         virtuals: true,
         transform: function(doc, ret) {
-            // Ensure both _id and id are present in the output
-            if (!ret.id && ret._id) {
-                ret.id = ret._id.toString();
-            } else if (!ret._id && ret.id) {
-                ret._id = ret.id;
+            // Ensure id is always present (critical fix)
+            ret.id = ret._id.toString();
+            
+            // Ensure _id is also string for consistency
+            if (ret._id && typeof ret._id !== 'string') {
+                ret._id = ret._id.toString();
             }
             
-            // Ensure _id is also passed as string for consistency
+            delete ret.__v;
+            return ret;
+        }
+    },
+    toObject: {
+        virtuals: true,
+        transform: function(doc, ret) {
+            // Also ensure id is set in toObject
+            ret.id = ret._id.toString();
+            
             if (ret._id && typeof ret._id !== 'string') {
                 ret._id = ret._id.toString();
             }

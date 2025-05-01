@@ -90,9 +90,9 @@ const sponsoredAdSchema = new mongoose.Schema({
     default: () => new Map()
   },
   device_daily_impressions: {
-    type: Map,
-    of: Object,
-    default: () => new Map()
+    type: Object,
+    default: {},
+    description: 'Daily impressions per device, stored as Object: { deviceId: { YYYY-MM-DD: count } }'
   },
   title: {
     type: String,
@@ -150,26 +150,39 @@ sponsoredAdSchema.statics.getActiveAds = async function(location = null, deviceI
     // Get detailed impression data for analytics
     const adsWithMetrics = ads.map(ad => {
       try {
-        // Initialize maps if they don't exist
+        // Initialize maps and objects if they don't exist
         if (!ad.device_impressions) {
           ad.device_impressions = new Map();
         }
         
         if (!ad.device_daily_impressions) {
-          ad.device_daily_impressions = new Map();
+          ad.device_daily_impressions = {};
         }
         
         // Get impression metrics for this device
-        const totalImpressions = ad.device_impressions.get(deviceId) || 0;
+        const totalImpressions = ad.device_impressions instanceof Map 
+          ? (ad.device_impressions.get(deviceId) || 0)
+          : 0;
         
         // Get daily impressions for today
         let dailyImpressions = {};
         try {
-          dailyImpressions = ad.device_daily_impressions.get(deviceId) || {};
-          // If dailyImpressions is not an object (could happen with older data), initialize it
+          // Check if device_daily_impressions is properly initialized
+          if (typeof ad.device_daily_impressions !== 'object') {
+            console.error(`Invalid device_daily_impressions for ad ${ad._id}, type: ${typeof ad.device_daily_impressions}`);
+            ad.device_daily_impressions = {};
+            ad.markModified('device_daily_impressions');
+          }
+          
+          // Get daily impressions for this device
+          dailyImpressions = ad.device_daily_impressions[deviceId] || {};
+          
+          // If dailyImpressions is not an object, initialize it
           if (typeof dailyImpressions !== 'object' || dailyImpressions === null) {
-            console.error(`Invalid dailyImpressions for ad ${ad._id}, device ${deviceId}: type=${typeof dailyImpressions}, value=`, dailyImpressions);
+            console.error(`Invalid dailyImpressions for ad ${ad._id}, device ${deviceId}: type=${typeof dailyImpressions}`);
             dailyImpressions = {};
+            ad.device_daily_impressions[deviceId] = dailyImpressions;
+            ad.markModified('device_daily_impressions');
           }
         } catch (dailyError) {
           console.error(`Error accessing daily impressions for ad ${ad._id}, device ${deviceId}:`, dailyError);
@@ -288,59 +301,67 @@ sponsoredAdSchema.methods.recordImpression = async function(deviceId = null) {
     this.impression_count += 1;
     
     if (deviceId) {
-      // Ensure Maps are initialized
+      // Ensure Maps and Objects are initialized
       if (!this.device_impressions) {
         this.device_impressions = new Map();
+        this.markModified('device_impressions');
       }
       
       if (!this.device_daily_impressions) {
-        this.device_daily_impressions = new Map();
+        this.device_daily_impressions = {};
+        this.markModified('device_daily_impressions');
       }
       
       // Record total impressions for this device
-      const currentCount = this.device_impressions.get(deviceId) || 0;
-      this.device_impressions.set(deviceId, currentCount + 1);
+      const currentCount = this.device_impressions instanceof Map 
+        ? (this.device_impressions.get(deviceId) || 0)
+        : 0;
+      
+      if (this.device_impressions instanceof Map) {
+        this.device_impressions.set(deviceId, currentCount + 1);
+        this.markModified('device_impressions');
+      } else {
+        // If somehow it's not a Map, try to reinitialize
+        console.error(`device_impressions is not a Map. Type: ${typeof this.device_impressions}. Reinitializing...`);
+        this.device_impressions = new Map();
+        this.device_impressions.set(deviceId, 1);
+        this.markModified('device_impressions');
+      }
       
       // Record daily impressions
       const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       
-      // Get or create the daily impressions object for this device
-      let dailyImpressions = this.device_daily_impressions.get(deviceId);
-      
-      // If dailyImpressions doesn't exist or is not an object, create it
-      if (!dailyImpressions || typeof dailyImpressions !== 'object' || dailyImpressions === null) {
-        dailyImpressions = {};
+      // Initialize device data if not exists
+      if (!this.device_daily_impressions[deviceId]) {
+        this.device_daily_impressions[deviceId] = {};
       }
       
       // Increment today's count
-      const todayCount = dailyImpressions[today] || 0;
-      dailyImpressions[today] = todayCount + 1;
+      const dailyData = this.device_daily_impressions[deviceId];
+      const todayCount = dailyData[today] || 0;
+      dailyData[today] = todayCount + 1;
       
       // Clean up old daily impressions (older than 30 days)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
       
-      for (const dateKey in dailyImpressions) {
+      for (const dateKey in dailyData) {
         if (dateKey < thirtyDaysAgoStr) {
-          delete dailyImpressions[dateKey];
+          delete dailyData[dateKey];
         }
       }
       
-      // Update the map with the modified daily impressions
-      this.device_daily_impressions.set(deviceId, dailyImpressions);
+      // Mark the object as modified
+      this.markModified('device_daily_impressions');
       
       // Log impression details for debugging
       console.log(`Recorded impression for ad ${this._id}, device ${deviceId}: total=${currentCount + 1}, today=${todayCount + 1}`);
-      
-      // Use markModified to tell Mongoose that these Maps have been updated
-      this.markModified('device_impressions');
-      this.markModified('device_daily_impressions');
     }
     
     return this.save();
   } catch (error) {
-    console.error(`Error recording impression: ${error.message}`);
+    console.error(`Error recording impression for ad ${this._id}:`, error);
     console.error(error.stack);
     // Re-throw for caller to handle
     throw error;
@@ -355,20 +376,30 @@ sponsoredAdSchema.methods.recordClick = async function(deviceId = null) {
       // Ensure Map is initialized
       if (!this.device_clicks) {
         this.device_clicks = new Map();
+        this.markModified('device_clicks');
       }
       
-      const currentCount = this.device_clicks.get(deviceId) || 0;
-      this.device_clicks.set(deviceId, currentCount + 1);
-      
-      // Mark as modified so Mongoose knows to save the changes
-      this.markModified('device_clicks');
-      
-      console.log(`Recorded click for ad ${this._id}, device ${deviceId}: total=${currentCount + 1}`);
+      if (this.device_clicks instanceof Map) {
+        const currentCount = this.device_clicks.get(deviceId) || 0;
+        this.device_clicks.set(deviceId, currentCount + 1);
+        // Mark as modified so Mongoose knows to save the changes
+        this.markModified('device_clicks');
+        
+        console.log(`Recorded click for ad ${this._id}, device ${deviceId}: total=${currentCount + 1}`);
+      } else {
+        // If somehow it's not a Map, try to reinitialize
+        console.error(`device_clicks is not a Map. Type: ${typeof this.device_clicks}. Reinitializing...`);
+        this.device_clicks = new Map();
+        this.device_clicks.set(deviceId, 1);
+        this.markModified('device_clicks');
+        
+        console.log(`Reinitialized device_clicks for ad ${this._id}, device ${deviceId}`);
+      }
     }
     
     return this.save();
   } catch (error) {
-    console.error(`Error recording click: ${error.message}`);
+    console.error(`Error recording click for ad ${this._id}:`, error);
     console.error(error.stack);
     throw error;
   }

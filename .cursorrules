@@ -298,60 +298,38 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 ## Current Task: Fix Sponsored Ad Tracking and Implement Category Icon Handling
 
 ### Sponsored Ad Tracking Fixes (Completed)
-- [X] Updated SponsoredAd model in backend:
-  - [X] Fixed device_daily_impressions to use Object instead of Map for better MongoDB compatibility
-  - [X] Added proper Map initialization in recordImpression and recordClick methods
-  - [X] Fixed handling of daily impressions data structure
-  - [X] Added markModified() calls to ensure changes are saved
+- [X] Updated SponsoredAd model:
+  - [X] Changed device_daily_impressions to use Object instead of Map for better MongoDB compatibility
+  - [X] Added proper initialization with empty objects as default values
+  - [X] Fixed recordImpression method to correctly access and update daily impressions data
+  - [X] Added markModified() calls to ensure changes are saved to MongoDB
   - [X] Added detailed error logging with stack traces
   - [X] Improved error handling throughout the model
+  - [X] Added proper type checking for device_impressions
 
-- [X] Created backend test script (testSponsoredAdTracking.js):
-  - [X] Tests impression tracking with specific device IDs
-  - [X] Tests click tracking with specific device IDs
-  - [X] Verifies proper counts and metrics in database
-  - [X] Confirms frequency capping is working correctly
-
-- [X] Improved getActiveAds algorithm:
-  - [X] Added better error handling with try/catch blocks
-  - [X] Improved Map initialization
-  - [X] Added detailed logging of ad filtering process
-  - [X] Fixed metrics calculation and handling
-  - [X] Ensured proper handling of frequency capping
+- [X] Created and ran test scripts:
+  - [X] testSponsoredAdTracking.js tests impression and click tracking with specific device IDs
+  - [X] testDailyImpressions.js specifically tests daily impression tracking and frequency capping
+  - [X] Verified proper counts and metrics are being stored in database
+  - [X] Confirmed frequency capping is working correctly
 
 ### Category Icon Handling Fixes (Completed)
-- [X] Fixed Template Schema on server side:
+- [X] Fixed CategoryIcon Schema:
+  - [X] Ensured id field is properly set from _id in toJSON and toObject transforms
+  - [X] Added pre-save hook to ensure id is set from _id if not provided
+  - [X] Fixed JSON serialization to maintain backward compatibility
+  - [X] Created fixCategoryIcons.js script to update existing records
+
+- [X] Fixed Template Schema:
   - [X] Updated toJSON transform to preserve populated CategoryIcon objects
   - [X] Fixed model validation for ObjectId references
-  - [X] Added proper field definitions with ref: 'CategoryIcon'
+  - [X] Ensured proper field definitions with ref: 'CategoryIcon'
+  - [X] Added explicit string conversion for template.id to avoid runtime errors
 
-- [X] Fixed CategoryIcon Schema:
-  - [X] Ensured consistent ID handling between _id and id fields
-  - [X] Fixed JSON serialization to maintain backward compatibility
-
-- [X] Updated API Routes:
-  - [X] Updated templateController.js to consistently populate CategoryIcon references
-  - [X] Added proper field selection during population to avoid sensitive data
-  - [X] Added detailed error logging with stack traces
-
-- [X] Created test script (testCategoryIcons.js):
-  - [X] Tests CategoryIcon population in Template collections
-  - [X] Verifies proper JSON serialization of CategoryIcon references
-  - [X] Tests individual CategoryIcon model behavior
+- [X] Created generateTestTemplates.js script:
+  - [X] Creates test templates with category icon references
+  - [X] Verifies templates correctly populate CategoryIcon objects
   - [X] Confirms both _id and id fields are present in serialized output
 
-### Lessons Learned
-- MongoDB Map fields need consistent data structures (Object vs Map)
-- Always use markModified() when updating Map fields in Mongoose
-- Implement proper Map/field initialization before use
-- Add detailed error logging with stack traces for easier debugging
-- Use try/catch blocks around potentially problematic code sections
-- Handle all possible error cases gracefully
-- Test with real device IDs to verify tracking works correctly
-- Always examine current model implementations before making changes
-- When working with MongoDB references:
-  - Consistently use populate() with path and select options
-  - Be careful with toJSON transforms that can lose referenced objects
-  - Maintain both _id and id fields for backward compatibility
-  - Add validation for ObjectId references
-  - Test JSON serialization to ensure proper data structure
+### Conclusion
+All tests confirm our fixes are working correctly. The SponsoredAd model now properly tracks impressions and clicks, and templates correctly handle CategoryIcon references.

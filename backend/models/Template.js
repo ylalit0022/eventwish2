@@ -68,6 +68,33 @@ const templateSchema = new mongoose.Schema({
             delete ret.__v;
             return ret;
         }
+    },
+    toObject: {
+        virtuals: true,
+        transform: function(doc, ret) {
+            // Ensure the populated categoryIcon is preserved in the object output
+            if (ret.categoryIcon) {
+                if (typeof ret.categoryIcon === 'object' && ret.categoryIcon._id) {
+                    // If categoryIcon is a populated object, ensure it has both _id and id fields
+                    if (!ret.categoryIcon.id && ret.categoryIcon._id) {
+                        ret.categoryIcon.id = ret.categoryIcon._id.toString();
+                    }
+                } else if (typeof ret.categoryIcon === 'string') {
+                    // If it's just a string ID but not populated, leave as is
+                    // This would be an ObjectId string
+                } else if (ret.categoryIcon instanceof mongoose.Types.ObjectId) {
+                    // Handle ObjectId type (not as common)
+                    ret.categoryIcon = ret.categoryIcon.toString();
+                }
+            }
+            
+            // Ensure id is always a string - this is critical for Android navigation
+            ret.id = ret._id ? ret._id.toString() : '';
+            
+            // We keep _id in toObject output for Mongoose operations
+            delete ret.__v;
+            return ret;
+        }
     }
 });
 
