@@ -313,7 +313,7 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 
 # Scratchpad
 
-## Current Task: Fix Template ID Handling for Android Navigation
+## Current Task: Fix Template ID Handling for Android Navigation [COMPLETE]
 
 ### Problem Analysis
 
@@ -325,41 +325,48 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 
 ### Solution Approach
 
-1. **Update Template.js Model**
-   - [X] Improve toJSON and toObject transform functions to ensure string IDs
-   - [X] Add virtual 'id' property for direct string access
-   - [X] Add pre-save hook to ensure 'id' field is set
-   - [X] Add consistent string ID conversion throughout
+1. **Update CategoryIcon.js Model**
+   - [X] Fix toJSON transform to properly remove the _id field after setting id
+   - [X] Update toObject transform to keep _id for Mongoose but ensure id is set
+   - [X] Keep the pre-save hook to ensure 'id' field is set from _id
 
 2. **Update templateController.js**
-   - [X] Use toJSON() to ensure string IDs in responses
-   - [X] Add explicit defensive ID conversions
-   - [X] Improve error handling for invalid IDs
-   - [X] Convert ID fields in all controller methods
+   - [X] Added explicit code to ensure categoryIcon._id field is removed in responses
+   - [X] Added checks to ensure categoryIcon.id is always a string
+   - [X] Added defensive handling for both direct and array template responses
+   - [X] Applied consistent ID handling in all three endpoint handlers
 
-3. **Update templates.js Routes**
-   - [X] Add middleware to validate ObjectIDs
-   - [X] Add proper logging for API requests
-   - [X] Ensure consistent error responses
-   - [X] Handle recommendations route ID conversion
+3. **Testing**
+   - [X] Created testIdTransformations.js to verify local model fixes
+   - [X] Created verifyTemplateController.js to test controller fixes
+   - [X] Verified all IDs are properly handled as strings
+   - [X] Confirmed _id fields are removed in API responses
+   - [X] Tested JSON serialization to simulate Android handling
 
-4. **Testing**
-   - [X] Created testTemplateIdHandling.js script
-   - [X] Verified string conversion in all ID scenarios
-   - [X] Added comprehensive ID validation
-   - [X] Confirmed proper handling of virtual 'id' property
+### Root Cause
+The issue was that the categoryIcon model's toJSON transform was not properly removing the _id field after setting the id field. This caused both _id and id to be present in the categoryIcon object in API responses. Android's Navigation component expects arguments to be of specific types, and the presence of both fields was causing type conflicts.
 
-### Implementation Results
-- Successfully fixed the template ID handling issue by ensuring all MongoDB ObjectIDs are converted to strings before being sent to the Android client
-- Added comprehensive validation and error handling for ID parameters
-- Improved logging for better troubleshooting
-- Added automated tests to verify ID handling
-- All tests passed, confirming proper string conversion of template IDs
+### Solution Applied
+1. Fixed the CategoryIcon model's toJSON transform to explicitly delete the _id field
+2. Added defensive code in templateController.js to ensure categoryIcon._id is always removed
+3. Added verification to ensure ID fields are always strings for Android compatibility
 
 ### Key Lessons
-- Android Navigation component requires string arguments for ID parameters
-- MongoDB ObjectIDs must be explicitly converted to strings with toString()
-- Consistent handling of IDs throughout the API is critical
-- Virtual properties in mongoose schemas can help ensure consistent ID access
-- Defensive ID handling with proper validation prevents runtime errors
-- Proper error logging is essential for debugging ID issues
+- MongoDB ObjectIDs must be explicitly converted to strings with toString() for safe client-side handling
+- When using toJSON transform methods, always ensure _id is removed after copying to id
+- For complex nested objects like populated references, extra defensive handling is needed
+- Android Navigation component is strict about argument types - strings must be strings
+- Always verify API responses with proper testing for client compatibility
+
+### Implementation Results
+- Successfully fixed the template ID handling issue by ensuring all MongoDB ObjectIDs and nested fields are properly converted to strings
+- Added comprehensive error handling and logging
+- Added defensive handling to ensure backward compatibility
+- Verified all changes with automated tests
+- All tests passed, confirming proper string conversion of template IDs and removal of MongoDB internal fields
+
+## Previous Tasks
+
+### Fix SponsoredAd tracking functionality [COMPLETE]
+
+// ... rest of existing content ...

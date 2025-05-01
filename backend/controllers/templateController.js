@@ -26,6 +26,15 @@ exports.getTemplates = async (req, res) => {
             const safeTemplate = template.toJSON();
             // Double ensure ID is a string
             safeTemplate.id = template._id.toString();
+            
+            // Fix categoryIcon _id field
+            if (safeTemplate.categoryIcon && safeTemplate.categoryIcon._id) {
+                if (!safeTemplate.categoryIcon.id) {
+                    safeTemplate.categoryIcon.id = safeTemplate.categoryIcon._id.toString();
+                }
+                delete safeTemplate.categoryIcon._id;
+            }
+            
             return safeTemplate;
         });
 
@@ -91,6 +100,15 @@ exports.getTemplatesByCategory = async (req, res) => {
             const safeTemplate = template.toJSON();
             // Double ensure ID is a string
             safeTemplate.id = template._id.toString();
+            
+            // Fix categoryIcon _id field
+            if (safeTemplate.categoryIcon && safeTemplate.categoryIcon._id) {
+                if (!safeTemplate.categoryIcon.id) {
+                    safeTemplate.categoryIcon.id = safeTemplate.categoryIcon._id.toString();
+                }
+                delete safeTemplate.categoryIcon._id;
+            }
+            
             return safeTemplate;
         });
 
@@ -151,6 +169,14 @@ exports.getTemplateById = async (req, res) => {
         const safeTemplate = template.toJSON();
         // Double ensure ID is a string
         safeTemplate.id = template._id.toString();
+        
+        // Fix categoryIcon _id field (critical for Android navigation)
+        if (safeTemplate.categoryIcon && safeTemplate.categoryIcon._id) {
+            if (!safeTemplate.categoryIcon.id) {
+                safeTemplate.categoryIcon.id = safeTemplate.categoryIcon._id.toString();
+            }
+            delete safeTemplate.categoryIcon._id;
+        }
         
         logger.debug(`Found template: ${template._id} with categoryIcon: ${template.categoryIcon ? template.categoryIcon._id : 'none'}`);
         

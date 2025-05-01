@@ -40,11 +40,8 @@ const categoryIconSchema = new mongoose.Schema({
             // Ensure id is always present (critical fix)
             ret.id = ret._id.toString();
             
-            // Ensure _id is also string for consistency
-            if (ret._id && typeof ret._id !== 'string') {
-                ret._id = ret._id.toString();
-            }
-            
+            // Remove _id field for client compatibility
+            delete ret._id;
             delete ret.__v;
             return ret;
         }
@@ -55,10 +52,7 @@ const categoryIconSchema = new mongoose.Schema({
             // Also ensure id is set in toObject
             ret.id = ret._id.toString();
             
-            if (ret._id && typeof ret._id !== 'string') {
-                ret._id = ret._id.toString();
-            }
-            
+            // Keep _id in toObject output for Mongoose operations
             delete ret.__v;
             return ret;
         }
