@@ -291,10 +291,39 @@ public class AdMobRepository {
 
                 @Override
                 public void onFailure(Call<JsonObject> call, Throwable t) {
-                    String error = String.format("Network error: %s", t.getMessage());
+                    logDebug("=================== NETWORK ERROR ===================");
+                    logDebug("Request URL: " + call.request().url());
+                    logDebug("Request Method: " + call.request().method());
+                    logDebug("Request Headers: " + call.request().headers());
+                    
+                    // Examine the exception type for more specific information
+                    String errorType = t.getClass().getSimpleName();
+                    logDebug("Error Type: " + errorType);
+                    logDebug("Error Message: " + t.getMessage());
+                    
+                    // Build detailed error message
+                    StringBuilder detailedError = new StringBuilder();
+                    detailedError.append("Network error [").append(errorType).append("]: ");
+                    detailedError.append(t.getMessage());
+                    
+                    // Add request details to error message
+                    detailedError.append(" | URL: ").append(call.request().url());
+                    
+                    // Log stack trace
+                    logDebug("Stack Trace:");
+                    for (StackTraceElement element : t.getStackTrace()) {
+                        logDebug("  " + element.toString());
+                        if (detailedError.length() < 1000) { // Limit size for callback
+                            detailedError.append(" | ").append(element.toString());
+                        }
+                    }
+                    
+                    logDebug("=====================================================");
+                    
+                    String error = detailedError.toString();
                     logError(error, t);
                     callback.onError(error);
-            }
+                }
         });
     }
     

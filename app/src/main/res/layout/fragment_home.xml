@@ -14,7 +14,7 @@
         android:background="@android:color/transparent"
         app:elevation="0dp">
 
-        <!-- Header section (stays visible) -->
+        <!-- First collapsible section (everything except categories) -->
         <com.google.android.material.appbar.CollapsingToolbarLayout
             android:id="@+id/collapsingToolbarLayout"
             android:layout_width="match_parent"
@@ -262,7 +262,7 @@
                     android:layout_margin="5dp"
                     android:layout_below="@id/timeFilterScrollView">
 
-                    <TextView
+                    <!-- <TextView
                         android:layout_width="100dp"
                         android:layout_height="wrap_content"
                         android:background="@drawable/icon_category_bg_platinum_grey"
@@ -271,62 +271,73 @@
                         android:padding="5dp"
                         android:layout_margin="5dp"
                         android:textColor="@color/purple_700"
-                        android:textStyle="bold"/>
+                        android:textStyle="bold"/> -->
 
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:background="@drawable/icon_circle" />
 
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/categoriesRecyclerView"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:clipToPadding="false"
-                        android:paddingStart="2dp"
-                        android:paddingEnd="2dp"
-                        android:paddingTop="8dp"
-                        android:paddingBottom="8dp" />
-
                     <!-- Sponsored Ad View right after categories -->
                     <com.ds.eventwish.ui.ads.SponsoredAdView
                         android:id="@+id/sponsoredAdView"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
-                        android:layout_marginBottom="16dp"
-                        android:layout_marginStart="8dp"
-                        android:layout_marginEnd="8dp" 
+                        android:layout_marginTop="2dp"
+                        android:layout_marginBottom="2dp"
+                        android:layout_marginStart="2dp"
+                        android:layout_marginEnd="2dp" 
                         android:background="#F6F6F6"
-                        android:elevation="4dp"
+                        android:elevation="2dp"
                         android:visibility="visible"
                         android:clickable="true"
                         android:focusable="true"/>
 
-                    <!-- Divider after sponsored ad -->
-                    <View
+                    <!-- Divider after sponsored ad - reduced height -->
+                    <!-- <View
                         android:layout_width="match_parent"
                         android:layout_height="2dp"
                         android:background="@color/purple_500"
-                        android:layout_marginTop="4dp"
-                        android:layout_marginBottom="8dp"
-                        android:layout_marginStart="4dp"
-                        android:layout_marginEnd="4dp"/>
+                        android:layout_marginTop="3dp"
+                        android:layout_marginBottom="2dp"
+                        android:layout_marginStart="3dp"
+                        android:layout_marginEnd="2dp"/> -->
 
                 </LinearLayout>
             </RelativeLayout>
             
-            <!-- This is the toolbar that will stay visible when collapsed -->
+            <!-- Empty toolbar that will be invisible -->
             <androidx.appcompat.widget.Toolbar
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
-                android:layout_height="?attr/actionBarSize"
+                android:layout_height="0dp"
                 android:background="@color/white"
                 app:layout_collapseMode="pin"
                 android:visibility="invisible"/>
                 
         </com.google.android.material.appbar.CollapsingToolbarLayout>
+        
+        <!-- Pinned categories section (stays visible during collapse) -->
+        <HorizontalScrollView
+            android:id="@+id/categoriesScrollView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/white"
+            android:scrollbars="none"
+            android:elevation="4dp"
+            app:layout_scrollFlags="noScroll">
+            
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/categoriesRecyclerView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp" />
+                
+        </HorizontalScrollView>
     </com.google.android.material.appbar.AppBarLayout>
 
     <!-- Floating Exit Fullscreen Button -->
@@ -439,9 +450,9 @@
                 <!-- Divider -->
                 <View
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
+                    android:layout_height="2dp"
                     android:layout_marginTop="8dp"
-                    android:background="@android:color/darker_gray" />
+                    android:background="@color/purple_500"/>
             </LinearLayout>
 
             <androidx.recyclerview.widget.RecyclerView

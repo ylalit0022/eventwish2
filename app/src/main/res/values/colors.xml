@@ -125,4 +125,8 @@
     <!-- Add these colors for shimmer effect -->
     <color name="shimmer_background">#EEEEEE</color>
 
+    <!-- Share button colors -->
+    <color name="share_button_enabled">#2196F3</color>
+    <color name="share_button_disabled">#757575</color>
+
 </resources>

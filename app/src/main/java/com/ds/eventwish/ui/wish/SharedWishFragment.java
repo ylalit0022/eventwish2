@@ -63,6 +63,9 @@ import com.google.android.gms.ads.OnUserEarnedRewardListener;
 import android.os.CountDownTimer;
 import com.google.android.material.snackbar.Snackbar;
 
+import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
+
 public class SharedWishFragment extends Fragment {
     private SharedPrefsManager prefsManager;
     private FragmentSharedWishBinding binding;
@@ -99,11 +102,18 @@ public class SharedWishFragment extends Fragment {
     // Base URL for the backend server
     private static final String SERVER_BASE_URL = "https://eventwish2.onrender.com";
 
+    private static final int MAX_AD_FAILURE_COUNT = 3; // After 3 failures, enable sharing without ads
+    private int adFailureCount = 0;
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefsManager = new SharedPrefsManager(requireContext());
         viewModel = new ViewModelProvider(this).get(SharedWishViewModel.class);
+
+        // Reset the rewarded ad watched flag when fragment is created
+        rewardedAdWatched = false;
+        Log.d(TAG, "📱🚨 onCreate: Reset rewardedAdWatched flag to false");
 
         // Initialize rewarded ad manager
         rewardedAdManager = new RewardedAdManager(requireContext());
@@ -149,13 +159,43 @@ public class SharedWishFragment extends Fragment {
         // Set up observers
         setupObservers();
         
-        // Preload rewarded ad
-        loadRewardedAd();
-        
-        // Show the watch ad button
-        if (binding != null && binding.watchAdButton != null) {
-            binding.watchAdButton.setVisibility(View.VISIBLE);
+        // Restore rewarded ad state if app was closed and reopened
+        if (rewardedAdManager != null && !rewardedAdWatched) {
+            // Make sure watch ad button is visible
+            if (binding != null && binding.watchAdButton != null) {
+                binding.watchAdButton.setVisibility(View.VISIBLE);
+                Log.d(TAG, "📱🔄 Ensuring watch ad button is visible on resume");
+            }
+            
+            // Check if ad is loaded
+            if (rewardedAdManager.isAdLoaded()) {
+                Log.d(TAG, "📱✅ Ad already loaded on view created, updating button state");
+                updateRewardedAdButtonState();
+            } else {
+                // Try to load ad
+                Log.d(TAG, "📱🔄 No ad loaded on view created, attempting to load");
+                loadRewardedAd();
+            }
         }
+        
+        // UNCOMMENT THE AD CODE - Important for fixing visibility issues
+        
+        // Check if we should skip ads - can be controlled by server config
+        checkShouldSkipAds();
+        
+        // Preload rewarded ad if we're not skipping ads
+        if (!rewardedAdWatched) {
+            loadRewardedAd();
+        }
+        
+        // Show the watch ad button if needed - FORCE THIS
+        if (binding != null && binding.watchAdButton != null && !rewardedAdWatched) {
+            binding.watchAdButton.setVisibility(View.VISIBLE);
+            Log.d(TAG, "📱🚨 FORCING watch ad button visibility to VISIBLE");
+        }
+        
+        // Skip ads completely for now - COMMENT THIS OUT to enable ads
+        // enableShareWithoutAd();
 
         // Load the wish
         if (shortCode != null && !shortCode.isEmpty()) {
@@ -163,6 +203,22 @@ public class SharedWishFragment extends Fragment {
         } else {
             showError("No short code provided");
         }
+        
+        // Run a delayed check to verify button visibility after layout
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            if (binding != null && binding.watchAdButton != null && !rewardedAdWatched) {
+                int visibility = binding.watchAdButton.getVisibility();
+                Log.d(TAG, "📱🚨 DELAYED CHECK: Watch ad button visibility = " + 
+                    (visibility == View.VISIBLE ? "VISIBLE" : 
+                    (visibility == View.GONE ? "GONE" : "INVISIBLE")));
+                
+                // Force visibility again if not visible
+                if (visibility != View.VISIBLE) {
+                    binding.watchAdButton.setVisibility(View.VISIBLE);
+                    Log.d(TAG, "📱🚨 DELAYED VISIBILITY FORCE: Setting to VISIBLE");
+                }
+            }
+        }, 500); // Check after 500ms
     }
 
     private void setupWebView() {
@@ -306,20 +362,39 @@ public class SharedWishFragment extends Fragment {
     private void setupClickListeners() {
         // Configure share button to be initially disabled
         binding.shareButton.setEnabled(false);
-        binding.shareButton.setAlpha(0.5f);
+        // Set initial gray background color to indicate disabled state
+        binding.shareButton.setBackgroundTintList(
+            ColorStateList.valueOf(getResources().getColor(R.color.share_button_disabled)));
         binding.shareLockIcon.setVisibility(View.VISIBLE);
+        Log.d(TAG, "📱 Initial setup: Share button disabled and locked with custom color");
+        
+        // Ensure watch ad button is visible initially if not watched yet
+        if (!rewardedAdWatched && binding.watchAdButton != null) {
+            binding.watchAdButton.setVisibility(View.VISIBLE);
+            Log.d(TAG, "📱 Initial setup: Watch ad button made visible");
+        }
         
         // Set up click listeners
         binding.shareButton.setOnClickListener(v -> shareWish());
         
         // Add watch rewarded ad button click listener
-        binding.watchAdButton.setOnClickListener(v -> showRewardedAd());
+        binding.watchAdButton.setOnClickListener(v -> {
+            Log.d(TAG, "📱 Watch Ad button clicked");
+            showRewardedAd();
+        });
+        Log.d(TAG, "📱 Watch Ad button click listener set up");
 
         // Add analytics button click listener
         binding.analyticsButton.setOnClickListener(v -> showAnalyticsBottomSheet());
         
         // Add reuse template button click listener
         binding.reuseTemplateButton.setOnClickListener(v -> reuseTemplate());
+        
+        // Log initial state of buttons
+        Log.d(TAG, "📱 Initial button states - Share: disabled, Analytics: " + 
+            (binding.analyticsButton.getVisibility() == View.VISIBLE ? "visible" : "hidden") + 
+            ", Watch Ad: " + (binding.watchAdButton.isEnabled() ? "enabled" : "disabled") + 
+            ", Watch Ad visibility: " + (binding.watchAdButton.getVisibility() == View.VISIBLE ? "visible" : "hidden"));
     }
 
     private void loadWishContent(WishResponse wish) {
@@ -439,58 +514,80 @@ public class SharedWishFragment extends Fragment {
      */
     private void loadRewardedAd() {
         if (rewardedAdManager == null || isRewardedAdLoading) {
+            Log.e(TAG, "📱🔄 Cannot load rewarded ad: " + 
+                  (rewardedAdManager == null ? "manager is null" : "loading already in progress"));
             return;
         }
         
         isRewardedAdLoading = true;
-        Log.d(TAG, "Loading rewarded ad");
+        Log.d(TAG, "📱🔄 Started loading rewarded ad");
+        logAdSystemState();
+        
+        // Ensure the watch button is visible while loading
+        if (binding != null && binding.watchAdButton != null && !rewardedAdWatched) {
+            binding.watchAdButton.setVisibility(View.VISIBLE);
+            binding.watchAdButtonText.setText(R.string.loading_ad);
+            Log.d(TAG, "📱🔄 Setting watch ad button visible and showing loading text");
+        }
         
         rewardedAdManager.loadAd(new RewardedAdManager.RewardedAdCallback() {
             @Override
             public void onAdLoaded() {
                 isRewardedAdLoading = false;
-                Log.d(TAG, "Rewarded ad loaded successfully");
+                Log.d(TAG, "📱✅ Rewarded ad loaded successfully");
                 
                 // Enable watch ad button
                 if (binding != null && !rewardedAdWatched) {
+                    binding.watchAdButton.setVisibility(View.VISIBLE);
                     binding.watchAdButton.setEnabled(true);
                     binding.watchAdButtonText.setText(R.string.watch_ad_to_share);
+                    Log.d(TAG, "📱✅ Watch ad button enabled and made visible");
                 }
+                
+                logAdSystemState();
             }
 
             @Override
             public void onAdFailedToLoad(String error) {
                 isRewardedAdLoading = false;
-                Log.e(TAG, "Rewarded ad failed to load: " + error);
+                Log.e(TAG, "📱❌ Rewarded ad failed to load: " + error);
+                Log.e(TAG, "📱❌ DETAILED ERROR: " + error);
                 
-                // Disable watch ad button
-                if (binding != null) {
-                    binding.watchAdButton.setEnabled(false);
-                    binding.watchAdButtonText.setText(R.string.ad_not_available);
-                }
+                // Simply enable sharing without requiring ads
+                Log.d(TAG, "📱🔄 Ad failed to load during show attempt - enabling share button directly");
+                enableShareWithoutAd();
+                
+                logAdSystemState();
             }
 
             @Override
             public void onAdOpened() {
-                Log.d(TAG, "Rewarded ad opened");
+                Log.d(TAG, "📱👁️ Rewarded ad opened and visible to user");
+                logAdSystemState();
             }
 
             @Override
             public void onAdClosed() {
-                Log.d(TAG, "Rewarded ad closed");
+                Log.d(TAG, "📱🚪 Rewarded ad closed by user");
                 
                 // Preload next ad
+                Log.d(TAG, "📱🔄 Preloading next rewarded ad after closure");
                 loadRewardedAd();
                 
                 // Start cooldown timer if applicable
                 if (rewardedAdManager.isInCooldownPeriod() && binding != null) {
+                    long remainingMs = rewardedAdManager.getRemainingCooldownMs();
+                    Log.d(TAG, "📱⏲️ Starting cooldown timer: " + (remainingMs / 1000) + " seconds");
                     startCooldownTimer(rewardedAdManager.getRemainingCooldownMs());
                 }
+                
+                logAdSystemState();
             }
 
             @Override
             public void onUserEarnedReward(String type, int amount) {
-                Log.d(TAG, "User earned reward: " + amount + " " + type);
+                Log.d(TAG, "📱🎁 User earned reward: " + amount + " " + type);
+                Log.d(TAG, "📱🎁 User completed watching the full ad");
                 rewardedAdWatched = true;
                 
                 // Update UI to show share options
@@ -498,30 +595,39 @@ public class SharedWishFragment extends Fragment {
                     binding.watchAdButton.setEnabled(false);
                     binding.watchAdButtonText.setText(R.string.ad_watched);
                     
-                    // Unlock share button
+                    // Unlock share button (now a floating action button)
                     binding.shareButton.setEnabled(true);
-                    binding.shareButton.setAlpha(1.0f);
+                    // Change background color to primary color to indicate it's enabled
+                    binding.shareButton.setBackgroundTintList(
+                        ColorStateList.valueOf(getResources().getColor(R.color.share_button_enabled)));
                     binding.shareLockIcon.setVisibility(View.GONE);
+                    Log.d(TAG, "📱🎁 Share button unlocked after reward earned");
                 }
                 
                 // Show success message
                 Snackbar.make(binding.getRoot(), 
                     "Thanks for watching! You can now share.", 
                     Snackbar.LENGTH_SHORT).show();
+                
+                logAdSystemState();
             }
 
             @Override
             public void onAdShowFailed(String error) {
-                Log.e(TAG, "Rewarded ad failed to show: " + error);
+                Log.e(TAG, "📱❌ Rewarded ad failed to show: " + error);
+                Log.e(TAG, "📱❌ Show failure details: " + error);
                 
                 // Enable button for retry
                 if (binding != null) {
                     binding.watchAdButton.setEnabled(true);
                     binding.watchAdButtonText.setText(R.string.retry_watch_ad);
+                    Log.d(TAG, "📱❌ Watch ad button enabled for retry after show failure");
                 }
                 
                 // Show error message
                 Snackbar.make(binding.getRoot(), R.string.ad_failed_to_show, Snackbar.LENGTH_SHORT).show();
+                
+                logAdSystemState();
             }
         });
     }
@@ -535,16 +641,20 @@ public class SharedWishFragment extends Fragment {
             return;
         }
         
+        Log.d(TAG, "📱 User clicked Watch Ad button");
+        logAdSystemState();
+        
         // Check if in cooldown period
         if (rewardedAdManager.isInCooldownPeriod()) {
             long remainingMs = rewardedAdManager.getRemainingCooldownMs();
+            Log.d(TAG, "📱 Ad in cooldown period. Remaining time: " + (remainingMs / 1000) + " seconds");
             startCooldownTimer(remainingMs);
             return;
         }
         
         // Check if ad is loaded
         if (!rewardedAdManager.isAdLoaded()) {
-            Log.d(TAG, "Rewarded ad not loaded yet");
+            Log.d(TAG, "📱 Rewarded ad not loaded yet, attempting to load now");
             binding.watchAdButton.setEnabled(false);
             binding.watchAdButtonText.setText(R.string.loading_ad);
             
@@ -553,10 +663,13 @@ public class SharedWishFragment extends Fragment {
             return;
         }
         
+        Log.d(TAG, "📱 Ad is loaded and ready to show");
+        
         // Show the ad
         OnUserEarnedRewardListener rewardListener = reward -> {
             // Mark as watched and unlock sharing
-            Log.d(TAG, "User earned reward via listener: " + reward.getAmount() + " " + reward.getType());
+            Log.d(TAG, "📱 User earned reward via listener: " + reward.getAmount() + " " + reward.getType());
+            Log.d(TAG, "📱 Ad completed successfully, unlocking share button");
             rewardedAdWatched = true;
             
             // Update UI to unlock share button
@@ -574,34 +687,52 @@ public class SharedWishFragment extends Fragment {
                     "Thanks for watching! You can now share.", 
                     Snackbar.LENGTH_SHORT).show();
             }
+            
+            // Log updated state
+            logAdSystemState();
         };
         
         // Disable button temporarily
         binding.watchAdButton.setEnabled(false);
+        Log.d(TAG, "📱 Disabling Watch Ad button while showing ad");
         
         boolean adShown = rewardedAdManager.showAd(requireActivity(), rewardListener, 
             new RewardedAdManager.RewardedAdCallback() {
                 @Override
-                public void onAdLoaded() {}
-
-                @Override
-                public void onAdFailedToLoad(String error) {
-                    binding.watchAdButton.setEnabled(true);
-                    binding.watchAdButtonText.setText(R.string.retry_watch_ad);
+                public void onAdLoaded() {
+                    Log.d(TAG, "📱 Ad loaded callback triggered");
+                    logAdSystemState();
                 }
 
                 @Override
-                public void onAdOpened() {}
+                public void onAdFailedToLoad(String error) {
+                    Log.e(TAG, "📱 Ad failed to load in callback: " + error);
+                    Log.e(TAG, "📱 DETAILED ERROR: " + error);
+                    
+                    // Simply enable sharing without requiring ads
+                    Log.d(TAG, "📱🔄 Ad failed to load during show attempt - enabling share button directly");
+                    enableShareWithoutAd();
+                    
+                    logAdSystemState();
+                }
+
+                @Override
+                public void onAdOpened() {
+                    Log.d(TAG, "📱 Ad opened callback triggered - ad is now visible to user");
+                }
 
                 @Override
                 public void onAdClosed() {
+                    Log.d(TAG, "📱 Ad closed callback triggered - user closed the ad");
                     // Will be handled in main callback
+                    logAdSystemState();
                 }
 
                 @Override
                 public void onUserEarnedReward(String type, int amount) {
                     // Also handle reward here as a backup
-                    Log.d(TAG, "User earned reward via callback: " + amount + " " + type);
+                    Log.d(TAG, "📱 User earned reward via callback: " + amount + " " + type);
+                    Log.d(TAG, "📱 Reward details - Type: " + type + ", Amount: " + amount);
                     rewardedAdWatched = true;
                     
                     // Update UI to unlock share button
@@ -609,27 +740,39 @@ public class SharedWishFragment extends Fragment {
                         binding.watchAdButton.setEnabled(false);
                         binding.watchAdButtonText.setText(R.string.ad_watched);
                         
-                        // Unlock share button
+                        // Unlock share button (now a floating action button)
                         binding.shareButton.setEnabled(true);
-                        binding.shareButton.setAlpha(1.0f);
+                        // Change background color to primary color to indicate it's enabled
+                        binding.shareButton.setBackgroundTintList(
+                            ColorStateList.valueOf(getResources().getColor(R.color.share_button_enabled)));
                         binding.shareLockIcon.setVisibility(View.GONE);
                     }
+                    
+                    logAdSystemState();
                 }
 
                 @Override
                 public void onAdShowFailed(String error) {
+                    Log.e(TAG, "📱 Ad failed to show: " + error);
+                    Log.e(TAG, "📱 Error details: " + error);
                     binding.watchAdButton.setEnabled(true);
                     binding.watchAdButtonText.setText(R.string.retry_watch_ad);
                     
                     Snackbar.make(binding.getRoot(), 
                         getString(R.string.ad_failed_to_show_with_reason, error), 
                         Snackbar.LENGTH_SHORT).show();
+                    
+                    logAdSystemState();
                 }
             });
         
         if (!adShown) {
+            Log.e(TAG, "📱 Ad failed to show immediately - possibly not loaded or other error");
             binding.watchAdButton.setEnabled(true);
             binding.watchAdButtonText.setText(R.string.retry_watch_ad);
+            logAdSystemState();
+        } else {
+            Log.d(TAG, "📱 Ad show request successful");
         }
     }
     
@@ -641,7 +784,10 @@ public class SharedWishFragment extends Fragment {
         // Cancel any existing timer
         if (cooldownTimer != null) {
             cooldownTimer.cancel();
+            Log.d(TAG, "📱⏲️ Cancelled existing cooldown timer");
         }
+        
+        Log.d(TAG, "📱⏲️ Starting cooldown timer for " + (remainingMs / 1000) + " seconds");
         
         // Create new timer
         cooldownTimer = new CountDownTimer(remainingMs, 1000) {
@@ -651,6 +797,11 @@ public class SharedWishFragment extends Fragment {
                     int secondsRemaining = (int) (millisUntilFinished / 1000);
                     binding.watchAdButton.setEnabled(false);
                     binding.watchAdButtonText.setText(getString(R.string.ad_cooldown_remaining, secondsRemaining));
+                    
+                    // Log every 5 seconds to avoid log spam
+                    if (secondsRemaining % 5 == 0 || secondsRemaining <= 3) {
+                        Log.d(TAG, "📱⏲️ Cooldown timer: " + secondsRemaining + " seconds remaining");
+                    }
                 }
             }
 
@@ -659,18 +810,27 @@ public class SharedWishFragment extends Fragment {
                 if (binding != null) {
                     binding.watchAdButton.setEnabled(true);
                     binding.watchAdButtonText.setText(R.string.watch_ad_to_share);
+                    Log.d(TAG, "📱⏲️ Cooldown timer finished, watch ad button re-enabled");
+                    
+                    // Log state after cooldown finishes
+                    logAdSystemState();
                 }
             }
         };
         
         // Start the timer
         cooldownTimer.start();
+        Log.d(TAG, "📱⏲️ Cooldown timer started");
         
         // Show cooldown message
         int secondsRemaining = (int) (remainingMs / 1000);
         Snackbar.make(binding.getRoot(), 
             getString(R.string.ad_in_cooldown, secondsRemaining), 
             Snackbar.LENGTH_SHORT).show();
+        Log.d(TAG, "📱⏲️ Displayed cooldown message to user: " + secondsRemaining + " seconds");
+        
+        // Log system state after starting cooldown
+        logAdSystemState();
     }
 
     /**
@@ -1096,39 +1256,167 @@ public class SharedWishFragment extends Fragment {
             startAnalyticsTracking();
         }
         
+        // Check and fix flag consistency issues
+        checkAndFixFlagConsistency();
+        
+        // FORCE the watch ad button to be visible on resume
+        if (!rewardedAdWatched && binding != null && binding.watchAdButton != null) {
+            binding.watchAdButton.setVisibility(View.VISIBLE);
+            Log.d(TAG, "📱🚨 onResume - FORCE: Setting watch ad button visibility to VISIBLE");
+        }
+        
+        // Check if ad is loaded, if not, try to load one
+        if (!rewardedAdWatched && rewardedAdManager != null && !rewardedAdManager.isAdLoaded() && !isRewardedAdLoading) {
+            Log.d(TAG, "📱🔄 No ad loaded on resume, attempting to load");
+            loadRewardedAd();
+        }
+        
         // Check rewarded ad status and update UI accordingly
         updateRewardedAdButtonState();
         
         // Force dispatch analytics events to ensure they're sent to Firebase
         AnalyticsUtils.forceDispatchEvents();
+        
+        // Log ad system state
+        logAdSystemState();
+        
+        // Run a delayed check to verify button visibility after layout
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            if (binding != null && binding.watchAdButton != null && !rewardedAdWatched) {
+                int visibility = binding.watchAdButton.getVisibility();
+                Log.d(TAG, "📱🚨 RESUME DELAYED CHECK: Watch ad button visibility = " + 
+                    (visibility == View.VISIBLE ? "VISIBLE" : 
+                    (visibility == View.GONE ? "GONE" : "INVISIBLE")));
+                
+                // Force visibility again if not visible
+                if (visibility != View.VISIBLE) {
+                    binding.watchAdButton.setVisibility(View.VISIBLE);
+                    Log.d(TAG, "📱🚨 RESUME DELAYED FORCE: Setting to VISIBLE");
+                }
+            }
+        }, 500); // Check after 500ms
     }
     
+    /**
+     * Check for inconsistencies between flags and fix them
+     */
+    private void checkAndFixFlagConsistency() {
+        if (rewardedAdManager == null) return;
+        
+        Log.d(TAG, "📱🚨 Checking flag consistency");
+        
+        // If rewardedAdWatched is true but an ad is loaded, fix the inconsistency
+        if (rewardedAdWatched && rewardedAdManager.isAdLoaded()) {
+            Log.d(TAG, "📱🚨 INCONSISTENCY DETECTED: Ad watched flag is true but ad is loaded");
+            rewardedAdWatched = false;
+            Log.d(TAG, "📱🚨 FIXED: Reset rewardedAdWatched flag to false");
+        }
+        
+        // If button is hidden but ads are available, fix visibility
+        if (binding != null && binding.watchAdButton != null) {
+            boolean shouldBeVisible = !rewardedAdWatched && 
+                (rewardedAdManager.isAdLoaded() || isRewardedAdLoading);
+                
+            if (shouldBeVisible && binding.watchAdButton.getVisibility() != View.VISIBLE) {
+                Log.d(TAG, "📱🚨 INCONSISTENCY DETECTED: Button should be visible but isn't");
+                binding.watchAdButton.setVisibility(View.VISIBLE);
+                Log.d(TAG, "📱🚨 FIXED: Set button visibility to VISIBLE");
+            }
+        }
+        
+        // If we have invalid state, reset to default
+        if (rewardedAdWatched && !binding.shareButton.isEnabled()) {
+            Log.d(TAG, "📱🚨 INCONSISTENCY DETECTED: Ad watched but share not enabled");
+            rewardedAdWatched = false;
+            binding.shareButton.setEnabled(true);
+            // Change background color to primary color to indicate it's enabled
+            binding.shareButton.setBackgroundTintList(
+                ColorStateList.valueOf(getResources().getColor(R.color.share_button_enabled)));
+            binding.shareLockIcon.setVisibility(View.GONE);
+            Log.d(TAG, "📱🚨 FIXED: Enabled share button directly and changed color");
+        }
+        
+        // If we're in a bad state overall, just enable sharing
+        if (adFailureCount >= MAX_AD_FAILURE_COUNT/2 && !binding.shareButton.isEnabled()) {
+            Log.d(TAG, "📱🚨 CRITICAL: Multiple failures detected, enabling share");
+            enableShareWithoutAd();
+        }
+    }
+
     /**
      * Update the rewarded ad button state based on current conditions
      */
     private void updateRewardedAdButtonState() {
         if (binding == null || rewardedAdManager == null) {
+            Log.d(TAG, "📱🔄 Cannot update ad button state: " + 
+                (binding == null ? "binding is null" : "ad manager is null"));
+            return;
+        }
+        
+        Log.d(TAG, "📱🔄 Updating rewarded ad button state");
+        
+        // First ensure the button is visible if not watched yet
+        if (!rewardedAdWatched && binding.watchAdButton != null) {
+            binding.watchAdButton.setVisibility(View.VISIBLE);
+            Log.d(TAG, "📱🔄 Ensuring watch ad button is visible during state update");
+        }
+        
+        // IMPORTANT: If the ad is loaded, always show the button, even if rewardedAdWatched is true
+        // This fixes issues where the flag gets incorrectly set
+        if (rewardedAdManager.isAdLoaded() && binding.watchAdButton != null) {
+            binding.watchAdButton.setVisibility(View.VISIBLE);
+            binding.watchAdButton.setEnabled(true);
+            binding.watchAdButtonText.setText(R.string.watch_ad_to_share);
+            Log.d(TAG, "📱🚨 Ad is loaded - FORCING button visible regardless of watched state");
+            // Reset the watched flag since we have a loaded ad
+            rewardedAdWatched = false;
+            return;
+        }
+        
+        // If we've already watched the ad or ad is disabled globally, no need to update
+        if (rewardedAdWatched) {
+            Log.d(TAG, "📱🔄 Ad already watched, leaving button disabled");
+            binding.watchAdButton.setVisibility(View.GONE);
+            return;
+        }
+        
+        // Check if we've reached maximum failure count
+        if (adFailureCount >= MAX_AD_FAILURE_COUNT) {
+            Log.d(TAG, "📱🔄 Maximum ad failure count reached in state update");
+            enableShareWithoutAd();
             return;
         }
         
         // Check if ad is loaded
         if (rewardedAdManager.isAdLoaded()) {
+            Log.d(TAG, "📱🔄 Ad is loaded, adjusting button state");
+            
             if (!rewardedAdWatched && !rewardedAdManager.isInCooldownPeriod()) {
                 binding.watchAdButton.setEnabled(true);
                 binding.watchAdButtonText.setText(R.string.watch_ad_to_share);
+                Log.d(TAG, "📱🔄 Button enabled: Ad loaded, not watched, no cooldown");
             } else if (rewardedAdWatched) {
                 binding.watchAdButton.setEnabled(false);
                 binding.watchAdButtonText.setText(R.string.ad_watched);
+                Log.d(TAG, "📱🔄 Button disabled: Ad already watched");
             }
         } else {
+            Log.d(TAG, "📱🔄 Ad is not loaded, checking conditions");
+            
             // Check if in cooldown period
             if (rewardedAdManager.isInCooldownPeriod()) {
                 long remainingMs = rewardedAdManager.getRemainingCooldownMs();
+                Log.d(TAG, "📱🔄 In cooldown period, starting timer with " + (remainingMs / 1000) + " seconds");
                 startCooldownTimer(remainingMs);
             } else if (!isRewardedAdLoading && !rewardedAdWatched) {
                 binding.watchAdButton.setEnabled(false);
                 binding.watchAdButtonText.setText(R.string.loading_ad);
+                Log.d(TAG, "📱🔄 Button disabled, starting ad load");
                 loadRewardedAd();
+            } else if (isRewardedAdLoading) {
+                Log.d(TAG, "📱🔄 Ad is currently loading, waiting for callback");
+            } else if (rewardedAdWatched) {
+                Log.d(TAG, "📱🔄 Ad already watched, button remains disabled");
             }
         }
     }
@@ -1296,6 +1584,156 @@ public class SharedWishFragment extends Fragment {
         } catch (Exception e) {
             Log.e(TAG, "Error navigating to template detail: " + e.getMessage(), e);
             Toast.makeText(requireContext(), getString(R.string.error_opening_template, e.getMessage()), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * Dump the current state of the ad system to logs for debugging
+     */
+    private void logAdSystemState() {
+        StringBuilder state = new StringBuilder();
+        state.append("\n📱📊 AD SYSTEM STATE DUMP:");
+        state.append("\n----------------------------------------");
+        
+        if (rewardedAdManager == null) {
+            state.append("\n▶️ RewardedAdManager: null");
+            state.append("\n▶️ Ad Watched: ").append(rewardedAdWatched);
+            state.append("\n▶️ Loading in Progress: ").append(isRewardedAdLoading);
+        } else {
+            state.append("\n▶️ Ad Loaded: ").append(rewardedAdManager.isAdLoaded());
+            state.append("\n▶️ Ad Watched: ").append(rewardedAdWatched);
+            state.append("\n▶️ Loading in Progress: ").append(isRewardedAdLoading);
+            state.append("\n▶️ In Cooldown: ").append(rewardedAdManager.isInCooldownPeriod());
+            
+            if (rewardedAdManager.isInCooldownPeriod()) {
+                state.append("\n▶️ Cooldown Remaining: ").append(rewardedAdManager.getRemainingCooldownMs() / 1000).append(" seconds");
+            }
+        }
+        
+        if (binding != null) {
+            state.append("\n▶️ Button Enabled: ").append(binding.watchAdButton != null && binding.watchAdButton.isEnabled());
+            state.append("\n▶️ Button Text: ").append(binding.watchAdButtonText != null ? binding.watchAdButtonText.getText() : "null");
+            state.append("\n▶️ Share Button Enabled: ").append(binding.shareButton != null && binding.shareButton.isEnabled());
+            state.append("\n▶️ Ad Button Visibility: ").append(binding.watchAdButton != null ? 
+                (binding.watchAdButton.getVisibility() == View.VISIBLE ? "VISIBLE" : 
+                (binding.watchAdButton.getVisibility() == View.GONE ? "GONE" : "INVISIBLE")) : "null");
+        } else {
+            state.append("\n▶️ Binding: null");
+        }
+        
+        state.append("\n----------------------------------------");
+        
+        Log.d(TAG, state.toString());
+    }
+
+    /**
+     * Helper method to enable sharing without ad requirement
+     */
+    private void enableShareWithoutAd() {
+        if (binding == null) {
+            Log.e(TAG, "📱❌ Cannot enable sharing - binding is null");
+            return;
+        }
+        
+        Log.d(TAG, "📱✅ Enabling sharing without ad requirement");
+        
+        try {
+            // Hide ad button completely
+            if (binding.watchAdButton != null) {
+                binding.watchAdButton.setVisibility(View.GONE);
+                Log.d(TAG, "📱✅ Ad button hidden");
+            }
+            
+            // Unlock share button (now a floating action button)
+            if (binding.shareButton != null) {
+                binding.shareButton.setEnabled(true);
+                // Change background color to primary color to indicate it's enabled
+                binding.shareButton.setBackgroundTintList(
+                    ColorStateList.valueOf(getResources().getColor(R.color.share_button_enabled)));
+                Log.d(TAG, "📱✅ Share button enabled and color changed to primary");
+            }
+            
+            // Hide lock icon
+            if (binding.shareLockIcon != null) {
+                binding.shareLockIcon.setVisibility(View.GONE);
+                Log.d(TAG, "📱✅ Share lock icon hidden");
+            }
+            
+            // Mark as watched to prevent other logic from trying to show ads
+            rewardedAdWatched = true;
+            
+            // Show info message to user
+            if (getContext() != null) {
+                Toast.makeText(getContext(), 
+                    "Share enabled! No ads required.", 
+                    Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "📱❌ Error enabling share: " + e.getMessage(), e);
+        }
+        
+        // Log state change
+        logAdSystemState();
+    }
+
+    /**
+     * Check if we should skip ads completely based on server configuration or other factors
+     */
+    private void checkShouldSkipAds() {
+        // Check if ads are disabled globally - could be fetched from server or preferences
+        boolean areAdsDisabled = false;
+        
+        try {
+            // Check for a system property that might disable ads
+            Context context = getContext();
+            if (context != null) {
+                // Use standard SharedPreferences instead of the custom SharedPrefsManager
+                // since the latter doesn't have the getBoolean method with default value
+                SharedPreferences prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE);
+                areAdsDisabled = prefs.getBoolean("disable_rewarded_ads", false);
+                
+                // Check if analytics consent was denied (which could also imply no ads)
+                if (!areAdsDisabled && prefsManager != null) {
+                    areAdsDisabled = !prefsManager.hasAnalyticsConsent();
+                }
+            }
+            
+            Log.d(TAG, "📱 Checking if rewarded ads are disabled: " + areAdsDisabled);
+            
+            // For testing, you can uncomment this line
+            // areAdsDisabled = true;
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking ad disable status", e);
+        }
+        
+        // If ads are disabled, enable sharing without requiring ad viewing
+        if (areAdsDisabled) {
+            Log.d(TAG, "📱 Rewarded ads are disabled globally - enabling direct sharing");
+            enableShareWithoutAd();
+        }
+    }
+
+    /**
+     * Handle case when ads are confirmed unavailable
+     */
+    private void handleAdsUnavailable(String reason) {
+        Log.d(TAG, "📱 Ads confirmed unavailable: " + reason);
+        
+        // Increment failure counter
+        adFailureCount++;
+        
+        if (adFailureCount >= MAX_AD_FAILURE_COUNT) {
+            Log.d(TAG, "📱 Reached maximum ad failure count (" + MAX_AD_FAILURE_COUNT + 
+                ") - enabling sharing without ads");
+            enableShareWithoutAd();
+        } else {
+            Log.d(TAG, "📱 Ad failure count: " + adFailureCount + "/" + MAX_AD_FAILURE_COUNT);
+            
+            // For regular failures, just disable the button but don't remove it yet
+            if (binding != null) {
+                binding.watchAdButton.setEnabled(false);
+                binding.watchAdButtonText.setText(R.string.ad_not_available);
+            }
         }
     }
 }

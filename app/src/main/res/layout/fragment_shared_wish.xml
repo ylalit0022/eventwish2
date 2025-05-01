@@ -91,28 +91,31 @@
             android:layout_height="wrap_content"
             android:layout_margin="16dp"
             android:orientation="vertical"
+            android:gravity="center_horizontal"
             app:layout_constraintBottom_toBottomOf="parent">
 
             <!-- Rewarded Ad Button -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/watchAdButton"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
+                android:layout_marginBottom="16dp"
+                android:layout_gravity="center"
                 android:clickable="true"
                 android:focusable="true"
                 app:cardCornerRadius="8dp"
                 app:cardElevation="4dp"
-                app:strokeColor="@color/design_default_color_primary"
+                app:strokeColor="@color/share_button_enabled"
                 app:strokeWidth="1dp"
-                app:cardBackgroundColor="@color/design_default_color_primary_dark">
+                app:cardBackgroundColor="@color/colorPrimary">
 
                 <LinearLayout
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
-                    android:padding="12dp">
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="10dp">
 
                     <ImageView
                         android:layout_width="24dp"
@@ -129,7 +132,7 @@
                         android:text="@string/watch_ad_to_share"
                         android:textColor="@android:color/white"
                         android:textAppearance="?attr/textAppearanceButton"
-                        android:textSize="16sp"
+                        android:textSize="14sp"
                         android:textStyle="bold" />
 
                 </LinearLayout>
@@ -140,38 +143,15 @@
                 android:layout_height="wrap_content">
 
                 <!-- Lock icon overlay -->
-                <ImageView
-                    android:id="@+id/shareLockIcon"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:layout_gravity="center"
-                    android:contentDescription="Locked"
-                    android:elevation="8dp"
-                    android:src="@drawable/ic_lock"
-                    android:visibility="visible" />
-
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal">
 
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/shareButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginEnd="8dp"
-                        android:layout_weight="1"
-                        android:alpha="0.5"
-                        android:enabled="false"
-                        android:text="@string/share"
-                        app:icon="@drawable/ic_share" />
-
-                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/replyButton"
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:layout_weight="1"
                         android:visibility="gone"
                         android:text="@string/reply"
                         app:icon="@drawable/ic_reply" />
@@ -205,15 +185,46 @@
             android:indeterminateDrawable="@drawable/circular_progress_indicator"/>
     </FrameLayout>
 
+    <!-- New FloatingActionButton for share -->
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="24dp"
+        android:layout_marginBottom="24dp">
+        
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/shareButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/share"
+            android:enabled="false"
+            app:backgroundTint="@color/share_button_disabled"
+            app:tint="@android:color/white"
+            app:srcCompat="@drawable/ic_share" />
+            
+        <!-- Lock icon overlay positioned on top of the share FAB -->
+        <ImageView
+            android:id="@+id/shareLockIcon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="center"
+            android:contentDescription="Locked"
+            android:elevation="8dp"
+            android:src="@drawable/ic_lock"
+            android:visibility="visible" />
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
     <!-- Add FloatingActionButton for reusing the template -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/reuseTemplateButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="24dp"
         android:contentDescription="@string/reuse_template_description"
-        app:backgroundTint="@color/design_default_color_primary"
+        app:backgroundTint="@color/colorPrimary"
         app:tint="@android:color/white"
         app:srcCompat="@drawable/ic_refresh" />
 

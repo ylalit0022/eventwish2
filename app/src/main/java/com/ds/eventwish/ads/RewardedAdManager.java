@@ -109,8 +109,20 @@ public class RewardedAdManager {
                         
                         @Override
                         public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
-                            String errorMessage = context.getString(R.string.error_unknown);
-                            Log.e(TAG, "Rewarded ad failed to load: " + loadAdError.getMessage());
+                            // Log detailed error information
+                            Log.e(TAG, "=================== REWARDED AD LOAD ERROR ===================");
+                            Log.e(TAG, "Error Code: " + loadAdError.getCode());
+                            Log.e(TAG, "Error Domain: " + loadAdError.getDomain());
+                            Log.e(TAG, "Error Message: " + loadAdError.getMessage());
+                            Log.e(TAG, "Response Info: " + (loadAdError.getResponseInfo() != null ? loadAdError.getResponseInfo().toString() : "null"));
+                            Log.e(TAG, "Raw Response: " + loadAdError.toString());
+                            Log.e(TAG, "=============================================================");
+                            
+                            // Construct a detailed error message
+                            String errorMessage = "Error Code: " + loadAdError.getCode() +
+                                    ", Message: " + loadAdError.getMessage() +
+                                    ", Domain: " + loadAdError.getDomain();
+                            
                             rewardedAd = null;
                             isLoading = false;
                             
@@ -131,13 +143,28 @@ public class RewardedAdManager {
             
             @Override
             public void onError(String error) {
+                Log.e(TAG, "=================== AD UNIT FETCH ERROR ===================");
+                Log.e(TAG, "Raw Error: " + error);
+                // Try to identify specific error types for more helpful messages
                 String errorMessage;
                 if (error.contains("SSLHandshakeException")) {
-                    errorMessage = context.getString(R.string.error_ssl);
+                    errorMessage = "SSL Error: " + error;
+                    Log.e(TAG, "SSL Handshake Error: " + error);
+                } else if (error.contains("SocketTimeoutException")) {
+                    errorMessage = "Timeout Error: " + error;
+                    Log.e(TAG, "Socket Timeout Error: " + error);
+                } else if (error.contains("ConnectException")) {
+                    errorMessage = "Connection Error: " + error;
+                    Log.e(TAG, "Connection Error: " + error);
+                } else if (error.contains("UnknownHostException")) {
+                    errorMessage = "Unknown Host Error: " + error;
+                    Log.e(TAG, "Unknown Host Error: " + error);
                 } else {
-                    errorMessage = context.getString(R.string.error_unknown);
+                    errorMessage = "Server Error: " + error;
+                    Log.e(TAG, "Unknown Server Error: " + error);
                 }
-                Log.e(TAG, "Failed to fetch rewarded ad unit: " + errorMessage);
+                Log.e(TAG, "=========================================================");
+                
                 isLoading = false;
                 
                 // Retry logic for server errors
