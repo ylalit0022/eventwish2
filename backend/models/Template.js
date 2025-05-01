@@ -61,8 +61,13 @@ const templateSchema = new mongoose.Schema({
                 }
             }
             
-            // Ensure id is always a string - this is critical for Android navigation
-            ret.id = ret._id ? ret._id.toString() : '';
+            // Ensure id is ALWAYS a string - this is critical for Android navigation
+            // This is the important fix for the navigation issue
+            if (ret._id) {
+                ret.id = ret._id.toString();
+            } else {
+                ret.id = ''; // Fallback to empty string if no _id
+            }
             
             delete ret._id;
             delete ret.__v;
@@ -88,8 +93,13 @@ const templateSchema = new mongoose.Schema({
                 }
             }
             
-            // Ensure id is always a string - this is critical for Android navigation
-            ret.id = ret._id ? ret._id.toString() : '';
+            // Ensure id is ALWAYS a string - this is critical for Android navigation
+            // This is the important fix for the navigation issue
+            if (ret._id) {
+                ret.id = ret._id.toString();
+            } else {
+                ret.id = ''; // Fallback to empty string if no _id
+            }
             
             // We keep _id in toObject output for Mongoose operations
             delete ret.__v;

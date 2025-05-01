@@ -21,6 +21,13 @@ exports.getTemplates = async (req, res) => {
             
         logger.debug(`Found ${templates.length} templates`);
 
+        // Ensure all template IDs are strings
+        templates.forEach(template => {
+            if (template._id) {
+                template.id = template._id.toString();
+            }
+        });
+
         const totalTemplates = await Template.countDocuments({ status: true });
         const totalPages = Math.ceil(totalTemplates / limit);
 
@@ -77,6 +84,13 @@ exports.getTemplatesByCategory = async (req, res) => {
             .limit(limit);
             
         logger.debug(`Found ${templates.length} templates for category: ${category}`);
+        
+        // Ensure all template IDs are strings
+        templates.forEach(template => {
+            if (template._id) {
+                template.id = template._id.toString();
+            }
+        });
 
         const totalTemplates = await Template.countDocuments({ 
             category, 
@@ -106,18 +120,26 @@ exports.getTemplateById = async (req, res) => {
     try {
         logger.debug(`Getting template by ID: ${req.params.id}`);
         
-        const template = await Template.findById(req.params.id)
+        // Make sure we have a valid ID string
+        const templateId = req.params.id.toString();
+        
+        const template = await Template.findById(templateId)
             .populate({
                 path: 'categoryIcon',
                 select: '_id id category categoryIcon iconType resourceName'
             });
             
         if (!template) {
-            logger.warn(`Template not found: ${req.params.id}`);
+            logger.warn(`Template not found: ${templateId}`);
             return res.status(404).json({ 
                 success: false,
                 message: 'Template not found' 
             });
+        }
+        
+        // Ensure id is a string before sending to client
+        if (template._id) {
+            template.id = template._id.toString();
         }
         
         logger.debug(`Found template: ${template._id} with categoryIcon: ${template.categoryIcon ? template.categoryIcon._id : 'none'}`);
