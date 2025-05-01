@@ -37,14 +37,27 @@ exports.getActiveAds = async (req, res) => {
       ad.metrics && (ad.metrics.is_frequency_capped || ad.metrics.is_daily_frequency_capped)
     ).length : 0;
     
-    // Remove internal metrics before sending response
+    // Remove internal metrics before sending response and ensure consistent field naming
     const cleanedAds = limitedAds.map(ad => {
       // Extract metrics for the response summary
       const metrics = ad.metrics;
+      
       // Remove metrics from the individual ad objects
       const cleanAd = { ...ad };
       delete cleanAd.metrics;
       delete cleanAd.weightedScore;
+      
+      // Ensure all snake_case fields have equivalent camelCase versions
+      // This is redundant with the toJSON transform but ensures consistency
+      if (!cleanAd.imageUrl && cleanAd.image_url) cleanAd.imageUrl = cleanAd.image_url;
+      if (!cleanAd.redirectUrl && cleanAd.redirect_url) cleanAd.redirectUrl = cleanAd.redirect_url;
+      if (!cleanAd.startDate && cleanAd.start_date) cleanAd.startDate = cleanAd.start_date;
+      if (!cleanAd.endDate && cleanAd.end_date) cleanAd.endDate = cleanAd.end_date;
+      if (!cleanAd.frequencyCap && cleanAd.frequency_cap !== undefined) cleanAd.frequencyCap = cleanAd.frequency_cap;
+      if (!cleanAd.dailyFrequencyCap && cleanAd.daily_frequency_cap !== undefined) cleanAd.dailyFrequencyCap = cleanAd.daily_frequency_cap;
+      if (!cleanAd.clickCount && cleanAd.click_count !== undefined) cleanAd.clickCount = cleanAd.click_count;
+      if (!cleanAd.impressionCount && cleanAd.impression_count !== undefined) cleanAd.impressionCount = cleanAd.impression_count;
+
       return cleanAd;
     });
     
@@ -82,23 +95,46 @@ exports.recordImpression = async (req, res) => {
     const { id } = req.params;
     const deviceId = req.body.deviceId || req.headers['x-device-id'] || null;
     
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ad ID is required'
+      });
+    }
+    
     const ad = await SponsoredAd.findById(id);
     
     if (!ad) {
+      logger.warn(`Impression attempt for non-existent ad: ${id}`);
       return res.status(404).json({
         success: false,
         message: 'Ad not found'
       });
     }
     
-    await ad.recordImpression(deviceId);
+    try {
+      await ad.recordImpression(deviceId);
+      logger.debug(`Successfully recorded impression for ad ${id} from device ${deviceId || 'unknown'}`);
+    } catch (trackError) {
+      logger.error(`Error recording impression: ${trackError.message}`);
+      logger.error(trackError.stack);
+      
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to record impression',
+        error: process.env.NODE_ENV === 'development' ? trackError.message : 'Error tracking impression'
+      });
+    }
     
     res.json({
       success: true,
-      message: 'Impression recorded successfully'
+      message: 'Impression recorded successfully',
+      ad_id: id
     });
   } catch (error) {
     logger.error(`Error in recordImpression: ${error.message}`);
+    logger.error(error.stack);
+    
     res.status(500).json({
       success: false,
       message: 'Failed to record impression',
@@ -117,23 +153,46 @@ exports.recordClick = async (req, res) => {
     const { id } = req.params;
     const deviceId = req.body.deviceId || req.headers['x-device-id'] || null;
     
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ad ID is required'
+      });
+    }
+    
     const ad = await SponsoredAd.findById(id);
     
     if (!ad) {
+      logger.warn(`Click attempt for non-existent ad: ${id}`);
       return res.status(404).json({
         success: false,
         message: 'Ad not found'
       });
     }
     
-    await ad.recordClick(deviceId);
+    try {
+      await ad.recordClick(deviceId);
+      logger.debug(`Successfully recorded click for ad ${id} from device ${deviceId || 'unknown'}`);
+    } catch (trackError) {
+      logger.error(`Error recording click: ${trackError.message}`);
+      logger.error(trackError.stack);
+      
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to record click',
+        error: process.env.NODE_ENV === 'development' ? trackError.message : 'Error tracking click'
+      });
+    }
     
     res.json({
       success: true,
-      message: 'Click recorded successfully'
+      message: 'Click recorded successfully',
+      ad_id: id
     });
   } catch (error) {
     logger.error(`Error in recordClick: ${error.message}`);
+    logger.error(error.stack);
+    
     res.status(500).json({
       success: false,
       message: 'Failed to record click',
@@ -151,9 +210,17 @@ exports.getAdStats = async (req, res) => {
   try {
     const { id } = req.params;
     
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ad ID is required'
+      });
+    }
+    
     const ad = await SponsoredAd.findById(id);
     
     if (!ad) {
+      logger.warn(`Stats request for non-existent ad: ${id}`);
       return res.status(404).json({
         success: false,
         message: 'Ad not found'
@@ -165,19 +232,38 @@ exports.getAdStats = async (req, res) => {
       ? (ad.click_count / ad.impression_count * 100).toFixed(2) 
       : 0;
     
+    // Include both snake_case and camelCase versions of fields for compatibility
     res.json({
       success: true,
       stats: {
+        // Snake case (original)
         impressions: ad.impression_count,
         clicks: ad.click_count,
         ctr: parseFloat(ctr),
         start_date: ad.start_date,
         end_date: ad.end_date,
-        status: ad.status
+        status: ad.status,
+        
+        // Camel case (for Android client)
+        impressionCount: ad.impression_count,
+        clickCount: ad.click_count,
+        clickThroughRate: parseFloat(ctr),
+        startDate: ad.start_date,
+        endDate: ad.end_date
+      },
+      ad: {
+        id: ad._id.toString(),
+        title: ad.title,
+        location: ad.location,
+        priority: ad.priority,
+        imageUrl: ad.image_url,
+        redirectUrl: ad.redirect_url
       }
     });
   } catch (error) {
     logger.error(`Error in getAdStats: ${error.message}`);
+    logger.error(error.stack);
+    
     res.status(500).json({
       success: false,
       message: 'Failed to get ad statistics',

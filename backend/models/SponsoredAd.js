@@ -6,6 +6,7 @@
  */
 
 const mongoose = require('mongoose');
+const logger = require('../utils/logger') || console;
 
 const sponsoredAdSchema = new mongoose.Schema({
   image_url: {
@@ -90,9 +91,10 @@ const sponsoredAdSchema = new mongoose.Schema({
     default: () => new Map()
   },
   device_daily_impressions: {
-    type: Object,
-    default: {},
-    description: 'Daily impressions per device, stored as Object: { deviceId: { YYYY-MM-DD: count } }'
+    type: Map,
+    of: Map,
+    default: () => new Map(),
+    description: 'Daily impressions per device, stored as Map: deviceId -> (date string -> count)'
   },
   title: {
     type: String,
@@ -107,11 +109,25 @@ const sponsoredAdSchema = new mongoose.Schema({
   toJSON: {
     virtuals: true,
     transform: function(doc, ret) {
-      ret.id = ret._id;
+      // Use camelCase for client compatibility
+      ret.id = ret._id.toString();
+      ret.imageUrl = ret.image_url;
+      ret.redirectUrl = ret.redirect_url;
+      ret.startDate = ret.start_date;
+      ret.endDate = ret.end_date;
+      ret.frequencyCap = ret.frequency_cap;
+      ret.dailyFrequencyCap = ret.daily_frequency_cap;
+      ret.clickCount = ret.click_count;
+      ret.impressionCount = ret.impression_count;
+      
+      // Don't expose internal tracking data to clients
       delete ret._id;
       delete ret.__v;
       delete ret.device_impressions;
       delete ret.device_clicks;
+      delete ret.device_daily_impressions;
+      
+      // Keep both snake_case and camelCase for backward compatibility
       return ret;
     }
   }
@@ -137,7 +153,7 @@ sponsoredAdSchema.statics.getActiveAds = async function(location = null, deviceI
     
     // Get all potential ads first
     const ads = await this.find(query);
-    console.log(`Found ${ads.length} active ads for location: ${location || 'any'}`);
+    logger.debug(`Found ${ads.length} active ads for location: ${location || 'any'}`);
     
     // If no device ID provided, just return all ads sorted by priority
     if (!deviceId) {
@@ -150,61 +166,46 @@ sponsoredAdSchema.statics.getActiveAds = async function(location = null, deviceI
     // Get detailed impression data for analytics
     const adsWithMetrics = ads.map(ad => {
       try {
-        // Initialize maps and objects if they don't exist
+        // Initialize maps if they don't exist
         if (!ad.device_impressions) {
           ad.device_impressions = new Map();
+          ad.markModified('device_impressions');
         }
         
         if (!ad.device_daily_impressions) {
-          ad.device_daily_impressions = {};
+          ad.device_daily_impressions = new Map();
+          ad.markModified('device_daily_impressions');
         }
         
         // Get impression metrics for this device
-        const totalImpressions = ad.device_impressions instanceof Map 
-          ? (ad.device_impressions.get(deviceId) || 0)
-          : 0;
+        const totalImpressions = ad.device_impressions.get(deviceId) || 0;
         
         // Get daily impressions for today
-        let dailyImpressions = {};
+        let dailyImpressions = 0;
         try {
-          // Check if device_daily_impressions is properly initialized
-          if (typeof ad.device_daily_impressions !== 'object') {
-            console.error(`Invalid device_daily_impressions for ad ${ad._id}, type: ${typeof ad.device_daily_impressions}`);
-            ad.device_daily_impressions = {};
-            ad.markModified('device_daily_impressions');
-          }
-          
-          // Get daily impressions for this device
-          dailyImpressions = ad.device_daily_impressions[deviceId] || {};
-          
-          // If dailyImpressions is not an object, initialize it
-          if (typeof dailyImpressions !== 'object' || dailyImpressions === null) {
-            console.error(`Invalid dailyImpressions for ad ${ad._id}, device ${deviceId}: type=${typeof dailyImpressions}`);
-            dailyImpressions = {};
-            ad.device_daily_impressions[deviceId] = dailyImpressions;
-            ad.markModified('device_daily_impressions');
+          const deviceDailyData = ad.device_daily_impressions.get(deviceId);
+          if (deviceDailyData) {
+            dailyImpressions = deviceDailyData.get(today) || 0;
           }
         } catch (dailyError) {
-          console.error(`Error accessing daily impressions for ad ${ad._id}, device ${deviceId}:`, dailyError);
-          console.error(dailyError.stack);
-          dailyImpressions = {};
+          logger.error(`Error accessing daily impressions for ad ${ad._id}, device ${deviceId}:`, dailyError);
+          logger.error(dailyError.stack);
+          dailyImpressions = 0;
         }
-        
-        const todayImpressions = dailyImpressions[today] || 0;
         
         // Calculate remaining available impressions
         const remainingImpressions = ad.frequency_cap > 0 ? Math.max(0, ad.frequency_cap - totalImpressions) : null;
-        const remainingDailyImpressions = ad.daily_frequency_cap > 0 ? Math.max(0, ad.daily_frequency_cap - todayImpressions) : null;
+        const remainingDailyImpressions = ad.daily_frequency_cap > 0 ? Math.max(0, ad.daily_frequency_cap - dailyImpressions) : null;
         
         // Calculate impression status
         const isFrequencyCapped = ad.frequency_cap > 0 && totalImpressions >= ad.frequency_cap;
-        const isDailyFrequencyCapped = ad.daily_frequency_cap > 0 && todayImpressions >= ad.daily_frequency_cap;
+        const isDailyFrequencyCapped = ad.daily_frequency_cap > 0 && dailyImpressions >= ad.daily_frequency_cap;
         
         return {
           ...ad.toObject(),
           metrics: {
             device_impressions: totalImpressions,
-            device_daily_impressions: todayImpressions,
+            device_daily_impressions: dailyImpressions,
             remaining_impressions: remainingImpressions,
             remaining_daily_impressions: remainingDailyImpressions,
             is_frequency_capped: isFrequencyCapped,
@@ -212,8 +213,8 @@ sponsoredAdSchema.statics.getActiveAds = async function(location = null, deviceI
           }
         };
       } catch (error) {
-        console.error(`Error processing ad metrics for ad ${ad._id}:`, error);
-        console.error(error.stack);
+        logger.error(`Error processing ad metrics for ad ${ad._id}:`, error);
+        logger.error(error.stack);
         // Return ad without metrics in case of error
         return {
           ...ad.toObject(),
@@ -230,13 +231,13 @@ sponsoredAdSchema.statics.getActiveAds = async function(location = null, deviceI
       try {
         // Skip ads with errors in metrics
         if (ad.metrics && ad.metrics.error) {
-          console.log(`Ad ${ad._id} filtered: metrics error - ${ad.metrics.message}`);
+          logger.debug(`Ad ${ad._id} filtered: metrics error - ${ad.metrics.message}`);
           return false;
         }
         
         // If ad is deleted or inactive, skip it
         if (!ad.status) {
-          console.log(`Ad ${ad._id} filtered: inactive status`);
+          logger.debug(`Ad ${ad._id} filtered: inactive status`);
           return false;
         }
         
@@ -244,7 +245,7 @@ sponsoredAdSchema.statics.getActiveAds = async function(location = null, deviceI
         if (ad.frequency_cap > 0) {
           const deviceImpressions = ad.metrics.device_impressions || 0;
           if (deviceImpressions >= ad.frequency_cap) {
-            console.log(`Ad ${ad._id} filtered: reached total impression cap (${deviceImpressions}/${ad.frequency_cap})`);
+            logger.debug(`Ad ${ad._id} filtered: reached total impression cap (${deviceImpressions}/${ad.frequency_cap})`);
             return false; // Ad has reached total impression cap for this device
           }
         }
@@ -253,20 +254,20 @@ sponsoredAdSchema.statics.getActiveAds = async function(location = null, deviceI
         if (ad.daily_frequency_cap > 0) {
           const todayImpressions = ad.metrics.device_daily_impressions || 0;
           if (todayImpressions >= ad.daily_frequency_cap) {
-            console.log(`Ad ${ad._id} filtered: reached daily impression cap (${todayImpressions}/${ad.daily_frequency_cap})`);
+            logger.debug(`Ad ${ad._id} filtered: reached daily impression cap (${todayImpressions}/${ad.daily_frequency_cap})`);
             return false; // Ad has reached daily impression cap for this device
           }
         }
         
         return true; // Ad is under frequency caps
       } catch (error) {
-        console.error(`Error filtering ad ${ad._id}:`, error);
-        console.error(error.stack);
+        logger.error(`Error filtering ad ${ad._id}:`, error);
+        logger.error(error.stack);
         return false; // Skip ad if there's an error
       }
     });
     
-    console.log(`Filtered to ${filteredAds.length} ads after frequency capping`);
+    logger.debug(`Filtered to ${filteredAds.length} ads after frequency capping`);
     
     // Use better weighted algorithm for more balanced distribution
     const totalPriority = filteredAds.reduce((sum, ad) => sum + ad.priority, 0);
@@ -286,11 +287,11 @@ sponsoredAdSchema.statics.getActiveAds = async function(location = null, deviceI
     // Sort by weighted score, higher scores first
     const sortedAds = adsWithWeightedScores.sort((a, b) => b.weightedScore - a.weightedScore);
     
-    console.log(`Returning ${sortedAds.length} sorted ads`);
+    logger.debug(`Returning ${sortedAds.length} sorted ads`);
     return sortedAds;
   } catch (error) {
-    console.error(`Error in getActiveAds:`, error);
-    console.error(error.stack);
+    logger.error(`Error in getActiveAds:`, error);
+    logger.error(error.stack);
     return []; // Return empty array in case of error
   }
 };
@@ -304,43 +305,42 @@ sponsoredAdSchema.methods.recordImpression = async function(deviceId = null) {
       return this.save();
     }
     
-    // Ensure Maps and Objects are initialized
+    // Ensure Maps are initialized
     if (!this.device_impressions) {
       this.device_impressions = new Map();
       this.markModified('device_impressions');
     }
     
     if (!this.device_daily_impressions) {
-      this.device_daily_impressions = {};
+      this.device_daily_impressions = new Map();
       this.markModified('device_daily_impressions');
     }
     
     // Get current impression counts
-    const currentTotalCount = this.device_impressions instanceof Map 
-      ? (this.device_impressions.get(deviceId) || 0)
-      : 0;
+    const currentTotalCount = this.device_impressions.get(deviceId) || 0;
     
     // Get daily impression count
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
     
-    // Initialize device data if not exists
-    if (!this.device_daily_impressions[deviceId]) {
-      this.device_daily_impressions[deviceId] = {};
+    // Initialize device daily data if not exists
+    if (!this.device_daily_impressions.has(deviceId)) {
+      this.device_daily_impressions.set(deviceId, new Map());
+      this.markModified('device_daily_impressions');
     }
     
     // Get today's count
-    const dailyData = this.device_daily_impressions[deviceId];
-    const todayCount = dailyData[today] || 0;
+    const deviceDailyData = this.device_daily_impressions.get(deviceId);
+    const todayCount = deviceDailyData.get(today) || 0;
     
     // Check total frequency cap
     if (this.frequency_cap > 0 && currentTotalCount >= this.frequency_cap) {
-      console.log(`Impression skipped: Ad ${this._id} reached total frequency cap (${currentTotalCount}/${this.frequency_cap}) for device ${deviceId}`);
+      logger.debug(`Impression skipped: Ad ${this._id} reached total frequency cap (${currentTotalCount}/${this.frequency_cap}) for device ${deviceId}`);
       return this; // Return without saving - cap reached
     }
     
     // Check daily frequency cap
     if (this.daily_frequency_cap > 0 && todayCount >= this.daily_frequency_cap) {
-      console.log(`Impression skipped: Ad ${this._id} reached daily frequency cap (${todayCount}/${this.daily_frequency_cap}) for device ${deviceId}`);
+      logger.debug(`Impression skipped: Ad ${this._id} reached daily frequency cap (${todayCount}/${this.daily_frequency_cap}) for device ${deviceId}`);
       return this; // Return without saving - daily cap reached
     }
     
@@ -348,41 +348,40 @@ sponsoredAdSchema.methods.recordImpression = async function(deviceId = null) {
     this.impression_count += 1;
     
     // Record total impressions for this device
-    if (this.device_impressions instanceof Map) {
-      this.device_impressions.set(deviceId, currentTotalCount + 1);
-      this.markModified('device_impressions');
-    } else {
-      // If somehow it's not a Map, try to reinitialize
-      console.error(`device_impressions is not a Map. Type: ${typeof this.device_impressions}. Reinitializing...`);
-      this.device_impressions = new Map();
-      this.device_impressions.set(deviceId, 1);
-      this.markModified('device_impressions');
-    }
+    this.device_impressions.set(deviceId, currentTotalCount + 1);
+    this.markModified('device_impressions');
     
     // Increment today's count
-    dailyData[today] = todayCount + 1;
+    deviceDailyData.set(today, todayCount + 1);
     
     // Clean up old daily impressions (older than 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
     
-    for (const dateKey in dailyData) {
+    // Using forEach with Map's API
+    const datesToRemove = [];
+    deviceDailyData.forEach((count, dateKey) => {
       if (dateKey < thirtyDaysAgoStr) {
-        delete dailyData[dateKey];
+        datesToRemove.push(dateKey);
       }
-    }
+    });
+    
+    // Remove old dates
+    datesToRemove.forEach(dateKey => {
+      deviceDailyData.delete(dateKey);
+    });
     
     // Mark the object as modified
     this.markModified('device_daily_impressions');
     
     // Log impression details for debugging
-    console.log(`Recorded impression for ad ${this._id}, device ${deviceId}: total=${currentTotalCount + 1}, today=${todayCount + 1}`);
+    logger.debug(`Recorded impression for ad ${this._id}, device ${deviceId}: total=${currentTotalCount + 1}, today=${todayCount + 1}`);
     
     return this.save();
   } catch (error) {
-    console.error(`Error recording impression for ad ${this._id}:`, error);
-    console.error(error.stack);
+    logger.error(`Error recording impression for ad ${this._id}:`, error);
+    logger.error(error.stack);
     // Re-throw for caller to handle
     throw error;
   }
@@ -399,28 +398,19 @@ sponsoredAdSchema.methods.recordClick = async function(deviceId = null) {
         this.markModified('device_clicks');
       }
       
-      if (this.device_clicks instanceof Map) {
-        const currentCount = this.device_clicks.get(deviceId) || 0;
-        this.device_clicks.set(deviceId, currentCount + 1);
-        // Mark as modified so Mongoose knows to save the changes
-        this.markModified('device_clicks');
-        
-        console.log(`Recorded click for ad ${this._id}, device ${deviceId}: total=${currentCount + 1}`);
-      } else {
-        // If somehow it's not a Map, try to reinitialize
-        console.error(`device_clicks is not a Map. Type: ${typeof this.device_clicks}. Reinitializing...`);
-        this.device_clicks = new Map();
-        this.device_clicks.set(deviceId, 1);
-        this.markModified('device_clicks');
-        
-        console.log(`Reinitialized device_clicks for ad ${this._id}, device ${deviceId}`);
-      }
+      const currentCount = this.device_clicks.get(deviceId) || 0;
+      this.device_clicks.set(deviceId, currentCount + 1);
+      
+      // Mark as modified so Mongoose knows to save the changes
+      this.markModified('device_clicks');
+      
+      logger.debug(`Recorded click for ad ${this._id}, device ${deviceId}: total=${currentCount + 1}`);
     }
     
     return this.save();
   } catch (error) {
-    console.error(`Error recording click for ad ${this._id}:`, error);
-    console.error(error.stack);
+    logger.error(`Error recording click for ad ${this._id}:`, error);
+    logger.error(error.stack);
     throw error;
   }
 };

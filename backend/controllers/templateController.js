@@ -21,11 +21,12 @@ exports.getTemplates = async (req, res) => {
             
         logger.debug(`Found ${templates.length} templates`);
 
-        // Ensure all template IDs are strings
-        templates.forEach(template => {
-            if (template._id) {
-                template.id = template._id.toString();
-            }
+        // Force convert ALL template IDs to strings (critical for Android navigation)
+        const safeTemplates = templates.map(template => {
+            const safeTemplate = template.toJSON();
+            // Double ensure ID is a string
+            safeTemplate.id = template._id.toString();
+            return safeTemplate;
         });
 
         const totalTemplates = await Template.countDocuments({ status: true });
@@ -43,7 +44,7 @@ exports.getTemplates = async (req, res) => {
         }, {});
 
         res.json({
-            data: templates,
+            data: safeTemplates,
             page,
             totalPages,
             totalItems: totalTemplates,
@@ -85,11 +86,12 @@ exports.getTemplatesByCategory = async (req, res) => {
             
         logger.debug(`Found ${templates.length} templates for category: ${category}`);
         
-        // Ensure all template IDs are strings
-        templates.forEach(template => {
-            if (template._id) {
-                template.id = template._id.toString();
-            }
+        // Force convert ALL template IDs to strings (critical for Android navigation)
+        const safeTemplates = templates.map(template => {
+            const safeTemplate = template.toJSON();
+            // Double ensure ID is a string
+            safeTemplate.id = template._id.toString();
+            return safeTemplate;
         });
 
         const totalTemplates = await Template.countDocuments({ 
@@ -99,7 +101,7 @@ exports.getTemplatesByCategory = async (req, res) => {
         const totalPages = Math.ceil(totalTemplates / limit);
 
         res.json({
-            data: templates,
+            data: safeTemplates,
             page,
             totalPages,
             totalItems: totalTemplates,
@@ -120,6 +122,14 @@ exports.getTemplateById = async (req, res) => {
     try {
         logger.debug(`Getting template by ID: ${req.params.id}`);
         
+        if (!req.params.id) {
+            logger.warn('Missing template ID in request');
+            return res.status(400).json({
+                success: false,
+                message: 'Template ID is required'
+            });
+        }
+        
         // Make sure we have a valid ID string
         const templateId = req.params.id.toString();
         
@@ -137,14 +147,14 @@ exports.getTemplateById = async (req, res) => {
             });
         }
         
-        // Ensure id is a string before sending to client
-        if (template._id) {
-            template.id = template._id.toString();
-        }
+        // Convert to JSON and ensure id is always a string
+        const safeTemplate = template.toJSON();
+        // Double ensure ID is a string
+        safeTemplate.id = template._id.toString();
         
         logger.debug(`Found template: ${template._id} with categoryIcon: ${template.categoryIcon ? template.categoryIcon._id : 'none'}`);
         
-        res.json(template);
+        res.json(safeTemplate);
     } catch (error) {
         logger.error(`Error getting template by ID '${req.params.id}': ${error.message}`);
         logger.error(error.stack);

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const logger = require('../utils/logger') || console;
 
 const templateSchema = new mongoose.Schema({
     title: {
@@ -45,6 +46,10 @@ const templateSchema = new mongoose.Schema({
     toJSON: {
         virtuals: true,
         transform: function(doc, ret) {
+            // CRITICAL: Ensure id is ALWAYS a string for Android navigation
+            // This is required because Android's Navigation component expects string arguments
+            ret.id = ret._id ? ret._id.toString() : '';
+            
             // Ensure the populated categoryIcon is preserved in the JSON output
             if (ret.categoryIcon) {
                 if (typeof ret.categoryIcon === 'object' && ret.categoryIcon._id) {
@@ -61,14 +66,6 @@ const templateSchema = new mongoose.Schema({
                 }
             }
             
-            // Ensure id is ALWAYS a string - this is critical for Android navigation
-            // This is the important fix for the navigation issue
-            if (ret._id) {
-                ret.id = ret._id.toString();
-            } else {
-                ret.id = ''; // Fallback to empty string if no _id
-            }
-            
             delete ret._id;
             delete ret.__v;
             return ret;
@@ -77,6 +74,10 @@ const templateSchema = new mongoose.Schema({
     toObject: {
         virtuals: true,
         transform: function(doc, ret) {
+            // CRITICAL: Ensure id is ALWAYS a string for Android navigation
+            // This is required because Android's Navigation component expects string arguments
+            ret.id = ret._id ? ret._id.toString() : '';
+            
             // Ensure the populated categoryIcon is preserved in the object output
             if (ret.categoryIcon) {
                 if (typeof ret.categoryIcon === 'object' && ret.categoryIcon._id) {
@@ -93,14 +94,6 @@ const templateSchema = new mongoose.Schema({
                 }
             }
             
-            // Ensure id is ALWAYS a string - this is critical for Android navigation
-            // This is the important fix for the navigation issue
-            if (ret._id) {
-                ret.id = ret._id.toString();
-            } else {
-                ret.id = ''; // Fallback to empty string if no _id
-            }
-            
             // We keep _id in toObject output for Mongoose operations
             delete ret.__v;
             return ret;
@@ -111,5 +104,29 @@ const templateSchema = new mongoose.Schema({
 // Create index for faster category lookups
 templateSchema.index({ category: 1, status: 1 });
 templateSchema.index({ createdAt: -1 });
+
+// Add a pre-save hook to ensure id is set correctly
+templateSchema.pre('save', function(next) {
+    if (this._id && !this.id) {
+        this.id = this._id.toString();
+    }
+    next();
+});
+
+// Add a virtual for id for consistent access
+templateSchema.virtual('id').get(function() {
+    return this._id ? this._id.toString() : '';
+});
+
+// This helps when templates are returned without using toJSON
+templateSchema.set('toJSON', {
+    virtuals: true,
+    transform: function(doc, ret) {
+        ret.id = ret._id ? ret._id.toString() : '';
+        delete ret._id;
+        delete ret.__v;
+        return ret;
+    }
+});
 
 module.exports = mongoose.model('Template', templateSchema, 'templates');
