@@ -396,16 +396,21 @@
     <!-- Rewarded Ad Strings -->
     <string name="watch_ad_to_share">Watch Ad to Share</string>
     <string name="ad_not_available">Ad Not Available</string>
-    <string name="ad_watched">Ad Watched ✓</string>
-    <string name="retry_watch_ad">Retry Ad</string>
-    <string name="loading_ad">Loading Ad…</string>
+    <string name="ad_watched">Ad Watched</string>
+    <string name="retry_watch_ad">Retry Watch Ad</string>
+    <string name="loading_ad">Loading Ad...</string>
     <string name="ad_cooldown_remaining">Wait %d seconds</string>
     <string name="ad_in_cooldown">Please wait %d seconds before watching another ad</string>
-    <string name="ad_failed_to_show">Failed to show ad</string>
-    <string name="ad_failed_to_show_with_reason">Failed to show ad: %s</string>
+    <string name="ad_failed_to_show">Ad failed to show. Please try again.</string>
+    <string name="ad_failed_to_show_with_reason">Ad failed to show: %s</string>
 
     <!-- Sponsored Ads Strings -->
     <string name="sponsored">Sponsored</string>
     <string name="sponsored_ad_image">Advertisement Image</string>
     <string name="ad_error_loading">Could not load advertisement</string>
+
+    <!-- Ad Related -->
+    <string name="cooldown_timer_format">Share in: %02d:%02d</string>
+    <string name="share_unlocked">Share Unlocked!</string>
+    <string name="cooldown_ended">Ad cooldown period ended. Watch another ad to share.</string>
 </resources>

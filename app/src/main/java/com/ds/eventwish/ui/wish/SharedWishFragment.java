@@ -82,6 +82,13 @@ public class SharedWishFragment extends Fragment {
     private boolean rewardedAdWatched = false;
     private CountDownTimer cooldownTimer;
     
+    // Constants for cooldown
+    private static final long AD_COOLDOWN_DURATION_MS = 2 * 60 * 1000; // 2 minutes in milliseconds
+    private static final String PREF_COOLDOWN_END_TIME = "ad_cooldown_end_time";
+    private static final String PREF_AD_WATCHED = "ad_watched_status";
+    private TextView countdownTimerView;
+    private long cooldownEndTime = 0;
+    
     // Analytics tracking
     private static final long ANALYTICS_HEARTBEAT_INTERVAL = 30000; // 30 seconds
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -152,12 +159,18 @@ public class SharedWishFragment extends Fragment {
 
         // Initialize WebView
         setupWebView();
+        
+        // Initialize the countdown timer view
+        countdownTimerView = binding.countdownTimerView;
 
         // Set up click listeners
         setupClickListeners();
 
         // Set up observers
         setupObservers();
+        
+        // Check if we should restore cooldown state
+        restoreCooldownState();
         
         // Restore rewarded ad state if app was closed and reopened
         if (rewardedAdManager != null && !rewardedAdWatched) {
@@ -590,6 +603,13 @@ public class SharedWishFragment extends Fragment {
                 Log.d(TAG, "📱🎁 User completed watching the full ad");
                 rewardedAdWatched = true;
                 
+                // Calculate cooldown end time
+                long currentTime = System.currentTimeMillis();
+                cooldownEndTime = currentTime + AD_COOLDOWN_DURATION_MS;
+                
+                // Save the cooldown state
+                saveCooldownState(true, cooldownEndTime);
+                
                 // Update UI to show share options
                 if (binding != null) {
                     binding.watchAdButton.setEnabled(false);
@@ -602,6 +622,9 @@ public class SharedWishFragment extends Fragment {
                         ColorStateList.valueOf(getResources().getColor(R.color.share_button_enabled)));
                     binding.shareLockIcon.setVisibility(View.GONE);
                     Log.d(TAG, "📱🎁 Share button unlocked after reward earned");
+                    
+                    // Start the cooldown countdown timer
+                    startCooldownCountdown(AD_COOLDOWN_DURATION_MS);
                 }
                 
                 // Show success message
@@ -735,6 +758,13 @@ public class SharedWishFragment extends Fragment {
                     Log.d(TAG, "📱 Reward details - Type: " + type + ", Amount: " + amount);
                     rewardedAdWatched = true;
                     
+                    // Calculate cooldown end time
+                    long currentTime = System.currentTimeMillis();
+                    cooldownEndTime = currentTime + AD_COOLDOWN_DURATION_MS;
+                    
+                    // Save the cooldown state
+                    saveCooldownState(true, cooldownEndTime);
+                    
                     // Update UI to unlock share button
                     if (binding != null) {
                         binding.watchAdButton.setEnabled(false);
@@ -746,6 +776,9 @@ public class SharedWishFragment extends Fragment {
                         binding.shareButton.setBackgroundTintList(
                             ColorStateList.valueOf(getResources().getColor(R.color.share_button_enabled)));
                         binding.shareLockIcon.setVisibility(View.GONE);
+                        
+                        // Start the cooldown countdown timer
+                        startCooldownCountdown(AD_COOLDOWN_DURATION_MS);
                     }
                     
                     logAdSystemState();
@@ -1465,6 +1498,12 @@ public class SharedWishFragment extends Fragment {
         // Clear handlers
         mainHandler.removeCallbacksAndMessages(null);
         
+        // Clean up cooldown timer
+        if (cooldownTimer != null) {
+            cooldownTimer.cancel();
+            cooldownTimer = null;
+        }
+        
         // Clean up ad manager
         if (rewardedAdManager != null) {
             rewardedAdManager.destroy();
@@ -1735,5 +1774,179 @@ public class SharedWishFragment extends Fragment {
                 binding.watchAdButtonText.setText(R.string.ad_not_available);
             }
         }
+    }
+
+    /**
+     * Restore the cooldown state from SharedPreferences
+     */
+    private void restoreCooldownState() {
+        SharedPreferences prefs = requireContext().getSharedPreferences("ad_cooldown_prefs", Context.MODE_PRIVATE);
+        
+        // Get cooldown end time
+        cooldownEndTime = prefs.getLong(PREF_COOLDOWN_END_TIME, 0);
+        long currentTime = System.currentTimeMillis();
+        
+        // Get ad watched status - default to false
+        boolean savedAdWatched = prefs.getBoolean(PREF_AD_WATCHED, false);
+        
+        Log.d(TAG, "📱⏲️ Restored cooldown state: endTime=" + cooldownEndTime + 
+              ", currentTime=" + currentTime + 
+              ", adWatched=" + savedAdWatched);
+        
+        // Check if we're still in cooldown period
+        if (cooldownEndTime > currentTime) {
+            // We're still in cooldown period - sharing is temporarily enabled
+            rewardedAdWatched = true; // Consider ad as watched during cooldown
+            
+            // Start the countdown timer
+            long remainingTime = cooldownEndTime - currentTime;
+            Log.d(TAG, "📱⏲️ Still in cooldown period with " + (remainingTime/1000) + " seconds remaining");
+            
+            // Start the countdown timer
+            startCooldownCountdown(remainingTime);
+            
+            // Enable sharing during cooldown period
+            if (binding != null && binding.shareButton != null) {
+                binding.shareButton.setEnabled(true);
+                binding.shareButton.setBackgroundTintList(
+                    ColorStateList.valueOf(getResources().getColor(R.color.share_button_enabled)));
+                binding.shareLockIcon.setVisibility(View.GONE);
+                Log.d(TAG, "📱✅ Share button enabled during active cooldown");
+            }
+        } else if (savedAdWatched) {
+            // Cooldown period is over and we need to reset
+            Log.d(TAG, "📱⏲️ Cooldown period expired, resetting ad state");
+            rewardedAdWatched = false;
+            
+            // Clear saved state since cooldown expired
+            saveCooldownState(false, 0);
+            
+            // Make sure watch ad button is visible and share button is disabled
+            if (binding != null) {
+                // Show watch ad button
+                binding.watchAdButton.setVisibility(View.VISIBLE);
+                binding.watchAdButton.setEnabled(true);
+                
+                // Disable share button
+                binding.shareButton.setEnabled(false);
+                binding.shareButton.setBackgroundTintList(
+                    ColorStateList.valueOf(getResources().getColor(R.color.share_button_disabled)));
+                binding.shareLockIcon.setVisibility(View.VISIBLE);
+                
+                // Hide countdown timer
+                countdownTimerView.setVisibility(View.GONE);
+            }
+            
+            // Preload a new ad
+            loadRewardedAd();
+        } else {
+            // No active cooldown and ad wasn't watched
+            Log.d(TAG, "📱⏲️ No active cooldown, ad not watched yet");
+            rewardedAdWatched = false;
+            
+            // Make sure UI is in initial state
+            if (binding != null) {
+                // Show watch ad button
+                binding.watchAdButton.setVisibility(View.VISIBLE);
+                
+                // Disable share button
+                binding.shareButton.setEnabled(false);
+                binding.shareButton.setBackgroundTintList(
+                    ColorStateList.valueOf(getResources().getColor(R.color.share_button_disabled)));
+                binding.shareLockIcon.setVisibility(View.VISIBLE);
+                
+                // Hide countdown timer
+                countdownTimerView.setVisibility(View.GONE);
+            }
+        }
+    }
+    
+    /**
+     * Save the cooldown state to SharedPreferences
+     */
+    private void saveCooldownState(boolean adWatched, long endTimeMs) {
+        SharedPreferences prefs = requireContext().getSharedPreferences("ad_cooldown_prefs", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        
+        editor.putLong(PREF_COOLDOWN_END_TIME, endTimeMs);
+        editor.putBoolean(PREF_AD_WATCHED, adWatched);
+        
+        editor.apply();
+        
+        Log.d(TAG, "📱⏲️ Saved cooldown state: adWatched=" + adWatched + 
+              ", endTimeMs=" + endTimeMs);
+    }
+    
+    /**
+     * Start the countdown timer that shows time remaining in cooldown period
+     */
+    private void startCooldownCountdown(long remainingTimeMs) {
+        // Cancel any existing timer
+        if (cooldownTimer != null) {
+            cooldownTimer.cancel();
+        }
+        
+        // Show countdown timer view, hide watch ad button
+        if (binding != null) {
+            binding.watchAdButton.setVisibility(View.GONE);
+            countdownTimerView.setVisibility(View.VISIBLE);
+        }
+        
+        // Create new cooldown timer
+        cooldownTimer = new CountDownTimer(remainingTimeMs, 1000) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                if (countdownTimerView != null) {
+                    // Format the time as MM:SS
+                    int minutes = (int) (millisUntilFinished / 1000) / 60;
+                    int seconds = (int) (millisUntilFinished / 1000) % 60;
+                    
+                    // Update the countdown text
+                    countdownTimerView.setText(getString(R.string.cooldown_timer_format, minutes, seconds));
+                    
+                    // Log every 10 seconds to reduce spam
+                    if (seconds % 10 == 0 || (minutes == 0 && seconds <= 5)) {
+                        Log.d(TAG, "📱⏲️ Cooldown remaining: " + minutes + "m " + seconds + "s");
+                    }
+                }
+            }
+
+            @Override
+            public void onFinish() {
+                Log.d(TAG, "📱⏲️ Cooldown timer finished");
+                
+                if (binding != null) {
+                    // Hide countdown timer
+                    countdownTimerView.setVisibility(View.GONE);
+                    
+                    // Reset ad watched status to allow watching ads again
+                    rewardedAdWatched = false;
+                    
+                    // Show watch ad button again
+                    binding.watchAdButton.setVisibility(View.VISIBLE);
+                    binding.watchAdButton.setEnabled(true);
+                    binding.watchAdButtonText.setText(R.string.watch_ad_to_share);
+                    
+                    // Disable share button again
+                    binding.shareButton.setEnabled(false);
+                    binding.shareButton.setBackgroundTintList(
+                        ColorStateList.valueOf(getResources().getColor(R.color.share_button_disabled)));
+                    binding.shareLockIcon.setVisibility(View.VISIBLE);
+                    
+                    // Preload another ad
+                    loadRewardedAd();
+                    
+                    // Show a message
+                    Snackbar.make(binding.getRoot(), R.string.cooldown_ended, Snackbar.LENGTH_SHORT).show();
+                }
+                
+                // Clear the saved state
+                saveCooldownState(false, 0);
+            }
+        };
+        
+        // Start the timer
+        cooldownTimer.start();
+        Log.d(TAG, "📱⏲️ Started cooldown countdown timer: " + (remainingTimeMs/1000) + " seconds");
     }
 }
