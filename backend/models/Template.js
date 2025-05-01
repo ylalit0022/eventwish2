@@ -30,14 +30,14 @@ const templateSchema = new mongoose.Schema({
         default: true
     },
     categoryIcon: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'CategoryIcon',
+        type: String,
         required: false,
         validate: {
             validator: function(v) {
-                return mongoose.Types.ObjectId.isValid(v);
+                // Allow null/empty or valid URL
+                return v === null || v === '' || /^https?:\/\/.+/.test(v);
             },
-            message: props => `${props.value} is not a valid ObjectId!`
+            message: props => `${props.value} is not a valid URL!`
         }
     }
 }, {
@@ -45,9 +45,7 @@ const templateSchema = new mongoose.Schema({
     toJSON: {
         virtuals: true,
         transform: function(doc, ret) {
-            if (ret.categoryIcon && typeof ret.categoryIcon === 'object') {
-                ret.categoryIcon = ret.categoryIcon._id;
-            }
+            // Remove the transform function that was handling ObjectId conversion
             return ret;
         }
     }
