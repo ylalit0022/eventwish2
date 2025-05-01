@@ -2,6 +2,7 @@ package com.ds.eventwish.ui.ads;
 
 import android.content.Context;
 import android.util.Log;
+import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelStoreOwner;
@@ -10,6 +11,7 @@ import java.lang.ref.WeakReference;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.LinkedHashMap;
 
 /**
  * Factory for managing sponsored ad components
@@ -22,7 +24,7 @@ public class SponsoredAdManagerFactory {
     private static Context applicationContext;
     
     // Use ConcurrentHashMap for thread safety
-    private final ConcurrentHashMap<String, WeakReference<SponsoredAdView>> adViews = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, WeakReference<View>> adViews = new ConcurrentHashMap<>();
     
     // Track locations for analytics and debugging
     private final Map<String, Integer> locationImpressionCounts = new HashMap<>();
@@ -80,27 +82,17 @@ public class SponsoredAdManagerFactory {
     /**
      * Register an ad view for a specific location
      * @param location The location identifier
-     * @param adView The ad view instance
+     * @param adView The view displaying the ad
      */
-    public void registerAdView(String location, SponsoredAdView adView) {
-        // Check for too many locations being tracked to prevent memory issues
-        if (adViews.size() >= MAX_LOCATIONS) {
-            // Remove least recently used locations (but keep statistics)
-            pruneAdViewMap();
+    public void registerAdView(String location, View adView) {
+        if (location == null || location.isEmpty() || adView == null) {
+            Log.w(TAG, "Cannot register null or empty location/view");
+            return;
         }
         
-        // Clean up any expired entries
-        cleanupExpiredReferences();
-        
-        // Register the new ad view
+        // Store weak reference to avoid memory leaks
         adViews.put(location, new WeakReference<>(adView));
-        Log.d(TAG, "Registered AdView for location: " + location + ", active locations: " + adViews.size());
-        
-        // Initialize impression counter for new locations
-        if (!locationImpressionCounts.containsKey(location)) {
-            locationImpressionCounts.put(location, 0);
-            locationClickCounts.put(location, 0);
-        }
+        Log.d(TAG, "Registered ad view for location: " + location);
     }
     
     /**
@@ -108,114 +100,128 @@ public class SponsoredAdManagerFactory {
      * @param location The location identifier
      */
     public void unregisterAdView(String location) {
-        if (adViews.containsKey(location)) {
-            adViews.remove(location);
-            Log.d(TAG, "Unregistered AdView for location: " + location + ", remaining locations: " + adViews.size());
+        if (location == null || location.isEmpty()) {
+            Log.w(TAG, "Cannot unregister ad view with null or empty location");
+            return;
         }
+        
+        adViews.remove(location);
+        Log.d(TAG, "Unregistered ad view for location: " + location);
     }
     
     /**
-     * Record an impression for tracking purposes
-     * @param location The location where the impression occurred
+     * Record an impression for a specific location
+     * @param location The location identifier
      */
     public void recordImpression(String location) {
         if (location != null) {
-            int count = locationImpressionCounts.getOrDefault(location, 0);
-            locationImpressionCounts.put(location, count + 1);
-            Log.d(TAG, "Recorded impression for location: " + location + 
-                 ", total impressions for this location: " + (count + 1));
+            int count = locationImpressionCounts.getOrDefault(location, 0) + 1;
+            locationImpressionCounts.put(location, count);
+            Log.d(TAG, "Recorded impression for location: " + location + ", total: " + count);
         }
     }
     
     /**
-     * Record a click for tracking purposes
-     * @param location The location where the click occurred
+     * Record a click for a specific location
+     * @param location The location identifier
      */
     public void recordClick(String location) {
         if (location != null) {
-            int count = locationClickCounts.getOrDefault(location, 0);
-            locationClickCounts.put(location, count + 1);
-            Log.d(TAG, "Recorded click for location: " + location + 
-                 ", total clicks for this location: " + (count + 1));
+            int count = locationClickCounts.getOrDefault(location, 0) + 1;
+            locationClickCounts.put(location, count);
+            Log.d(TAG, "Recorded click for location: " + location + ", total: " + count);
         }
     }
     
     /**
-     * Get all active ad views
-     * @return Map of locations to ad views
+     * Get impression count for a specific location
+     * @param location The location identifier
+     * @return Number of impressions
      */
-    @NonNull
-    public Map<String, SponsoredAdView> getActiveAdViews() {
-        Map<String, SponsoredAdView> activeViews = new HashMap<>();
-        
-        for (Map.Entry<String, WeakReference<SponsoredAdView>> entry : adViews.entrySet()) {
-            SponsoredAdView adView = entry.getValue().get();
-            if (adView != null) {
-                activeViews.put(entry.getKey(), adView);
-            }
-        }
-        
-        return activeViews;
+    public int getImpressionCount(String location) {
+        return locationImpressionCounts.getOrDefault(location, 0);
     }
     
     /**
-     * Get performance metrics for all ad locations
-     * @return Map of locations to impression/click metrics
+     * Get click count for a specific location
+     * @param location The location identifier
+     * @return Number of clicks
      */
-    @NonNull
-    public Map<String, Map<String, Integer>> getPerformanceMetrics() {
-        Map<String, Map<String, Integer>> metrics = new HashMap<>();
+    public int getClickCount(String location) {
+        return locationClickCounts.getOrDefault(location, 0);
+    }
+    
+    /**
+     * Get CTR (Click-Through Rate) for a specific location
+     * @param location The location identifier
+     * @return CTR as a percentage
+     */
+    public float getCTR(String location) {
+        int impressions = getImpressionCount(location);
+        int clicks = getClickCount(location);
+        
+        if (impressions > 0) {
+            return (float) clicks / impressions * 100;
+        }
+        return 0;
+    }
+    
+    /**
+     * Get all locations with statistics
+     * @return Map of location stats
+     */
+    public Map<String, Map<String, Object>> getLocationStats() {
+        Map<String, Map<String, Object>> stats = new HashMap<>();
         
         for (String location : locationImpressionCounts.keySet()) {
-            Map<String, Integer> locationMetrics = new HashMap<>();
-            locationMetrics.put("impressions", locationImpressionCounts.getOrDefault(location, 0));
-            locationMetrics.put("clicks", locationClickCounts.getOrDefault(location, 0));
-            metrics.put(location, locationMetrics);
+            Map<String, Object> locationStats = new HashMap<>();
+            locationStats.put("impressions", getImpressionCount(location));
+            locationStats.put("clicks", getClickCount(location));
+            locationStats.put("ctr", getCTR(location));
+            
+            stats.put(location, locationStats);
         }
         
-        return metrics;
+        return stats;
     }
     
     /**
-     * Refresh ads for all registered ad views
-     */
-    public void refreshAllAds() {
-        // Clean up expired references first
-        cleanupExpiredReferences();
-        
-        Log.d(TAG, "Refreshing ads for " + adViews.size() + " registered locations");
-        
-        // Request new ads from the server
-        if (viewModel != null) {
-            viewModel.fetchSponsoredAds();
-        }
-    }
-    
-    /**
-     * Clean up any expired ad view references
+     * Clean up expired references to AdViews
      */
     private void cleanupExpiredReferences() {
-        adViews.entrySet().removeIf(entry -> entry.getValue().get() == null);
+        for (Map.Entry<String, WeakReference<View>> entry : adViews.entrySet()) {
+            if (entry.getValue().get() == null) {
+                adViews.remove(entry.getKey());
+                Log.d(TAG, "Removed expired AdView reference for location: " + entry.getKey());
+            }
+        }
     }
     
     /**
-     * Prune the ad view map to prevent memory leaks
-     * Removes oldest entries while keeping the most recent ones
+     * Prune the AdView map to prevent memory issues
      */
     private void pruneAdViewMap() {
-        // If we have too many locations, remove 20% of them (least used)
-        int toRemove = Math.max(1, adViews.size() / 5);
-        Log.d(TAG, "Pruning " + toRemove + " ad view references to prevent memory issues");
+        if (adViews.size() <= MAX_LOCATIONS / 2) {
+            return; // No need to prune
+        }
         
-        // Find the locations with fewest impressions to remove
-        locationImpressionCounts.entrySet().stream()
-            .sorted(Map.Entry.comparingByValue())
-            .limit(toRemove)
-            .forEach(entry -> adViews.remove(entry.getKey()));
+        // Remove half of the entries
+        int toRemove = adViews.size() - MAX_LOCATIONS / 2;
+        int removed = 0;
+        
+        for (String location : adViews.keySet()) {
+            adViews.remove(location);
+            removed++;
+            Log.d(TAG, "Pruned AdView for location: " + location + " to prevent memory issues");
+            
+            if (removed >= toRemove) {
+                break;
+            }
+        }
     }
     
     /**
-     * Reset all tracking data and clear view references
+     * Reset all data (for testing)
      */
     public void reset() {
         adViews.clear();

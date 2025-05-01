@@ -95,7 +95,9 @@ public class SponsoredAdView extends FrameLayout {
             if (viewModel != null && currentAd != null) {
                 viewModel.handleAdClick(currentAd, getContext());
                 // Also track click in analytics
-                AnalyticsUtils.trackAdClick("sponsored_ad", currentAd.getId(), location);
+                AnalyticsUtils.trackAdClick("sponsored_ad", 
+                    currentAd.getId() != null ? currentAd.getId() : "unknown_ad", 
+                    location != null ? location : "unknown_location");
             }
         });
         
@@ -165,10 +167,14 @@ public class SponsoredAdView extends FrameLayout {
         if (currentAd != null && viewModel != null && !impressionTracked) {
             impressionTracked = true;
             viewModel.trackImpression(currentAd);
-            Log.d(TAG, "Tracked impression for ad: " + currentAd.getId() + " at location: " + location);
+            Log.d(TAG, "Tracked impression for ad: " + 
+                  (currentAd.getId() != null ? currentAd.getId() : "null") + 
+                  " at location: " + location);
             
             // Also track in analytics
-            AnalyticsUtils.trackAdImpression("sponsored_ad", currentAd.getId(), location);
+            AnalyticsUtils.trackAdImpression("sponsored_ad", 
+                currentAd.getId() != null ? currentAd.getId() : "unknown_ad", 
+                location);
         }
     }
     
@@ -236,16 +242,20 @@ public class SponsoredAdView extends FrameLayout {
         }
         
         // Check if we're loading the same ad - no need to reset tracking if so
-        boolean isSameAd = currentAd != null && currentAd.getId().equals(ad.getId());
+        boolean isSameAd = false;
+        if (currentAd != null && currentAd.getId() != null && ad.getId() != null) {
+            isSameAd = currentAd.getId().equals(ad.getId());
+        }
+        
         if (!isSameAd) {
             // Reset impression tracking when loading a different ad
             resetImpressionTracking();
         }
         
         this.currentAd = ad;
-        Log.d(TAG, "Loading sponsored ad: id=" + ad.getId() + 
-              ", title=" + ad.getTitle() + 
-              ", imageUrl=" + ad.getImageUrl() + 
+        Log.d(TAG, "Loading sponsored ad: id=" + (ad.getId() != null ? ad.getId() : "null") + 
+              ", title=" + (ad.getTitle() != null ? ad.getTitle() : "null") + 
+              ", imageUrl=" + (ad.getImageUrl() != null ? ad.getImageUrl() : "null") + 
               ", location=" + location);
         
         // Set text content

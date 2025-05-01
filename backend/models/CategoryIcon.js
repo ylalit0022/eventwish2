@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 
 const categoryIconSchema = new mongoose.Schema({
+    // Use MongoDB's automatic _id field for object references
+    // Custom id field for backward compatibility
     id: {
         type: String,
         required: true,
@@ -35,8 +37,10 @@ const categoryIconSchema = new mongoose.Schema({
     toJSON: {
         virtuals: true,
         transform: function(doc, ret) {
-            ret.id = ret._id;
-            delete ret._id;
+            // Ensure ID fields are properly handled for consistency
+            if (!ret.id) {
+                ret.id = ret._id.toString();
+            }
             delete ret.__v;
             return ret;
         }

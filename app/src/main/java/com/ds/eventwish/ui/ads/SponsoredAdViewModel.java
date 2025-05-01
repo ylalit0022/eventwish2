@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.Random;
 
 /**
  * ViewModel for sponsored ads
@@ -132,8 +133,8 @@ public class SponsoredAdViewModel extends ViewModel {
                     // Just use the first available ad
                     bestMatch = adCache.keySet().iterator().next();
                 }
-            }
-        } else {
+                }
+            } else {
             // For non-category locations, try some common fallbacks
             if (adCache.containsKey("home_bottom")) {
                 bestMatch = "home_bottom";
@@ -188,7 +189,7 @@ public class SponsoredAdViewModel extends ViewModel {
         loadingState.setValue(true);
         error.setValue("");
         
-        repository.getSponsoredAds(new SponsoredAdRepository.SponsoredAdCallback() {
+        repository.getSponsoredAdsWithCallback(new SponsoredAdRepository.SponsoredAdCallback() {
             @Override
             public void onSuccess(@NonNull List<SponsoredAd> ads) {
                 Log.d(TAG, "Successfully fetched " + ads.size() + " sponsored ads");
@@ -249,6 +250,12 @@ public class SponsoredAdViewModel extends ViewModel {
                 continue;
             }
             
+            // Skip frequency capped ads
+            if (ad.isFrequencyCapped()) {
+                Log.d(TAG, "Skipping frequency capped ad: " + ad.getId());
+                continue;
+            }
+            
             // Normalize location
             location = location.toLowerCase().trim();
             
@@ -258,7 +265,7 @@ public class SponsoredAdViewModel extends ViewModel {
             adsByLocationTemp.get(location).add(ad);
         }
         
-        // Second pass: select the highest priority ad for each location
+        // Second pass: apply weighted distribution for each location
         for (Map.Entry<String, List<SponsoredAd>> entry : adsByLocationTemp.entrySet()) {
             String location = entry.getKey();
             List<SponsoredAd> locationAds = entry.getValue();
@@ -267,10 +274,44 @@ public class SponsoredAdViewModel extends ViewModel {
                 continue;
             }
             
-            // Sort by priority (higher number = higher priority)
-            locationAds.sort((a, b) -> Integer.compare(b.getPriority(), a.getPriority()));
+            // Use weighted algorithm similar to server implementation
+            if (locationAds.size() > 1) {
+                // Calculate total priority
+                int totalPriority = 0;
+                for (SponsoredAd ad : locationAds) {
+                    totalPriority += ad.getPriority();
+                }
+                
+                // Apply weighted score with randomization factor
+                Random random = new Random();
+                for (SponsoredAd ad : locationAds) {
+                    // Calculate weighted score: 
+                    // - Base priority percentage + randomness factor scaled by priority
+                    float priorityWeight = totalPriority > 0 ? 
+                        (float) ad.getPriority() / totalPriority : 1f;
+                    float randomFactor = random.nextFloat() * 0.4f; // Random factor between 0-0.4
+                    float weightedScore = priorityWeight + 
+                        (randomFactor * (ad.getPriority() / 10f)); // Scale randomness by priority
+                    
+                    ad.setWeightedScore(weightedScore);
+                    
+                    Log.d(TAG, "Ad " + ad.getId() + 
+                          " priority: " + ad.getPriority() + 
+                          " weight: " + priorityWeight + 
+                          " random: " + randomFactor + 
+                          " score: " + weightedScore);
+                }
+                
+                // Sort by weighted score, higher scores first
+                locationAds.sort((a, b) -> Float.compare(b.getWeightedScore(), a.getWeightedScore()));
+                
+                Log.d(TAG, "Sorted " + locationAds.size() + " ads by weighted score for location " + location);
+            } else {
+                // Only one ad available, no need for weighted algorithm
+                locationAds.get(0).setWeightedScore(1.0f);
+            }
             
-            // Use the highest priority ad
+            // Use the top-ranked ad after weighted sort
             SponsoredAd selectedAd = locationAds.get(0);
             
             // Update cache
@@ -281,8 +322,11 @@ public class SponsoredAdViewModel extends ViewModel {
                 adsByLocation.get(location).setValue(selectedAd);
             }
             
-            Log.d(TAG, "Selected ad " + selectedAd.getId() + " with priority " + 
-                       selectedAd.getPriority() + " for location " + location);
+            Log.d(TAG, "Selected ad " + 
+                (selectedAd.getId() != null ? selectedAd.getId() : "null") + 
+                " with priority " + selectedAd.getPriority() + 
+                " and weighted score " + selectedAd.getWeightedScore() +
+                " for location " + location);
         }
         
         // Third pass: update all LiveData objects that didn't get a direct match
@@ -305,21 +349,31 @@ public class SponsoredAdViewModel extends ViewModel {
             return;
         }
         
-        // Record click in factory for local stats
-        SponsoredAdManagerFactory.getInstance().recordClick(ad.getLocation());
+        // Get ad location with null check
+        String location = ad.getLocation() != null ? ad.getLocation() : "unknown";
         
-        // Send click to server
-        repository.recordAdClick(ad.getId(), new SponsoredAdRepository.SponsoredAdCallback() {
-            @Override
-            public void onSuccess(@NonNull List<SponsoredAd> ads) {
-                Log.d(TAG, "Successfully recorded click for ad: " + ad.getId());
-            }
-            
-            @Override
-            public void onError(@NonNull String message) {
-                Log.e(TAG, "Error recording click for ad " + ad.getId() + ": " + message);
-            }
-        });
+        // Record click in factory for local stats
+        SponsoredAdManagerFactory.getInstance().recordClick(location);
+        
+        // Get ad ID with null check
+        String adId = ad.getId() != null ? ad.getId() : "unknown";
+        
+        // Send click to server (only if ID is not "unknown")
+        if (!"unknown".equals(adId)) {
+            repository.recordAdClick(adId, new SponsoredAdRepository.SponsoredAdCallback() {
+                @Override
+                public void onSuccess(@NonNull List<SponsoredAd> ads) {
+                    Log.d(TAG, "Successfully recorded click for ad: " + adId);
+                }
+                
+                @Override
+                public void onError(@NonNull String message) {
+                    Log.e(TAG, "Error recording click for ad " + adId + ": " + message);
+                }
+            });
+        } else {
+            Log.w(TAG, "Skipping server click recording for ad with null ID");
+        }
         
         // Open URL
         String redirectUrl = ad.getRedirectUrl();
@@ -345,21 +399,31 @@ public class SponsoredAdViewModel extends ViewModel {
             return;
         }
         
-        // Record impression in factory for local stats
-        SponsoredAdManagerFactory.getInstance().recordImpression(ad.getLocation());
+        // Get ad location with null check
+        String location = ad.getLocation() != null ? ad.getLocation() : "unknown";
         
-        // Send impression to server
-        repository.recordAdImpression(ad.getId(), new SponsoredAdRepository.SponsoredAdCallback() {
-            @Override
-            public void onSuccess(@NonNull List<SponsoredAd> ads) {
-                Log.d(TAG, "Successfully recorded impression for ad: " + ad.getId());
-            }
-            
-            @Override
-            public void onError(@NonNull String message) {
-                Log.e(TAG, "Error recording impression for ad " + ad.getId() + ": " + message);
-            }
-        });
+        // Record impression in factory for local stats
+        SponsoredAdManagerFactory.getInstance().recordImpression(location);
+        
+        // Get ad ID with null check
+        String adId = ad.getId() != null ? ad.getId() : "unknown";
+        
+        // Send impression to server (only if ID is not "unknown")
+        if (!"unknown".equals(adId)) {
+            repository.recordAdImpression(adId, new SponsoredAdRepository.SponsoredAdCallback() {
+                @Override
+                public void onSuccess(@NonNull List<SponsoredAd> ads) {
+                    Log.d(TAG, "Successfully recorded impression for ad: " + adId);
+                }
+                
+                @Override
+                public void onError(@NonNull String message) {
+                    Log.e(TAG, "Error recording impression for ad " + adId + ": " + message);
+                }
+            });
+        } else {
+            Log.w(TAG, "Skipping server impression recording for ad with null ID");
+        }
     }
     
     @Override

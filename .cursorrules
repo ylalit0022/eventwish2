@@ -295,506 +295,63 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 
 # Scratchpad
 
-## Current Task: Implement Sponsored Ads
-
-### Analysis of Current Task
-[X] Added sponsored ads API endpoints to ApiService interface
-    - GET endpoint for fetching sponsored ads
-    - POST endpoints for tracking impressions and clicks
-    - Using device ID for tracking
-
-[X] Created/Updated model classes
-    - SponsoredAd.java with impression_count and click_count fields
-    - SponsoredAdResponse.java wrapper for API responses
-    - Proper GSON annotations and null-safety
-
-[X] Implemented repository and ViewModel
-    - SponsoredAdRepository for data handling
-    - SponsoredAdViewModel for UI logic
-    - Proper error handling and logging
-
-[X] Created custom UI components
-    - SponsoredAdView custom view for displaying ads
-    - Layout XML with placeholder and error states
-    - Proper resource strings and drawables
-
-[X] Built infrastructure
-    - SponsoredAdManagerFactory for centralized management
-    - Singleton pattern with proper initialization
-    - Registration of ad views with central manager
-
-[X] Added analytics integration
-    - AnalyticsUtils methods for impression and click tracking
-    - Privacy-compliant implementation
-    - Detailed debugging information
-
-[X] Integrated with main app
-    - Added to HomeFragment and example usage fragment
-    - Proper lifecycle handling (init/cleanup)
-    - Integrated with application initialization
-
-### Implementation Details
-1. API Integration
-   - Added three endpoints to ApiService:
-     - getSponsoredAds(): Fetches active sponsored ads
-     - recordSponsoredAdImpression(): Tracks when an ad is viewed
-     - recordSponsoredAdClick(): Tracks when a user clicks an ad
-
-2. Data Models
-   - SponsoredAd model with fields:
-     - id, imageUrl, redirectUrl, status, startDate, endDate
-     - location, priority, title, description
-     - clickCount, impressionCount (server metrics)
-   - SponsoredAdResponse wrapper with success, ads, message, error fields
-   - Comprehensive null-safety and error handling
-
-3. UI Components
-   - SponsoredAdView as a custom FrameLayout
-   - Cardview-based layout with image, title, description
-   - "Sponsored" label for transparency
-   - Click handling with proper tracking
-
-4. Management
-   - SponsoredAdManagerFactory singleton to coordinate
-   - Centralized ad loading to reduce network calls
-   - Registration system for multiple ad placements
-
-5. Analytics
-   - Impression tracking when ads are displayed
-   - Click tracking when users interact
-   - Session and device information for better targeting
-
-### Next Steps
-1. [ ] Test with server-side implementation
-2. [ ] Add adaptive sizing for different screen sizes
-3. [ ] Add caching to reduce server load
-4. [ ] Implement A/B testing capabilities
-5. [ ] Create remote configuration for ad behavior
-
-## Scratchpad - Category Icon Issue Analysis
-
-## Current Issue
-- Category icons not showing up in the app
-- Template schema in server treats categoryIcon as string but should be an object
-- Need to align client-side and server-side models
-
-## File Analysis
-
-### Client Side (Android)
-1. Category.java:
-   - Has CategoryIcon field with proper TypeConverter
-   - Uses proper model structure
-
-2. CategoryIcon.java:
-   - Complex model with proper JSON handling
-   - Has id, category, categoryIcon fields
-   - Handles various icon URL formats and edge cases
-
-3. Template.java (Android):
-   - Has CategoryIcon field with proper TypeConverter
-   - Properly structured for icon handling
-
-### Server Side
-1. CategoryIcon.js (Model):
-   - Simple schema with category and categoryIcon fields
-   - categoryIcon is validated as URL string
-
-2. Template.js (Model):
-   - Issue: categoryIcon field is ObjectId reference
-   - But treated as string in responses
-   - Missing proper population of categoryIcon object
-
-3. Support Files:
-   - categoryIconServer.js: Handles icon CRUD operations
-   - insertCategoryIcons.js: Sample data insertion
-   - insertNewCategoryIcons.js: New icon insertion logic
-
-## Root Cause
-1. Schema Mismatch:
-   - Server: categoryIcon is ObjectId reference
-   - Client: Expects full CategoryIcon object
-   - Missing population step in API responses
-
-2. Data Flow Issues:
-   - Server not populating CategoryIcon references
-   - Template responses sending raw ObjectId instead of resolved object
-
-## Action Plan
-
-[ ] 1. Fix Template Schema
-    - Update Template.js to properly define categoryIcon reference
-    - Add proper population in queries
-
-[ ] 2. Update API Routes
-    - Modify template routes to populate categoryIcon
-    - Ensure proper object resolution
-
-[ ] 3. Fix Data Insertion
-    - Update insertion scripts to handle proper references
-    - Validate existing data
-
-[ ] 4. Testing
-    - Test API responses
-    - Verify client-side rendering
-    - Check icon loading in app
-
-## Implementation Steps
-
-1. Template Schema Fix:
-```javascript
-categoryIcon: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'CategoryIcon',
-    required: false
-}
-```
-
-2. API Population:
-```javascript
-Template.findById(id).populate('categoryIcon')
-```
-
-3. Response Handling:
-- Ensure proper object transformation
-- Handle null/missing icons gracefully
-
-4. Data Validation:
-- Check existing records
-- Update references if needed
-
-Would you like me to start implementing these fixes?
-
-## Analytics Tracking Plan
-
-### Introduction
-The task is to implement comprehensive analytics tracking for user interactions including:
-1. Category clicks
-2. Template clicks (with metadata)
-3. Share button clicks 
-4. Social media platform sharing
-5. Device information (device name, screen size, OS version)
-
-### Play Console Policy Compliance Assessment
-[X] Google Play Store Data Safety Policy Review
-- ✅ Device information (device name, model, screen size, OS version) is allowed under Play Store policy
-- ✅ Firebase Analytics is a compliant analytics solution
-- ✅ All tracking must be disclosed in the app's privacy policy
-- ✅ Users must be informed about data collection (consider adding consent dialog)
-- ❗ Ensure no PII (Personally Identifiable Information) is collected
-- ❗ Device IDs should be hashed if stored for tracking
-- ✅ Usage analytics data is allowed for app improvement purposes
-
-### Current Capabilities Assessment
-[X] Existing AnalyticsUtils class provides Firebase Analytics integration
-[X] Category click tracking already implemented with trackCategoryClick method
-[X] Template view tracking exists with detailed trackTemplateView method
-[X] Share button tracking implemented with trackShareButtonClick method
-[X] Social media tracking implemented with trackSocialShare method 
-[X] Device info tracking implemented in trackDeviceInfo method
-
-### Implementation Status
-
-1. [X] Device Information Tracking Enhancement
-   - [X] Comprehensive trackDeviceInfo method implemented
-   - [X] Method called during app initialization
-   - [X] Device info added to major analytics events
-   - [X] Implementation includes all required device parameters
-
-2. [X] Category Click Tracking
-   - [X] Dedicated trackCategoryClick method implemented
-   - [X] Method defined with proper parameters and logging
-   - [X] Called from appropriate UI components
-
-3. [X] Template Click Tracking Enhancement
-   - [X] Enhanced trackTemplateView method implemented
-   - [X] Includes template title and category parameters
-   - [X] Implementation includes proper session ID tracking
-
-4. [X] Share Button Click Tracking
-   - [X] EVENT_SHARE_BUTTON_CLICK constant defined
-   - [X] trackShareButtonClick method implemented
-   - [X] Used in share button handlers across fragments
-
-5. [X] Social Media Platform Tracking
-   - [X] EVENT_SOCIAL_SHARE constant defined
-   - [X] trackSocialShare method implemented with platform, template ID and success parameters
-   - [X] Implemented in SharedWishFragment's handleShareVia method
-
-6. [X] Consolidated Analytics Implementation
-   - [X] All tracking centralized in AnalyticsUtils
-   - [X] Consistent parameter naming used throughout
-   - [X] Proper error handling in all tracking methods
-
-7. [X] Privacy & Compliance Features
-   - [X] Analytics enabled/disabled toggle method implemented
-   - [X] Settings UI for opt-out option
-   - [X] Privacy consent dialog for first launch
-   - [X] Ensuring no PII is collected in current implementation
-
-8. [X] Testing & Validation Features
-   - [X] Debug flag for detailed analytics logging
-   - [X] Proper error handling and null checks
-   - [X] Logging for every event to assist in debugging
-
-### Next Steps
-1. [X] Implement opt-out toggle in Settings UI
-2. [X] Create privacy consent dialog for first launch
-3. [X] Add comprehensive documentation
-
-The analytics tracking implementation is complete. The functionality for tracking all required user interactions has been implemented in the AnalyticsUtils class, with methods for tracking device information, category clicks, template views, share button clicks, and social media sharing.
-
-We have also added privacy compliance features, including an opt-out option in the Settings activity and a privacy consent dialog for first app launch to ensure users are informed about data collection.
-
-# EventWish App Maintenance Documentation
-
-## Table of Contents
-1. [Application Overview](#application-overview)
-2. [Architecture](#architecture)
-3. [Key Components](#key-components)
-4. [Authentication & Security](#authentication--security)
-5. [Database Structure](#database-structure)
-6. [API Services](#api-services)
-7. [Ad Integration](#ad-integration)
-8. [Analytics Implementation](#analytics-implementation)
-9. [Notifications & Reminders](#notifications--reminders)
-10. [Deep Links](#deep-links)
-11. [Maintenance Procedures](#maintenance-procedures)
-12. [Known Issues](#known-issues)
-13. [Build & Deployment](#build--deployment)
-
-## Application Overview
-
-EventWish is an Android application that allows users to create and share event wishes, manage templates, track festivals, and set reminders. The app follows a modern Android architecture with MVVM pattern, Repository pattern, and leverages Room for local database storage.
-
-### Main Features
-- Template-based wish creation
-- Social media sharing
-- Festival tracking and notifications
-- Reminder system
-- AdMob integration
-- Analytics tracking
-- Deep linking support
-
-## Architecture
-
-The app follows the MVVM (Model-View-ViewModel) architectural pattern:
-
-- **Model**: Data layer with repositories, data sources, and Room database
-- **View**: Activities and Fragments
-- **ViewModel**: Manages UI-related data and handles business logic
-
-### Core Components
-- `EventWishApplication`: Application class that initializes all core services
-- `MainActivity`: Main activity that hosts the navigation component
-- Various repositories for data management
-- Room database for local storage
-- Retrofit for API communication
-- WorkManager for background tasks
-
-## Key Components
-
-### Main Modules
-
-1. **UI Module (`com.ds.eventwish.ui`)**
-   - Activities and Fragments for different app screens
-   - ViewModels that manage UI state
-   - Custom views and adapters
-
-2. **Data Module (`com.ds.eventwish.data`)**
-   - Repositories that coordinate data access
-   - Database entities and DAOs
-   - Remote API client and services
-   - Local storage utilities
-
-3. **Utility Module (`com.ds.eventwish.utils` and `com.ds.eventwish.util`)**
-   - Helper classes for various functionalities
-   - Time and date utilities
-   - Security and encryption
-   - Analytics tracking
-
-4. **Ad Module (`com.ds.eventwish.ads`)**
-   - AdMob integration
-   - Different ad formats (Interstitial, Native, Rewarded, App Open)
-   - Ad unit management
-
-5. **Workers (`com.ds.eventwish.workers`)**
-   - Background tasks managed by WorkManager
-   - Reminder checks
-   - Template updates
-
-6. **Receivers (`com.ds.eventwish.receivers`)**
-   - Broadcast receivers for system events
-   - Alarm receivers
-   - Boot completed receiver
-
-### Navigation
-
-The app uses the Android Navigation Component with a single activity (`MainActivity`) hosting multiple fragments. Navigation is defined in:
-- `app/src/main/res/navigation/nav_graph.xml`: Main navigation graph
-- `app/src/main/res/navigation/mobile_navigation.xml`: Bottom navigation
-- `app/src/main/res/navigation/auth_navigation.xml`: Authentication flow
-
-## Authentication & Security
-
-Authentication is managed through:
-- `SecureTokenManager`: Handles secure storage of tokens and sensitive data
-- `TokenRepository`: Manages token retrieval and renewal
-- `UserRepository`: Handles user registration and authentication
-
-Security considerations:
-- API keys are stored securely
-- Device IDs are hashed for privacy
-- Network calls are secured with HTTPS
-
-## Database Structure
-
-The app uses Room database for local storage. Main entities include:
-
-1. **Template**: Design templates for wishes
-2. **Category**: Template categories
-3. **Festival**: Holiday and event information
-4. **Reminder**: User-set reminders
-5. **AdUnit**: Ad configuration data
-
-Database migrations are handled in the `AppDatabase` class. The database version should be incremented when schema changes occur.
-
-## API Services
-
-API communication is handled by Retrofit through:
-- `ApiClient`: Configures Retrofit and OkHttp
-- `ApiService`: Defines API endpoints
-
-Main API endpoints:
-- Template APIs: Fetch and manage templates
-- Festival APIs: Retrieve festival information
-- Ad unit APIs: Get ad configuration
-- User APIs: Registration and authentication
-
-## Ad Integration
-
-The app uses Google AdMob for advertising with multiple ad formats:
-
-1. **App Open Ads**: Shown when the app is opened (`AppOpenManager`)
-2. **Interstitial Ads**: Full-screen ads between screens (`InterstitialAdManager`)
-3. **Native Ads**: Custom format ads integrated into the UI (`NativeAdHelper`)
-4. **Rewarded Ads**: Ads that reward users (`RewardedAdManager`)
-
-Ad configuration is fetched from the server via the `AdMobRepository` and cached locally.
-
-## Analytics Implementation
-
-Analytics tracking is centralized in the `AnalyticsUtils` class, which provides methods for tracking:
-- Screen views
-- User interactions (clicks, searches)
-- Content engagement
-- Ad performance
-- Error events
-
-Privacy features include:
-- User opt-out mechanism
-- No collection of personally identifiable information (PII)
-- Device information tracking in compliance with Play Store policies
-
-## Notifications & Reminders
-
-The app has a comprehensive notification system:
-- `EventWishNotificationManager`: Creates and manages notifications
-- `NotificationScheduler`: Schedules notifications at specific times
-- `ReminderScheduler`: Handles reminder-specific scheduling
-
-Reminder features:
-- User-configurable reminders for events
-- Persistent notification for active reminders
-- Background checking using WorkManager
-
-## Deep Links
-
-The app supports deep linking to specific content:
-- Wishes: `eventwish://wish/{id}`
-- Festivals: `eventwish://festival/{id}` 
-- Templates: `eventwish://template/{id}`
-
-HTTP(S) deep links:
-- `https://eventwishes.onrender.com/wish/{id}`
-- `https://eventwishes.onrender.com/festival/{id}`
-- `https://eventwishes.onrender.com/template/{id}`
-
-Deep link handling is managed in the `DeepLinkHandler` class.
-
-## Maintenance Procedures
-
-### Regular Maintenance
-
-1. **Update dependencies**:
-   - Regularly update dependencies in `build.gradle` files
-   - Test thoroughly after updates
-   - Pay special attention to Firebase, AdMob, and AndroidX updates
-
-2. **Database migrations**:
-   - When changing the database schema, create migration classes
-   - Test migrations on devices with existing data
-   - Increment the database version number
-
-3. **API changes**:
-   - Update ApiService interface with new endpoints
-   - Update corresponding repository methods
-   - Add appropriate error handling
-
-4. **Ad unit management**:
-   - Periodically check ad unit performance
-   - Update ad unit IDs in the backend when needed
-   - Ensure test ads are used in debug builds
-
-### Troubleshooting
-
-Common issues and solutions:
-1. **Network connectivity issues**:
-   - Check `ApiClient` configuration
-   - Verify `InternetConnectivityChecker` functionality
-   - Check certificate pinning configuration
-
-2. **Notification problems**:
-   - Verify channel creation in `EventWishApplication`
-   - Check Android version-specific notification code
-   - Verify alarm permissions on Android 12+
-
-3. **Database errors**:
-   - Check migration path for schema changes
-   - Verify entity annotations and DAOs
-   - Check for thread-safety issues with LiveData
-
-4. **Ad loading issues**:
-   - Verify internet connectivity
-   - Check ad unit IDs in the database
-   - Verify test mode is enabled in debug builds
-
-## Known Issues
-
-1. LiveData updates from background threads should use postValue() instead of setValue()
-2. AdMob initialization must complete before using other ad components
-3. SecureTokenManager.init() must be called before getInstance()
-4. Proper initialization order of singletons is critical for dependency management
-
-## Build & Deployment
-
-### Build Types
-- **Debug**: Development version with test ads and verbose logging
-- **Release**: Production version with optimizations and release ad units
-
-### Flavor Dimensions
-- **Free**: Basic functionality with ads
-- **Premium**: Enhanced features without ads
-
-### Signing
-- Release builds require signing with the production keystore
-- Debug builds use the debug keystore
-
-### Play Store Deployment
-1. Update version code and name in `build.gradle`
-2. Run `./gradlew bundleRelease`
-3. Test the bundle with the Play Store testing tracks
-4. Deploy to production through the Play Console
-
-## Conclusion
-
-This documentation provides a comprehensive overview of the EventWish app architecture, components, and maintenance procedures. It should serve as a guide for future developers to understand, maintain, and enhance the application.
+## Current Task: Fix Sponsored Ad Tracking and Implement Category Icon Handling
+
+### Sponsored Ad Tracking Fixes (Completed)
+- [X] Updated SponsoredAd model in backend:
+  - [X] Fixed device_daily_impressions to use Object instead of Map for better MongoDB compatibility
+  - [X] Added proper Map initialization in recordImpression and recordClick methods
+  - [X] Fixed handling of daily impressions data structure
+  - [X] Added markModified() calls to ensure changes are saved
+  - [X] Added detailed error logging with stack traces
+  - [X] Improved error handling throughout the model
+
+- [X] Created backend test script (testSponsoredAdTracking.js):
+  - [X] Tests impression tracking with specific device IDs
+  - [X] Tests click tracking with specific device IDs
+  - [X] Verifies proper counts and metrics in database
+  - [X] Confirms frequency capping is working correctly
+
+- [X] Improved getActiveAds algorithm:
+  - [X] Added better error handling with try/catch blocks
+  - [X] Improved Map initialization
+  - [X] Added detailed logging of ad filtering process
+  - [X] Fixed metrics calculation and handling
+  - [X] Ensured proper handling of frequency capping
+
+### Category Icon Handling Fixes (Completed)
+- [X] Fixed Template Schema on server side:
+  - [X] Updated toJSON transform to preserve populated CategoryIcon objects
+  - [X] Fixed model validation for ObjectId references
+  - [X] Added proper field definitions with ref: 'CategoryIcon'
+
+- [X] Fixed CategoryIcon Schema:
+  - [X] Ensured consistent ID handling between _id and id fields
+  - [X] Fixed JSON serialization to maintain backward compatibility
+
+- [X] Updated API Routes:
+  - [X] Updated templateController.js to consistently populate CategoryIcon references
+  - [X] Added proper field selection during population to avoid sensitive data
+  - [X] Added detailed error logging with stack traces
+
+- [X] Created test script (testCategoryIcons.js):
+  - [X] Tests CategoryIcon population in Template collections
+  - [X] Verifies proper JSON serialization of CategoryIcon references
+  - [X] Tests individual CategoryIcon model behavior
+  - [X] Confirms both _id and id fields are present in serialized output
+
+### Lessons Learned
+- MongoDB Map fields need consistent data structures (Object vs Map)
+- Always use markModified() when updating Map fields in Mongoose
+- Implement proper Map/field initialization before use
+- Add detailed error logging with stack traces for easier debugging
+- Use try/catch blocks around potentially problematic code sections
+- Handle all possible error cases gracefully
+- Test with real device IDs to verify tracking works correctly
+- Always examine current model implementations before making changes
+- When working with MongoDB references:
+  - Consistently use populate() with path and select options
+  - Be careful with toJSON transforms that can lose referenced objects
+  - Maintain both _id and id fields for backward compatibility
+  - Add validation for ObjectId references
+  - Test JSON serialization to ensure proper data structure

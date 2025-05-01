@@ -407,10 +407,11 @@
     <!-- Sponsored Ads Strings -->
     <string name="sponsored">Sponsored</string>
     <string name="sponsored_ad_image">Advertisement Image</string>
+    <string name="sponsored_ad_error">Failed to load sponsored content</string>
     <string name="ad_error_loading">Could not load advertisement</string>
 
     <!-- Ad Related -->
-    <string name="cooldown_timer_format">Share in: %02d:%02d</string>
+    <string name="cooldown_timer_format" formatted="false">Ads in: %02d:%02d</string>
     <string name="share_unlocked">Share Unlocked!</string>
     <string name="cooldown_ended">Ad cooldown period ended. Watch another ad to share.</string>
 </resources>

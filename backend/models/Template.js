@@ -45,8 +45,13 @@ const templateSchema = new mongoose.Schema({
     toJSON: {
         virtuals: true,
         transform: function(doc, ret) {
-            if (ret.categoryIcon && typeof ret.categoryIcon === 'object') {
-                ret.categoryIcon = ret.categoryIcon._id;
+            if (ret.categoryIcon && typeof ret.categoryIcon === 'object' && ret.categoryIcon._id) {
+                // If the categoryIcon is fully populated, leave it as is
+                // This ensures the client receives the full object
+                // Already transformed by CategoryIcon's own toJSON method
+            } else if (ret.categoryIcon && typeof ret.categoryIcon === 'string') {
+                // If it's just a string ID but not populated, leave as is
+                // This would be an ObjectId string
             }
             return ret;
         }
