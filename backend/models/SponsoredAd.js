@@ -184,8 +184,22 @@ sponsoredAdSchema.statics.getActiveAds = async function(location = null, deviceI
         let dailyImpressions = 0;
         try {
           const deviceDailyData = ad.device_daily_impressions.get(deviceId);
-          if (deviceDailyData) {
+          if (deviceDailyData && deviceDailyData instanceof Map) {
             dailyImpressions = deviceDailyData.get(today) || 0;
+          } else if (deviceDailyData && typeof deviceDailyData === 'object') {
+            // Handle case where deviceDailyData is an object but not a Map
+            dailyImpressions = deviceDailyData[today] || 0;
+            
+            // Convert to proper Map structure for future operations
+            const newMap = new Map();
+            Object.keys(deviceDailyData).forEach(date => {
+              newMap.set(date, deviceDailyData[date]);
+            });
+            ad.device_daily_impressions.set(deviceId, newMap);
+            ad.markModified('device_daily_impressions');
+            
+            // Log the conversion
+            logger.debug(`Converted device_daily_impressions to Map for ad ${ad._id}, device ${deviceId}`);
           }
         } catch (dailyError) {
           logger.error(`Error accessing daily impressions for ad ${ad._id}, device ${deviceId}:`, dailyError);
@@ -328,8 +342,24 @@ sponsoredAdSchema.methods.recordImpression = async function(deviceId = null) {
       this.markModified('device_daily_impressions');
     }
     
+    // Get device daily data and ensure it's a Map
+    let deviceDailyData = this.device_daily_impressions.get(deviceId);
+    
+    // Handle case where deviceDailyData is an object but not a Map
+    if (deviceDailyData && !(deviceDailyData instanceof Map)) {
+      // Convert plain object to Map
+      const newMap = new Map();
+      Object.keys(deviceDailyData).forEach(date => {
+        newMap.set(date, deviceDailyData[date]);
+      });
+      deviceDailyData = newMap;
+      this.device_daily_impressions.set(deviceId, deviceDailyData);
+      this.markModified('device_daily_impressions');
+      
+      logger.debug(`Converted device_daily_impressions from object to Map for ad ${this._id}, device ${deviceId}`);
+    }
+    
     // Get today's count
-    const deviceDailyData = this.device_daily_impressions.get(deviceId);
     const todayCount = deviceDailyData.get(today) || 0;
     
     // Check total frequency cap

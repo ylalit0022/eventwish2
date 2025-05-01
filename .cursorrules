@@ -289,7 +289,7 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Implement debug logging mechanisms that can be toggled for development
   - Add privacy compliance features including user opt-out functionality
   - Add proper error handling and null checks before tracking events
-  - Implement global opt-in/out-out controls that respect user preferences
+  - Implement global opt-in/opt-out controls that respect user preferences
   - Add screen view tracking for both activities and fragments
   - Use Firebase Analytics setUserProperty for consistent user segmentation
 - When working with MongoDB models in Node.js:
@@ -300,65 +300,66 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Add detailed error logging with stack traces for debugging
   - Implement defensive programming with null/undefined checks throughout
   - Ensure field names in response match exactly what client expects
+- When handling ID fields in MongoDB for Android navigation:
+  - Always ensure MongoDB ObjectIDs are converted to strings before sending to Android clients
+  - Use explicit toString() on all _id fields in server responses
+  - Implement proper validation for ID parameters in API routes
+  - Add defensive handling in case IDs are null or invalid
+  - Use virtual id properties in mongoose schemas to automatically provide string IDs
+  - Be aware that Android's Navigation component expects string arguments
+  - Use @argType="string" in navigation XML definitions for ID arguments
+  - Implement consistent logging across the API for easier debugging
+  - Add automated tests to verify ID handling
 
 # Scratchpad
 
-## Current Task: Fix SponsoredAd Field Update Issues Between Server and Client
+## Current Task: Fix Template ID Handling for Android Navigation
 
 ### Problem Analysis
 
-1. **Server-Side: SponsoredAd.js Schema Issues**
-   - [X] `device_daily_impressions` is defined as type `Object` with default `{}` (line 94)
-   - [X] MongoDB has better support for explicit Map types for this kind of data structure
-   - [X] The recordImpression method may have issues accessing and modifying this data structure
-   - [X] Current implementation may not properly mark modified fields for MongoDB to save changes
-
-2. **API Field Name Mismatches**
-   - [X] Server uses snake_case (e.g., `image_url`, `redirect_url`) while Android client likely expects camelCase
-   - [X] Need to verify field naming consistency in ApiService.java and SponsoredAd model in Android
-
-3. **Client Model Implementation**
-   - [X] How `SponsoredAd` model in Android handles serialization/deserialization
-   - [X] Whether the client properly updates local tracking data
+1. **Template ID Type Issue**
+   - [X] Android Navigation component expects string arguments for template IDs
+   - [X] MongoDB ObjectIDs need to be explicitly converted to strings
+   - [X] Template.js model needs to ensure consistent ID handling
+   - [X] API controllers need to consistently return string IDs
 
 ### Solution Approach
 
-1. **Fix SponsoredAd.js Model**
-   - [X] Fix the `device_daily_impressions` field type and initialization
-   - [X] Improve the recordImpression and recordClick methods with better type checking
-   - [X] Ensure proper markModified() calls where needed
-   - [X] Add robust error handling and logging
-   - [X] Fix any field serialization issues in toJSON transform
+1. **Update Template.js Model**
+   - [X] Improve toJSON and toObject transform functions to ensure string IDs
+   - [X] Add virtual 'id' property for direct string access
+   - [X] Add pre-save hook to ensure 'id' field is set
+   - [X] Add consistent string ID conversion throughout
 
-2. **Fix Field Name Consistency**
-   - [X] Determine where field name conversion happens (client or server)
-   - [X] Check annotation mapping in Android model (@SerializedName)
-   - [X] Verify API calls in SponsoredAdRepository correctly map field names
+2. **Update templateController.js**
+   - [X] Use toJSON() to ensure string IDs in responses
+   - [X] Add explicit defensive ID conversions
+   - [X] Improve error handling for invalid IDs
+   - [X] Convert ID fields in all controller methods
 
-3. **Fix Client-Side Implementation**
-   - [X] Verify SponsoredAdViewModel correctly handles ad updates
-   - [X] Ensure SponsoredAdView properly tracks impressions
-   - [X] Fix any synchronization issues in tracking mechanics
+3. **Update templates.js Routes**
+   - [X] Add middleware to validate ObjectIDs
+   - [X] Add proper logging for API requests
+   - [X] Ensure consistent error responses
+   - [X] Handle recommendations route ID conversion
 
-### Implementation Plan
+4. **Testing**
+   - [X] Created testTemplateIdHandling.js script
+   - [X] Verified string conversion in all ID scenarios
+   - [X] Added comprehensive ID validation
+   - [X] Confirmed proper handling of virtual 'id' property
 
-1. **Update SponsoredAd.js Model**
-   - [ ] Modify schema to properly handle complex data structures
-   - [ ] Improve error handling in recordImpression and recordClick methods
-   - [ ] Add more detailed logging to track data flow
-   - [ ] Fix the toJSON transform to ensure consistent field names
+### Implementation Results
+- Successfully fixed the template ID handling issue by ensuring all MongoDB ObjectIDs are converted to strings before being sent to the Android client
+- Added comprehensive validation and error handling for ID parameters
+- Improved logging for better troubleshooting
+- Added automated tests to verify ID handling
+- All tests passed, confirming proper string conversion of template IDs
 
-2. **Update API Controllers if needed**
-   - [ ] Verify sponsoredAdController.js handles data correctly
-   - [ ] Check response format matches Android client expectations
-
-3. **Test with Android Client**
-   - [ ] Create simple test endpoint to validate data structure
-   - [ ] Log detailed debugging information during impression/click tracking
-   - [ ] Verify data is saved correctly in MongoDB
-
-### Expected Outcomes
-- Proper recording of ad impressions and clicks
-- Consistent field naming between server and client
-- Better error handling and debugging capabilities
-- Robust frequency capping implementation
+### Key Lessons
+- Android Navigation component requires string arguments for ID parameters
+- MongoDB ObjectIDs must be explicitly converted to strings with toString()
+- Consistent handling of IDs throughout the API is critical
+- Virtual properties in mongoose schemas can help ensure consistent ID access
+- Defensive ID handling with proper validation prevents runtime errors
+- Proper error logging is essential for debugging ID issues
