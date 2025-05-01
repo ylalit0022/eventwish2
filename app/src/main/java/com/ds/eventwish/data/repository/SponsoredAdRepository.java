@@ -41,6 +41,7 @@ public class SponsoredAdRepository {
     public SponsoredAdRepository() {
         this.apiService = ApiClient.getClient();
         this.deviceId = DeviceUtils.getDeviceId(EventWishApplication.getInstance());
+        Log.d(TAG, "Initialized with deviceId: " + (deviceId != null ? deviceId : "null"));
     }
     
     /**
@@ -92,7 +93,7 @@ public class SponsoredAdRepository {
         loadingLiveData.setValue(true);
         
         Log.d(TAG, "Fetching sponsored ads for location: " + (location != null ? location : "all") + 
-              " with deviceId: " + (deviceId != null ? deviceId.substring(0, 6) + "..." : "null"));
+              " with deviceId: " + (deviceId != null ? deviceId.substring(0, Math.min(6, deviceId.length())) + "..." : "null"));
         
         apiService.getSponsoredAds(location, deviceId).enqueue(new Callback<SponsoredAdResponse>() {
             @Override
@@ -107,6 +108,20 @@ public class SponsoredAdRepository {
                         sponsoredAdsLiveData.postValue(adResponse.getAds());
                         Log.d(TAG, "Loaded " + adResponse.getAds().size() + " sponsored ads for location: " + 
                               (location != null ? location : "all"));
+                        
+                        // Log frequency cap and metrics for each ad
+                        for (SponsoredAd ad : adResponse.getAds()) {
+                            Log.d(TAG, "Ad: " + ad.getId() + ", Title: " + ad.getTitle() +
+                                  ", Frequency Cap: " + ad.getFrequencyCap() +
+                                  ", Daily Frequency Cap: " + ad.getDailyFrequencyCap());
+                            
+                            if (ad.getMetrics() != null) {
+                                Log.d(TAG, "Ad Metrics - Device Impressions: " + ad.getMetrics().getDeviceImpressions() +
+                                      ", Daily Impressions: " + ad.getMetrics().getDeviceDailyImpressions() +
+                                      ", Frequency Capped: " + ad.getMetrics().isFrequencyCapped() +
+                                      ", Daily Frequency Capped: " + ad.getMetrics().isDailyFrequencyCapped());
+                            }
+                        }
                     } else {
                         errorLiveData.postValue(adResponse.getMessage() != null ? 
                                 adResponse.getMessage() : "No ads available");
@@ -216,15 +231,81 @@ public class SponsoredAdRepository {
             return;
         }
         
+        Log.d(TAG, "⭐ Recording impression for ad: " + adId + " with deviceId: " + 
+              (deviceId != null ? deviceId.substring(0, Math.min(6, deviceId.length())) + "..." : "null"));
+        
         apiService.recordSponsoredAdImpression(adId, deviceId).enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
-                if (response.isSuccessful()) {
-                    Log.d(TAG, "Impression recorded for ad: " + adId);
+                if (response.isSuccessful() && response.body() != null) {
+                    JsonObject responseBody = response.body();
+                    
+                    // Log detailed response information
+                    Log.d(TAG, "✅ Impression recorded successfully for ad: " + adId);
+                    Log.d(TAG, "URL: " + call.request().url());
+                    Log.d(TAG, "Response: " + responseBody);
+                    
+                    try {
+                        // Extract tracking metrics with improved parsing
+                        StringBuilder trackingInfo = new StringBuilder();
+                        trackingInfo.append("📊 Impression Tracking Info for ad ").append(adId).append(":\n");
+                        
+                        // Impression counts (total, device, daily)
+                        int impressionCount = getIntField(responseBody, "impression_count", "impressionCount", 0);
+                        int deviceImpressions = getIntField(responseBody, "device_impressions", "deviceImpressions", 0);
+                        int dailyCount = getIntField(responseBody, "daily_count", "dailyCount", 0);
+                        
+                        trackingInfo.append("  • Total Impressions: ").append(impressionCount).append("\n");
+                        trackingInfo.append("  • Device Impressions: ").append(deviceImpressions).append("\n");
+                        trackingInfo.append("  • Today's Impressions: ").append(dailyCount).append("\n");
+                        
+                        // Was this impression actually counted?
+                        boolean wasCounted = getBooleanField(responseBody, "was_counted", "wasCounted", true);
+                        trackingInfo.append("  • Impression Counted: ").append(wasCounted ? "YES ✓" : "NO ✗").append("\n");
+                        
+                        // Capping information
+                        boolean isCapped = getBooleanField(responseBody, "is_capped", "isCapped", false);
+                        boolean isDailyCapped = getBooleanField(responseBody, "is_daily_capped", "isDailyCapped", false);
+                        int frequencyCap = getIntField(responseBody, "frequency_cap", "frequencyCap", 0);
+                        int dailyFrequencyCap = getIntField(responseBody, "daily_frequency_cap", "dailyFrequencyCap", 0);
+                        
+                        trackingInfo.append("  • Frequency Cap: ").append(frequencyCap > 0 ? frequencyCap : "Unlimited").append("\n");
+                        trackingInfo.append("  • Daily Cap: ").append(dailyFrequencyCap > 0 ? dailyFrequencyCap : "Unlimited").append("\n");
+                        trackingInfo.append("  • Is Capped: ").append(isCapped ? "YES ⚠️" : "NO").append("\n");
+                        trackingInfo.append("  • Is Daily Capped: ").append(isDailyCapped ? "YES ⚠️" : "NO").append("\n");
+                        
+                        // Calculate remaining impressions
+                        if (frequencyCap > 0) {
+                            int remaining = Math.max(0, frequencyCap - deviceImpressions);
+                            trackingInfo.append("  • Remaining Total Impressions: ").append(remaining).append("\n");
+                        }
+                        
+                        if (dailyFrequencyCap > 0) {
+                            int remaining = Math.max(0, dailyFrequencyCap - dailyCount);
+                            trackingInfo.append("  • Remaining Daily Impressions: ").append(remaining).append("\n");
+                        }
+                        
+                        Log.i(TAG, trackingInfo.toString());
+                    } catch (Exception e) {
+                        Log.e(TAG, "❌ Error parsing impression response fields: " + e.getMessage(), e);
+                    }
+                    
                     callback.onSuccess(new ArrayList<>());
                 } else {
                     String errorMsg = "Error recording impression: " + response.code();
-                    Log.e(TAG, errorMsg);
+                    Log.e(TAG, "❌ " + errorMsg);
+                    Log.e(TAG, "URL: " + call.request().url());
+                    
+                    // Try to extract error details
+                    try {
+                        if (response.errorBody() != null) {
+                            String errorBody = response.errorBody().string();
+                            Log.e(TAG, "Error response: " + errorBody);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error reading error body: " + e.getMessage());
+                    }
+                    
                     callback.onError(errorMsg);
                 }
             }
@@ -232,7 +313,9 @@ public class SponsoredAdRepository {
             @Override
             public void onFailure(Call<JsonObject> call, Throwable t) {
                 String errorMsg = "Network error recording impression: " + t.getMessage();
-                Log.e(TAG, errorMsg, t);
+                Log.e(TAG, "❌ " + errorMsg);
+                Log.e(TAG, "URL: " + call.request().url());
+                Log.e(TAG, "Error details", t);
                 callback.onError(errorMsg);
             }
         });
@@ -249,15 +332,66 @@ public class SponsoredAdRepository {
             return;
         }
         
+        Log.d(TAG, "⭐ Recording click for ad: " + adId + " with deviceId: " + 
+              (deviceId != null ? deviceId.substring(0, Math.min(6, deviceId.length())) + "..." : "null"));
+        
         apiService.recordSponsoredAdClick(adId, deviceId).enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
-                if (response.isSuccessful()) {
-                    Log.d(TAG, "Click recorded for ad: " + adId);
+                if (response.isSuccessful() && response.body() != null) {
+                    JsonObject responseBody = response.body();
+                    
+                    // Log detailed response information
+                    Log.d(TAG, "✅ Click recorded successfully for ad: " + adId);
+                    Log.d(TAG, "URL: " + call.request().url());
+                    Log.d(TAG, "Response: " + responseBody);
+                    
+                    try {
+                        // Extract tracking metrics with improved parsing
+                        StringBuilder trackingInfo = new StringBuilder();
+                        trackingInfo.append("📊 Click Tracking Info for ad ").append(adId).append(":\n");
+                        
+                        // Click counts (total, device)
+                        int clickCount = getIntField(responseBody, "click_count", "clickCount", 0);
+                        int deviceClicks = getIntField(responseBody, "device_clicks", "deviceClicks", 0);
+                        int delta = getIntField(responseBody, "delta", "delta", 1);
+                        
+                        trackingInfo.append("  • Total Clicks: ").append(clickCount).append("\n");
+                        trackingInfo.append("  • Device Clicks: ").append(deviceClicks).append("\n");
+                        trackingInfo.append("  • Change: ").append(delta > 0 ? "+" + delta : delta).append("\n");
+                        
+                        // Reference impression data
+                        int impressionCount = getIntField(responseBody, "impression_count", "impressionCount", 0);
+                        trackingInfo.append("  • Total Impressions: ").append(impressionCount).append("\n");
+                        
+                        // Engagement metrics
+                        float ctr = getFloatField(responseBody, "ctr", "ctr", 0);
+                        float deviceCtr = getFloatField(responseBody, "device_ctr", "deviceCtr", 0);
+                        
+                        trackingInfo.append("  • Overall CTR: ").append(String.format("%.2f%%", ctr)).append("\n");
+                        trackingInfo.append("  • Device CTR: ").append(String.format("%.2f%%", deviceCtr)).append("\n");
+                        
+                        Log.i(TAG, trackingInfo.toString());
+                    } catch (Exception e) {
+                        Log.e(TAG, "❌ Error parsing click response fields: " + e.getMessage(), e);
+                    }
+                    
                     callback.onSuccess(new ArrayList<>());
                 } else {
                     String errorMsg = "Error recording click: " + response.code();
-                    Log.e(TAG, errorMsg);
+                    Log.e(TAG, "❌ " + errorMsg);
+                    Log.e(TAG, "URL: " + call.request().url());
+                    
+                    // Try to extract error details
+                    try {
+                        if (response.errorBody() != null) {
+                            String errorBody = response.errorBody().string();
+                            Log.e(TAG, "Error response: " + errorBody);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error reading error body: " + e.getMessage());
+                    }
+                    
                     callback.onError(errorMsg);
                 }
             }
@@ -265,10 +399,60 @@ public class SponsoredAdRepository {
             @Override
             public void onFailure(Call<JsonObject> call, Throwable t) {
                 String errorMsg = "Network error recording click: " + t.getMessage();
-                Log.e(TAG, errorMsg, t);
+                Log.e(TAG, "❌ " + errorMsg);
+                Log.e(TAG, "URL: " + call.request().url());
+                Log.e(TAG, "Error details", t);
                 callback.onError(errorMsg);
             }
         });
+    }
+    
+    /**
+     * Helper method to safely extract int fields from response with fallback to camelCase
+     */
+    private int getIntField(JsonObject json, String snakeCaseKey, String camelCaseKey, int defaultValue) {
+        try {
+            if (json.has(snakeCaseKey) && !json.get(snakeCaseKey).isJsonNull()) {
+                return json.get(snakeCaseKey).getAsInt();
+            } else if (json.has(camelCaseKey) && !json.get(camelCaseKey).isJsonNull()) {
+                return json.get(camelCaseKey).getAsInt();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to parse int field " + snakeCaseKey + "/" + camelCaseKey + ": " + e.getMessage());
+        }
+        return defaultValue;
+    }
+    
+    /**
+     * Helper method to safely extract boolean fields from response with fallback to camelCase
+     */
+    private boolean getBooleanField(JsonObject json, String snakeCaseKey, String camelCaseKey, boolean defaultValue) {
+        try {
+            if (json.has(snakeCaseKey) && !json.get(snakeCaseKey).isJsonNull()) {
+                return json.get(snakeCaseKey).getAsBoolean();
+            } else if (json.has(camelCaseKey) && !json.get(camelCaseKey).isJsonNull()) {
+                return json.get(camelCaseKey).getAsBoolean();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to parse boolean field " + snakeCaseKey + "/" + camelCaseKey + ": " + e.getMessage());
+        }
+        return defaultValue;
+    }
+    
+    /**
+     * Helper method to safely extract float fields from response with fallback to camelCase
+     */
+    private float getFloatField(JsonObject json, String snakeCaseKey, String camelCaseKey, float defaultValue) {
+        try {
+            if (json.has(snakeCaseKey) && !json.get(snakeCaseKey).isJsonNull()) {
+                return json.get(snakeCaseKey).getAsFloat();
+            } else if (json.has(camelCaseKey) && !json.get(camelCaseKey).isJsonNull()) {
+                return json.get(camelCaseKey).getAsFloat();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to parse float field " + snakeCaseKey + "/" + camelCaseKey + ": " + e.getMessage());
+        }
+        return defaultValue;
     }
     
     /**
