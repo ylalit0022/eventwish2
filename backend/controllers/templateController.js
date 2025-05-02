@@ -8,7 +8,6 @@ exports.getTemplates = async (req, res) => {
         const skip = (page - 1) * limit;
 
         const templates = await Template.find({ status: true })
-            .populate('categoryIcon')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -53,7 +52,6 @@ exports.getTemplatesByCategory = async (req, res) => {
             category, 
             status: true 
         })
-            .populate('categoryIcon')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -79,7 +77,7 @@ exports.getTemplatesByCategory = async (req, res) => {
 // Get template by ID
 exports.getTemplateById = async (req, res) => {
     try {
-        const template = await Template.findById(req.params.id).populate('categoryIcon');
+        const template = await Template.findById(req.params.id);
         if (!template) {
             return res.status(404).json({ message: 'Template not found' });
         }
