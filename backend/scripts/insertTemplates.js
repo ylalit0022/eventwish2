@@ -318,17 +318,24 @@ async function insertTemplates() {
 
             if (!categoryIcon) {
                 console.log(`Category icon not found for category: ${templateData.category}`);
+                // Continue with template creation without category icon
+                const template = new Template({
+                    ...templateData,
+                    categoryIcon: null
+                });
+                await template.save();
+                console.log(`Template saved without icon: ${template.title}`);
                 continue;
             }
 
-            // Create template with category icon reference
+            // Create template with category icon URL directly
             const template = new Template({
                 ...templateData,
-                categoryIcon: categoryIcon._id
+                categoryIcon: categoryIcon.categoryIcon // Use the URL directly instead of the _id
             });
 
             await template.save();
-            console.log(`Template saved: ${template.title}`);
+            console.log(`Template saved: ${template.title} with icon URL: ${categoryIcon.categoryIcon}`);
         }
 
         console.log('All templates inserted successfully');

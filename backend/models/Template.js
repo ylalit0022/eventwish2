@@ -39,13 +39,20 @@ const templateSchema = new mongoose.Schema({
             },
             message: props => `${props.value} is not a valid URL!`
         }
+    },
+    categoryIconObj: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'CategoryIcon',
+        required: false
     }
 }, {
     timestamps: true,
     toJSON: {
         virtuals: true,
         transform: function(doc, ret) {
-            // Remove the transform function that was handling ObjectId conversion
+            if (ret.categoryIconObj && typeof ret.categoryIconObj === 'object') {
+                ret.categoryIcon = ret.categoryIconObj;
+            }
             return ret;
         }
     }
