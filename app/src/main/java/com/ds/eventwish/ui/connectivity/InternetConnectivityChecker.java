@@ -22,6 +22,25 @@ public class InternetConnectivityChecker {
     private final MutableLiveData<Boolean> isConnected = new MutableLiveData<>(false);
     private ConnectivityManager.NetworkCallback networkCallback;
     
+    // Singleton instance
+    private static volatile InternetConnectivityChecker instance;
+    
+    /**
+     * Get the singleton instance of InternetConnectivityChecker
+     * @param context Application context
+     * @return InternetConnectivityChecker instance
+     */
+    public static InternetConnectivityChecker getInstance(Context context) {
+        if (instance == null) {
+            synchronized (InternetConnectivityChecker.class) {
+                if (instance == null) {
+                    instance = new InternetConnectivityChecker(context.getApplicationContext());
+                }
+            }
+        }
+        return instance;
+    }
+    
     public InternetConnectivityChecker(Context context) {
         connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         setupNetworkCallback();

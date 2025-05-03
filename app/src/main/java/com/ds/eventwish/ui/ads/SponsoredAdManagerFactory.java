@@ -24,7 +24,7 @@ public class SponsoredAdManagerFactory {
     
     private SponsoredAdManagerFactory(Context context) {
         this.applicationContext = context.getApplicationContext();
-        this.repository = new SponsoredAdRepository();
+        this.repository = SponsoredAdRepository.getInstance(context);
         this.adViewsMap = new HashMap<>();
         
         // Preload ads from server

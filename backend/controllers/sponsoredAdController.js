@@ -37,6 +37,71 @@ exports.getActiveAds = async (req, res) => {
 };
 
 /**
+ * Get ads for rotation with exclusion support
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.getAdsForRotation = async (req, res) => {
+  try {
+    const location = req.query.location || null;
+    const limit = parseInt(req.query.limit) || 10;
+    
+    // Parse exclude parameter
+    let excludeIds = [];
+    if (req.query.exclude) {
+      excludeIds = Array.isArray(req.query.exclude) 
+        ? req.query.exclude 
+        : [req.query.exclude];
+    }
+    
+    // Get ads with exclusion
+    const ads = await SponsoredAd.getAdsForRotation(location, excludeIds);
+    
+    // Apply fair distribution
+    const distributedAds = SponsoredAd.applyFairDistribution(ads, limit);
+    
+    res.json({
+      success: true,
+      ads: distributedAds
+    });
+  } catch (error) {
+    logger.error(`Error in getAdsForRotation: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get ads for rotation',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Server error'
+    });
+  }
+};
+
+/**
+ * Get ads with fair distribution (weighted by priority and impressions)
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+exports.getFairDistributedAds = async (req, res) => {
+  try {
+    const location = req.query.location || null;
+    const limit = parseInt(req.query.limit) || 10;
+    
+    // Get ads with fair distribution
+    const ads = await SponsoredAd.getFairDistributedAds(location, limit);
+    
+    res.json({
+      success: true,
+      ads: ads
+    });
+  } catch (error) {
+    logger.error(`Error in getFairDistributedAds: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get fair distributed ads',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Server error'
+    });
+  }
+};
+
+/**
  * Record ad impression
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object

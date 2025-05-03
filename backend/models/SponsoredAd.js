@@ -120,6 +120,84 @@ sponsoredAdSchema.statics.getActiveAds = async function(location = null) {
   return this.find(query).sort({ priority: -1 });
 };
 
+/**
+ * Get active ads for rotation, excluding specified IDs
+ * @param {String} location - The location to filter by
+ * @param {Array} excludeIds - Array of ad IDs to exclude
+ * @returns {Promise<Array>} - List of matching ads
+ */
+sponsoredAdSchema.statics.getAdsForRotation = async function(location = null, excludeIds = []) {
+  const now = new Date();
+  const query = {
+    status: true,
+    start_date: { $lte: now },
+    end_date: { $gte: now }
+  };
+  
+  if (location) {
+    query.location = location;
+  }
+  
+  if (excludeIds && excludeIds.length > 0) {
+    // Convert string IDs to ObjectIds if needed
+    const objectIds = excludeIds.map(id => {
+      try {
+        return mongoose.Types.ObjectId(id);
+      } catch (e) {
+        return id; // Keep as is if not valid ObjectId
+      }
+    });
+    
+    query._id = { $nin: objectIds };
+  }
+  
+  return this.find(query).sort({ priority: -1 });
+};
+
+/**
+ * Get ads with fair distribution based on impressions
+ * @param {String} location - The location to filter by
+ * @param {Number} limit - Maximum number of ads to return
+ * @returns {Promise<Array>} - List of fairly distributed ads
+ */
+sponsoredAdSchema.statics.getFairDistributedAds = async function(location = null, limit = 10) {
+  // Get active ads
+  const ads = await this.getActiveAds(location);
+  
+  // Apply fair distribution algorithm
+  return this.applyFairDistribution(ads, limit);
+};
+
+/**
+ * Apply fair distribution algorithm based on priority and impressions
+ * @param {Array} ads - List of ads to distribute
+ * @param {Number} limit - Maximum number of ads to return
+ * @returns {Array} - Fairly distributed ads
+ */
+sponsoredAdSchema.statics.applyFairDistribution = function(ads, limit) {
+  if (!ads || ads.length === 0) {
+    return [];
+  }
+  
+  // Calculate weights based on priority and impression count
+  const adsWithWeights = ads.map(ad => {
+    // Higher priority and fewer impressions = higher weight
+    const impressionFactor = 1.0 / (1 + Math.log(1 + ad.impression_count));
+    const weight = ad.priority * impressionFactor;
+    
+    return {
+      ad,
+      weight
+    };
+  });
+  
+  // Sort by weight (descending)
+  adsWithWeights.sort((a, b) => b.weight - a.weight);
+  
+  // Return ads up to limit
+  return adsWithWeights.slice(0, limit).map(item => item.ad);
+};
+
 // Methods
 sponsoredAdSchema.methods.recordImpression = async function(deviceId = null) {
   this.impression_count += 1;

@@ -17,6 +17,20 @@ const { verifyApiKey } = require('../middleware/authMiddleware');
 router.get('/', sponsoredAdController.getActiveAds);
 
 /**
+ * @route GET /api/sponsored-ads/rotation
+ * @description Get ads for rotation with exclusion support
+ * @access Public
+ */
+router.get('/rotation', sponsoredAdController.getAdsForRotation);
+
+/**
+ * @route GET /api/sponsored-ads/fair-distribution
+ * @description Get ads with fair distribution based on priority and impressions
+ * @access Public
+ */
+router.get('/fair-distribution', sponsoredAdController.getFairDistributedAds);
+
+/**
  * @route POST /api/sponsored-ads/viewed/:id
  * @description Record ad impression
  * @access Public

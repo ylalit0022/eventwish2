@@ -24,6 +24,7 @@ import retrofit2.http.POST;
 import retrofit2.http.PUT;
 import retrofit2.http.Path;
 import retrofit2.http.Query;
+import retrofit2.http.QueryMap;
 
 import com.google.gson.JsonObject;
 import okhttp3.OkHttpClient;
@@ -391,6 +392,22 @@ public interface ApiService {
      */
     @GET("sponsored-ads")
     Call<SponsoredAdResponse> getSponsoredAds();
+    
+    /**
+     * Get sponsored ads for rotation with exclusion support
+     * @param queryMap Map of query parameters including 'location', 'limit', and 'exclude'
+     * @return Response containing list of sponsored ads
+     */
+    @GET("sponsored-ads/rotation")
+    Call<SponsoredAdResponse> getSponsoredAdsForRotation(@QueryMap Map<String, Object> queryMap);
+
+    /**
+     * Get sponsored ads with fair distribution based on priority and impressions
+     * @param queryMap Map of query parameters including 'location' and 'limit'
+     * @return Response containing list of sponsored ads
+     */
+    @GET("sponsored-ads/fair-distribution")
+    Call<SponsoredAdResponse> getFairDistributedAds(@QueryMap Map<String, Object> queryMap);
     
     /**
      * Record impression when a sponsored ad is viewed

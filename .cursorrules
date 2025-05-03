@@ -295,255 +295,157 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 
 # Scratchpad
 
-## Current Task: Implement Sponsored Ads
+## Sponsored Ads Implementation Plan
 
-### Analysis of Current Task
-[X] Added sponsored ads API endpoints to ApiService interface
-    - GET endpoint for fetching sponsored ads
-    - POST endpoints for tracking impressions and clicks
-    - Using device ID for tracking
+### Current Implementation Status
 
-[X] Created/Updated model classes
-    - SponsoredAd.java with impression_count and click_count fields
-    - SponsoredAdResponse.java wrapper for API responses
-    - Proper GSON annotations and null-safety
+#### Server-Side (Complete)
+[X] Define SponsoredAd model
+  - Image URL, redirect URL, status fields
+  - Start/end dates for timebound campaigns
+  - Location parameter for placement control
+  - Priority field for sorting
+  - Impression and click tracking fields
+  - Title and description fields
 
-[X] Implemented repository and ViewModel
-    - SponsoredAdRepository for data handling
-    - SponsoredAdViewModel for UI logic
-    - Proper error handling and logging
+[X] Create core API endpoints
+  - GET /api/sponsored-ads (filtered by location)
+  - POST /api/sponsored-ads/viewed/:id (track impressions)
+  - POST /api/sponsored-ads/clicked/:id (track clicks)
+  - GET /api/sponsored-ads/stats/:id (for admin analytics)
 
-[X] Created custom UI components
-    - SponsoredAdView custom view for displaying ads
-    - Layout XML with placeholder and error states
-    - Proper resource strings and drawables
+[X] Implement ad selection algorithm
+  - Filter by status and valid date range
+  - Filter by requested location
+  - Sort by priority (descending)
+  - Apply requested limit (default: 10)
 
-[X] Built infrastructure
-    - SponsoredAdManagerFactory for centralized management
-    - Singleton pattern with proper initialization
-    - Registration of ad views with central manager
+#### Client-Side (Complete)
+[X] Create data models
+  - SponsoredAd.java with all required fields
+  - SponsoredAdResponse.java wrapper class
+  - Proper null-safety handling
 
-[X] Added analytics integration
-    - AnalyticsUtils methods for impression and click tracking
-    - Privacy-compliant implementation
-    - Detailed debugging information
+[X] Add API service methods
+  - getSponsoredAds() to fetch ads by location
+  - recordImpression() to track views
+  - recordClick() to track interactions
 
-[X] Integrated with main app
-    - Added to HomeFragment and example usage fragment
-    - Proper lifecycle handling (init/cleanup)
-    - Integrated with application initialization
+[X] Build SponsoredAdView component
+  - Custom view extending FrameLayout
+  - CardView-based layout with proper styling
+  - "Sponsored" label for transparency
+  - Image loading with Glide
+  - Error and placeholder states
+  - Loading animation and state management
+  - Error handling with retry button
 
-### Implementation Details
-1. API Integration
-   - Added three endpoints to ApiService:
-     - getSponsoredAds(): Fetches active sponsored ads
-     - recordSponsoredAdImpression(): Tracks when an ad is viewed
-     - recordSponsoredAdClick(): Tracks when a user clicks an ad
+[X] Implement client-side caching system
+  - SponsoredAdEntity.java with cache metadata fields
+  - SponsoredAdDao.java with comprehensive query methods
+  - Cache invalidation and TTL mechanism
+  - Database migrations for Room integration
+  - Updated repository with cache-first approach
+  - Offline tracking support
 
-2. Data Models
-   - SponsoredAd model with fields:
-     - id, imageUrl, redirectUrl, status, startDate, endDate
-     - location, priority, title, description
-     - clickCount, impressionCount (server metrics)
-   - SponsoredAdResponse wrapper with success, ads, message, error fields
-   - Comprehensive null-safety and error handling
+[X] Add core tracking logic
+  - View visibility tracking for impressions
+  - Click handling with proper analytics
+  - Device ID management for tracking
 
-3. UI Components
-   - SponsoredAdView as a custom FrameLayout
-   - Cardview-based layout with image, title, description
-   - "Sponsored" label for transparency
-   - Click handling with proper tracking
+[X] Integrate with app
+  - Add to HomeFragment layout (category_below location)
+  - Implement proper lifecycle handling
+  - Add to other strategic positions
 
-4. Management
-   - SponsoredAdManagerFactory singleton to coordinate
-   - Centralized ad loading to reduce network calls
-   - Registration system for multiple ad placements
+[X] Improve user experience
+  - Create adaptive sizing for different screen sizes
+  - Implement smooth loading transitions with fade animations
+  - Add placeholder state during loading
+  - Add proper error states with retry option
+  - Ensure proper resource cleanup in lifecycle methods
 
-5. Analytics
-   - Impression tracking when ads are displayed
-   - Click tracking when users interact
-   - Session and device information for better targeting
+[X] Implement performance optimizations
+  - Fixed impression throttling with proper SharedPreferences persistence
+  - Enhanced batch processing for tracking events with retry mechanism
+  - Optimized Glide image loading with better RequestOptions
+  - Added better memory management in SponsoredAdView's lifecycle methods
+  - Implemented synchronized collections for thread-safety
+  - Added cleanup of stale tracking events
+  - Enhanced error handling and logging
 
-### Next Steps
-1. [ ] Test with server-side implementation
-2. [ ] Add adaptive sizing for different screen sizes
-3. [ ] Add caching to reduce server load
-4. [ ] Implement A/B testing capabilities
-5. [ ] Create remote configuration for ad behavior
+### New Enhancement: Ad Rotation and Fair Distribution
 
-## Scratchpad - Category Icon Issue Analysis
+A comprehensive implementation plan has been created in `docs/sponsored_ads_rotation_implementation.md` with the following key components:
 
-## Current Issue
-- Category icons not showing up in the app
-- Template schema in server treats categoryIcon as string but should be an object
-- Need to align client-side and server-side models
+#### Server-Side Enhancements (Complete)
+[X] Update SponsoredAd model
+  - Added getAdsForRotation() method with exclusion support
+  - Implemented fair distribution algorithm based on priority and impressions
+  - Created applyFairDistribution() method with weighted selection
+  - Added optimization for performance
 
-## File Analysis
+[X] Create new API endpoints
+  - Added /api/sponsored-ads/rotation endpoint for rotation with exclusion
+  - Added /api/sponsored-ads/fair-distribution endpoint for weighted selection
+  - Ensured backward compatibility with existing endpoints
 
-### Client Side (Android)
-1. Category.java:
-   - Has CategoryIcon field with proper TypeConverter
-   - Uses proper model structure
+[X] Enhance controller logic
+  - Implemented weighted distribution algorithm
+  - Added support for exclusion parameters
+  - Improved error handling for rotation requests
+  - Added comprehensive logging
 
-2. CategoryIcon.java:
-   - Complex model with proper JSON handling
-   - Has id, category, categoryIcon fields
-   - Handles various icon URL formats and edge cases
+[X] Create test and example code
+  - Added unit tests for rotation and fair distribution
+  - Created client example to demonstrate API usage
+  - Included documentation on usage patterns
 
-3. Template.java (Android):
-   - Has CategoryIcon field with proper TypeConverter
-   - Properly structured for icon handling
+#### Client-Side Implementation (Complete)
+[X] Implement LocalRotationManager class
+  - Persist rotation state across app restarts
+  - Track shown ads to prevent repetition
+  - Manage rotation timing with configurable intervals
+  - Handle lifecycle events properly
 
-### Server Side
-1. CategoryIcon.js (Model):
-   - Simple schema with category and categoryIcon fields
-   - categoryIcon is validated as URL string
+[X] Update SponsoredAdRepository
+  - Add support for excluding previously shown ads
+  - Implement weighted selection algorithm
+  - Enhance caching for rotation
+  - Optimize network requests
 
-2. Template.js (Model):
-   - Issue: categoryIcon field is ObjectId reference
-   - But treated as string in responses
-   - Missing proper population of categoryIcon object
+[X] Enhance SponsoredAdViewModel
+  - Add rotation LiveData streams
+  - Implement rotation control methods
+  - Handle rotation state management
+  - Ensure proper cleanup
 
-3. Support Files:
-   - categoryIconServer.js: Handles icon CRUD operations
-   - insertCategoryIcons.js: Sample data insertion
-   - insertNewCategoryIcons.js: New icon insertion logic
+[X] Modify SponsoredAdView
+  - Add smooth transitions between rotating ads
+  - Implement crossfade animations
+  - Properly cleanup resources during rotation
+  - Support configurable rotation settings
 
-## Root Cause
-1. Schema Mismatch:
-   - Server: categoryIcon is ObjectId reference
-   - Client: Expects full CategoryIcon object
-   - Missing population step in API responses
+[X] Add usage documentation
+  - Added docs/sponsored_ad_rotation_usage.md
+  - Created example implementation in HomeFragment
+  - Added detailed performance considerations
+  - Added debugging tips
 
-2. Data Flow Issues:
-   - Server not populating CategoryIcon references
-   - Template responses sending raw ObjectId instead of resolved object
+#### Implementation Timeline
+- Week 1: Foundation - Core classes and algorithms ✓
+- Week 2: UI Integration - Animations and user experience ✓
+- Week 3: Server-Side Support - API endpoints and distribution algorithms ✓
+- Week 4: Testing and Refinement - Integration testing and optimization ✓
 
-## Action Plan
+#### Key Benefits
+- Fair distribution of ad impressions
+- Improved user experience with smooth transitions
+- Better ad effectiveness through rotation
+- Reduced network usage through smart caching
+- Improved analytics and tracking
 
-[ ] 1. Fix Template Schema
-    - Update Template.js to properly define categoryIcon reference
-    - Add proper population in queries
-
-[ ] 2. Update API Routes
-    - Modify template routes to populate categoryIcon
-    - Ensure proper object resolution
-
-[ ] 3. Fix Data Insertion
-    - Update insertion scripts to handle proper references
-    - Validate existing data
-
-[ ] 4. Testing
-    - Test API responses
-    - Verify client-side rendering
-    - Check icon loading in app
-
-## Implementation Steps
-
-1. Template Schema Fix:
-```javascript
-categoryIcon: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'CategoryIcon',
-    required: false
-}
-```
-
-2. API Population:
-```javascript
-Template.findById(id).populate('categoryIcon')
-```
-
-3. Response Handling:
-- Ensure proper object transformation
-- Handle null/missing icons gracefully
-
-4. Data Validation:
-- Check existing records
-- Update references if needed
-
-Would you like me to start implementing these fixes?
-
-## Analytics Tracking Plan
-
-### Introduction
-The task is to implement comprehensive analytics tracking for user interactions including:
-1. Category clicks
-2. Template clicks (with metadata)
-3. Share button clicks 
-4. Social media platform sharing
-5. Device information (device name, screen size, OS version)
-
-### Play Console Policy Compliance Assessment
-[X] Google Play Store Data Safety Policy Review
-- ✅ Device information (device name, model, screen size, OS version) is allowed under Play Store policy
-- ✅ Firebase Analytics is a compliant analytics solution
-- ✅ All tracking must be disclosed in the app's privacy policy
-- ✅ Users must be informed about data collection (consider adding consent dialog)
-- ❗ Ensure no PII (Personally Identifiable Information) is collected
-- ❗ Device IDs should be hashed if stored for tracking
-- ✅ Usage analytics data is allowed for app improvement purposes
-
-### Current Capabilities Assessment
-[X] Existing AnalyticsUtils class provides Firebase Analytics integration
-[X] Category click tracking already implemented with trackCategoryClick method
-[X] Template view tracking exists with detailed trackTemplateView method
-[X] Share button tracking implemented with trackShareButtonClick method
-[X] Social media tracking implemented with trackSocialShare method 
-[X] Device info tracking implemented in trackDeviceInfo method
-
-### Implementation Status
-
-1. [X] Device Information Tracking Enhancement
-   - [X] Comprehensive trackDeviceInfo method implemented
-   - [X] Method called during app initialization
-   - [X] Device info added to major analytics events
-   - [X] Implementation includes all required device parameters
-
-2. [X] Category Click Tracking
-   - [X] Dedicated trackCategoryClick method implemented
-   - [X] Method defined with proper parameters and logging
-   - [X] Called from appropriate UI components
-
-3. [X] Template Click Tracking Enhancement
-   - [X] Enhanced trackTemplateView method implemented
-   - [X] Includes template title and category parameters
-   - [X] Implementation includes proper session ID tracking
-
-4. [X] Share Button Click Tracking
-   - [X] EVENT_SHARE_BUTTON_CLICK constant defined
-   - [X] trackShareButtonClick method implemented
-   - [X] Used in share button handlers across fragments
-
-5. [X] Social Media Platform Tracking
-   - [X] EVENT_SOCIAL_SHARE constant defined
-   - [X] trackSocialShare method implemented with platform, template ID and success parameters
-   - [X] Implemented in SharedWishFragment's handleShareVia method
-
-6. [X] Consolidated Analytics Implementation
-   - [X] All tracking centralized in AnalyticsUtils
-   - [X] Consistent parameter naming used throughout
-   - [X] Proper error handling in all tracking methods
-
-7. [X] Privacy & Compliance Features
-   - [X] Analytics enabled/disabled toggle method implemented
-   - [X] Settings UI for opt-out option
-   - [X] Privacy consent dialog for first launch
-   - [X] Ensuring no PII is collected in current implementation
-
-8. [X] Testing & Validation Features
-   - [X] Debug flag for detailed analytics logging
-   - [X] Proper error handling and null checks
-   - [X] Logging for every event to assist in debugging
-
-### Next Steps
-1. [X] Implement opt-out toggle in Settings UI
-2. [X] Create privacy consent dialog for first launch
-3. [X] Add comprehensive documentation
-
-The analytics tracking implementation is complete. The functionality for tracking all required user interactions has been implemented in the AnalyticsUtils class, with methods for tracking device information, category clicks, template views, share button clicks, and social media sharing.
-
-We have also added privacy compliance features, including an opt-out option in the Settings activity and a privacy consent dialog for first app launch to ensure users are informed about data collection.
+For complete implementation details, refer to the full documentation in `docs/sponsored_ads_rotation_implementation.md` and usage guide in `docs/sponsored_ad_rotation_usage.md`.
 
 # EventWish App Maintenance Documentation
 

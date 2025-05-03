@@ -141,6 +141,43 @@ public class Migrations {
     };
     
     /**
+     * Migration from version 5 to 6
+     * - Added sponsored_ads table for caching sponsored ads
+     */
+    public static final Migration MIGRATION_5_6 = new Migration(5, 6) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            Log.d(TAG, "Migrating database from version 5 to 6 (adding sponsored ads caching)");
+            
+            // Create sponsored_ads table
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS `sponsored_ads` (" +
+                "`id` TEXT NOT NULL PRIMARY KEY, " +
+                "`imageUrl` TEXT, " +
+                "`redirectUrl` TEXT, " +
+                "`status` INTEGER NOT NULL DEFAULT 0, " +
+                "`startDate` INTEGER, " +
+                "`endDate` INTEGER, " +
+                "`location` TEXT, " +
+                "`priority` INTEGER NOT NULL DEFAULT 0, " +
+                "`clickCount` INTEGER NOT NULL DEFAULT 0, " +
+                "`impressionCount` INTEGER NOT NULL DEFAULT 0, " +
+                "`title` TEXT, " +
+                "`description` TEXT, " +
+                "`insertedAt` INTEGER NOT NULL DEFAULT 0, " +
+                "`expiresAt` INTEGER NOT NULL DEFAULT 0)"
+            );
+            
+            // Create index on location for faster queries
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_sponsored_ads_location` ON `sponsored_ads` (`location`)"
+            );
+            
+            Log.d(TAG, "Migration from version 5 to 6 completed successfully");
+        }
+    };
+    
+    /**
      * Keep a reference to the expected schema for engagement_data
      * This aids in debugging migration issues
      */

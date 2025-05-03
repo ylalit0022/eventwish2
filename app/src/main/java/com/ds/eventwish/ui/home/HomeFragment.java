@@ -439,6 +439,8 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         // Refresh sponsored ads when the fragment resumes
         if (sponsoredAdView != null) {
             sponsoredAdView.refreshAds();
+            // Ensure rotation is running when the fragment is visible
+            sponsoredAdView.enableRotation(true);
         }
     }
 
@@ -511,13 +513,14 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         if (interstitialAdManager != null) {
             interstitialAdManager.destroy();
         }
-        binding = null;
         
         // Cleanup sponsored ad view
         if (sponsoredAdView != null) {
             sponsoredAdView.cleanup();
             sponsoredAdView = null;
         }
+        
+        binding = null;
     }
 
     private void setupUI() {
@@ -620,7 +623,16 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         if (sponsoredAdView != null) {
             // Use "category_below" location instead of "home_bottom" to match server ad
             sponsoredAdView.initialize("category_below", getViewLifecycleOwner(), requireActivity());
-            Log.d(TAG, "Initialized sponsored ad view with location: category_below");
+            // Enable ad rotation with 3-minute interval for better user experience
+            sponsoredAdView.enableRotation(true);
+            sponsoredAdView.setRotationIntervalMinutes(3);
+            Log.d(TAG, "Initialized sponsored ad view with rotation enabled");
+            
+            // DEBUGGING: Watch for these logs to track ad rotation:
+            // - "LocalRotationManager": Shows rotation timing and ad selection
+            // - "SponsoredAdView": Shows UI updates and animations
+            // - "SponsoredAdRepository": Shows network and cache operations
+            // Filter LogCat with: "Rotat|LocalRotation|SponsoredAd"
         }
     }
 
@@ -2103,6 +2115,16 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 @Override
                 public void onAdShowFailed(String error) {}
             });
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        
+        // Pause ad rotation when the fragment is not visible
+        if (sponsoredAdView != null) {
+            sponsoredAdView.enableRotation(false);
         }
     }
 }

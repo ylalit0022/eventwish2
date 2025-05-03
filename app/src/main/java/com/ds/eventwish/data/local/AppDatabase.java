@@ -21,10 +21,12 @@ import com.ds.eventwish.data.local.dao.CategoryClickDao;
 import com.ds.eventwish.data.local.dao.EngagementDataDao;
 import com.ds.eventwish.data.local.dao.FestivalDao;
 import com.ds.eventwish.data.local.dao.ResourceDao;
+import com.ds.eventwish.data.local.dao.SponsoredAdDao;
 import com.ds.eventwish.data.local.dao.UserDao;
 import com.ds.eventwish.data.local.entity.AdUnitEntity;
 import com.ds.eventwish.data.local.entity.CategoryClickEntity;
 import com.ds.eventwish.data.local.entity.ResourceEntity;
+import com.ds.eventwish.data.local.entity.SponsoredAdEntity;
 import com.ds.eventwish.data.local.entity.UserEntity;
 import com.ds.eventwish.data.model.EngagementData;
 import com.ds.eventwish.data.model.Festival;
@@ -36,9 +38,10 @@ import com.ds.eventwish.data.model.Festival;
         UserEntity.class,
         EngagementData.class,
         AdUnitEntity.class,
-        CategoryClickEntity.class
+        CategoryClickEntity.class,
+        SponsoredAdEntity.class
     },
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters({
@@ -61,6 +64,7 @@ public abstract class AppDatabase extends RoomDatabase {
     public abstract EngagementDataDao engagementDataDao();
     public abstract AdUnitDao adUnitDao();
     public abstract CategoryClickDao categoryClickDao();
+    public abstract SponsoredAdDao sponsoredAdDao();
     
     public static synchronized AppDatabase getInstance(Context context) {
         if (instance == null) {
@@ -87,7 +91,8 @@ public abstract class AppDatabase extends RoomDatabase {
                 Migrations.MIGRATION_1_2, 
                 Migrations.MIGRATION_2_3,
                 Migrations.MIGRATION_3_4,
-                Migrations.MIGRATION_4_5
+                Migrations.MIGRATION_4_5,
+                Migrations.MIGRATION_5_6
             )
             .fallbackToDestructiveMigration()
             .build();

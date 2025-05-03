@@ -17,8 +17,11 @@ import com.ds.eventwish.data.repository.SponsoredAdRepository;
 import com.ds.eventwish.utils.AnalyticsUtils;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 /**
  * ViewModel to handle sponsored ads in UI components
@@ -30,9 +33,15 @@ public class SponsoredAdViewModel extends AndroidViewModel {
     private final MediatorLiveData<SponsoredAd> selectedAdLiveData = new MediatorLiveData<>();
     private final MutableLiveData<Boolean> adLoadedLiveData = new MutableLiveData<>(false);
     
+    // Rotation support
+    private final LocalRotationManager rotationManager;
+    private final Map<String, MutableLiveData<SponsoredAd>> rotatingAdsMap = new HashMap<>();
+    private boolean isRotationActive = false;
+    
     public SponsoredAdViewModel(@NonNull Application application) {
         super(application);
-        repository = new SponsoredAdRepository();
+        repository = SponsoredAdRepository.getInstance(application);
+        rotationManager = new LocalRotationManager(application, repository);
         
         // Initialize ads when ViewModel is created
         fetchSponsoredAds();
@@ -63,22 +72,13 @@ public class SponsoredAdViewModel extends AndroidViewModel {
                 selectedAdLiveData.setValue(selectedAd);
                 adLoadedLiveData.setValue(true);
                 
-                // Record impression when ad is selected for display
+                // Log which ad was selected but DON'T track impression yet
+                // Impression will be tracked when the ad is actually visible to the user
                 if (selectedAd != null) {
                     Log.d(TAG, "Selected ad for display: " + selectedAd.getId() + 
                           ", title: " + selectedAd.getTitle() + 
-                          ", priority: " + selectedAd.getPriority());
-                          
-                    repository.recordImpression(selectedAd.getId());
-                    
-                    // Track impression via analytics
-                    AnalyticsUtils.getInstance().trackAdImpression(
-                        selectedAd.getId(), 
-                        selectedAd.getTitle(), 
-                        location
-                    );
-                    
-                    Log.d(TAG, "Recording impression for ad: " + selectedAd.getId() + " at location: " + location);
+                          ", priority: " + selectedAd.getPriority() +
+                          ", location: " + location);
                 } else {
                     Log.w(TAG, "No valid ad selected despite having " + ads.size() + " ads for location: " + location);
                 }
@@ -90,6 +90,79 @@ public class SponsoredAdViewModel extends AndroidViewModel {
         });
         
         return selectedAdLiveData;
+    }
+    
+    /**
+     * Get LiveData for rotating ads at a specific location
+     * @param location The location to get rotating ads for
+     * @return LiveData containing the rotating ad
+     */
+    public LiveData<SponsoredAd> getRotatingAd(String location) {
+        if (!rotatingAdsMap.containsKey(location)) {
+            rotatingAdsMap.put(location, new MutableLiveData<>());
+        }
+        
+        return rotatingAdsMap.get(location);
+    }
+    
+    /**
+     * Start ad rotation for a location
+     * @param location The location to rotate ads for
+     */
+    public void startRotation(String location) {
+        if (!rotatingAdsMap.containsKey(location)) {
+            rotatingAdsMap.put(location, new MutableLiveData<>());
+        }
+        
+        Log.d(TAG, "Starting ad rotation for location: " + location);
+        isRotationActive = true;
+        
+        rotationManager.startRotation(location, new LocalRotationManager.RotationCallback() {
+            @Override
+            public void onAdRotated(SponsoredAd ad) {
+                Log.d(TAG, "Ad rotated: " + ad.getId() + " for location: " + location);
+                MutableLiveData<SponsoredAd> liveData = rotatingAdsMap.get(location);
+                if (liveData != null) {
+                    liveData.postValue(ad);
+                }
+            }
+        });
+    }
+    
+    /**
+     * Stop ad rotation
+     */
+    public void stopRotation() {
+        if (isRotationActive) {
+            Log.d(TAG, "Stopping ad rotation");
+            rotationManager.stopRotation();
+            isRotationActive = false;
+        }
+    }
+    
+    /**
+     * Set custom rotation interval (default is 20 minutes)
+     * @param intervalMs Interval in milliseconds
+     */
+    public void setRotationInterval(long intervalMs) {
+        Log.d(TAG, "Setting rotation interval to " + intervalMs + " ms");
+        rotationManager.setRotationInterval(intervalMs);
+    }
+    
+    /**
+     * Set rotation interval in minutes for ease of use
+     * @param minutes Interval in minutes
+     */
+    public void setRotationIntervalMinutes(int minutes) {
+        setRotationInterval(TimeUnit.MINUTES.toMillis(minutes));
+    }
+    
+    /**
+     * Check if rotation is currently active
+     * @return True if rotation is active
+     */
+    public boolean isRotationActive() {
+        return isRotationActive;
     }
     
     /**
@@ -176,6 +249,37 @@ public class SponsoredAdViewModel extends AndroidViewModel {
     }
     
     /**
+     * Handle impression for a sponsored ad
+     * @param ad The ad that was viewed
+     */
+    public void handleAdImpression(SponsoredAd ad) {
+        if (ad == null || ad.getId() == null) {
+            Log.e(TAG, "Cannot record impression for null ad or ad without ID");
+            return;
+        }
+        
+        try {
+            Log.d(TAG, "Recording impression for ad: " + ad.getId() + 
+                      ", title: " + ad.getTitle() + 
+                      ", location: " + ad.getLocation());
+                      
+            // Record the impression
+            repository.recordImpression(ad.getId());
+            
+            // Track via analytics
+            AnalyticsUtils.getInstance().trackAdImpression(
+                ad.getId(),
+                ad.getTitle(),
+                ad.getLocation()
+            );
+            
+            Log.d(TAG, "Impression recorded successfully for ad: " + ad.getId());
+        } catch (Exception e) {
+            Log.e(TAG, "Error handling ad impression", e);
+        }
+    }
+    
+    /**
      * Handle click on a sponsored ad
      * @param ad The ad that was clicked
      * @param context Context for launching intent
@@ -235,5 +339,11 @@ public class SponsoredAdViewModel extends AndroidViewModel {
      */
     public LiveData<String> getError() {
         return repository.getError();
+    }
+    
+    @Override
+    protected void onCleared() {
+        super.onCleared();
+        stopRotation();
     }
 } 

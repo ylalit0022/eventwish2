@@ -413,4 +413,14 @@
     <string name="cooldown_timer_format">Share in: %02d:%02d</string>
     <string name="share_unlocked">Share Unlocked!</string>
     <string name="cooldown_ended">Ad cooldown period ended. Watch another ad to share.</string>
+
+    <!-- Sponsored Ads -->
+    <string name="sponsored_label">Sponsored</string>
+    <string name="sponsored_ad_image_description">Sponsored advertisement image</string>
+    <string name="error_loading_ad">Unable to load ad</string>
+    <string name="sponsored_ad_loading">Loading sponsored content</string>
+    <string name="sponsored_learn_more">Learn More</string>
+    <string name="sponsored_ad_title">Advertisement</string>
+    <string name="sponsored_ad_description">Sponsored content</string>
+    <string name="sponsored_refresh_button">Refresh</string>
 </resources>
