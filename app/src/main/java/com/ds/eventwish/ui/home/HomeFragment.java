@@ -97,6 +97,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     private int templateClickCount = 0;
     private static final int AD_SHOW_THRESHOLD = 3; // Show ad after every 3 template clicks
     private SponsoredAdView sponsoredAdView;
+    private boolean hasShownEndMessage = false; // Add this flag at the class level
+    private long lastPaginationCheck = 0;
+    private static final long PAGINATION_CHECK_INTERVAL = 1500; // 1.5 seconds between checks
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -245,6 +248,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         
         isResumed = true;
         
+        // Reset end message flag on resume
+        hasShownEndMessage = false;
+        
         // If templates are already loaded, clear any error state
         if (viewModel.getTemplates().getValue() != null && 
             !viewModel.getTemplates().getValue().isEmpty()) {
@@ -267,28 +273,30 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             if (viewModel != null) {
                 // Force categories to be visible without reloading them if possible
                 if (viewModel.areCategoriesLoaded()) {
-                    Log.d(TAG, "Categories already loaded, notifying observers");
-                    viewModel.loadCategories(); // This will just notify observers if already loaded
-                } else if (categoriesAdapter == null || categoriesAdapter.getItemCount() <= 1) {
-                    // Only reload categories if adapter is empty
-                    Log.d(TAG, "Explicitly loading categories in onResume because adapter is empty");
-                    viewModel.loadCategories();
-                }
-
-                // Restore selected category
-                if (categoriesAdapter != null) {
+                    Log.d(TAG, "Categories already loaded, refreshing UI");
+                    
+                    // First get the saved category selection
                     String selectedCategory = viewModel.getSelectedCategory();
                     Log.d(TAG, "Restoring selected category: " + (selectedCategory != null ? selectedCategory : "All"));
                     
                     // Set prevention flag to avoid order changes during selection update
-                    categoriesAdapter.preventCategoryChanges(true);
-                    try {
-                        // Update the selected category in the adapter without reloading data
-                        categoriesAdapter.updateSelectedCategory(selectedCategory);
-                    } finally {
-                        // Always ensure we reset the prevention flag
-                        categoriesAdapter.preventCategoryChanges(false);
+                    if (categoriesAdapter != null) {
+                        categoriesAdapter.preventCategoryChanges(true);
+                        try {
+                            // Refresh categories UI but maintain selection
+                            ensureCategoriesVisible();
+                            
+                            // Explicitly apply selection after ensuring visibility
+                            categoriesAdapter.updateSelectedCategory(selectedCategory);
+                        } finally {
+                            // Always ensure we reset the prevention flag
+                            categoriesAdapter.preventCategoryChanges(false);
+                        }
                     }
+                } else if (categoriesAdapter == null || categoriesAdapter.getItemCount() <= 1) {
+                    // Only reload categories if adapter is empty
+                    Log.d(TAG, "Explicitly loading categories in onResume because adapter is empty");
+                    viewModel.loadCategories();
                 }
             }
             
@@ -679,12 +687,37 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                     categoryObjectList.add(moreCategory);
                 }
 
-                // Update adapter with category objects
-                categoriesAdapter.updateCategories(categoryObjectList);
-                
-                String selectedCategory = viewModel.getSelectedCategory();
-                if (selectedCategory != null) {
-                    categoriesAdapter.updateSelectedCategory(selectedCategory);
+                // Prevent categoriesAdapter changes during update to avoid UI flickering
+                if (categoriesAdapter != null) {
+                    // Get currently selected category before updating
+                    String currentSelection = null;
+                    int currentSelectedPosition = categoriesAdapter.getSelectedPosition();
+                    if (currentSelectedPosition >= 0) {
+                        List<Category> visibleCategories = categoriesAdapter.getVisibleCategories();
+                        if (currentSelectedPosition < visibleCategories.size()) {
+                            Category selectedCategory = visibleCategories.get(currentSelectedPosition);
+                            if (selectedCategory != null) {
+                                currentSelection = selectedCategory.getId();
+                            }
+                        }
+                    }
+                    
+                    // If no current selection, use the one from ViewModel
+                    if (currentSelection == null) {
+                        currentSelection = viewModel.getSelectedCategory();
+                    }
+                    
+                    // Now update the adapter with the changes safely
+                    categoriesAdapter.preventCategoryChanges(true);
+                    try {
+                        // Update adapter with category objects
+                        categoriesAdapter.updateCategories(categoryObjectList);
+                        
+                        // Restore selection
+                        categoriesAdapter.updateSelectedCategory(currentSelection);
+                    } finally {
+                        categoriesAdapter.preventCategoryChanges(false);
+                    }
                 }
             } else {
                 // Load categories if none are available
@@ -1023,24 +1056,26 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
                 super.onScrollStateChanged(recyclerView, newState);
                 
-                // When user starts scrolling, reset the Snackbar show flag for the next pause/resume cycle
-                if (newState == RecyclerView.SCROLL_STATE_DRAGGING) {
-                    // Reset flag only if we've been in a different category for a while
-                    if (viewModel.hasSelectedCategoryChangedRecently()) {
-                        hasShownScrollSnackbar[0] = false;
-                    }
-                }
-                
-                // When scrolling stops, check if we need to load more
+                // Only check for more items when scrolling stops (IDLE state)
                 if (newState == RecyclerView.SCROLL_STATE_IDLE) {
                     int lastVisibleItem = layoutManager.findLastCompletelyVisibleItemPosition();
                     int totalItemCount = layoutManager.getItemCount();
                     
+                    // Only trigger pagination when:
+                    // 1. We're at the very end of the list (last 2 items)
+                    // 2. Not currently loading
+                    // 3. We haven't checked for more items recently
+                    long currentTime = System.currentTimeMillis();
                     if (lastVisibleItem >= 0 && 
                         totalItemCount > 0 &&
-                        lastVisibleItem >= totalItemCount - VISIBLE_THRESHOLD && 
-                        !viewModel.isPaginationInProgress()) {
+                        lastVisibleItem >= totalItemCount - 2 && // Stricter threshold (last 2 items)
+                        !viewModel.isPaginationInProgress() &&
+                        currentTime - lastPaginationCheck > PAGINATION_CHECK_INTERVAL) {
                         
+                        // Update the timestamp
+                        lastPaginationCheck = currentTime;
+                        
+                        // Call loadMoreItems
                         loadMoreItems();
                     }
                 }
@@ -1106,109 +1141,51 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 return;
             }
             
-            Log.d(TAG, "Loading more items");
-            binding.bottomLoadingView.setVisibility(View.VISIBLE);
-            
-            // Disable SwipeRefreshLayout when loading more items
-            binding.swipeRefreshLayout.setEnabled(false);
-            
-            // Show Snackbar for pagination loading
-            if (getActivity() != null && bottomNav != null) {
-                Snackbar snackbar = Snackbar.make(binding.getRoot(), 
-                    "Loading more templates...", 
-                    Snackbar.LENGTH_INDEFINITE);
-                
-                // Position the Snackbar exactly at the top of bottom navigation
-                View snackbarView = snackbar.getView();
-                androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams params = 
-                    (androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams) 
-                    snackbarView.getLayoutParams();
-                
-                // Set margin to exactly match bottom navigation height
-                params.setMargins(0, 0, 0, bottomNav.getHeight());
-                snackbarView.setLayoutParams(params);
-                
-                // Make Snackbar more visible
-                snackbarView.setBackgroundResource(R.drawable.gradient_snackbar_background);
-                snackbarView.setElevation(8f);
-                
-                // Apply animation to Snackbar
-                snackbarView.setAlpha(0f);
-                snackbarView.animate()
-                    .alpha(1f)
-                    .setDuration(500)
-                    .start();
-                
-                // Add loading animation
-                TextView textView = snackbarView.findViewById(com.google.android.material.R.id.snackbar_text);
-                if (textView != null) {
-                    textView.setTextColor(android.graphics.Color.WHITE);
-                    textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14);
-                    
-                    // Use our custom loading icon with animation
-                    android.widget.ImageView loadingIcon = new android.widget.ImageView(requireContext());
-                    loadingIcon.setImageResource(R.drawable.ic_loading);
-                    
-                    // Apply rotation animation
-                    android.view.animation.Animation rotation = android.view.animation.AnimationUtils.loadAnimation(
-                            requireContext(), R.anim.rotate);
-                    loadingIcon.startAnimation(rotation);
-                    
-                    // Set padding for the icon
-                    loadingIcon.setPadding(0, 0, 16, 0);
-                    
-                    // Add the loading icon to the Snackbar layout
-                    android.widget.LinearLayout snackbarLayout = (android.widget.LinearLayout) textView.getParent();
-                    snackbarLayout.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-                    snackbarLayout.addView(loadingIcon, 0);
-                    
-                    // Set text 
-                    textView.setText("Loading more templates...");
-                }
-                
-                // Store the snackbar reference to dismiss it later
-                viewModel.setCurrentSnackbar(snackbar);
-                
-                snackbar.show();
-            }
-            
             int lastPosition = layoutManager.findLastCompletelyVisibleItemPosition();
-            int firstVisiblePosition = layoutManager.findFirstVisibleItemPosition();
             int totalItems = layoutManager.getItemCount();
             
-            // Save the current first visible position
-            if (firstVisiblePosition >= 0) {
-                Log.d(TAG, "Current first visible position: " + firstVisiblePosition);
-                // Don't overwrite the saved position with pagination position
-                // Only store this temporarily for maintaining position during pagination
-            }
-            
-            if (lastPosition >= 0 && totalItems > 0 && lastPosition < totalItems - 1) {
-                // Check if we're near the end of the list
-                if (lastPosition + VISIBLE_THRESHOLD >= totalItems) {
-                    Log.d(TAG, "Near end of list, loading more items");
+            // Check if we're near the end of the list AND not just regular scrolling
+            if (lastPosition >= 0 && totalItems > 0 && 
+                lastPosition >= totalItems - VISIBLE_THRESHOLD) {
+                
+                // Check if we have more pages to load
+                if (viewModel.hasMorePagesToLoad()) {
+                    // Reset the end message flag since we're loading more
+                    hasShownEndMessage = false;
+                    
+                    // Show loading indicator
+                    binding.bottomLoadingView.setVisibility(View.VISIBLE);
+                    
+                    // Disable SwipeRefreshLayout when loading more items
+                    binding.swipeRefreshLayout.setEnabled(false);
+                    
+                    // Trigger loading next page WITHOUT showing a snackbar
                     viewModel.loadMoreIfNeeded(lastPosition, totalItems);
-                } else {
+                } else if (!hasShownEndMessage) {
+                    // We're at the end and haven't shown the message yet
+                    hasShownEndMessage = true; // Set flag so we don't show it again
+                    
+                    if (getActivity() != null) {
+                        Toast.makeText(requireContext(), 
+                            "No more templates available", 
+                            Toast.LENGTH_SHORT).show();
+                    }
+                    
+                    // Make sure loading indicator is hidden
                     binding.bottomLoadingView.setVisibility(View.GONE);
+                    
                     // Re-enable SwipeRefreshLayout
                     binding.swipeRefreshLayout.setEnabled(true);
-                    // Dismiss snackbar if exists
-                    viewModel.dismissCurrentSnackbar();
                 }
             } else {
+                // Not near the end, ensure UI is reset
                 binding.bottomLoadingView.setVisibility(View.GONE);
-                // Re-enable SwipeRefreshLayout
                 binding.swipeRefreshLayout.setEnabled(true);
-                // Dismiss snackbar if exists
-                viewModel.dismissCurrentSnackbar();
             }
         } catch (Exception e) {
             Log.e(TAG, "Error loading more items", e);
             binding.bottomLoadingView.setVisibility(View.GONE);
-            // Re-enable SwipeRefreshLayout
             binding.swipeRefreshLayout.setEnabled(true);
-            // Dismiss snackbar if exists
-            viewModel.dismissCurrentSnackbar();
             viewModel.setPaginationInProgress(false);
         }
     }
@@ -1229,6 +1206,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             
             // Clear the new templates indicator
             viewModel.clearNewTemplatesFlag();
+            
+            // Reset the end message flag since we're refreshing data
+            hasShownEndMessage = false;
             
             // Refresh templates
             viewModel.loadTemplates(true);
@@ -1603,17 +1583,35 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
      * Ensure that the categories section is visible with proper state
      */
     private void ensureCategoriesVisible() {
-            if (binding.categoriesRecyclerView.getAdapter() == null) {
-                Log.d(TAG, "Categories RecyclerView adapter is null, setting adapter");
-                binding.categoriesRecyclerView.setAdapter(categoriesAdapter);
-            }
-            
-            if (categoriesAdapter != null) {
+        if (binding.categoriesRecyclerView.getAdapter() == null) {
+            Log.d(TAG, "Categories RecyclerView adapter is null, setting adapter");
+            binding.categoriesRecyclerView.setAdapter(categoriesAdapter);
+        }
+        
+        if (categoriesAdapter != null) {
             // Show loading state while checking for data
             categoriesAdapter.setLoading(true);
             
             Map<String, Integer> categoriesMap = viewModel.getCategories().getValue();
             if (categoriesMap != null && !categoriesMap.isEmpty()) {
+                // Get currently selected category before updating
+                String currentSelection = null;
+                int currentSelectedPosition = categoriesAdapter.getSelectedPosition();
+                if (currentSelectedPosition >= 0) {
+                    List<Category> visibleCategories = categoriesAdapter.getVisibleCategories();
+                    if (currentSelectedPosition < visibleCategories.size()) {
+                        Category selectedCategory = visibleCategories.get(currentSelectedPosition);
+                        if (selectedCategory != null) {
+                            currentSelection = selectedCategory.getId();
+                        }
+                    }
+                }
+                
+                // If no current selection, use the one from ViewModel
+                if (currentSelection == null) {
+                    currentSelection = viewModel.getSelectedCategory();
+                }
+                
                 categoriesAdapter.setLoading(false);
                 
                 // Create a list of Category objects
@@ -1632,10 +1630,8 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                             name,
                             iconUrl
                         );
-                        // Set template count
-                        if (categoriesMap.containsKey(name)) {
-                            category.setTemplateCount(categoriesMap.get(name));
-                        }
+                        // Set template count directly from the entry value
+                        category.setTemplateCount(entry.getValue());
                         categoryObjectList.add(category);
                     }
                 }
@@ -1647,14 +1643,21 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                     categoryObjectList.add(moreCategory);
                 }
 
-                // Update adapter with category objects
-                categoriesAdapter.updateCategories(categoryObjectList);
+                // Prevent categoriesAdapter changes during update to avoid UI flickering
+                categoriesAdapter.preventCategoryChanges(true);
+                try {
+                    // Update adapter with category objects
+                    categoriesAdapter.updateCategories(categoryObjectList);
+                    
+                    // Apply selected category without triggering another update
+                    categoriesAdapter.updateSelectedCategory(currentSelection);
+                } finally {
+                    categoriesAdapter.preventCategoryChanges(false);
+                }
                 
-                                String selectedCategory = viewModel.getSelectedCategory();
-                                if (selectedCategory != null) {
-                                    categoriesAdapter.updateSelectedCategory(selectedCategory);
-                            }
-                        } else {
+                // Show the categories recycler view
+                binding.categoriesRecyclerView.setVisibility(View.VISIBLE);
+            } else {
                 // Load categories if none are available
                 viewModel.loadCategories();
             }

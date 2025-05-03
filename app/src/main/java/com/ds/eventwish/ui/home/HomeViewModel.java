@@ -188,6 +188,10 @@ public class HomeViewModel extends ViewModel {
             return;
         }
 
+        Log.d(TAG, "Setting category from " + 
+              (selectedCategory != null ? selectedCategory : "All") + 
+              " to " + (category != null ? category : "All"));
+              
         selectedCategory = category;
         lastCategoryChangeTime = System.currentTimeMillis();
         
@@ -300,21 +304,33 @@ public class HomeViewModel extends ViewModel {
     }
 
     /**
+     * Check if there are more pages of templates to load
+     * @return true if more pages are available, false if at the end
+     */
+    public boolean hasMorePagesToLoad() {
+        // Check with repository to see if there are more pages
+        return repository.hasMorePages();
+    }
+
+    /**
      * Load more templates if needed based on scroll position
      * @param lastVisibleItem Position of the last visible item
      * @param totalItemCount Total number of items in the adapter
      */
     public void loadMoreIfNeeded(int lastVisibleItem, int totalItemCount) {
-        if (repository.isLoading() || !repository.hasMorePages()) {
+        if (isPaginationInProgress || repository.isLoading()) {
+            Log.d(TAG, "Already loading, skipping loadMoreIfNeeded");
             return;
         }
-        
-        if (lastVisibleItem + VISIBLE_THRESHOLD >= totalItemCount) {
+
+        // Check if we're near the end of the list and have more pages
+        if (lastVisibleItem + VISIBLE_THRESHOLD >= totalItemCount && hasMorePagesToLoad()) {
+            Log.d(TAG, "Loading more templates, pagination in progress");
+            
             // Set pagination flag to true
             isPaginationInProgress = true;
             
             // Load more templates
-            Log.d(TAG, "Loading more templates, pagination in progress");
             repository.loadTemplates(false);
         }
     }

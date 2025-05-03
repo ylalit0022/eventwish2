@@ -232,27 +232,13 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
     }
     
     /**
-     * Update the selected category
-     * @param categoryId ID of the selected category, can be null for "All"
-     */
-    public void updateSelectedCategory(String categoryId) {
-        if ((selectedCategoryId == null && categoryId == null) ||
-            (selectedCategoryId != null && selectedCategoryId.equals(categoryId))) {
-            // No change, return
-            return;
-        }
-        
-        this.selectedCategoryId = categoryId;
-        notifyDataSetChanged();
-    }
-    
-    /**
      * Prevent category changes temporarily
      * This is used to avoid UI flickering when updating categories
      */
+    private boolean preventChanges = false;
+    
     public void preventCategoryChanges(boolean prevent) {
-        // Implementation for preventing category changes
-        // This can be used to temporarily disable UI updates
+        this.preventChanges = prevent;
     }
     
     /**
@@ -275,6 +261,29 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
      */
     public String getSelectedCategory() {
         return selectedCategoryId;
+    }
+    
+    /**
+     * Update the selected category
+     * @param categoryId ID of the selected category, can be null for "All"
+     */
+    public void updateSelectedCategory(String categoryId) {
+        if ((selectedCategoryId == null && categoryId == null) ||
+            (selectedCategoryId != null && selectedCategoryId.equals(categoryId))) {
+            // No change, return
+            return;
+        }
+        
+        Log.d(TAG, "Updating selected category from " + 
+              (selectedCategoryId != null ? selectedCategoryId : "All") + 
+              " to " + (categoryId != null ? categoryId : "All"));
+        
+        this.selectedCategoryId = categoryId;
+        
+        // Only notify data set changed if we're not preventing changes
+        if (!preventChanges) {
+            notifyDataSetChanged();
+        }
     }
     
     /**
