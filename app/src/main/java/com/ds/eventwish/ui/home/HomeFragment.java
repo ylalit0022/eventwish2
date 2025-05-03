@@ -119,7 +119,21 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         Log.d(TAG, "onViewCreated called");
 
         // Initialize CategoryIconRepository
-        categoryIconRepository = CategoryIconRepository.getInstance();
+        if (categoryIconRepository == null) {
+            try {
+                categoryIconRepository = CategoryIconRepository.getInstance(requireContext());
+                Log.d(TAG, "CategoryIconRepository initialized in onViewCreated");
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to initialize CategoryIconRepository in onViewCreated", e);
+                // Use default implementation if available
+                categoryIconRepository = CategoryIconRepository.getInstance();
+            }
+            
+            // Force immediate refresh of category icons
+            if (categoryIconRepository != null) {
+                categoryIconRepository.refreshCategoryIcons();
+            }
+        }
 
         // Set up UI components
         setupUI();
@@ -163,7 +177,10 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             }
             
             // Always refresh icons regardless of categories
-            categoryIconRepository.refreshCategoryIcons();
+            if (categoryIconRepository != null) {
+                Log.d(TAG, "Refreshing category icons in onViewCreated post");
+                categoryIconRepository.refreshCategoryIcons();
+            }
         });
 
         // Ensure categories are visible
@@ -265,8 +282,14 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             viewModel.setPaginationInProgress(false);
             
             // Don't refresh category icons if not necessary
-            if (categoryIconRepository != null && !categoryIconRepository.isInitialized()) {
-                categoryIconRepository.refreshCategoryIcons();
+            if (categoryIconRepository != null) {
+                if (!categoryIconRepository.isInitialized()) {
+                    Log.d(TAG, "Refreshing category icons in onResume - repository not initialized");
+                    categoryIconRepository.refreshCategoryIcons();
+                } else {
+                    // Check if it's been a while since we last refreshed
+                    Log.d(TAG, "Category icon repository already initialized, checking if refresh needed");
+                }
             }
             
             // First handle category persistence - this is critical for UI consistency
@@ -333,10 +356,10 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             updateChipSelections();
             
             wasInBackground = false;
+        } else {
+            // Even if we're not coming from background, still ensure categories are displayed properly
+            ensureCategoriesVisible();
         }
-        
-        // Ensure categories are visible without reloading
-        ensureCategoriesVisible();
         
         // Check for unread festivals - using the correct method
         if (festivalViewModel != null) {
@@ -648,6 +671,12 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
 
         categoriesAdapter.setOnMoreClickListener(this::showCategoriesBottomSheet);
         
+        // Make sure to initialize the category icon repository if needed
+        if (categoryIconRepository != null && !categoryIconRepository.isInitialized()) {
+            Log.d(TAG, "Initializing CategoryIconRepository in setupCategoriesAdapter");
+            categoryIconRepository.refreshCategoryIcons();
+        }
+        
         // Observe categories from the ViewModel
         viewModel.getCategories().observe(getViewLifecycleOwner(), categoriesMap -> {
             if (categoriesMap != null && !categoriesMap.isEmpty()) {
@@ -666,12 +695,24 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 for (String name : categoryList) {
                     if (!"All".equalsIgnoreCase(name)) {
                         String normalizedName = normalizeCategory(name);
-                        String iconUrl = categoryIconRepository.getCategoryIconUrl(normalizedName);
-                        Category category = createCategory(
-                            normalizedName,
-                            name,
-                            iconUrl
-                        );
+                        // Try to get the complete CategoryIcon object first
+                        CategoryIcon categoryIcon = null;
+                        if (categoryIconRepository != null) {
+                            categoryIcon = categoryIconRepository.getCategoryIconByCategory(normalizedName);
+                        }
+                        
+                        Category category;
+                        if (categoryIcon != null) {
+                            // Use the full CategoryIcon object if available
+                            category = new Category(normalizedName, name, categoryIcon);
+                            Log.d(TAG, "Using full CategoryIcon object for " + name);
+                        } else {
+                            // Fall back to getting just the URL
+                            String iconUrl = categoryIconRepository != null ? 
+                                categoryIconRepository.getCategoryIconUrl(normalizedName) : null;
+                            category = createCategory(normalizedName, name, iconUrl);
+                        }
+                        
                         // Set template count
                         if (categoriesMap.containsKey(name)) {
                             category.setTemplateCount(categoriesMap.get(name));
@@ -724,6 +765,17 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 viewModel.loadCategories();
             }
         });
+        
+        // Also observe category icons from the repository
+        if (categoryIconRepository != null) {
+            categoryIconRepository.getCategoryIcons().observe(getViewLifecycleOwner(), icons -> {
+                if (icons != null && !icons.isEmpty()) {
+                    Log.d(TAG, "Received " + icons.size() + " category icons from repository");
+                    // When icons change, refresh the categories
+                    ensureCategoriesVisible();
+                }
+            });
+        }
     }
 
     private void showCategoriesBottomSheet(List<Category> remainingCategories) {
@@ -1592,6 +1644,15 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             // Show loading state while checking for data
             categoriesAdapter.setLoading(true);
             
+            // First refresh category icons, especially if we haven't loaded them yet
+            if (categoryIconRepository != null) {
+                // Force refresh of icons to ensure they're available
+                if (!categoryIconRepository.isInitialized()) {
+                    Log.d(TAG, "Refreshing category icons in ensureCategoriesVisible");
+                    categoryIconRepository.refreshCategoryIcons();
+                }
+            }
+            
             Map<String, Integer> categoriesMap = viewModel.getCategories().getValue();
             if (categoriesMap != null && !categoriesMap.isEmpty()) {
                 // Get currently selected category before updating
@@ -1624,14 +1685,28 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                     String name = entry.getKey();
                     if (!"All".equalsIgnoreCase(name)) {
                         String normalizedName = normalizeCategory(name);
-                        String iconUrl = categoryIconRepository.getCategoryIconUrl(normalizedName);
-                        Category category = createCategory(
-                            normalizedName,
-                            name,
-                            iconUrl
-                        );
-                        // Set template count directly from the entry value
-                        category.setTemplateCount(entry.getValue());
+                        // Try to get the complete CategoryIcon object first
+                        CategoryIcon categoryIcon = null;
+                        if (categoryIconRepository != null) {
+                            categoryIcon = categoryIconRepository.getCategoryIconByCategory(normalizedName);
+                        }
+                        
+                        Category category;
+                        if (categoryIcon != null) {
+                            // Use the full CategoryIcon object if available
+                            category = new Category(normalizedName, name, categoryIcon);
+                            Log.d(TAG, "Using full CategoryIcon object for " + name);
+                        } else {
+                            // Fall back to getting just the URL
+                            String iconUrl = categoryIconRepository != null ? 
+                                categoryIconRepository.getCategoryIconUrl(normalizedName) : null;
+                            category = createCategory(normalizedName, name, iconUrl);
+                        }
+                        
+                        // Set template count
+                        if (categoriesMap.containsKey(name)) {
+                            category.setTemplateCount(categoriesMap.get(name));
+                        }
                         categoryObjectList.add(category);
                     }
                 }
@@ -1800,12 +1875,24 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         
         // Get icon from repository if not provided
         if (iconUrl == null && categoryIconRepository != null) {
+            // Try to get the full CategoryIcon object first
+            CategoryIcon icon = categoryIconRepository.getCategoryIconByCategory(normalizedName);
+            if (icon != null && icon.getCategoryIcon() != null && !icon.getCategoryIcon().isEmpty()) {
+                Log.d(TAG, "Found CategoryIcon object for " + normalizedName + ": " + icon.getCategoryIcon());
+                return new Category(id, name, icon);
+            }
+            
+            // Fallback to just getting the URL
             iconUrl = categoryIconRepository.getCategoryIconUrl(normalizedName);
+            Log.d(TAG, "Fetched icon URL for " + normalizedName + ": " + (iconUrl != null ? iconUrl : "null"));
         }
         
         CategoryIcon icon = null;
         if (iconUrl != null && !iconUrl.isEmpty()) {
             icon = new CategoryIcon(id, normalizedName, iconUrl);
+            Log.d(TAG, "Created new CategoryIcon for " + normalizedName + " with URL: " + iconUrl);
+        } else {
+            Log.w(TAG, "No icon URL found for category: " + normalizedName);
         }
         
         return new Category(id, name, icon);
