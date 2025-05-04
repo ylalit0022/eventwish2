@@ -181,7 +181,6 @@
             android:theme="@style/Theme.MaterialComponents.Light.DarkActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
@@ -243,6 +242,8 @@
         </activity>
 
         <!-- Test Ad Activity -->
+        <!-- Removing TestAdActivity as the file has been deleted -->
+        <!--
         <activity android:name=".ui.ads.TestAdActivity"
                   android:label="AdMob Test"
                   android:exported="true">
@@ -250,6 +251,7 @@
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
         </activity>
+        -->
 
     </application>
 
