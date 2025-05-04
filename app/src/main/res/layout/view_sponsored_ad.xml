@@ -19,13 +19,14 @@
         <ImageView
             android:id="@+id/sponsored_ad_image"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:adjustViewBounds="true"
+            android:layout_height="160dp"
             android:scaleType="centerCrop"
-            app:layout_constraintDimensionRatio="16:9"
+            android:background="#f0f0f0"
+            android:adjustViewBounds="false"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
             tools:src="@drawable/placeholder_image"
             android:contentDescription="@string/sponsored_ad_image_description" />
 

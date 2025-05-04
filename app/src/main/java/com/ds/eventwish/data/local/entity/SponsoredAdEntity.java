@@ -43,6 +43,7 @@ public class SponsoredAdEntity {
     // Cache-specific fields
     private long insertedAt; // Timestamp when this entity was inserted into the cache
     private long expiresAt;  // Timestamp when this cache entry should expire
+    private long lastImpressionTime; // Timestamp of the last impression tracking
     
     /**
      * Default constructor required by Room
@@ -225,5 +226,21 @@ public class SponsoredAdEntity {
     
     public void setExpiresAt(long expiresAt) {
         this.expiresAt = expiresAt;
+    }
+    
+    /**
+     * Get the timestamp of the last impression tracking
+     * @return Timestamp in milliseconds when the last impression was tracked
+     */
+    public long getLastImpressionTime() {
+        return lastImpressionTime;
+    }
+    
+    /**
+     * Set the timestamp of the last impression tracking
+     * @param lastImpressionTime Timestamp in milliseconds
+     */
+    public void setLastImpressionTime(long lastImpressionTime) {
+        this.lastImpressionTime = lastImpressionTime;
     }
 } 

@@ -178,6 +178,37 @@ public class Migrations {
     };
     
     /**
+     * Migration from version 6 to 7
+     * - Added lastImpressionTime field to sponsored_ads table
+     */
+    public static final Migration MIGRATION_6_7 = new Migration(6, 7) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            Log.d(TAG, "Migrating database from version 6 to 7 (adding lastImpressionTime to sponsored ads)");
+            
+            // Add lastImpressionTime column to sponsored_ads table with error handling
+            try {
+                // Check if column already exists to avoid errors
+                try {
+                    database.execSQL("SELECT lastImpressionTime FROM sponsored_ads LIMIT 0");
+                    Log.d(TAG, "Column lastImpressionTime already exists, skipping");
+                } catch (Exception e) {
+                    // Column doesn't exist, safe to add
+                    database.execSQL(
+                        "ALTER TABLE `sponsored_ads` ADD COLUMN `lastImpressionTime` INTEGER NOT NULL DEFAULT 0"
+                    );
+                    Log.d(TAG, "Added lastImpressionTime column to sponsored_ads table");
+                }
+            } catch (Exception ex) {
+                // Log error but don't crash - the app will use fallbackToDestructiveMigration if needed
+                Log.e(TAG, "Error during migration 6-7: " + ex.getMessage(), ex);
+            }
+            
+            Log.d(TAG, "Migration from version 6 to 7 completed successfully");
+        }
+    };
+    
+    /**
      * Keep a reference to the expected schema for engagement_data
      * This aids in debugging migration issues
      */

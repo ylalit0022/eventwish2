@@ -387,73 +387,113 @@ public class AdMobManager {
         isLoading = true;
         Log.d(TAG, "Fetching app open ad unit from server...");
         
+        // Try with multiple possible ad type variations - the server might be using a different naming convention
         repository.fetchAdUnit("app_open", new AdMobRepository.AdUnitCallback() {
             @Override
             public void onSuccess(AdUnit adUnit) {
-                if (!adUnit.isStatus()) {
-                    Log.d(TAG, "App open ad unit is disabled on server");
-                    isLoading = false;
-                    retryAttempts = 0;
-                    callback.onError("App open ads are currently disabled");
-                        return;
-                    }
-                    
-                Log.d(TAG, "Loading app open ad with unit ID: " + adUnit.getAdUnitCode());
-                AppOpenAd.load(context, 
-                    adUnit.getAdUnitCode(),
-                    new AdRequest.Builder().build(),
-                    new AppOpenAd.AppOpenAdLoadCallback() {
-                        @Override
-                        public void onAdLoaded(@NonNull AppOpenAd appOpenAd) {
-                            Log.d(TAG, "App open ad loaded successfully");
-                            isLoading = false;
-                            retryAttempts = 0;
-                            callback.onAdLoaded(appOpenAd);
-                        }
-
-                        @Override
-                        public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
-                            String errorMessage = context.getString(R.string.error_unknown);
-                            Log.e(TAG, "App open ad failed to load: " + loadAdError.getMessage());
-                            isLoading = false;
-                            
-                            // Retry logic for ad loading failures
-                            if (retryAttempts < MAX_RETRY_ATTEMPTS) {
-                                retryAttempts++;
-                                Log.d(TAG, "Retrying app open ad load (Attempt " + retryAttempts + "/" + MAX_RETRY_ATTEMPTS + ")");
-                                loadAppOpenAd(callback);
-                } else {
-                                Log.e(TAG, "Max retry attempts reached for app open ad");
-                                retryAttempts = 0;
-                                callback.onError(errorMessage);
-                            }
-                        }
-                    });
+                processAppOpenAdUnit(adUnit, callback);
             }
 
             @Override
             public void onError(String error) {
-                String errorMessage;
-                if (error.contains("SSLHandshakeException")) {
-                    errorMessage = context.getString(R.string.error_ssl);
-                } else {
-                    errorMessage = context.getString(R.string.error_unknown);
-                }
-                Log.e(TAG, "Failed to fetch app open ad unit: " + errorMessage);
-                isLoading = false;
-                
-                // Retry logic for server errors
-                if (retryAttempts < MAX_RETRY_ATTEMPTS) {
-                    retryAttempts++;
-                    Log.d(TAG, "Retrying server fetch (Attempt " + retryAttempts + "/" + MAX_RETRY_ATTEMPTS + ")");
-                    loadAppOpenAd(callback);
-                } else {
-                    Log.e(TAG, "Max retry attempts reached for server fetch");
-                    retryAttempts = 0;
-                    callback.onError(errorMessage);
-                }
+                // First variation failed, try "AppOpen"
+                Log.d(TAG, "Failed to find ad unit with type 'app_open', trying 'AppOpen'...");
+                repository.fetchAdUnit("AppOpen", new AdMobRepository.AdUnitCallback() {
+                    @Override
+                    public void onSuccess(AdUnit adUnit) {
+                        processAppOpenAdUnit(adUnit, callback);
+                    }
+
+                    @Override
+                    public void onError(String secondError) {
+                        // Second variation failed, try "App Open"
+                        Log.d(TAG, "Failed to find ad unit with type 'AppOpen', trying 'App Open'...");
+                        repository.fetchAdUnit("App Open", new AdMobRepository.AdUnitCallback() {
+                            @Override
+                            public void onSuccess(AdUnit adUnit) {
+                                processAppOpenAdUnit(adUnit, callback);
+                            }
+
+                            @Override
+                            public void onError(String thirdError) {
+                                // All variations failed, report the original error
+                                handleAdUnitError(error, callback);
+                            }
+                        });
+                    }
+                });
             }
         });
+    }
+    
+    /**
+     * Process the app open ad unit once found
+     */
+    private void processAppOpenAdUnit(AdUnit adUnit, AppOpenAdCallback callback) {
+        if (!adUnit.isStatus()) {
+            Log.d(TAG, "App open ad unit is disabled on server");
+            isLoading = false;
+            retryAttempts = 0;
+            callback.onError("App open ads are currently disabled");
+            return;
+        }
+
+        Log.d(TAG, "Loading app open ad with unit ID: " + adUnit.getAdUnitCode());
+        AppOpenAd.load(context, 
+            adUnit.getAdUnitCode(),
+            new AdRequest.Builder().build(),
+            new AppOpenAd.AppOpenAdLoadCallback() {
+                @Override
+                public void onAdLoaded(@NonNull AppOpenAd appOpenAd) {
+                    Log.d(TAG, "App open ad loaded successfully");
+                    isLoading = false;
+                    retryAttempts = 0;
+                    callback.onAdLoaded(appOpenAd);
+                }
+
+                @Override
+                public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
+                    String errorMessage = context.getString(R.string.error_unknown);
+                    Log.e(TAG, "App open ad failed to load: " + loadAdError.getMessage());
+                    isLoading = false;
+                    
+                    // Retry logic for ad loading failures
+                    if (retryAttempts < MAX_RETRY_ATTEMPTS) {
+                        retryAttempts++;
+                        Log.d(TAG, "Retrying app open ad load (Attempt " + retryAttempts + "/" + MAX_RETRY_ATTEMPTS + ")");
+                        loadAppOpenAd(callback);
+                    } else {
+                        Log.e(TAG, "Max retry attempts reached for app open ad");
+                        retryAttempts = 0;
+                        callback.onError(errorMessage);
+                    }
+                }
+            });
+    }
+    
+    /**
+     * Handle ad unit error with proper logging
+     */
+    private void handleAdUnitError(String error, AppOpenAdCallback callback) {
+        String errorMessage;
+        if (error.contains("SSLHandshakeException")) {
+            errorMessage = context.getString(R.string.error_ssl);
+        } else {
+            errorMessage = context.getString(R.string.error_unknown);
+        }
+        Log.e(TAG, "Failed to fetch app open ad unit: " + errorMessage);
+        isLoading = false;
+        
+        // Retry logic for server errors
+        if (retryAttempts < MAX_RETRY_ATTEMPTS) {
+            retryAttempts++;
+            Log.d(TAG, "Retrying server fetch (Attempt " + retryAttempts + "/" + MAX_RETRY_ATTEMPTS + ")");
+            loadAppOpenAd(callback);
+        } else {
+            Log.e(TAG, "Max retry attempts reached for server fetch");
+            retryAttempts = 0;
+            callback.onError(errorMessage);
+        }
     }
     
     /**

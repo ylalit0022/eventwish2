@@ -265,8 +265,10 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         
         isResumed = true;
         
-        // Reset end message flag on resume
+        // Reset pagination and end message flags on resume
         hasShownEndMessage = false;
+        viewModel.setPaginationInProgress(false);
+        lastPaginationCheck = 0;
         
         // If templates are already loaded, clear any error state
         if (viewModel.getTemplates().getValue() != null && 
@@ -436,11 +438,30 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             });
         }
 
-        // Refresh sponsored ads when the fragment resumes
+        // Handle sponsored ad when the fragment resumes
         if (sponsoredAdView != null) {
-            sponsoredAdView.refreshAds();
-            // Ensure rotation is running when the fragment is visible
-            sponsoredAdView.enableRotation(true);
+            try {
+                // First make sure the sponsoredAdView is visible
+                sponsoredAdView.setVisibility(View.VISIBLE);
+                
+                Log.d(TAG, "Handling sponsored ad in onResume");
+                
+                // Call methods in a specific order to ensure proper state restoration
+                sponsoredAdView.handleResume();
+                
+                // Force reload of the ad content to ensure image is displayed
+                sponsoredAdView.forceReload();
+                
+                // Ensure text fields are visible if they contain content
+                sponsoredAdView.ensureTextVisible();
+                
+                // Enable rotation if supported
+                sponsoredAdView.enableRotation(true);
+                
+                Log.d(TAG, "Sponsored ad handling complete in onResume");
+            } catch (Exception e) {
+                Log.e(TAG, "Error handling sponsored ad in onResume: " + e.getMessage());
+            }
         }
     }
 
@@ -655,6 +676,11 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         categoriesAdapter.setOnCategoryClickListener((category, position) -> {
             String categoryId = category.getId();
             String categoryName = category.getName();
+            
+            // Reset pagination-related flags when changing categories
+            hasShownEndMessage = false;
+            viewModel.setPaginationInProgress(false);
+            lastPaginationCheck = 0;
             
             // Preserve current categories before changing the selection
             List<Category> currentCategories = categoriesAdapter.getVisibleCategories();
@@ -1229,16 +1255,31 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                     // We're at the end and haven't shown the message yet
                     hasShownEndMessage = true; // Set flag so we don't show it again
                     
+                    // Store the timestamp of when we showed the message
+                    viewModel.setLastEndMessageTime(System.currentTimeMillis());
+                    
                     if (getActivity() != null) {
-                        Toast.makeText(requireContext(), 
-                            "No more templates available", 
-                            Toast.LENGTH_SHORT).show();
+                        // Only show the message if we haven't shown it recently
+                        if (viewModel.canShowEndMessage()) {
+                            Toast.makeText(requireContext(), 
+                                "No more templates available", 
+                                Toast.LENGTH_SHORT).show();
+                            
+                            // Log the toast event for debugging
+                            Log.d(TAG, "Displayed 'No more templates' toast message");
+                        } else {
+                            Log.d(TAG, "Suppressed 'No more templates' toast - shown too recently");
+                        }
                     }
                     
                     // Make sure loading indicator is hidden
                     binding.bottomLoadingView.setVisibility(View.GONE);
                     
                     // Re-enable SwipeRefreshLayout
+                    binding.swipeRefreshLayout.setEnabled(true);
+                } else {
+                    // We've already shown the message, just make sure UI is in correct state
+                    binding.bottomLoadingView.setVisibility(View.GONE);
                     binding.swipeRefreshLayout.setEnabled(true);
                 }
             } else {
@@ -2122,9 +2163,25 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     public void onPause() {
         super.onPause();
         
-        // Pause ad rotation when the fragment is not visible
+        // Explicitly mark that this fragment is in background
+        wasInBackground = true;
+        isResumed = false;
+        
+        // Save scroll position
+        lastScrollPosition = getScrollPosition();
+        if (viewModel != null) {
+            viewModel.setLastVisiblePosition(lastScrollPosition);
+        }
+        
+        // Pause sponsored ad rotation when the fragment is not visible
         if (sponsoredAdView != null) {
-            sponsoredAdView.enableRotation(false);
+            try {
+                // Properly handle sponsored ad pause
+                sponsoredAdView.handlePause();
+                Log.d(TAG, "Called handlePause on sponsoredAdView");
+            } catch (Exception e) {
+                Log.e(TAG, "Error handling sponsored ad in onPause: " + e.getMessage());
+            }
         }
     }
 }

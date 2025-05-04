@@ -15,6 +15,7 @@ import com.google.gson.JsonElement;
 import com.ds.eventwish.data.db.AppDatabase;
 import com.ds.eventwish.data.local.dao.AdUnitDao;
 import com.ds.eventwish.data.local.entity.AdUnitEntity;
+import com.ds.eventwish.utils.AppExecutors;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -264,10 +265,17 @@ public class AdMobRepository {
                             entity.setNextAvailable(nextAvailable != null ? nextAvailable.toString() : null);
                             
                             try {
-                                adUnitDao.insert(entity);
-                                logDebug("Successfully saved ad unit to database");
+                                // Move database operation to background thread
+                                AppExecutors.getInstance().diskIO().execute(() -> {
+                                    try {
+                                        adUnitDao.insert(entity);
+                                        logDebug("Successfully saved ad unit to database");
+                                    } catch (Exception e) {
+                                        logError("Error saving ad unit to database", e);
+                                    }
+                                });
                             } catch (Exception e) {
-                                logError("Error saving ad unit to database", e);
+                                logError("Error scheduling database operation", e);
                             }
                             
                             logDebug("=== Ad Unit Fetch Completed Successfully ===");
@@ -406,12 +414,16 @@ public class AdMobRepository {
     public void updateAdUnitStatus(String id, boolean canShow, String reason) {
         Log.d(TAG, String.format("Updating ad unit status - ID: %s, CanShow: %b, Reason: %s", 
             id, canShow, reason));
-        adUnitDao.updateAdUnitStatus(id, canShow, reason);
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            adUnitDao.updateAdUnitStatus(id, canShow, reason);
+        });
     }
 
     public void updateNextAvailable(String id, String nextAvailable) {
         Log.d(TAG, String.format("Updating ad unit next available time - ID: %s, NextAvailable: %s", 
             id, nextAvailable));
-        adUnitDao.updateNextAvailable(id, nextAvailable);
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            adUnitDao.updateNextAvailable(id, nextAvailable);
+        });
     }
 } 

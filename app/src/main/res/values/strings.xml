@@ -410,7 +410,7 @@
     <string name="ad_error_loading">Could not load advertisement</string>
 
     <!-- Ad Related -->
-    <string name="cooldown_timer_format">Share in: %02d:%02d</string>
+    <string name="cooldown_timer_format">Ad in: %02d:%02d</string>
     <string name="share_unlocked">Share Unlocked!</string>
     <string name="cooldown_ended">Ad cooldown period ended. Watch another ad to share.</string>
 
@@ -423,4 +423,7 @@
     <string name="sponsored_ad_title">Advertisement</string>
     <string name="sponsored_ad_description">Sponsored content</string>
     <string name="sponsored_refresh_button">Refresh</string>
+
+    <!-- Ad Debugger -->
+    <string name="ad_debugger_title">Ad Impression Debugger</string>
 </resources>

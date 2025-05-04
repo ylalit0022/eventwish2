@@ -50,6 +50,7 @@ import com.google.firebase.analytics.FirebaseAnalytics;
 import androidx.annotation.NonNull;
 import java.util.concurrent.Executor;
 import com.ds.eventwish.ui.ads.SponsoredAdManagerFactory;
+import com.ds.eventwish.utils.AdSessionManager;
 
 public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
@@ -79,6 +80,9 @@ public class EventWishApplication extends Application implements Configuration.P
     private int runningActivities = 0;
 
     private AppOpenManager appOpenManager;
+
+    private boolean wasInBackground = true;
+    private AdSessionManager adSessionManager;
 
     /**
      * Get the application instance
@@ -125,6 +129,10 @@ public class EventWishApplication extends Application implements Configuration.P
             // Initialize Sponsored Ads
             SponsoredAdManagerFactory.init(this);
             Log.d(TAG, "SponsoredAdManagerFactory initialized");
+            
+            // Initialize AdSessionManager - for simple impression tracking
+            adSessionManager = AdSessionManager.getInstance(this);
+            Log.d(TAG, "AdSessionManager initialized with new session");
             
             Log.d(TAG, "EventWish application started successfully");
         } catch (Exception e) {
@@ -559,6 +567,18 @@ public class EventWishApplication extends Application implements Configuration.P
         runningActivities++;
         currentActivity = activity;
         
+        // Check if app is coming from background to foreground
+        if (wasInBackground) {
+            Log.d(TAG, "App coming to foreground, creating new ad impression session");
+            
+            // Create a new ad impression session if coming from background
+            if (adSessionManager != null) {
+                adSessionManager.createNewSession();
+            }
+            
+            wasInBackground = false;
+        }
+        
         // Track screen views for analytics
         if (activity != null) {
             String screenName = activity.getClass().getSimpleName();
@@ -585,6 +605,7 @@ public class EventWishApplication extends Application implements Configuration.P
         runningActivities--;
         if (runningActivities == 0) {
             Log.d(TAG, "App went to background");
+            wasInBackground = true;
         }
     }
 
@@ -759,5 +780,12 @@ public class EventWishApplication extends Application implements Configuration.P
         public void execute(Runnable command) {
             mainThreadHandler.post(command);
         }
+    }
+
+    /**
+     * Get the AdSessionManager instance
+     */
+    public AdSessionManager getAdSessionManager() {
+        return adSessionManager;
     }
 }

@@ -16,4 +16,10 @@
         android:orderInCategory="101"
         android:title="@string/action_test_ads"
         app:showAsAction="ifRoom" />
+        
+    <item
+        android:id="@+id/action_ad_debugger"
+        android:orderInCategory="102"
+        android:title="@string/ad_debugger_title"
+        app:showAsAction="never" />
 </menu> 

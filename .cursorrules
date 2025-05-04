@@ -136,6 +136,10 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Add proper error handling for database operations
   - When storing complex objects, ensure proper type checking and casting when retrieving data
   - Handle type conversion between Object and specific types like JsonObject with proper instanceof checks
+  - Never perform database operations on the main thread to avoid "IllegalStateException: Cannot access database on the main thread"
+  - Always use background threads (AppExecutors.diskIO().execute()) for database operations including insert, update, and delete
+  - Remember that Room's getters (queries) returning LiveData are already asynchronous and don't need to be moved to a background thread
+  - When fixing database access on main thread issues, be careful to handle exceptions properly in background thread code
 - When implementing Gson converters for Retrofit:
   - Create custom JsonDeserializer for handling complex JSON structures
   - Register type adapters with GsonBuilder for specific types
@@ -334,7 +338,7 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 [X] Build SponsoredAdView component
   - Custom view extending FrameLayout
   - CardView-based layout with proper styling
-  - "Sponsored" label for transparency
+   - "Sponsored" label for transparency
   - Image loading with Glide
   - Error and placeholder states
   - Loading animation and state management

@@ -82,6 +82,10 @@ public class HomeViewModel extends ViewModel {
     private final MutableLiveData<Map<String, Integer>> categories = new MutableLiveData<>(new LinkedHashMap<>());
     private boolean categoriesLoaded = false; // Track if categories have been loaded
 
+    // Add a field to track time of last end message display
+    private long lastEndMessageTime = 0;
+    private static final long END_MESSAGE_DISPLAY_INTERVAL = 60000; // 1 minute
+
     public HomeViewModel() {
         repository = TemplateRepository.getInstance();
     }
@@ -95,6 +99,9 @@ public class HomeViewModel extends ViewModel {
         selectedCategory = prefs.getString(PREF_SELECTED_CATEGORY, null);
         String sortOption = prefs.getString(PREF_SELECTED_SORT, SortOption.TRENDING.name());
         String timeFilter = prefs.getString(PREF_SELECTED_TIME_FILTER, TimeFilter.ALL.name());
+        
+        // Load lastEndMessageTime to prevent repeated toasts
+        lastEndMessageTime = prefs.getLong("last_end_message_time", 0);
         
         try {
             this.sortOption.setValue(SortOption.valueOf(sortOption));
@@ -711,6 +718,9 @@ public class HomeViewModel extends ViewModel {
         // Save search query if any
         editor.putString("search_query", searchQuery);
 
+        // Save last end message time
+        editor.putLong("last_end_message_time", lastEndMessageTime);
+
         editor.apply();
         Log.d(TAG, "Template state saved: category=" + selectedCategory + 
               ", position=" + lastVisiblePosition + 
@@ -752,5 +762,42 @@ public class HomeViewModel extends ViewModel {
     public boolean hasLoadedTemplates() {
         List<Template> loadedTemplates = getTemplates().getValue();
         return loadedTemplates != null && !loadedTemplates.isEmpty();
+    }
+
+    /**
+     * Set the last visible position in the templates list
+     * @param position Position to save
+     */
+    public void setLastVisiblePosition(int position) {
+        Log.d(TAG, "Setting last visible position: " + position);
+        this.lastVisiblePosition = position;
+        
+        // Also save to SharedPreferences for persistence
+        if (appContext != null) {
+            SharedPreferences prefs = appContext.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
+            prefs.edit().putInt("last_visible_position", position).apply();
+        }
+    }
+
+    /**
+     * Set the timestamp when the end message was last shown
+     * @param timestamp The current time in milliseconds
+     */
+    public void setLastEndMessageTime(long timestamp) {
+        this.lastEndMessageTime = timestamp;
+        // Also save to SharedPreferences for persistence
+        if (appContext != null) {
+            SharedPreferences prefs = appContext.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
+            prefs.edit().putLong("last_end_message_time", timestamp).apply();
+        }
+    }
+    
+    /**
+     * Check if enough time has passed since the last end message was shown
+     * @return true if it's OK to show the message again, false otherwise
+     */
+    public boolean canShowEndMessage() {
+        long now = System.currentTimeMillis();
+        return (now - lastEndMessageTime) > END_MESSAGE_DISPLAY_INTERVAL;
     }
 }

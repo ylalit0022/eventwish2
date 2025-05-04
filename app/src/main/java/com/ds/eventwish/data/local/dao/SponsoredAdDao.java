@@ -189,4 +189,34 @@ public interface SponsoredAdDao {
         String location, 
         long currentTime
     );
+    
+    /**
+     * Get ads by location synchronously for preloading purposes
+     * @param location The location to filter by
+     * @return List of sponsored ad entities for the location
+     */
+    @Query("SELECT * FROM sponsored_ads WHERE location = :location AND status = 1 ORDER BY priority DESC")
+    List<SponsoredAdEntity> getAdsByLocationSync(String location);
+    
+    /**
+     * Get all ads from the database without LiveData wrapper
+     * @return List of all sponsored ad entities
+     */
+    @Query("SELECT * FROM sponsored_ads")
+    List<SponsoredAdEntity> getAllAds();
+
+    /**
+     * Get a specific ad by ID - direct non-LiveData access
+     * @param id ID of the sponsored ad
+     * @return Sponsored ad entity or null if not found
+     */
+    @Query("SELECT * FROM sponsored_ads WHERE id = :id")
+    SponsoredAdEntity getAdById(String id);
+
+    /**
+     * Get a random ad for testing purposes
+     * @return A random sponsored ad entity or null if none exist
+     */
+    @Query("SELECT * FROM sponsored_ads LIMIT 1")
+    SponsoredAdEntity getRandomAd();
 } 

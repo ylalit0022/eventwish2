@@ -41,8 +41,8 @@ import retrofit2.Response;
  */
 public class SponsoredAdRepository {
     private static final String TAG = "SponsoredAdRepository";
-    private static final long CACHE_DURATION_MS = TimeUnit.HOURS.toMillis(4); // Cache for 4 hours
-    private static final long MIN_REFRESH_INTERVAL_MS = TimeUnit.MINUTES.toMillis(15); // Minimum 15 minutes between API refreshes
+    private static final long CACHE_DURATION_MS = TimeUnit.HOURS.toMillis(1); // Cache for 1 hour
+    private static final long MIN_REFRESH_INTERVAL_MS = TimeUnit.MINUTES.toMillis(5); // Minimum 5 minutes between API refreshes
     private static final long IMPRESSION_THROTTLE_MS = TimeUnit.HOURS.toMillis(24); // Throttle impressions to once per day per ad
     private static final long RATE_LIMIT_BACKOFF_MS = TimeUnit.MINUTES.toMillis(60); // Respect server rate limits
     private static final int MAX_BATCH_SIZE = 10; // Maximum number of tracking events to batch
@@ -78,6 +78,9 @@ public class SponsoredAdRepository {
     
     // Singleton instance
     private static volatile SponsoredAdRepository instance;
+    
+    // Add flag for forcing refresh
+    private boolean forceRefresh = false;
     
     /**
      * Class to represent tracking events for batch processing
@@ -347,14 +350,11 @@ public class SponsoredAdRepository {
         // Initialize repository if needed
         initialize();
         
-        // Check if we need to refresh from the network
-        boolean shouldRefreshFromNetwork = shouldRefreshFromNetwork();
-        
-        if (shouldRefreshFromNetwork) {
-            Log.d(TAG, "Refreshing sponsored ads from network");
+        if (shouldRefreshFromNetwork() || forceRefresh) {
             refreshFromNetwork();
+            // Reset force refresh flag
+            forceRefresh = false;
         } else {
-            // Load from cache
             loadFromCache();
         }
         
@@ -373,26 +373,37 @@ public class SponsoredAdRepository {
      * Check if we should refresh the data from network
      */
     private boolean shouldRefreshFromNetwork() {
-        // Always refresh if no cache or time exceeded
-        boolean shouldRefresh = System.currentTimeMillis() - lastRefreshTime > MIN_REFRESH_INTERVAL_MS;
-        
-        if (shouldRefresh) {
-            Log.d(TAG, "Refresh interval exceeded, should refresh from network");
+        // If force refresh is set, always refresh
+        if (forceRefresh) {
+            Log.d(TAG, "Forced refresh requested, refreshing from network");
             return true;
         }
         
-        // Check if we have any valid cache entries
+        long currentTime = System.currentTimeMillis();
+        
+        // If it's been longer than minimum refresh interval, refresh
+        if (currentTime - lastRefreshTime > MIN_REFRESH_INTERVAL_MS) {
+            Log.d(TAG, "Min refresh interval elapsed, refreshing from network");
+            return true;
+        }
+        
+        // If network is not available, use cache
+        if (!connectivityChecker.isNetworkAvailable()) {
+            Log.d(TAG, "No network connection, using cache");
+            return false;
+        }
+        
+        // Check if there are valid ads in cache
         executors.diskIO().execute(() -> {
-            long currentTime = System.currentTimeMillis();
             int validCount = sponsoredAdDao.countValid(currentTime);
-            Log.d(TAG, "Cache has " + validCount + " valid sponsored ads");
-            
-            if (validCount == 0 && connectivityChecker.isNetworkAvailable()) {
-                // If cache is empty and we have network, refresh
-                Log.d(TAG, "Cache is empty, refreshing from network");
-                refreshFromNetwork();
-            }
+            Log.d(TAG, "Found " + validCount + " valid ads in cache");
         });
+        
+        // Refresh at least once per app launch
+        if (lastRefreshTime == 0) {
+            Log.d(TAG, "First refresh since app launch, refreshing from network");
+            return true;
+        }
         
         return false;
     }
@@ -430,26 +441,28 @@ public class SponsoredAdRepository {
      * Refresh the data from the network
      */
     private void refreshFromNetwork() {
-        // Skip if offline
-        if (!connectivityChecker.isNetworkAvailable()) {
-            Log.d(TAG, "Skipping network refresh - device is offline");
-            errorLiveData.postValue("Cannot refresh ads - network unavailable");
-            return;
-        }
+        Log.d(TAG, "Refreshing sponsored ads from network");
+        loadingLiveData.setValue(true);
         
-        // Skip if rate limited
+        // Prevent network calls if we're rate-limited
         if (isRateLimited && System.currentTimeMillis() < rateLimitExpiresAt) {
-            long remainingMinutes = (rateLimitExpiresAt - System.currentTimeMillis()) / 60000;
-            String message = "API rate limited, try again in " + remainingMinutes + " minutes";
-            Log.d(TAG, message);
-            errorLiveData.postValue(message);
-            loadingLiveData.postValue(false);
+            Log.d(TAG, "Skipping network request due to rate limiting, expires in: " + 
+                  (rateLimitExpiresAt - System.currentTimeMillis()) / 1000 + " seconds");
+            loadingLiveData.setValue(false);
+            errorLiveData.setValue("API rate limit exceeded. Please try again later.");
             return;
         }
         
-        loadingLiveData.postValue(true);
-        lastRefreshTime = System.currentTimeMillis();
+        // If there's no network, load from cache and show message
+        if (!connectivityChecker.isNetworkAvailable()) {
+            Log.d(TAG, "No network connection, loading from cache only");
+            loadFromCache();
+            loadingLiveData.setValue(false);
+            errorLiveData.setValue("No internet connection. Showing cached ads.");
+            return;
+        }
         
+        // Make the API call to get ads
         apiService.getSponsoredAds().enqueue(new Callback<SponsoredAdResponse>() {
             @Override
             public void onResponse(Call<SponsoredAdResponse> call, Response<SponsoredAdResponse> response) {
@@ -571,13 +584,16 @@ public class SponsoredAdRepository {
             return;
         }
         
+        Log.d(TAG, "IMPRESSION TRACKING: Starting impression recording process for ad: " + adId);
+        
         // Check rate limiting for all API calls
         if (isRateLimited && System.currentTimeMillis() < rateLimitExpiresAt) {
             long remainingMinutes = (rateLimitExpiresAt - System.currentTimeMillis()) / 60000;
-            Log.d(TAG, "Skipping impression tracking - rate limited for " + remainingMinutes + " more minutes");
+            Log.d(TAG, "IMPRESSION TRACKING: Skipping impression tracking - rate limited for " + remainingMinutes + " more minutes");
             
             // Still update local database
             updateLocalImpressionCount(adId);
+            Log.d(TAG, "IMPRESSION TRACKING: Updated local database impression count only due to rate limiting");
             return;
         }
         
@@ -596,32 +612,59 @@ public class SponsoredAdRepository {
                                   (currentTime - lastRecordedTime) < IMPRESSION_THROTTLE_MS;
         
         if (alreadyTrackedToday || recentlyTracked) {
-            Log.d(TAG, "Throttling impression for ad: " + adId + " (already tracked today or recently)");
+            Log.d(TAG, "IMPRESSION TRACKING: Throttling impression for ad: " + adId + 
+                  " (already tracked today=" + alreadyTrackedToday + 
+                  ", recently tracked=" + recentlyTracked + ", " +
+                  (lastRecordedTime != null ? ((currentTime - lastRecordedTime) / 1000) + " seconds ago)" : "never tracked)"));
             return;
         }
         
         // Mark as tracked for today in persistent storage
         prefs.edit().putBoolean(impressionKey, true).apply();
+        Log.d(TAG, "IMPRESSION TRACKING: Marked impression as tracked for today in SharedPreferences");
         
         // Update in-memory cache
         lastImpressionTimes.put(adId, currentTime);
         
         // Always update local database
         updateLocalImpressionCount(adId);
+        Log.d(TAG, "IMPRESSION TRACKING: Updated local impression count in Room database");
         
-        // Add to pending batch
+        // IMPORTANT CHANGE: Send impression to server immediately if we have network
+        if (connectivityChecker.isNetworkAvailable()) {
+            Log.d(TAG, "IMPRESSION TRACKING: Network available - sending impression directly to server");
+            // Send directly to server
+            boolean success = recordImpressionToServer(adId, deviceId);
+            if (success) {
+                Log.d(TAG, "IMPRESSION TRACKING: Successfully sent impression directly to server for ad: " + adId);
+                // Don't return early - still add to batch queue as fallback in case API call fails
+            }
+        }
+        
+        // Add to pending batch (as fallback)
         TrackingEvent event = new TrackingEvent(adId, deviceId);
         synchronized (pendingImpressions) {
             pendingImpressions.add(event);
-            Log.d(TAG, "Added impression to batch queue. Queue size: " + pendingImpressions.size());
+            Log.d(TAG, "IMPRESSION TRACKING: Added impression to batch queue as fallback. Queue size: " + pendingImpressions.size());
         }
         
         // If batch is full or we're online, process immediately
         if (pendingImpressions.size() >= MAX_BATCH_SIZE && connectivityChecker.isNetworkAvailable()) {
+            Log.d(TAG, "IMPRESSION TRACKING: Processing batch immediately (batch size: " + pendingImpressions.size() + ")");
             batchHandler.post(batchProcessingRunnable);
         } else {
             // Otherwise make sure a batch flush is scheduled
+            Log.d(TAG, "IMPRESSION TRACKING: Scheduling batch processing for later");
             scheduleBatchProcessing();
+        }
+        
+        // Diagnostic - dump impression queue
+        synchronized (pendingImpressions) {
+            Log.d(TAG, "IMPRESSION TRACKING: Current impression queue:");
+            for (int i = 0; i < pendingImpressions.size(); i++) {
+                TrackingEvent e = pendingImpressions.get(i);
+                Log.d(TAG, "  Queue[" + i + "]: " + e.toString());
+            }
         }
     }
     
@@ -630,45 +673,71 @@ public class SponsoredAdRepository {
      * @return true if successful or scheduled for retry, false if failed permanently
      */
     private boolean recordImpressionToServer(String adId, String deviceId) {
-        Log.d(TAG, "Recording impression for ad: " + adId + " with deviceId: " + deviceId);
+        Log.d(TAG, "IMPRESSION TRACKING: Recording impression to server for ad: " + adId + " with deviceId: " + deviceId);
         
         final TrackingEvent event = new TrackingEvent(adId, deviceId);
         final boolean[] success = {false}; // Use array to allow modification in callback
         
+        // Debug - show network connectivity status
+        boolean isConnected = connectivityChecker.isNetworkAvailable();
+        Log.d(TAG, "IMPRESSION TRACKING: Network connectivity status: " + (isConnected ? "CONNECTED" : "DISCONNECTED"));
+        
+        // Get the API endpoint for impression tracking
+        String endpoint = "sponsored-ads/viewed/" + adId;
+        Log.d(TAG, "IMPRESSION TRACKING: Using API endpoint: " + endpoint);
+        
         apiService.recordSponsoredAdImpression(adId, deviceId).enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                Log.d(TAG, "IMPRESSION TRACKING: Server responded with code: " + response.code());
+                
                 // Check specifically for rate limiting response (429)
                 if (response.code() == 429) {
                     handleRateLimiting(response);
-                    Log.e(TAG, "Rate limited by server when recording impression for ad: " + adId);
+                    Log.e(TAG, "IMPRESSION TRACKING: Rate limited by server when recording impression for ad: " + adId);
                     
                     // Add back to queue for future retry
                     synchronized (pendingImpressions) {
                         if (event.incrementRetry()) {
                             pendingImpressions.add(event);
-                            Log.d(TAG, "Re-queued impression for retry (attempt " + event.retryCount + 
+                            Log.d(TAG, "IMPRESSION TRACKING: Re-queued impression for retry (attempt " + event.retryCount + 
                                   " of " + MAX_RETRY_ATTEMPTS + ")");
                         } else {
-                            Log.e(TAG, "Maximum retry attempts reached for impression: " + event);
+                            Log.e(TAG, "IMPRESSION TRACKING: Maximum retry attempts reached for impression: " + event);
                         }
                     }
                     return;
                 }
                 
                 if (response.isSuccessful() && response.body() != null) {
-                    Log.d(TAG, "Successfully recorded impression for ad: " + adId + 
+                    Log.d(TAG, "IMPRESSION TRACKING: Successfully recorded impression for ad: " + adId + 
                           ", response: " + response.body().toString());
                     success[0] = true;
+                    
+                    // Log success metrics
+                    try {
+                        JsonObject body = response.body();
+                        if (body.has("impressionCount")) {
+                            int serverCount = body.get("impressionCount").getAsInt();
+                            Log.d(TAG, "IMPRESSION TRACKING: Server now reports " + serverCount + 
+                                  " impressions for ad: " + adId);
+                        }
+                        
+                        if (body.has("message")) {
+                            Log.d(TAG, "IMPRESSION TRACKING: Server message: " + body.get("message").getAsString());
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "IMPRESSION TRACKING: Error parsing success response", e);
+                    }
                 } else {
-                    String errorMsg = "Failed to record impression for ad: " + adId + ", code: " + response.code();
+                    String errorMsg = "IMPRESSION TRACKING: Failed to record impression for ad: " + adId + ", code: " + response.code();
                     try {
                         if (response.errorBody() != null) {
                             String errorBody = response.errorBody().string();
                             errorMsg += " - " + errorBody;
                         }
                     } catch (Exception e) {
-                        Log.e(TAG, "Error parsing impression error response", e);
+                        Log.e(TAG, "IMPRESSION TRACKING: Error parsing impression error response", e);
                     }
                     Log.e(TAG, errorMsg);
                     
@@ -677,11 +746,11 @@ public class SponsoredAdRepository {
                         synchronized (pendingImpressions) {
                             if (event.incrementRetry()) {
                                 pendingImpressions.add(event);
-                                Log.d(TAG, "Re-queued impression for retry due to server error (attempt " + 
+                                Log.d(TAG, "IMPRESSION TRACKING: Re-queued impression for retry due to server error (attempt " + 
                                       event.retryCount + " of " + MAX_RETRY_ATTEMPTS + ")");
                                 success[0] = true; // Consider as success since we're retrying
                             } else {
-                                Log.e(TAG, "Maximum retry attempts reached for impression: " + event);
+                                Log.e(TAG, "IMPRESSION TRACKING: Maximum retry attempts reached for impression: " + event);
                             }
                         }
                     }
@@ -690,24 +759,69 @@ public class SponsoredAdRepository {
             
             @Override
             public void onFailure(Call<JsonObject> call, Throwable t) {
-                Log.e(TAG, "Network error recording impression for ad: " + adId, t);
-                Log.e(TAG, "Impression request URL: " + call.request().url());
+                Log.e(TAG, "IMPRESSION TRACKING: Network error recording impression for ad: " + adId, t);
+                Log.e(TAG, "IMPRESSION TRACKING: Impression request URL: " + call.request().url());
+                Log.e(TAG, "IMPRESSION TRACKING: Error message: " + t.getMessage());
                 
                 // Add back to the queue for retry
                 synchronized (pendingImpressions) {
                     if (event.incrementRetry()) {
                         pendingImpressions.add(event);
-                        Log.d(TAG, "Re-queued impression for retry due to network error (attempt " + 
+                        Log.d(TAG, "IMPRESSION TRACKING: Re-queued impression for retry due to network error (attempt " + 
                               event.retryCount + " of " + MAX_RETRY_ATTEMPTS + ")");
                         success[0] = true; // Consider as success since we're retrying
                     } else {
-                        Log.e(TAG, "Maximum retry attempts reached for impression: " + event);
+                        Log.e(TAG, "IMPRESSION TRACKING: Maximum retry attempts reached for impression: " + event);
                     }
                 }
             }
         });
         
         return true; // Initial attempt is always considered successful
+    }
+    
+    /**
+     * Update the local database impression count
+     */
+    private void updateLocalImpressionCount(String adId) {
+        if (adId == null) {
+            Log.e(TAG, "IMPRESSION TRACKING: Cannot update local impression count - null adId");
+            return;
+        }
+        
+        try {
+            Log.d(TAG, "IMPRESSION TRACKING: Updating local impression count for ad: " + adId);
+            
+            // Update in a background thread to avoid blocking
+            executors.diskIO().execute(() -> {
+                try {
+                    // Get current entity from database
+                    SponsoredAdEntity entity = sponsoredAdDao.getAdById(adId);
+                    
+                    if (entity != null) {
+                        // Increment impression count
+                        int currentCount = entity.getImpressionCount();
+                        int newCount = currentCount + 1;
+                        
+                        // Update entity
+                        entity.setImpressionCount(newCount);
+                        entity.setLastImpressionTime(System.currentTimeMillis());
+                        
+                        // Save to database
+                        sponsoredAdDao.update(entity);
+                        
+                        Log.d(TAG, "IMPRESSION TRACKING: Updated local database - Ad: " + adId + 
+                              ", Old count: " + currentCount + ", New count: " + newCount);
+                    } else {
+                        Log.e(TAG, "IMPRESSION TRACKING: Ad not found in local database: " + adId);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "IMPRESSION TRACKING: Error updating local impression count", e);
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "IMPRESSION TRACKING: Error queueing local impression count update", e);
+        }
     }
     
     /**
@@ -841,25 +955,6 @@ public class SponsoredAdRepository {
     }
     
     /**
-     * Update local impression count in database
-     */
-    private void updateLocalImpressionCount(String adId) {
-        executors.diskIO().execute(() -> {
-            try {
-                SponsoredAdEntity adEntity = sponsoredAdDao.getById(adId);
-                if (adEntity != null) {
-                    adEntity.setImpressionCount(adEntity.getImpressionCount() + 1);
-                    sponsoredAdDao.update(adEntity);
-                    Log.d(TAG, "Updated local impression count for ad: " + adId + 
-                          " to " + adEntity.getImpressionCount());
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Error updating local impression count", e);
-            }
-        });
-    }
-    
-    /**
      * Update local click count in database
      */
     private void updateLocalClickCount(String adId) {
@@ -908,60 +1003,34 @@ public class SponsoredAdRepository {
      * @return LiveData containing filtered ads list
      */
     public LiveData<List<SponsoredAd>> getAdsByLocation(String location) {
-        // Initialize repository if needed
-        initialize();
+        MediatorLiveData<List<SponsoredAd>> result = new MediatorLiveData<>();
         
-        MediatorLiveData<List<SponsoredAd>> filteredAds = new MediatorLiveData<>();
+        // If we have network, always refresh when requesting by location
+        if (connectivityChecker.isNetworkAvailable()) {
+            Log.d(TAG, "Network available, refreshing ads for location: " + location);
+            forceRefreshNow();
+        }
         
-        // First try to load from cache
-        executors.diskIO().execute(() -> {
-            long currentTime = System.currentTimeMillis();
-            int cacheCount = sponsoredAdDao.countValidForLocation(location, currentTime);
-            
-            if (cacheCount > 0) {
-                Log.d(TAG, "Found " + cacheCount + " cached ads for location: " + location);
+        LiveData<List<SponsoredAd>> allAdsLiveData = getSponsoredAds();
+        
+        result.addSource(allAdsLiveData, ads -> {
+            if (ads != null) {
+                List<SponsoredAd> filteredAds = filterAdsByLocation(ads, location);
+                Log.d(TAG, "Filtered " + ads.size() + " ads to " + filteredAds.size() + 
+                      " for location: " + location);
+                result.setValue(filteredAds);
                 
-                // Create a LiveData source from the Room database
-                LiveData<List<SponsoredAdEntity>> cachedSource = 
-                    sponsoredAdDao.observeAdsForLocation(location, currentTime);
-                
-                // Observe the cache LiveData on the main thread
-                executors.mainThread().execute(() -> {
-                    filteredAds.addSource(cachedSource, entities -> {
-                        if (entities != null && !entities.isEmpty()) {
-                            // Convert entities to models
-                            List<SponsoredAd> ads = new ArrayList<>();
-                            for (SponsoredAdEntity entity : entities) {
-                                ads.add(entity.toModel());
-                            }
-                            filteredAds.setValue(ads);
-                            Log.d(TAG, "Loaded " + ads.size() + " ads for location: " + location + " from cache");
-                        }
-                    });
-                });
-            } else {
-                Log.d(TAG, "No cached ads for location: " + location + ", will filter from memory or network");
-                
-                // If we don't have cached ads for this location, observe the main list
-                executors.mainThread().execute(() -> {
-                    filteredAds.addSource(sponsoredAdsLiveData, allAds -> {
-                        if (allAds != null) {
-                            List<SponsoredAd> matchingAds = filterAdsByLocation(allAds, location);
-                            filteredAds.setValue(matchingAds);
-                            Log.d(TAG, "Filtered " + matchingAds.size() + " ads for location: " + location + " from memory");
-                        }
-                    });
-                });
-                
-                // If we're online and should refresh, get fresh data
-                if (connectivityChecker.isNetworkAvailable() && shouldRefreshFromNetwork()) {
-                    Log.d(TAG, "No cache for location: " + location + ", refreshing from network");
-                    refreshFromNetwork();
+                // If no ads found, try to refresh from network
+                if (filteredAds.isEmpty() && connectivityChecker.isNetworkAvailable()) {
+                    Log.d(TAG, "No ads found for location " + location + ", forcing refresh");
+                    forceRefreshNow();
                 }
+            } else {
+                result.setValue(null);
             }
         });
         
-        return filteredAds;
+        return result;
     }
     
     /**
@@ -973,76 +1042,76 @@ public class SponsoredAdRepository {
         }
         
         Log.d(TAG, "Filtering " + allAds.size() + " ads for location '" + location + "'");
-        List<SponsoredAd> filtered = new ArrayList<>();
-        
-        // Log all available locations for debugging
-        StringBuilder availableLocations = new StringBuilder("Available ad locations: ");
+                List<SponsoredAd> filtered = new ArrayList<>();
+                
+                // Log all available locations for debugging
+                StringBuilder availableLocations = new StringBuilder("Available ad locations: ");
         for (SponsoredAd ad : allAds) {
-            availableLocations.append("'").append(ad.getLocation()).append("'");
+                    availableLocations.append("'").append(ad.getLocation()).append("'");
             if (allAds.indexOf(ad) < allAds.size() - 1) {
-                availableLocations.append(", ");
-            }
-        }
-        Log.d(TAG, availableLocations.toString());
-        
-        // Try different matching strategies if no exact match is found
-        boolean foundExactMatch = false;
-        
-        // First pass: try exact match
+                        availableLocations.append(", ");
+                    }
+                }
+                Log.d(TAG, availableLocations.toString());
+                
+                // Try different matching strategies if no exact match is found
+                boolean foundExactMatch = false;
+                
+                // First pass: try exact match
         for (SponsoredAd ad : allAds) {
-            boolean exactMatch = location.equals(ad.getLocation()) && ad.isStatus();
-            if (exactMatch) {
-                foundExactMatch = true;
-                filtered.add(ad);
-                Log.d(TAG, "✓ Added ad to filtered list (exact match): " + ad.getId());
-            }
-        }
-        
-        // If no exact match, try case-insensitive match
-        if (!foundExactMatch) {
-            Log.d(TAG, "No exact location match found. Trying case-insensitive match...");
-            for (SponsoredAd ad : allAds) {
-                boolean caseInsensitiveMatch = location.equalsIgnoreCase(ad.getLocation()) && ad.isStatus();
-                if (caseInsensitiveMatch) {
-                    filtered.add(ad);
-                    Log.d(TAG, "✓ Added ad to filtered list (case-insensitive match): " + ad.getId());
+                    boolean exactMatch = location.equals(ad.getLocation()) && ad.isStatus();
+                    if (exactMatch) {
+                        foundExactMatch = true;
+                        filtered.add(ad);
+                        Log.d(TAG, "✓ Added ad to filtered list (exact match): " + ad.getId());
+                    }
                 }
-            }
-        }
-        
-        // If still no match, check for partial match (e.g., "home" in "home_bottom")
-        if (filtered.isEmpty()) {
-            Log.d(TAG, "No case-insensitive match found. Trying partial match...");
+                
+                // If no exact match, try case-insensitive match
+                if (!foundExactMatch) {
+                    Log.d(TAG, "No exact location match found. Trying case-insensitive match...");
             for (SponsoredAd ad : allAds) {
-                String adLocation = ad.getLocation().toLowerCase();
-                String requestedLocation = location.toLowerCase();
-                
-                boolean partialMatch = (adLocation.contains(requestedLocation) || 
-                                       requestedLocation.contains(adLocation)) && 
-                                       ad.isStatus();
-                
-                if (partialMatch) {
-                    filtered.add(ad);
-                    Log.d(TAG, "✓ Added ad to filtered list (partial match): " + ad.getId() + 
-                          ", ad location: '" + ad.getLocation() + "', requested: '" + location + "'");
+                        boolean caseInsensitiveMatch = location.equalsIgnoreCase(ad.getLocation()) && ad.isStatus();
+                        if (caseInsensitiveMatch) {
+                            filtered.add(ad);
+                            Log.d(TAG, "✓ Added ad to filtered list (case-insensitive match): " + ad.getId());
+                        }
+                    }
                 }
-            }
-        }
-        
-        // As a last resort, if no ads match any criteria, take the first active ad
+                
+                // If still no match, check for partial match (e.g., "home" in "home_bottom")
+                if (filtered.isEmpty()) {
+                    Log.d(TAG, "No case-insensitive match found. Trying partial match...");
+            for (SponsoredAd ad : allAds) {
+                        String adLocation = ad.getLocation().toLowerCase();
+                        String requestedLocation = location.toLowerCase();
+                        
+                        boolean partialMatch = (adLocation.contains(requestedLocation) || 
+                                               requestedLocation.contains(adLocation)) && 
+                                               ad.isStatus();
+                        
+                        if (partialMatch) {
+                            filtered.add(ad);
+                            Log.d(TAG, "✓ Added ad to filtered list (partial match): " + ad.getId() + 
+                                  ", ad location: '" + ad.getLocation() + "', requested: '" + location + "'");
+                        }
+                    }
+                }
+                
+                // As a last resort, if no ads match any criteria, take the first active ad
         if (filtered.isEmpty() && !allAds.isEmpty()) {
-            Log.d(TAG, "No matching ads found. Taking first active ad as fallback...");
+                    Log.d(TAG, "No matching ads found. Taking first active ad as fallback...");
             for (SponsoredAd ad : allAds) {
-                if (ad.isStatus()) {
-                    filtered.add(ad);
-                    Log.d(TAG, "✓ Added ad to filtered list (fallback): " + ad.getId() + 
-                          ", using location: '" + ad.getLocation() + "' instead of '" + location + "'");
-                    break; // Just take the first one
+                        if (ad.isStatus()) {
+                            filtered.add(ad);
+                            Log.d(TAG, "✓ Added ad to filtered list (fallback): " + ad.getId() + 
+                                  ", using location: '" + ad.getLocation() + "' instead of '" + location + "'");
+                            break; // Just take the first one
+                        }
+                    }
                 }
-            }
-        }
-        
-        Log.d(TAG, "Filtered " + filtered.size() + " ads for location: " + location);
+                
+                Log.d(TAG, "Filtered " + filtered.size() + " ads for location: " + location);
         return filtered;
     }
     
@@ -1121,7 +1190,7 @@ public class SponsoredAdRepository {
                             refreshRotationAdsFromNetwork(location, excludeIds);
                         }
                     });
-                } else {
+            } else {
                     Log.d(TAG, "No cached ads for rotation, fetching from network");
                     // Fetch from network
                     fetchRotationAdFromNetwork(location, excludeIds, result);
@@ -1304,5 +1373,74 @@ public class SponsoredAdRepository {
                 Log.e(TAG, "Background refresh failed", t);
             }
         });
+    }
+
+    /**
+     * Get the next rotation ad synchronously for preloading
+     * @param location The location identifier
+     * @param excludeIds Set of ad IDs to exclude
+     * @return The next ad or null if none available
+     */
+    public SponsoredAd getNextRotationAdSync(String location, Set<String> excludeIds) {
+        Log.d(TAG, "Getting next rotation ad synchronously for location: " + location +
+              ", excluding: " + excludeIds.size() + " ads");
+        
+        try {
+            // Query the database directly on the calling thread
+            List<SponsoredAdEntity> entities = sponsoredAdDao.getAdsByLocationSync(location);
+            
+            if (entities == null || entities.isEmpty()) {
+                Log.d(TAG, "No ads available for rotation at location: " + location);
+                return null;
+            }
+            
+            // Filter out excluded IDs
+            if (excludeIds != null && !excludeIds.isEmpty()) {
+                Iterator<SponsoredAdEntity> iterator = entities.iterator();
+                while (iterator.hasNext()) {
+                    SponsoredAdEntity entity = iterator.next();
+                    if (excludeIds.contains(entity.getId())) {
+                        iterator.remove();
+                    }
+                }
+            }
+            
+            if (entities.isEmpty()) {
+                Log.d(TAG, "No ads available after exclusion filter");
+                return null;
+            }
+            
+            // Apply weighted selection
+            SponsoredAdEntity selected = applyWeightedSelection(entities);
+            
+            if (selected != null) {
+                Log.d(TAG, "Selected next rotation ad: " + selected.getId() + 
+                      ", priority: " + selected.getPriority());
+                return entityToModel(selected);
+            } else {
+                Log.d(TAG, "No suitable ad found for next rotation");
+                return null;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting next rotation ad: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Force a refresh from the network next time getSponsoredAds is called
+     */
+    public void forceRefreshNextTime() {
+        forceRefresh = true;
+        Log.d(TAG, "Forced refresh scheduled for next getSponsoredAds call");
+    }
+
+    /**
+     * Refresh ads forcefully right now
+     */
+    public void forceRefreshNow() {
+        Log.d(TAG, "Forcing immediate refresh from network");
+        forceRefresh = true;
+        refreshFromNetwork();
     }
 } 

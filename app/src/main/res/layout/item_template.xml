@@ -11,78 +11,31 @@
     android:focusable="true"
     android:foreground="@drawable/ad_ripple_effect">
 
-    <LinearLayout
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:layout_height="wrap_content">
 
-        <FrameLayout
+        <ImageView
+            android:id="@+id/template_image"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="180dp"
+            android:scaleType="centerCrop"
+            android:contentDescription="@string/template_image_description"
+            tools:src="@drawable/placeholder_image" />
 
-            <ImageView
-                android:id="@+id/template_image"
-                android:layout_width="match_parent"
-                android:layout_height="150dp"
-                android:scaleType="centerCrop"
-                android:contentDescription="@string/template_image_description"
-                tools:src="@drawable/placeholder_image" />
+        <!-- Gradient overlay for better text visibility -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="180dp"
+            android:background="@drawable/gradient_overlay" />
 
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="top|end"
-                android:orientation="vertical">
-                
-                <TextView
-                    android:id="@+id/newBadge"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="NEW"
-                    android:textColor="@android:color/white"
-                    android:background="@color/colorAccent"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:paddingTop="4dp"
-                    android:paddingBottom="4dp"
-                    android:layout_margin="8dp"
-                    android:visibility="gone"
-                    tools:visibility="visible" />
-                    
-                <LinearLayout
-                    android:id="@+id/recommendedBadge"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:background="@drawable/bg_recommended_badge"
-                    android:layout_margin="8dp"
-                    android:gravity="center_vertical"
-                    android:visibility="gone"
-                    tools:visibility="visible">
-                    
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_star"
-                        android:contentDescription="Recommended star icon"
-                        android:layout_marginEnd="4dp" />
-                        
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="RECOMMENDED"
-                        android:textColor="@android:color/white"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-            </LinearLayout>
-        </FrameLayout>
-
+        <!-- Title and category as overlay on bottom -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="8dp">
+            android:padding="12dp"
+            android:layout_gravity="bottom">
 
             <TextView
                 android:id="@+id/titleText"
@@ -90,9 +43,13 @@
                 android:layout_height="wrap_content"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="@color/black"
+                android:textColor="@android:color/white"
                 android:maxLines="2"
                 android:ellipsize="end"
+                android:shadowColor="#99000000"
+                android:shadowDx="1"
+                android:shadowDy="1"
+                android:shadowRadius="2"
                 tools:text="Template Title" />
 
             <LinearLayout
@@ -107,19 +64,74 @@
                     android:layout_height="16dp"
                     android:layout_gravity="center_vertical"
                     android:src="@drawable/ic_category"
-                    android:contentDescription="Category icon" />
+                    android:contentDescription="Category icon"
+                    android:visibility="visible"
+                    android:alpha="0.9" />
                     
                 <TextView
                     android:id="@+id/categoryText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textSize="14sp"
-                    android:textColor="@color/text_secondary"
+                    android:textColor="@android:color/white"
                     android:layout_marginStart="4dp"
                     android:maxLines="1"
                     android:ellipsize="end"
+                    android:shadowColor="#99000000"
+                    android:shadowDx="1"
+                    android:shadowDy="1"
+                    android:shadowRadius="1"
                     tools:text="Category" />
             </LinearLayout>
         </LinearLayout>
-    </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:orientation="vertical">
+            
+            <TextView
+                android:id="@+id/newBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="NEW"
+                android:textColor="@android:color/white"
+                android:background="@color/colorAccent"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:layout_margin="8dp"
+                android:visibility="gone"
+                tools:visibility="visible" />
+                
+            <LinearLayout
+                android:id="@+id/recommendedBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="@drawable/bg_recommended_badge"
+                android:layout_margin="8dp"
+                android:gravity="center_vertical"
+                android:visibility="gone"
+                tools:visibility="visible">
+                
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:src="@drawable/ic_star"
+                    android:contentDescription="Recommended star icon"
+                    android:layout_marginEnd="4dp" />
+                    
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="RECOMMENDED"
+                    android:textColor="@android:color/white"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
 </androidx.cardview.widget.CardView>

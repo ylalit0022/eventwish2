@@ -251,6 +251,23 @@
             </intent-filter>
         </activity>
 
+        <!-- Ad test activity -->
+        <activity
+            android:name=".ui.ads.AdTestActivity"
+            android:label="Ad Debugger"
+            android:icon="@drawable/ic_ad_debugger"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- Add direct launcher access for debugging -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
     </application>
 
     <queries>

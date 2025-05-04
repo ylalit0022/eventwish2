@@ -4,6 +4,7 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
+import android.net.NetworkInfo;
 import android.net.NetworkRequest;
 import android.os.Build;
 import android.util.Log;
@@ -14,19 +15,34 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.Observer;
 
+/**
+ * Utility class to check internet connectivity
+ */
 public class InternetConnectivityChecker {
-    
     private static final String TAG = "ConnectivityChecker";
     
-    private final ConnectivityManager connectivityManager;
+    private final Context context;
+    private static InternetConnectivityChecker instance;
+    
+    // Network state
     private final MutableLiveData<Boolean> isConnected = new MutableLiveData<>(false);
+    private ConnectivityManager connectivityManager;
     private ConnectivityManager.NetworkCallback networkCallback;
     
-    // Singleton instance
-    private static volatile InternetConnectivityChecker instance;
+    /**
+     * Constructor with context
+     * @param context Application context
+     */
+    public InternetConnectivityChecker(Context context) {
+        this.context = context.getApplicationContext();
+        this.connectivityManager = (ConnectivityManager) this.context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        
+        // Initialize network state
+        setupNetworkCallback();
+    }
     
     /**
-     * Get the singleton instance of InternetConnectivityChecker
+     * Get singleton instance
      * @param context Application context
      * @return InternetConnectivityChecker instance
      */
@@ -34,18 +50,16 @@ public class InternetConnectivityChecker {
         if (instance == null) {
             synchronized (InternetConnectivityChecker.class) {
                 if (instance == null) {
-                    instance = new InternetConnectivityChecker(context.getApplicationContext());
+                    instance = new InternetConnectivityChecker(context);
                 }
             }
         }
         return instance;
     }
     
-    public InternetConnectivityChecker(Context context) {
-        connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-        setupNetworkCallback();
-    }
-    
+    /**
+     * Setup network callback to receive network state changes
+     */
     private void setupNetworkCallback() {
         if (connectivityManager == null) return;
         
@@ -77,25 +91,44 @@ public class InternetConnectivityChecker {
         isConnected.postValue(isNetworkAvailable());
     }
     
+    /**
+     * Check if network is available
+     * @return true if network is available, false otherwise
+     */
     public boolean isNetworkAvailable() {
-        if (connectivityManager == null) return false;
+        if (context == null) {
+            Log.e(TAG, "Context is null, cannot check network availability");
+            return false;
+        }
+        
+        if (connectivityManager == null) {
+            Log.e(TAG, "ConnectivityManager is null");
+            return false;
+        }
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Network network = connectivityManager.getActiveNetwork();
-            if (network == null) return false;
-            
-            NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
-            return capabilities != null && 
-                   (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
-                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET));
+            NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.getActiveNetwork());
+            if (capabilities != null) {
+                return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                       capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                       capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET);
+            }
         } else {
-            // Legacy support for older Android versions
-            android.net.NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
-            return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+            try {
+                NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+                return activeNetworkInfo != null && activeNetworkInfo.isConnected();
+            } catch (Exception e) {
+                Log.e(TAG, "Error checking network availability", e);
+            }
         }
+        
+        return false;
     }
     
+    /**
+     * Get connection status LiveData
+     * @return LiveData of connection status
+     */
     public LiveData<Boolean> getConnectionStatus() {
         return isConnected;
     }
@@ -109,6 +142,41 @@ public class InternetConnectivityChecker {
         isConnected.observe(owner, observer);
     }
     
+    /**
+     * Check if WiFi is connected
+     * @return true if WiFi is connected, false otherwise
+     */
+    public boolean isWifiConnected() {
+        if (connectivityManager == null) return false;
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.getActiveNetwork());
+            return capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
+        } else {
+            NetworkInfo networkInfo = connectivityManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+            return networkInfo != null && networkInfo.isConnected();
+        }
+    }
+    
+    /**
+     * Check if mobile data is connected
+     * @return true if mobile data is connected, false otherwise
+     */
+    public boolean isMobileDataConnected() {
+        if (connectivityManager == null) return false;
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.getActiveNetwork());
+            return capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR);
+        } else {
+            NetworkInfo networkInfo = connectivityManager.getNetworkInfo(ConnectivityManager.TYPE_MOBILE);
+            return networkInfo != null && networkInfo.isConnected();
+        }
+    }
+    
+    /**
+     * Clean up resources
+     */
     public void cleanup() {
         if (connectivityManager != null && networkCallback != null) {
             try {

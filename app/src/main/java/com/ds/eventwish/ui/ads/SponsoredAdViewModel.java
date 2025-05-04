@@ -16,11 +16,13 @@ import com.ds.eventwish.data.model.SponsoredAd;
 import com.ds.eventwish.data.repository.SponsoredAdRepository;
 import com.ds.eventwish.utils.AnalyticsUtils;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -38,20 +40,34 @@ public class SponsoredAdViewModel extends AndroidViewModel {
     private final Map<String, MutableLiveData<SponsoredAd>> rotatingAdsMap = new HashMap<>();
     private boolean isRotationActive = false;
     
+    // Track when last refreshed
+    private long lastAdRefreshTime = 0;
+    private static final long MAX_CACHE_LIFETIME_MS = TimeUnit.MINUTES.toMillis(5); // Refresh every 5 minutes at most
+    
     public SponsoredAdViewModel(@NonNull Application application) {
         super(application);
         repository = SponsoredAdRepository.getInstance(application);
         rotationManager = new LocalRotationManager(application, repository);
         
         // Initialize ads when ViewModel is created
-        fetchSponsoredAds();
+        forceRefreshAds();
     }
     
     /**
      * Fetch sponsored ads from the repository
      */
     public void fetchSponsoredAds() {
+        Log.d(TAG, "Fetching sponsored ads from repository");
         repository.getSponsoredAds();
+    }
+    
+    /**
+     * Force refresh ads from network
+     */
+    public void forceRefreshAds() {
+        Log.d(TAG, "Forcing refresh of sponsored ads from network");
+        repository.forceRefreshNow();
+        lastAdRefreshTime = System.currentTimeMillis();
     }
     
     /**
@@ -61,26 +77,58 @@ public class SponsoredAdViewModel extends AndroidViewModel {
      */
     public LiveData<SponsoredAd> getAdForLocation(String location) {
         Log.d(TAG, "Getting sponsored ad for location: " + location);
+        
+        // Always force refresh if it's been more than MAX_CACHE_LIFETIME_MS
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastAdRefreshTime > MAX_CACHE_LIFETIME_MS) {
+            Log.d(TAG, "Cache lifetime exceeded, forcing refresh");
+            forceRefreshAds();
+        }
+        
         LiveData<List<SponsoredAd>> adsForLocation = repository.getAdsByLocation(location);
         
         // Add source to mediator LiveData
         selectedAdLiveData.addSource(adsForLocation, ads -> {
             if (ads != null && !ads.isEmpty()) {
                 Log.d(TAG, "Found " + ads.size() + " ads for location: " + location);
-                // Select best ad based on priority or random if multiple with same priority
-                SponsoredAd selectedAd = selectBestAd(ads);
-                selectedAdLiveData.setValue(selectedAd);
-                adLoadedLiveData.setValue(true);
                 
-                // Log which ad was selected but DON'T track impression yet
-                // Impression will be tracked when the ad is actually visible to the user
-                if (selectedAd != null) {
+                // Filter only active ads first
+                List<SponsoredAd> activeAds = new ArrayList<>();
+                for (SponsoredAd ad : ads) {
+                    if (ad.isStatus()) {
+                        activeAds.add(ad);
+                    } else {
+                        Log.d(TAG, "Filtering out inactive ad: " + ad.getId());
+                    }
+                }
+                
+                if (activeAds.isEmpty()) {
+                    Log.d(TAG, "No active ads found for location: " + location + ", forcing refresh");
+                    selectedAdLiveData.setValue(null);
+                    adLoadedLiveData.setValue(false);
+                    // Force refresh to get latest status
+                    forceRefreshAds();
+                    return;
+                }
+                
+                // Select best ad based on priority or random if multiple with same priority
+                SponsoredAd selectedAd = selectBestAd(activeAds);
+                
+                // Double-check selected ad status
+                if (selectedAd != null && selectedAd.isStatus()) {
+                    selectedAdLiveData.setValue(selectedAd);
+                    adLoadedLiveData.setValue(true);
+                    
                     Log.d(TAG, "Selected ad for display: " + selectedAd.getId() + 
                           ", title: " + selectedAd.getTitle() + 
                           ", priority: " + selectedAd.getPriority() +
+                          ", status: " + selectedAd.isStatus() +
                           ", location: " + location);
                 } else {
-                    Log.w(TAG, "No valid ad selected despite having " + ads.size() + " ads for location: " + location);
+                    Log.w(TAG, "Selected ad is null or inactive, forcing refresh");
+                    selectedAdLiveData.setValue(null);
+                    adLoadedLiveData.setValue(false);
+                    forceRefreshAds();
                 }
             } else {
                 selectedAdLiveData.setValue(null);
@@ -263,7 +311,7 @@ public class SponsoredAdViewModel extends AndroidViewModel {
                       ", title: " + ad.getTitle() + 
                       ", location: " + ad.getLocation());
                       
-            // Record the impression
+            // Record the impression (this will send immediately to server when network is available)
             repository.recordImpression(ad.getId());
             
             // Track via analytics
@@ -339,6 +387,24 @@ public class SponsoredAdViewModel extends AndroidViewModel {
      */
     public LiveData<String> getError() {
         return repository.getError();
+    }
+    
+    /**
+     * Get the next ad for rotation (for preloading)
+     * @param location The location for which to get the next ad
+     * @param excludeIds Set of ad IDs to exclude (e.g., currently displayed ad)
+     * @return The next ad or null if none available
+     */
+    public SponsoredAd getNextAdForRotation(String location, Set<String> excludeIds) {
+        if (repository == null) return null;
+        
+        try {
+            // Get the next rotation ad synchronously
+            return repository.getNextRotationAdSync(location, excludeIds);
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting next ad for rotation: " + e.getMessage());
+            return null;
+        }
     }
     
     @Override

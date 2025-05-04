@@ -86,6 +86,11 @@ public class MainActivity extends AppCompatActivity {
         if (id == R.id.action_settings) {
             // Handle settings action
             return true;
+        } else if (id == R.id.action_ad_debugger) {
+            // Launch ad debugger activity
+            Intent intent = new Intent(this, com.ds.eventwish.ui.ads.AdTestActivity.class);
+            startActivity(intent);
+            return true;
         }
         
         return super.onOptionsItemSelected(item);
