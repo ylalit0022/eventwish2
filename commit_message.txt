@@ -1,0 +1,22 @@
+[Cursor] Fix Sponsored Ad Tracking and Category Icon Handling
+
+This commit includes two major fixes:
+
+1. Sponsored Ad Tracking
+- Fixed device_daily_impressions to use Object instead of Map for better MongoDB compatibility
+- Added proper Map initialization in recordImpression and recordClick methods
+- Fixed handling of daily impressions data structure
+- Added markModified() calls to ensure changes are saved
+- Added detailed error logging with stack traces
+- Improved error handling throughout the model
+
+2. Category Icon Handling
+- Updated Template Schema to preserve populated CategoryIcon objects
+- Fixed CategoryIcon Schema to ensure consistent ID handling
+- Updated API Routes to consistently populate CategoryIcon references
+- Added proper field selection during population
+- Added detailed error logging for debugging
+
+Added test scripts for verification:
+- testSponsoredAdTracking.js: For verifying impression and click tracking
+- testCategoryIcons.js: For validating CategoryIcon population in Templates 

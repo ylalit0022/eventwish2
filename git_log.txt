@@ -1,0 +1,6 @@
+1cc4e83 - try to fix template id again 2
+5ccd133 - try to fix template id again
+3f624cb - try to fix template id
+11d1241 - [Cursor] Fix Sponsored Ad Tracking and Category Icon Handling
+3a7faea - [Cursor] Fix Sponsored Ad Tracking and Category Icon Handling
+0

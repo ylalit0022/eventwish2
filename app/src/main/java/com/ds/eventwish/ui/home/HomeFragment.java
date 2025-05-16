@@ -1,6 +1,7 @@
 package com.ds.eventwish.ui.home;
 
 import android.os.Bundle;
+import android.os.Handler;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
@@ -65,13 +66,12 @@ import com.ds.eventwish.ui.home.TimeFilter;
 
 import java.util.Collections;
 import android.graphics.Rect;
-import android.os.Handler;
 
 import com.ds.eventwish.ads.InterstitialAdManager;
 import com.ds.eventwish.ads.AdMobRepository;
 import com.ds.eventwish.data.repository.UserRepository;
 import com.ds.eventwish.utils.AnalyticsUtils;
-import com.ds.eventwish.ui.ads.SponsoredAdView;
+import com.ds.eventwish.ui.ads.SponsoredAdCarousel;
 
 public class HomeFragment extends BaseFragment implements RecommendedTemplateAdapter.TemplateClickListener {
     private static final String TAG = "HomeFragment";
@@ -96,10 +96,14 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     private Template pendingTemplate = null;
     private int templateClickCount = 0;
     private static final int AD_SHOW_THRESHOLD = 3; // Show ad after every 3 template clicks
+<<<<<<< HEAD
     private SponsoredAdView sponsoredAdView;
     private boolean hasShownEndMessage = false; // Add this flag at the class level
     private long lastPaginationCheck = 0;
     private static final long PAGINATION_CHECK_INTERVAL = 1500; // 1.5 seconds between checks
+=======
+    private SponsoredAdCarousel sponsoredAdCarousel;
+>>>>>>> c9d6bc131c97ff1e271900b9a0cfd19fd38917f4
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -438,6 +442,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             });
         }
 
+<<<<<<< HEAD
         // Handle sponsored ad when the fragment resumes
         if (sponsoredAdView != null) {
             try {
@@ -462,6 +467,13 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             } catch (Exception e) {
                 Log.e(TAG, "Error handling sponsored ad in onResume: " + e.getMessage());
             }
+=======
+        // Refresh sponsored ads when the fragment resumes
+        if (sponsoredAdCarousel != null) {
+            // Use our category-based targeting method instead of simple refresh
+            refreshSponsoredAdForCurrentCategory();
+            Log.d(TAG, "Refreshed sponsored ads with category targeting on resume");
+>>>>>>> c9d6bc131c97ff1e271900b9a0cfd19fd38917f4
         }
     }
 
@@ -536,9 +548,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         }
         
         // Cleanup sponsored ad view
-        if (sponsoredAdView != null) {
-            sponsoredAdView.cleanup();
-            sponsoredAdView = null;
+        if (sponsoredAdCarousel != null) {
+            sponsoredAdCarousel.cleanup();
+            sponsoredAdCarousel = null;
         }
         
         binding = null;
@@ -640,9 +652,10 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         });
 
         // Initialize sponsored ad view at the bottom of home screen
-        sponsoredAdView = binding.sponsoredAdView;
-        if (sponsoredAdView != null) {
+        sponsoredAdCarousel = binding.sponsoredAdCarousel;
+        if (sponsoredAdCarousel != null) {
             // Use "category_below" location instead of "home_bottom" to match server ad
+<<<<<<< HEAD
             sponsoredAdView.initialize("category_below", getViewLifecycleOwner(), requireActivity());
             // Enable ad rotation with 3-minute interval for better user experience
             sponsoredAdView.enableRotation(true);
@@ -654,6 +667,22 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             // - "SponsoredAdView": Shows UI updates and animations
             // - "SponsoredAdRepository": Shows network and cache operations
             // Filter LogCat with: "Rotat|LocalRotation|SponsoredAd"
+=======
+            sponsoredAdCarousel.initialize("category_below", getViewLifecycleOwner(), requireActivity());
+            Log.d(TAG, "Initialized sponsored ad carousel with location: category_below");
+            
+            // Observe the selected category to refresh targeted ads when category changes
+            viewModel.getSortOption().observe(getViewLifecycleOwner(), sortOption -> {
+                refreshSponsoredAdForCurrentCategory();
+            });
+            
+            // Also refresh ads when time filter changes as user may be looking for specific content
+            viewModel.getTimeFilter().observe(getViewLifecycleOwner(), timeFilter -> {
+                refreshSponsoredAdForCurrentCategory();
+            });
+        } else {
+            Log.e(TAG, "Failed to find sponsored ad carousel view");
+>>>>>>> c9d6bc131c97ff1e271900b9a0cfd19fd38917f4
         }
     }
 
@@ -705,6 +734,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             
             // Update selected category without changing the category list
             categoriesAdapter.updateSelectedCategory(categoryId);
+            
+            // Refresh sponsored ad when category changes
+            refreshSponsoredAdForCurrentCategory();
         });
 
         categoriesAdapter.setOnMoreClickListener(this::showCategoriesBottomSheet);
@@ -2159,6 +2191,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         }
     }
 
+<<<<<<< HEAD
     @Override
     public void onPause() {
         super.onPause();
@@ -2183,6 +2216,40 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 Log.e(TAG, "Error handling sponsored ad in onPause: " + e.getMessage());
             }
         }
+=======
+    /**
+     * Refresh sponsored ad based on the current category
+     * This targets ads to the specific category the user is viewing
+     */
+    private void refreshSponsoredAdForCurrentCategory() {
+        if (sponsoredAdCarousel == null) return;
+        
+        String currentCategory = viewModel.getSelectedCategory();
+        String adLocation = "category_below"; // Default location
+        
+        // If we have a specific category, try more targeted location
+        if (currentCategory != null && !currentCategory.isEmpty() && !"All".equalsIgnoreCase(currentCategory)) {
+            adLocation = "category_" + currentCategory.toLowerCase();
+            Log.d(TAG, "Using category-specific ad location: " + adLocation);
+        }
+        
+        // First try category-specific ad location
+        sponsoredAdCarousel.initialize(adLocation, getViewLifecycleOwner(), requireActivity());
+        
+        // Ensure ad is visible after category change
+        if (sponsoredAdCarousel.getVisibility() != View.VISIBLE) {
+            Log.d(TAG, "Setting sponsored ad view to visible");
+            sponsoredAdCarousel.setVisibility(View.VISIBLE);
+        }
+        
+        // Set a delayed check to ensure the carousel is still visible
+        new Handler().postDelayed(() -> {
+            if (sponsoredAdCarousel != null && sponsoredAdCarousel.getVisibility() != View.VISIBLE) {
+                Log.d(TAG, "Reset sponsored ad carousel visibility after delay");
+                sponsoredAdCarousel.setVisibility(View.VISIBLE);
+            }
+        }, 1000); // Check after 1 second
+>>>>>>> c9d6bc131c97ff1e271900b9a0cfd19fd38917f4
     }
 }
 

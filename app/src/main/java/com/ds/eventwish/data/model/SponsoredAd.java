@@ -31,6 +31,12 @@ public class SponsoredAd {
     @SerializedName("priority")
     private int priority;
     
+    @SerializedName("frequency_cap")
+    private int frequencyCap;
+    
+    @SerializedName("daily_frequency_cap")
+    private int dailyFrequencyCap;
+    
     @SerializedName("click_count")
     private int clickCount;
     
@@ -42,6 +48,71 @@ public class SponsoredAd {
     
     @SerializedName("description")
     private String description;
+    
+    // Internal fields for client-side use
+    private transient float weightedScore;
+    
+    @SerializedName("metrics")
+    private AdMetrics metrics;
+    
+    /**
+     * Inner class for ad metrics data
+     */
+    public static class AdMetrics {
+        @SerializedName("device_impressions")
+        private int deviceImpressions;
+        
+        @SerializedName("device_daily_impressions")
+        private int deviceDailyImpressions;
+        
+        @SerializedName("remaining_impressions")
+        private Integer remainingImpressions;
+        
+        @SerializedName("remaining_daily_impressions")
+        private Integer remainingDailyImpressions;
+        
+        @SerializedName("is_frequency_capped")
+        private boolean isFrequencyCapped;
+        
+        @SerializedName("is_daily_frequency_capped")
+        private boolean isDailyFrequencyCapped;
+        
+        public int getDeviceImpressions() {
+            return deviceImpressions;
+        }
+        
+        public int getDeviceDailyImpressions() {
+            return deviceDailyImpressions;
+        }
+        
+        public Integer getRemainingImpressions() {
+            return remainingImpressions;
+        }
+        
+        public Integer getRemainingDailyImpressions() {
+            return remainingDailyImpressions;
+        }
+        
+        public boolean isFrequencyCapped() {
+            return isFrequencyCapped;
+        }
+        
+        public boolean isDailyFrequencyCapped() {
+            return isDailyFrequencyCapped;
+        }
+        
+        @Override
+        public String toString() {
+            return "AdMetrics{" +
+                    "deviceImpressions=" + deviceImpressions +
+                    ", deviceDailyImpressions=" + deviceDailyImpressions +
+                    ", remainingImpressions=" + remainingImpressions +
+                    ", remainingDailyImpressions=" + remainingDailyImpressions +
+                    ", isFrequencyCapped=" + isFrequencyCapped +
+                    ", isDailyFrequencyCapped=" + isDailyFrequencyCapped +
+                    '}';
+        }
+    }
     
     /**
      * Default constructor
@@ -55,6 +126,7 @@ public class SponsoredAd {
      */
     public SponsoredAd(String id, String imageUrl, String redirectUrl, boolean status,
                      Date startDate, Date endDate, String location, int priority,
+                     int frequencyCap, int dailyFrequencyCap,
                      int clickCount, int impressionCount, String title, String description) {
         this.id = id;
         this.imageUrl = imageUrl;
@@ -64,6 +136,8 @@ public class SponsoredAd {
         this.endDate = endDate;
         this.location = location;
         this.priority = priority;
+        this.frequencyCap = frequencyCap;
+        this.dailyFrequencyCap = dailyFrequencyCap;
         this.clickCount = clickCount;
         this.impressionCount = impressionCount;
         this.title = title;
@@ -79,34 +153,42 @@ public class SponsoredAd {
     public Date getEndDate() { return endDate; }
     public String getLocation() { return location; }
     public int getPriority() { return priority; }
+    public int getFrequencyCap() { return frequencyCap; }
+    public int getDailyFrequencyCap() { return dailyFrequencyCap; }
     public int getClickCount() { return clickCount; }
     public int getImpressionCount() { return impressionCount; }
-    public String getTitle() { return title; }
-    public String getDescription() { return description; }
+    public String getTitle() { return title != null ? title : "Sponsored"; }
+    public String getDescription() { return description != null ? description : ""; }
+    public AdMetrics getMetrics() { return metrics; }
     
-    // Setters
-    public void setId(String id) { this.id = id; }
-    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
-    public void setRedirectUrl(String redirectUrl) { this.redirectUrl = redirectUrl; }
-    public void setStatus(boolean status) { this.status = status; }
-    public void setStartDate(Date startDate) { this.startDate = startDate; }
-    public void setEndDate(Date endDate) { this.endDate = endDate; }
-    public void setLocation(String location) { this.location = location; }
-    public void setPriority(int priority) { this.priority = priority; }
-    public void setClickCount(int clickCount) { this.clickCount = clickCount; }
-    public void setImpressionCount(int impressionCount) { this.impressionCount = impressionCount; }
-    public void setTitle(String title) { this.title = title; }
-    public void setDescription(String description) { this.description = description; }
+    // Setters (used internally)
+    public void setWeightedScore(float weightedScore) {
+        this.weightedScore = weightedScore;
+    }
+    
+    public float getWeightedScore() {
+        return weightedScore;
+    }
+    
+    /**
+     * Check if the ad is capped for the current device
+     * @return true if ad should not be shown due to frequency caps
+     */
+    public boolean isFrequencyCapped() {
+        if (metrics == null) {
+            return false;
+        }
+        return metrics.isFrequencyCapped() || metrics.isDailyFrequencyCapped();
+    }
     
     @Override
     public String toString() {
         return "SponsoredAd{" +
                 "id='" + id + '\'' +
-                ", title='" + title + '\'' +
                 ", location='" + location + '\'' +
                 ", priority=" + priority +
-                ", clicks=" + clickCount +
-                ", impressions=" + impressionCount +
+                ", title='" + title + '\'' +
+                ", metrics=" + (metrics != null ? metrics.toString() : "null") +
                 '}';
     }
 } 

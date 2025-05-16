@@ -17,4 +17,8 @@
     <dimen name="snackbar_margin">5dp</dimen>
     <dimen name="recycler_view_top_margin">8dp</dimen>
     <dimen name="recycler_view_bottom_margin">8dp</dimen>
+    <dimen name="card_margin">8dp</dimen>
+    <dimen name="card_spacing">4dp</dimen>
+    <dimen name="text_margin">16dp</dimen>
+    <dimen name="sponsored_ad_height">200dp</dimen>
 </resources>

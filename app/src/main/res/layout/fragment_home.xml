@@ -278,19 +278,23 @@
                         android:layout_height="1dp"
                         android:background="@drawable/icon_circle" />
 
-                    <!-- Sponsored Ad View right after categories -->
-                    <com.ds.eventwish.ui.ads.SponsoredAdView
-                        android:id="@+id/sponsoredAdView"
+                    <!-- Sponsored Ad Carousel -->
+                    <com.ds.eventwish.ui.ads.SponsoredAdCarousel
+                        android:id="@+id/sponsored_ad_carousel"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
                         android:layout_marginBottom="2dp"
                         android:layout_marginStart="2dp"
+<<<<<<< HEAD
                         android:layout_marginEnd="2dp" 
                         android:elevation="1dp"
                         android:visibility="visible"
                         android:clickable="true"
                         android:focusable="true"/>
+=======
+                        android:layout_marginEnd="2dp" />
+>>>>>>> c9d6bc131c97ff1e271900b9a0cfd19fd38917f4
 
                     <!-- Divider after sponsored ad - reduced height -->
                     <!-- <View

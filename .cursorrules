@@ -296,9 +296,28 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Implement global opt-in/opt-out controls that respect user preferences
   - Add screen view tracking for both activities and fragments
   - Use Firebase Analytics setUserProperty for consistent user segmentation
+- When working with MongoDB models in Node.js:
+  - Use proper schema types that match the expected data structures
+  - For complex nested objects, prefer using Map type with proper initialization
+  - Always handle type checking and conversions explicitly in methods
+  - Use markModified() when modifying nested objects to ensure changes are persisted
+  - Add detailed error logging with stack traces for debugging
+  - Implement defensive programming with null/undefined checks throughout
+  - Ensure field names in response match exactly what client expects
+- When handling ID fields in MongoDB for Android navigation:
+  - Always ensure MongoDB ObjectIDs are converted to strings before sending to Android clients
+  - Use explicit toString() on all _id fields in server responses
+  - Implement proper validation for ID parameters in API routes
+  - Add defensive handling in case IDs are null or invalid
+  - Use virtual id properties in mongoose schemas to automatically provide string IDs
+  - Be aware that Android's Navigation component expects string arguments
+  - Use @argType="string" in navigation XML definitions for ID arguments
+  - Implement consistent logging across the API for easier debugging
+  - Add automated tests to verify ID handling
 
 # Scratchpad
 
+<<<<<<< HEAD
 ## Sponsored Ads Implementation Plan
 
 ### Current Implementation Status
@@ -704,3 +723,62 @@ Common issues and solutions:
 ## Conclusion
 
 This documentation provides a comprehensive overview of the EventWish app architecture, components, and maintenance procedures. It should serve as a guide for future developers to understand, maintain, and enhance the application.
+=======
+## Current Task: Fix Template ID Handling for Android Navigation [COMPLETE]
+
+### Problem Analysis
+
+1. **Template ID Type Issue**
+   - [X] Android Navigation component expects string arguments for template IDs
+   - [X] MongoDB ObjectIDs need to be explicitly converted to strings
+   - [X] Template.js model needs to ensure consistent ID handling
+   - [X] API controllers need to consistently return string IDs
+
+### Solution Approach
+
+1. **Update CategoryIcon.js Model**
+   - [X] Fix toJSON transform to properly remove the _id field after setting id
+   - [X] Update toObject transform to keep _id for Mongoose but ensure id is set
+   - [X] Keep the pre-save hook to ensure 'id' field is set from _id
+
+2. **Update templateController.js**
+   - [X] Added explicit code to ensure categoryIcon._id field is removed in responses
+   - [X] Added checks to ensure categoryIcon.id is always a string
+   - [X] Added defensive handling for both direct and array template responses
+   - [X] Applied consistent ID handling in all three endpoint handlers
+
+3. **Testing**
+   - [X] Created testIdTransformations.js to verify local model fixes
+   - [X] Created verifyTemplateController.js to test controller fixes
+   - [X] Verified all IDs are properly handled as strings
+   - [X] Confirmed _id fields are removed in API responses
+   - [X] Tested JSON serialization to simulate Android handling
+
+### Root Cause
+The issue was that the categoryIcon model's toJSON transform was not properly removing the _id field after setting the id field. This caused both _id and id to be present in the categoryIcon object in API responses. Android's Navigation component expects arguments to be of specific types, and the presence of both fields was causing type conflicts.
+
+### Solution Applied
+1. Fixed the CategoryIcon model's toJSON transform to explicitly delete the _id field
+2. Added defensive code in templateController.js to ensure categoryIcon._id is always removed
+3. Added verification to ensure ID fields are always strings for Android compatibility
+
+### Key Lessons
+- MongoDB ObjectIDs must be explicitly converted to strings with toString() for safe client-side handling
+- When using toJSON transform methods, always ensure _id is removed after copying to id
+- For complex nested objects like populated references, extra defensive handling is needed
+- Android Navigation component is strict about argument types - strings must be strings
+- Always verify API responses with proper testing for client compatibility
+
+### Implementation Results
+- Successfully fixed the template ID handling issue by ensuring all MongoDB ObjectIDs and nested fields are properly converted to strings
+- Added comprehensive error handling and logging
+- Added defensive handling to ensure backward compatibility
+- Verified all changes with automated tests
+- All tests passed, confirming proper string conversion of template IDs and removal of MongoDB internal fields
+
+## Previous Tasks
+
+### Fix SponsoredAd tracking functionality [COMPLETE]
+
+// ... rest of existing content ...
+>>>>>>> c9d6bc131c97ff1e271900b9a0cfd19fd38917f4

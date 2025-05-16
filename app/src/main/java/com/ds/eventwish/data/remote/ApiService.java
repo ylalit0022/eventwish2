@@ -388,10 +388,14 @@ public interface ApiService {
     // Sponsored Ads endpoints
     /**
      * Get active sponsored ads for display
+     * @param location Optional location filter for ads
      * @return Response containing list of sponsored ads
      */
     @GET("sponsored-ads")
-    Call<SponsoredAdResponse> getSponsoredAds();
+    Call<SponsoredAdResponse> getSponsoredAds(
+        @Query("location") String location,
+        @retrofit2.http.Header("x-device-id") String deviceId
+    );
     
     /**
      * Get sponsored ads for rotation with exclusion support
