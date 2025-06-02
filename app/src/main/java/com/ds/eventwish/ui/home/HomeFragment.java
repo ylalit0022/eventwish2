@@ -73,6 +73,13 @@ import com.ds.eventwish.data.repository.UserRepository;
 import com.ds.eventwish.utils.AnalyticsUtils;
 import com.ds.eventwish.ui.ads.SponsoredAdView;
 
+import com.ds.eventwish.utils.NotificationPermissionManager;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import android.provider.Settings;
+import android.net.Uri;
+import android.content.Intent;
+
 public class HomeFragment extends BaseFragment implements RecommendedTemplateAdapter.TemplateClickListener {
     private static final String TAG = "HomeFragment";
     
@@ -117,6 +124,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         viewModel.init(requireContext());
 
         Log.d(TAG, "onViewCreated called");
+
+        // Check notification permission and show reminder if needed
+        checkAndShowNotificationReminder();
 
         // Initialize CategoryIconRepository
         if (categoryIconRepository == null) {
@@ -198,6 +208,47 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         isResumed = true;
     }
 
+    private void checkAndShowNotificationReminder() {
+        if (getActivity() == null || !isAdded()) {
+            return;
+        }
+
+        if (!NotificationPermissionManager.hasNotificationPermission(requireContext())) {
+            new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.notification_permission_title)
+                .setMessage(R.string.notification_permission_message)
+                .setCancelable(false)
+                .setPositiveButton(R.string.yes, (dialog, which) -> {
+                    NotificationPermissionManager.requestNotificationPermission(requireActivity());
+                })
+                .setNegativeButton(R.string.no, (dialog, which) -> {
+                    // Show a Snackbar with a link to settings
+                    View rootView = binding.getRoot();
+                    Snackbar snackbar = Snackbar.make(
+                        rootView,
+                        R.string.notification_reminder_message,
+                        Snackbar.LENGTH_LONG
+                    );
+                    
+                    // If there's a bottom navigation, adjust the margin
+                    View bottomNav = requireActivity().findViewById(R.id.bottomNavigation);
+                    if (bottomNav != null && bottomNav.getVisibility() == View.VISIBLE) {
+                        snackbar.setAnchorView(bottomNav);
+                    }
+                    
+                    snackbar.setAction(R.string.open_settings, v -> {
+                        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                        Uri uri = Uri.fromParts("package", requireContext().getPackageName(), null);
+                        intent.setData(uri);
+                        startActivity(intent);
+                    });
+                    
+                    snackbar.show();
+                })
+                .show();
+        }
+    }
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -233,24 +284,25 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             public void handleOnBackPressed() {
                 if (binding != null && (binding.timeFilterScrollView.getVisibility() == View.VISIBLE ||
                         binding.filterChipsScrollView.getVisibility() == View.VISIBLE)) {
-
+                    // If filter views are visible, hide them
                     binding.timeFilterScrollView.setVisibility(View.GONE);
                     binding.filterChipsScrollView.setVisibility(View.GONE);
-
-                } else {
-                    if (Navigation.findNavController(requireActivity(), R.id.nav_host_fragment)
-                            .getCurrentDestination().getId() == R.id.navigation_home) {
-                        if (backPressedTime + BACK_PRESS_DELAY > System.currentTimeMillis()) {
-                            requireActivity().finish();
-                        } else {
-                            Toast.makeText(requireContext(), "Press back again to exit", Toast.LENGTH_SHORT).show();
-                            backPressedTime = System.currentTimeMillis();
-                        }
+                } else if (Navigation.findNavController(requireActivity(), R.id.nav_host_fragment)
+                        .getCurrentDestination().getId() == R.id.navigation_home) {
+                    // If we're on the home fragment, handle double back press
+                    if (System.currentTimeMillis() - backPressedTime < BACK_PRESS_DELAY) {
+                        // Second back press within delay, exit app
+                        requireActivity().finish();
                     } else {
-                        setEnabled(false);
-                        requireActivity().onBackPressed();
-                        setEnabled(true);
+                        // First back press, show toast
+                        Toast.makeText(requireContext(), "Press back again to exit", Toast.LENGTH_SHORT).show();
+                        backPressedTime = System.currentTimeMillis();
                     }
+                } else {
+                    // Not on home fragment, handle normal back press
+                    setEnabled(false);
+                    requireActivity().onBackPressed();
+                    setEnabled(true);
                 }
             }
         };
@@ -260,10 +312,14 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     @Override
     public void onResume() {
         super.onResume();
+        isResumed = true;
+        
+        // Show notification dialog only once when first entering the fragment
+        if (!wasInBackground) {
+            checkAndShowNotificationReminder();
+        }
         
         // No need to duplicate tracking code here as it's now in BaseFragment
-        
-        isResumed = true;
         
         // Reset pagination and end message flags on resume
         hasShownEndMessage = false;
