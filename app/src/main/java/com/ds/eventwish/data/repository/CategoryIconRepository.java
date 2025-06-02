@@ -393,8 +393,14 @@ public class CategoryIconRepository {
         CategoryIcon bestMatch = null;
         int bestScore = 0;
         
+        // Create a snapshot of the map entries to avoid ConcurrentModificationException
+        List<Map.Entry<String, CategoryIcon>> entries;
+        synchronized (categoryIconMap) {
+            entries = new ArrayList<>(categoryIconMap.entrySet());
+        }
+        
         // First try direct substring matching (most reliable)
-        for (Map.Entry<String, CategoryIcon> entry : categoryIconMap.entrySet()) {
+        for (Map.Entry<String, CategoryIcon> entry : entries) {
             String key = entry.getKey();
             
             // Skip empty keys
@@ -420,7 +426,7 @@ public class CategoryIconRepository {
         // Try word-by-word matching for multi-word categories
         String[] categoryWords = category.split("\\s+");
         if (categoryWords.length > 1) {
-            for (Map.Entry<String, CategoryIcon> entry : categoryIconMap.entrySet()) {
+            for (Map.Entry<String, CategoryIcon> entry : entries) {
                 String key = entry.getKey();
                 if (key == null || key.isEmpty()) continue;
                 

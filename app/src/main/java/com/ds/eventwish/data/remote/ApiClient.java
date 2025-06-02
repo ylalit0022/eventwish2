@@ -60,6 +60,15 @@ public class ApiClient {
     private static Context context;
 
     /**
+     * Exception thrown when there is no network connectivity
+     */
+    public static class NoConnectivityException extends IOException {
+        public NoConnectivityException() {
+            super("No network connectivity");
+        }
+    }
+
+    /**
      * Initialize the API client with the application context
      * @param appContext Application context
      */

@@ -184,4 +184,7 @@ dependencies {
     
     // Firebase core (with explicit version)
     implementation 'com.google.firebase:firebase-core:21.1.1'
+
+    // Splash Screen dependency
+    implementation 'androidx.core:core-splashscreen:1.0.1'
 }

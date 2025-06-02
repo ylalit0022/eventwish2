@@ -442,14 +442,14 @@ public class SponsoredAdRepository {
      */
     private void refreshFromNetwork() {
         Log.d(TAG, "Refreshing sponsored ads from network");
-        loadingLiveData.setValue(true);
+        loadingLiveData.postValue(true);
         
         // Prevent network calls if we're rate-limited
         if (isRateLimited && System.currentTimeMillis() < rateLimitExpiresAt) {
             Log.d(TAG, "Skipping network request due to rate limiting, expires in: " + 
                   (rateLimitExpiresAt - System.currentTimeMillis()) / 1000 + " seconds");
-            loadingLiveData.setValue(false);
-            errorLiveData.setValue("API rate limit exceeded. Please try again later.");
+            loadingLiveData.postValue(false);
+            errorLiveData.postValue("API rate limit exceeded. Please try again later.");
             return;
         }
         
@@ -457,8 +457,8 @@ public class SponsoredAdRepository {
         if (!connectivityChecker.isNetworkAvailable()) {
             Log.d(TAG, "No network connection, loading from cache only");
             loadFromCache();
-            loadingLiveData.setValue(false);
-            errorLiveData.setValue("No internet connection. Showing cached ads.");
+            loadingLiveData.postValue(false);
+            errorLiveData.postValue("No internet connection. Showing cached ads.");
             return;
         }
         

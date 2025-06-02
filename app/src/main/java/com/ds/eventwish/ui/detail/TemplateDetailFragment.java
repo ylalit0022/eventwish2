@@ -535,6 +535,14 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
             }
         });
 
+        // Add back button click listener
+        binding.backButton.setOnClickListener(v -> {
+            // Navigate back
+            if (getActivity() != null) {
+                getActivity().onBackPressed();
+            }
+        });
+
         binding.customizeButton.setVisibility(View.GONE);
 
         View rootView = binding.getRoot();

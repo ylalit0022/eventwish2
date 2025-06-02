@@ -1,5 +1,10 @@
 package com.ds.eventwish.ui.reminder;
 
+import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.content.res.ColorStateList;
@@ -20,6 +25,9 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.content.ContextCompat;
 
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.Reminder;
@@ -56,11 +64,27 @@ public class ReminderFragment extends Fragment {
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
     private final Calendar calendar = Calendar.getInstance();
+    private ActivityResultLauncher<String> requestPermissionLauncher;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
+        
+        // Initialize permission launcher
+        requestPermissionLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(),
+            isGranted -> {
+                if (isGranted) {
+                    Log.d("ReminderFragment", "Notification permission granted");
+                    // Permission granted, you can schedule notifications now
+                } else {
+                    Log.d("ReminderFragment", "Notification permission denied");
+                    // Show a message explaining why notifications are important
+                    showNotificationPermissionExplanation();
+                }
+            }
+        );
     }
 
     @Override
@@ -82,6 +106,9 @@ public class ReminderFragment extends Fragment {
         setupFabs();
         setupObservers();
         setupSwipeRefresh();
+        
+        // Check notification permission when the fragment is created
+        checkNotificationPermission();
     }
 
     private void setupRecyclerView() {
@@ -400,6 +427,17 @@ public class ReminderFragment extends Fragment {
     }
 
     private Reminder createReminderFromDialog(DialogReminderBinding binding) {
+        // Before creating the reminder, check if we have notification permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED) {
+                showNotificationPermissionRationale();
+                return null;
+            }
+        }
+
         String title = binding.titleInput.getText().toString().trim();
         String description = binding.descriptionInput.getText().toString().trim();
         
@@ -642,5 +680,61 @@ public class ReminderFragment extends Fragment {
         boolean isEmpty = reminders == null || reminders.isEmpty();
         binding.emptyView.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
         binding.remindersRecyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+    }
+
+    private void checkNotificationPermission() {
+        // Only need to check permission on Android 13 and above
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED) {
+                
+                // Check if we should show the rationale first
+                if (shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)) {
+                    showNotificationPermissionRationale();
+                } else {
+                    // Request the permission directly
+                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+                }
+            }
+        }
+    }
+
+    private void showNotificationPermissionRationale() {
+        new MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.notification_permission_title)
+            .setMessage(R.string.notification_permission_message)
+            .setPositiveButton(R.string.yes, (dialog, which) -> {
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+            })
+            .setNegativeButton(R.string.no, (dialog, which) -> {
+                showNotificationPermissionExplanation();
+            })
+            .show();
+    }
+
+    private void showNotificationPermissionExplanation() {
+        new MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.notification_disabled_title)
+            .setMessage(R.string.notification_disabled_message)
+            .setPositiveButton(R.string.open_settings, (dialog, which) -> {
+                openAppSettings();
+            })
+            .setNegativeButton(R.string.not_now, null)
+            .show();
+    }
+
+    private void openAppSettings() {
+        try {
+            Intent intent = new Intent();
+            intent.setAction(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            Uri uri = Uri.fromParts("package", requireContext().getPackageName(), null);
+            intent.setData(uri);
+            startActivity(intent);
+        } catch (Exception e) {
+            Log.e("ReminderFragment", "Error opening app settings", e);
+            showErrorSnackbar("Couldn't open app settings");
+        }
     }
 }

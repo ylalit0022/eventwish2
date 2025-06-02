@@ -68,16 +68,18 @@
         </provider>
         
         <activity
-            android:name=".MainActivity"
+            android:name=".ui.splash.SplashActivity"
             android:exported="true"
-            android:launchMode="singleTask"
-            android:screenOrientation="portrait"
-            android:configChanges="orientation|keyboardHidden"
-            android:windowSoftInputMode="adjustResize">
+            android:theme="@style/Theme.EventWish.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+        
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true">
 
             <!-- HTTPS/HTTP deep links for wishes -->
             <intent-filter android:autoVerify="true">
@@ -86,7 +88,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="eventwishes.onrender.com"
+                    android:host="eventwish2.onrender.com"
                     android:pathPrefix="/wish/" />
             </intent-filter>
             
@@ -97,7 +99,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="eventwishes.onrender.com"
+                    android:host="eventwish2.onrender.com"
                     android:pathPrefix="/festival/" />
             </intent-filter>
             
@@ -108,7 +110,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="eventwishes.onrender.com"
+                    android:host="eventwish2.onrender.com"
                     android:pathPrefix="/template/" />
             </intent-filter>
 
@@ -118,7 +120,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:scheme="eventwish"
+                    android:scheme="eventwish2"
                     android:host="wish" />
             </intent-filter>
             
@@ -128,7 +130,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:scheme="eventwish"
+                    android:scheme="eventwish2"
                     android:host="festival" />
             </intent-filter>
             
@@ -138,12 +140,11 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:scheme="eventwish"
+                    android:scheme="eventwish2"
                     android:host="template" />
             </intent-filter>
 
             <nav-graph android:value="@navigation/nav_graph" />
-
         </activity>
 
         <!-- Auth Activity -->
@@ -173,17 +174,7 @@
 <!--            </intent-filter>-->
 <!--        </activity>-->
 
-        <activity
-            android:name=".ads.AdDemoActivity"
-            android:exported="true"
-            android:label="AdMob Demo"
-            android:icon="@drawable/ic_ads"
-            android:theme="@style/Theme.MaterialComponents.Light.DarkActionBar">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+
 
         <meta-data
             android:name="preloaded_fonts"
@@ -242,31 +233,9 @@
                 android:value=".MainActivity" />
         </activity>
 
-        <!-- Test Ad Activity -->
-        <activity android:name=".ui.ads.TestAdActivity"
-                  android:label="AdMob Test"
-                  android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-            </intent-filter>
-        </activity>
 
-        <!-- Ad test activity -->
-        <activity
-            android:name=".ui.ads.AdTestActivity"
-            android:label="Ad Debugger"
-            android:icon="@drawable/ic_ad_debugger"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-            <!-- Add direct launcher access for debugging -->
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+
+
 
     </application>
 

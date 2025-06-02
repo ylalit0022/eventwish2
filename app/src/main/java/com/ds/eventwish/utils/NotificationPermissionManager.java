@@ -171,15 +171,15 @@ public class NotificationPermissionManager {
     private static void showSettingsDialog(@NonNull Context context) {
         new AlertDialog.Builder(context)
                 .setTitle(R.string.notification_permission_title)
-                .setMessage(R.string.notification_permission_settings_message)
-                .setPositiveButton(R.string.settings, (dialog, which) -> {
+                .setMessage(R.string.notification_disabled_message)
+                .setPositiveButton(R.string.open_settings, (dialog, which) -> {
                     // Open app settings
                     Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
                     Uri uri = Uri.fromParts("package", context.getPackageName(), null);
                     intent.setData(uri);
                     context.startActivity(intent);
                 })
-                .setNegativeButton(R.string.cancel, null)
+                .setNegativeButton(R.string.not_now, null)
                 .show();
     }
 

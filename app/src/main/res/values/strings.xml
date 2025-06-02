@@ -190,8 +190,13 @@
 
     <!-- Notification -->
     <string name="notification_permission_title">Notification Permission</string>
-    <string name="notification_permission_message">EventWish needs notification permission to send you updates about upcoming festivals and events.</string>
-    <string name="notification_permission_settings_message">EventWish needs notification permission to send you updates. Please enable notifications in app settings.</string>
+    <string name="notification_permission_message">EventWish needs notification permission to remind you about upcoming events and send countdown notifications. Would you like to enable notifications?</string>
+    <string name="notification_disabled_title">Notifications Disabled</string>
+    <string name="notification_disabled_message">Without notification permission, EventWish won\'t be able to remind you about upcoming events. You can enable notifications in the app settings at any time.</string>
+    <string name="open_settings">Open Settings</string>
+    <string name="not_now">Not Now</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
     <string name="notification_group_events">Events</string>
     <string name="notification_group_system">System</string>
     <string name="notification_channel_festivals">Festivals</string>
@@ -207,6 +212,8 @@
     <string name="notification_festival_upcoming_title">%1$s is coming up!</string>
     <string name="notification_festival_upcoming_content">%1$d days until %2$s</string>
     <string name="notification_reminder_title">Reminder: %1$s</string>
+    <string name="notification_reminder_message">Enable notifications to receive reminders for upcoming events</string>
+    <string name="notification_enable_action">Enable</string>
 
     <!-- API URLs -->
     <string name="base_url">https://eventwish2.onrender.com/api/</string>
