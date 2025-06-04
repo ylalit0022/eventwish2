@@ -7,7 +7,7 @@ import java.util.Date;
  * Model class for sponsored ads from custom backend API
  */
 public class SponsoredAd {
-    @SerializedName("id")
+    @SerializedName("_id")
     private String id;
     
     @SerializedName("image_url")

@@ -138,7 +138,7 @@
                         android:layout_marginEnd="8dp"
                         android:contentDescription="@string/watch_ad_to_share"
                         android:src="@drawable/ic_videocam"
-                        android:tint="@android:color/white" />
+                        app:tint="@android:color/white" />
 
                     <TextView
                         android:id="@+id/watchAdButtonText"
@@ -147,7 +147,7 @@
                         android:text="@string/watch_ad_to_share"
                         android:textColor="@android:color/white"
                         android:textAppearance="?attr/textAppearanceButton"
-                        android:textSize="14sp"
+                        android:textSize="10sp"
                         android:textStyle="bold" />
 
                 </LinearLayout>

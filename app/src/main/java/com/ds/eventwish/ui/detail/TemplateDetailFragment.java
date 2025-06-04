@@ -249,7 +249,6 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
     }
 
     private void setupWebView() {
-        
         if (binding != null) {
             // Configure WebView for optimal rendering
             android.webkit.WebSettings webSettings = binding.webView.getSettings();
@@ -286,38 +285,56 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
                 @Override
                 public void onPageStarted(android.webkit.WebView view, String url, android.graphics.Bitmap favicon) {
                     super.onPageStarted(view, url, favicon);
-                    if (binding != null) {
-                        binding.webViewProgress.setVisibility(View.VISIBLE);
-                    }
+                    mainHandler.post(() -> {
+                        if (binding != null && isAdded()) {
+                            // Show loading indicators
+                            binding.webViewProgressContainer.setVisibility(View.VISIBLE);
+                            binding.webView.setVisibility(View.INVISIBLE); // Hide WebView while loading
+                            Log.d(TAG, "WebView loading started: " + url);
+                        }
+                    });
                 }
                 
                 @Override
                 public void onPageFinished(android.webkit.WebView view, String url) {
                     super.onPageFinished(view, url);
-                    if (binding != null) {
-                        binding.webViewProgress.setVisibility(View.GONE);
-                        
-                        // Force proper rendering by injecting viewport scale fix
-                        String javascript = 
-                            "var meta = document.createElement('meta');" +
-                            "meta.name = 'viewport';" +
-                            "meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0';" +
-                            "document.getElementsByTagName('head')[0].appendChild(meta);" +
-                            "document.body.style.width = '100%';" +
-                            "document.body.style.margin = '0';" +
-                            "document.body.style.padding = '0';";
-                        view.evaluateJavascript(javascript, null);
-                    }
+                    mainHandler.post(() -> {
+                        if (binding != null && isAdded()) {
+                            // Hide loading indicators
+                            binding.webViewProgressContainer.setVisibility(View.GONE);
+                            binding.webView.setVisibility(View.VISIBLE); // Show WebView after loading
+                            
+                            // Force proper rendering by injecting viewport scale fix
+                            String javascript = 
+                                "var meta = document.createElement('meta');" +
+                                "meta.name = 'viewport';" +
+                                "meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0';" +
+                                "document.getElementsByTagName('head')[0].appendChild(meta);" +
+                                "document.body.style.width = '100%';" +
+                                "document.body.style.margin = '0';" +
+                                "document.body.style.padding = '0';";
+                            view.evaluateJavascript(javascript, null);
+                            
+                            Log.d(TAG, "WebView loading completed: " + url);
+                        }
+                    });
                 }
                 
                 @Override
                 public void onReceivedError(android.webkit.WebView view, android.webkit.WebResourceRequest request, 
                                            android.webkit.WebResourceError error) {
                     super.onReceivedError(view, request, error);
-                    if (binding != null) {
-                        binding.webViewProgress.setVisibility(View.GONE);
-                        showError("Error loading template: " + error.getDescription());
-                    }
+                    mainHandler.post(() -> {
+                        if (binding != null && isAdded()) {
+                            // Hide loading indicators
+                            binding.webViewProgressContainer.setVisibility(View.GONE);
+                            binding.webView.setVisibility(View.VISIBLE);
+                            
+                            // Show error message
+                            showError("Error loading template: " + error.getDescription());
+                            Log.e(TAG, "WebView loading error: " + error.getDescription());
+                        }
+                    });
                 }
             });
             
@@ -535,13 +552,16 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
             }
         });
 
-        // Add back button click listener
+        // Add back button click listener and handle visibility
         binding.backButton.setOnClickListener(v -> {
             // Navigate back
             if (getActivity() != null) {
                 getActivity().onBackPressed();
             }
         });
+        
+        // Set back button visibility based on navigation bar status
+        updateBackButtonVisibility();
 
         binding.customizeButton.setVisibility(View.GONE);
 
@@ -562,9 +582,73 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         });
     }
 
+    /**
+     * Check if device has navigation bar and if it's enabled
+     */
+    private boolean hasVisibleNavigationBar() {
+        if (getActivity() == null) return true;
+        
+        android.content.res.Resources resources = getResources();
+        int resourceId = resources.getIdentifier("config_showNavigationBar", "bool", "android");
+        if (resourceId > 0) {
+            boolean hasNav = resources.getBoolean(resourceId);
+            
+            // Get the real device config
+            android.view.WindowManager windowManager = getActivity().getWindowManager();
+            android.view.Display display = windowManager.getDefaultDisplay();
+            android.graphics.Point realSize = new android.graphics.Point();
+            android.graphics.Point screenSize = new android.graphics.Point();
+            
+            try {
+                // Get real size
+                display.getRealSize(realSize);
+                // Get screen size
+                display.getSize(screenSize);
+                
+                // If real size is larger than screen size, navigation bar is present
+                boolean hasNavBar = (realSize.y != screenSize.y) || (realSize.x != screenSize.x);
+                
+                // Check if navigation gestures are enabled
+                int navBarInteractionMode = android.provider.Settings.Secure.getInt(
+                    requireContext().getContentResolver(),
+                    "navigation_mode",
+                    0
+                );
+                
+                // Return true if we have a nav bar and gestures are not enabled
+                return hasNav && hasNavBar && navBarInteractionMode == 0;
+            } catch (Exception e) {
+                Log.e(TAG, "Error checking navigation bar status", e);
+                return true; // Default to true to hide our back button
+            }
+        }
+        return true; // Default to true to hide our back button
+    }
+
+    /**
+     * Update back button visibility based on navigation bar status
+     */
+    private void updateBackButtonVisibility() {
+        if (binding != null && binding.backButton != null) {
+            boolean showBackButton = !hasVisibleNavigationBar();
+            binding.backButton.setVisibility(showBackButton ? View.VISIBLE : View.GONE);
+            Log.d(TAG, "Back button visibility updated: " + (showBackButton ? "visible" : "gone"));
+        }
+    }
+
+    @Override
+    public void onConfigurationChanged(@NonNull android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        // Update back button visibility when configuration changes (e.g., rotation)
+        updateBackButtonVisibility();
+    }
+
     private void setupObservers() {
         viewModel.getTemplate().observe(getViewLifecycleOwner(), template -> {
             if (template != null) {
+                // Show loading state when starting to render template
+                showLoading();
+                
                 // Initialize template renderer with the correct constructor
                 templateRenderer = new TemplateRenderer(binding.webView, this);
                 
@@ -578,28 +662,50 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
             }
         });
         
-        // Observe loading state - use the existing binding fields
+        // Observe loading state
         viewModel.isLoading().observe(getViewLifecycleOwner(), isLoading -> {
             if (binding != null && isAdded()) {
-                binding.loadingView.setVisibility(isLoading ? View.VISIBLE : View.GONE);
+                if (isLoading) {
+                    showLoading();
+                }
             }
         });
         
-        // Observe error messages - use the existing error handling
+        // Observe error messages
         viewModel.getError().observe(getViewLifecycleOwner(), error -> {
             if (error != null && !error.isEmpty() && binding != null && isAdded()) {
+                hideLoading();
                 showError(error);
             }
         });
 
         viewModel.getWishSaved().observe(getViewLifecycleOwner(), shortCode -> {
             if (shortCode != null && binding != null && isAdded()) {
+                hideLoading();
                 // Navigate to shared wish view
                 TemplateDetailFragmentDirections.ActionTemplateDetailToSharedWish action =
                     TemplateDetailFragmentDirections.actionTemplateDetailToSharedWish(shortCode);
                 Navigation.findNavController(requireView()).navigate(action);
             }
         });
+    }
+
+    private void showLoading() {
+        if (binding != null && isAdded()) {
+            mainHandler.post(() -> {
+                binding.webViewProgressContainer.setVisibility(View.VISIBLE);
+                binding.webView.setVisibility(View.INVISIBLE);
+            });
+        }
+    }
+
+    private void hideLoading() {
+        if (binding != null && isAdded()) {
+            mainHandler.post(() -> {
+                binding.webViewProgressContainer.setVisibility(View.GONE);
+                binding.webView.setVisibility(View.VISIBLE);
+            });
+        }
     }
 
     private void showError(String message) {
@@ -619,6 +725,8 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         mainHandler.post(() -> {
             if (isViewCreated && isAdded() && binding != null) {
                 try {
+                    hideLoading();
+                    
                     // Inject additional CSS to fix potential display issues
                     String fixCss = 
                         "body{width:100% !important;margin:0 !important;padding:0 !important;}" +
@@ -676,6 +784,7 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
 
     @Override
     public void onRenderError(String error) {
+        hideLoading();
         showError(error);
     }
 

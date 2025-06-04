@@ -1,47 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="120dp"
-    android:height="120dp"
-    android:viewportWidth="120"
-    android:viewportHeight="120">
-    
-    <!-- Background Circle -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M60,60m-58,0a58,58 0,1 1,116 0a58,58 0,1 1,-116 0"/>
-    
-    <!-- Gift Box Base -->
-    <path
-        android:fillColor="#FF1976D2"
-        android:pathData="M30,45h60v45h-60z"/>
-    
-    <!-- Gift Box Lid -->
-    <path
-        android:fillColor="#FF1976D2"
-        android:pathData="M25,35h70v10h-70z"/>
-    
-    <!-- Ribbon Vertical -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M55,35h10v55h-10z"/>
-    
-    <!-- Ribbon Horizontal -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M30,55h60v10h-60z"/>
-    
-    <!-- Bow Left -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M45,25c0,0 -5,5 -5,10s5,10 5,10c0,0 5,-5 5,-10S45,25 45,25z"/>
-    
-    <!-- Bow Right -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M75,25c0,0 5,5 5,10s-5,10 -5,10c0,0 -5,-5 -5,-10S75,25 75,25z"/>
-    
-    <!-- Bow Center -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M60,30m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0"/>
-</vector> 
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- White circular background -->
+    <item >
+        <shape android:shape="oval">
+            <solid android:color="#FFFFFF" />
+            <size android:width="120dp" android:height="120dp" />
+        </shape>
+    </item>
+
+    <!-- Logo image with inset to clip inside circle -->
+    <item android:top="10dp" android:bottom="10dp" android:left="10dp" android:right="60dp">
+        <bitmap
+            android:src="@drawable/logo"
+            android:gravity="center"
+            android:antialias="true" />
+    </item>
+
+</layer-list>

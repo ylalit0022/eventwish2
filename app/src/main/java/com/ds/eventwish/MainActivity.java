@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.AlarmManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
@@ -55,7 +56,6 @@ import com.ds.eventwish.utils.NotificationHelper;
 import com.ds.eventwish.ui.settings.SettingsActivity;
 import com.ds.eventwish.ui.viewmodel.SharedViewModel;
 import com.ds.eventwish.ui.connectivity.InternetConnectivityChecker;
-import com.ds.eventwish.ui.viewmodel.AppUpdateManager;
 import com.ds.eventwish.R;
 import com.ds.eventwish.ads.AdDemoActivity;
 import com.ds.eventwish.utils.AnalyticsUtils;
@@ -84,7 +84,6 @@ public class MainActivity extends AppCompatActivity {
     private boolean isFirstLaunch = true;
     private boolean isFirstAnalyticsTracking = true;
     private ApiClient apiClient;
-    private AppUpdateManager appUpdateManager;
     private AppUpdateChecker appUpdateChecker;
     private InternetConnectivityChecker connectivityChecker;
     private boolean isConnected = true;
@@ -94,7 +93,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+
+
         // Start app load trace
         Trace appStartupTrace = PerformanceTracker.startPerformanceTrace("app_startup");
         
@@ -140,10 +141,7 @@ public class MainActivity extends AppCompatActivity {
             apiClient = new ApiClient();
             
             // Setup app update checking
-            appUpdateManager = AppUpdateManager.getInstance(this);
-            // Initialize the new AppUpdateChecker
             appUpdateChecker = new AppUpdateChecker(this);
-            // Check for updates - including forced updates
             appUpdateChecker.checkForUpdate();
             
             // Setup connectivity checker
@@ -167,22 +165,9 @@ public class MainActivity extends AppCompatActivity {
             
             // Initialize services
             connectivityChecker = new InternetConnectivityChecker(this);
-            appUpdateManager = AppUpdateManager.getInstance(this);
             
             // Setup UI components
             setupNavigation();
-            
-            // Check for updates
-            appUpdateManager.checkForUpdate();
-            
-            // Monitor network connectivity
-            connectivityChecker.getConnectionStatus().observe(this, isConnected -> {
-                if (isConnected) {
-                    hideOfflineMessage();
-                } else {
-                    showOfflineMessage();
-                }
-            });
             
             // Handle intent (deep links)
             if (getIntent() != null) {
@@ -268,10 +253,7 @@ public class MainActivity extends AppCompatActivity {
             apiClient = new ApiClient();
             
             // Setup app update checking
-            appUpdateManager = AppUpdateManager.getInstance(this);
-            // Initialize the new AppUpdateChecker
             appUpdateChecker = new AppUpdateChecker(this);
-            // Check for updates - including forced updates
             appUpdateChecker.checkForUpdate();
             
             // Setup connectivity checker
@@ -295,22 +277,9 @@ public class MainActivity extends AppCompatActivity {
             
             // Initialize services
             connectivityChecker = new InternetConnectivityChecker(this);
-            appUpdateManager = AppUpdateManager.getInstance(this);
             
             // Setup UI components
             setupNavigation();
-            
-            // Check for updates
-            appUpdateManager.checkForUpdate();
-            
-            // Monitor network connectivity
-            connectivityChecker.getConnectionStatus().observe(this, isConnected -> {
-                if (isConnected) {
-                    hideOfflineMessage();
-                } else {
-                    showOfflineMessage();
-                }
-            });
             
             // Handle intent (deep links)
             if (getIntent() != null) {
@@ -578,11 +547,6 @@ public class MainActivity extends AppCompatActivity {
             showReminderBadgeIfNeeded();
             
             // Check for app updates
-            if (appUpdateManager != null) {
-                appUpdateManager.checkForUpdate();
-            }
-            
-            // Resume update checking with new AppUpdateChecker
             if (appUpdateChecker != null) {
                 appUpdateChecker.resumeUpdates();
             }

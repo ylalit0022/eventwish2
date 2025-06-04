@@ -140,16 +140,27 @@
                         android:focusableInTouchMode="true"
                         android:focusable="true"
                         android:clickable="true" />
+
+                    <!-- Updated WebView Progress Layout -->
+                    <FrameLayout
+                        android:id="@+id/webViewProgressContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="#80FFFFFF"
+                        android:visibility="gone">
+
+                        <ProgressBar
+                            android:id="@+id/webViewProgress"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:layout_gravity="center"
+                            android:indeterminateTintMode="src_atop"
+                            android:indeterminateTint="@color/design_default_color_primary"/>
+                    </FrameLayout>
                 </com.google.android.material.card.MaterialCardView>
-
-                <ProgressBar
-                    android:id="@+id/webViewProgress"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:visibility="gone" />
-
             </FrameLayout>
+
+
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.core.widget.NestedScrollView>
 
@@ -160,8 +171,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="16dp"
-        android:layout_marginBottom="88dp"
-        android:text="Share"
+        android:layout_marginBottom="5dp"
         app:icon="@drawable/ic_share" />
 
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
@@ -178,13 +188,16 @@
         android:id="@+id/backButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|start"
-        android:layout_margin="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginBottom="5dp"
         android:src="@drawable/ic_back_arrow_transparent"
         android:backgroundTint="#80000000"
         app:borderWidth="0dp"
         app:elevation="2dp"
+        android:layout_gravity="bottom|start"
         app:fabSize="mini"
-        app:tint="#FFFFFF"/>
+        app:tint="#FFFFFF" />
+
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
