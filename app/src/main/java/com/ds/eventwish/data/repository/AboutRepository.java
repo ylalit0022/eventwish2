@@ -10,6 +10,10 @@ import com.ds.eventwish.data.remote.ApiService;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
+import com.ds.eventwish.BuildConfig;
+import com.ds.eventwish.data.model.response.BaseResponse;
+import androidx.annotation.NonNull;
+import com.ds.eventwish.R;
 
 public class AboutRepository extends BaseRepository {
     private static final String TAG = "AboutRepository";
@@ -18,6 +22,7 @@ public class AboutRepository extends BaseRepository {
     private final MutableLiveData<String> errorLiveData;
     private final MutableLiveData<Boolean> loadingLiveData;
     private boolean isFetching = false;
+    private final Context context;
 
     public AboutRepository(Context context) {
         super();
@@ -25,6 +30,7 @@ public class AboutRepository extends BaseRepository {
         aboutLiveData = new MutableLiveData<>();
         errorLiveData = new MutableLiveData<>();
         loadingLiveData = new MutableLiveData<>();
+        this.context = context;
     }
 
     public LiveData<About> getAbout() {
@@ -63,14 +69,14 @@ public class AboutRepository extends BaseRepository {
 
         Log.d(TAG, "Fetching about content" + (forceRefresh ? " (forced refresh)" : ""));
 
-        apiService.getAbout().enqueue(new Callback<About>() {
+        apiService.getAbout().enqueue(new Callback<BaseResponse<About>>() {
             @Override
-            public void onResponse(Call<About> call, Response<About> response) {
+            public void onResponse(Call<BaseResponse<About>> call, Response<BaseResponse<About>> response) {
                 isFetching = false;
                 loadingLiveData.postValue(false);
                 
-                if (response.isSuccessful() && response.body() != null) {
-                    aboutLiveData.postValue(response.body());
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    aboutLiveData.postValue(response.body().getData());
                     Log.d(TAG, "About content fetched successfully");
                 } else {
                     handleApiError(response, errorLiveData);
@@ -78,12 +84,35 @@ public class AboutRepository extends BaseRepository {
             }
 
             @Override
-            public void onFailure(Call<About> call, Throwable t) {
-                isFetching = false;
+            public void onFailure(@NonNull Call<BaseResponse<About>> call, @NonNull Throwable t) {
+                Log.e(TAG, "Error fetching about content: " + t.getMessage(), t);
+                
+                // Create fallback content
+                About fallbackAbout = new About();
+                fallbackAbout.setTitle("About EventWish");
+                fallbackAbout.setHtmlCode(
+                    "<html><body style='padding: 16px; font-family: sans-serif;'>" +
+                    "<h2>About EventWish</h2>" +
+                    "<p>EventWish is your go-to app for creating beautiful wishes for all occasions.</p>" +
+                    "<p>With EventWish, you can:</p>" +
+                    "<ul>" +
+                    "<li>Create personalized wishes for birthdays, anniversaries, and special occasions</li>" +
+                    "<li>Choose from a variety of templates and designs</li>" +
+                    "<li>Share your wishes on social media platforms</li>" +
+                    "<li>Set reminders for upcoming events</li>" +
+                    "</ul>" +
+                    "<p>Thank you for using EventWish!</p>" +
+                    "</body></html>"
+                );
+                
+                // Post fallback content to LiveData
+                aboutLiveData.postValue(fallbackAbout);
+                
+                // Post error message indicating offline content is being used
+                errorLiveData.postValue(context.getString(R.string.using_offline_content));
+                
+                // Update loading state
                 loadingLiveData.postValue(false);
-                String errorMessage = "Error fetching about content: " + t.getMessage();
-                Log.e(TAG, errorMessage, t);
-                errorLiveData.postValue(errorMessage);
             }
         });
     }

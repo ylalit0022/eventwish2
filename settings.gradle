@@ -16,3 +16,14 @@ dependencyResolutionManagement {
 
 rootProject.name = "EventWish"
 include ':app'
+
+gradle.projectsLoaded {
+    // Suppress SDK XML version warnings
+    gradle.rootProject {
+        allprojects {
+            tasks.withType(JavaCompile) {
+                options.compilerArgs << "-Xlint:-options"
+            }
+        }
+    }
+}

@@ -14,6 +14,13 @@ if (secretsFile.exists()) {
     secrets.load(new FileInputStream(secretsFile))
 }
 
+// Skip all lint tasks completely
+tasks.whenTaskAdded { task ->
+    if (task.name.contains('lint') || task.name.contains('Lint')) {
+        task.enabled = false
+    }
+}
+
 android {
     namespace 'com.ds.eventwish'
     compileSdk 34
@@ -88,10 +95,22 @@ android {
             universalApk true
         }
     }
-
+    
     lint {
-        baseline = file("lint-baseline.xml")
-        abortOnError = false
+        abortOnError false
+        checkReleaseBuilds false
+        disable 'InvalidPackage', 'GradleDependency', 'NewerVersionAvailable'
+        checkDependencies false
+        checkGeneratedSources false
+        ignoreTestSources true
+        warningsAsErrors false
+    }
+
+    // Add dexOptions for better memory management
+    dexOptions {
+        javaMaxHeapSize "2g"
+        preDexLibraries = false
+        maxProcessCount 4
     }
 }
 

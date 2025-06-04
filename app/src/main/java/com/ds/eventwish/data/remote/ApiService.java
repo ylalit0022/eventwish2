@@ -441,7 +441,7 @@ public interface ApiService {
      * @return Response containing about content
      */
     @GET("about")
-    Call<About> getAbout();
+    Call<BaseResponse<About>> getAbout();
 
     /**
      * Create new about content (admin only)
@@ -449,7 +449,7 @@ public interface ApiService {
      * @return Response
      */
     @POST("about")
-    Call<About> createAbout(@Body About about);
+    Call<BaseResponse<About>> createAbout(@Body About about);
 
     /**
      * Update about content (admin only)
@@ -458,7 +458,7 @@ public interface ApiService {
      * @return Response
      */
     @PUT("about/{id}")
-    Call<About> updateAbout(@Path("id") String id, @Body About about);
+    Call<BaseResponse<About>> updateAbout(@Path("id") String id, @Body About about);
 
     // Contact endpoints
     /**
@@ -466,7 +466,7 @@ public interface ApiService {
      * @return Response containing contact content
      */
     @GET("contact")
-    Call<Contact> getContact();
+    Call<BaseResponse<Contact>> getContact();
 
     /**
      * Create new contact content (admin only)
@@ -474,7 +474,7 @@ public interface ApiService {
      * @return Response
      */
     @POST("contact")
-    Call<Contact> createContact(@Body Contact contact);
+    Call<BaseResponse<Contact>> createContact(@Body Contact contact);
 
     /**
      * Update contact content (admin only)
@@ -483,5 +483,5 @@ public interface ApiService {
      * @return Response
      */
     @PUT("contact/{id}")
-    Call<Contact> updateContact(@Path("id") String id, @Body Contact contact);
+    Call<BaseResponse<Contact>> updateContact(@Path("id") String id, @Body Contact contact);
 }

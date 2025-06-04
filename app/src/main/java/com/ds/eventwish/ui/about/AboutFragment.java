@@ -142,7 +142,12 @@ public class AboutFragment extends Fragment {
                 Log.d(TAG, "About content received, loading into WebView");
                 webView.loadDataWithBaseURL(null, about.getHtmlCode(), "text/html", "UTF-8", null);
                 webView.setVisibility(View.VISIBLE);
-                errorText.setVisibility(View.GONE);
+                
+                // Only hide error text if there's no error message
+                if (errorText.getVisibility() == View.VISIBLE && 
+                    !errorText.getText().toString().startsWith(getString(R.string.using_offline_content))) {
+                    errorText.setVisibility(View.GONE);
+                }
             }
         });
         
@@ -154,9 +159,18 @@ public class AboutFragment extends Fragment {
         viewModel.getError().observe(getViewLifecycleOwner(), error -> {
             if (error != null && !error.isEmpty()) {
                 Log.e(TAG, "Error loading about content: " + error);
-                errorText.setText(error);
-                errorText.setVisibility(View.VISIBLE);
-                webView.setVisibility(View.GONE);
+                
+                // If using offline content, show a small banner but keep the webview visible
+                if (error.startsWith("Using offline content")) {
+                    errorText.setText(getString(R.string.using_offline_content));
+                    errorText.setVisibility(View.VISIBLE);
+                    // WebView should already be visible from the content observer
+                } else {
+                    // For other errors, show the full error and hide webview
+                    errorText.setText(error);
+                    errorText.setVisibility(View.VISIBLE);
+                    webView.setVisibility(View.GONE);
+                }
             } else {
                 errorText.setVisibility(View.GONE);
             }

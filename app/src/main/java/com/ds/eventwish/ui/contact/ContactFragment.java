@@ -145,8 +145,13 @@ public class ContactFragment extends BaseFragment {
             if (contact != null && contact.getHtmlCode() != null) {
                 Log.d(TAG, "Contact content received, loading into WebView");
                 webView.loadDataWithBaseURL(null, contact.getHtmlCode(), "text/html", "UTF-8", null);
-                webView.setVisibility(View.VISIBLE);
-                errorView.setVisibility(View.GONE);
+                webView.setVisibility(View.VISIBLE); // Always make WebView visible when content is available
+                
+                // Only hide error view if there's no error message
+                if (errorView.getVisibility() == View.VISIBLE && 
+                    !errorView.getText().toString().startsWith(getString(R.string.using_offline_content))) {
+                    errorView.setVisibility(View.GONE);
+                }
             }
         });
         
@@ -160,9 +165,18 @@ public class ContactFragment extends BaseFragment {
         viewModel.getError().observe(getViewLifecycleOwner(), error -> {
             if (error != null && !error.isEmpty()) {
                 Log.e(TAG, "Error loading contact content: " + error);
-                errorView.setText(error);
-                errorView.setVisibility(View.VISIBLE);
-                webView.setVisibility(View.GONE);
+                
+                // If using offline content, show a small banner but keep the webview visible
+                if (error.startsWith("Using offline content")) {
+                    errorView.setText(getString(R.string.using_offline_content));
+                    errorView.setVisibility(View.VISIBLE);
+                    // WebView should already be visible from the content observer
+                } else {
+                    // For other errors, show the full error and hide webview
+                    errorView.setText(error);
+                    errorView.setVisibility(View.VISIBLE);
+                    webView.setVisibility(View.GONE);
+                }
             } else {
                 errorView.setVisibility(View.GONE);
             }

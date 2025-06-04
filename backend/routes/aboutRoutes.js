@@ -11,21 +11,24 @@ const { verifyApiKey } = require('../middleware/authMiddleware');
  */
 router.get('/', async (req, res) => {
     try {
+        logger.info('GET /api/about - Fetching active about content');
         const about = await About.getActive();
         
         if (!about) {
+            logger.warn('GET /api/about - No active about content found');
             return res.status(404).json({
                 success: false,
                 message: 'No active about content found'
             });
         }
 
+        logger.info('GET /api/about - Successfully retrieved about content');
         res.json({
             success: true,
             data: about
         });
     } catch (error) {
-        logger.error(`Error fetching about content: ${error.message}`);
+        logger.error(`Error fetching about content: ${error.message}`, { error });
         res.status(500).json({
             success: false,
             message: 'Error fetching about content',
@@ -64,7 +67,7 @@ router.post('/', verifyApiKey, async (req, res) => {
             data: about
         });
     } catch (error) {
-        logger.error(`Error creating about content: ${error.message}`);
+        logger.error(`Error creating about content: ${error.message}`, { error });
         res.status(500).json({
             success: false,
             message: 'Error creating about content',
@@ -104,7 +107,7 @@ router.put('/:id', verifyApiKey, async (req, res) => {
             data: about
         });
     } catch (error) {
-        logger.error(`Error updating about content: ${error.message}`);
+        logger.error(`Error updating about content: ${error.message}`, { error });
         res.status(500).json({
             success: false,
             message: 'Error updating about content',
@@ -112,5 +115,37 @@ router.put('/:id', verifyApiKey, async (req, res) => {
         });
     }
 });
+
+// Create initial about content if none exists
+const createInitialAboutContent = async () => {
+    try {
+        const existingContent = await About.getActive();
+        if (!existingContent) {
+            const initialAbout = new About({
+                title: 'About EventWish',
+                htmlCode: `
+                    <h1>About EventWish</h1>
+                    <p>EventWish is an app for creating and sharing beautiful event wishes with your friends and family.</p>
+                    <p>Features include:</p>
+                    <ul>
+                        <li>Beautiful templates for various occasions</li>
+                        <li>Easy customization options</li>
+                        <li>Simple sharing to social media</li>
+                        <li>Reminders for important dates</li>
+                    </ul>
+                    <p>Version: 1.0.0</p>
+                `,
+                isActive: true
+            });
+            await initialAbout.save();
+            logger.info('Created initial about content');
+        }
+    } catch (error) {
+        logger.error(`Error creating initial about content: ${error.message}`, { error });
+    }
+};
+
+// Call the function to create initial content
+createInitialAboutContent();
 
 module.exports = router; 

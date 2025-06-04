@@ -10,6 +10,10 @@ import com.ds.eventwish.data.remote.ApiService;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
+import com.ds.eventwish.BuildConfig;
+import com.ds.eventwish.data.model.response.BaseResponse;
+import androidx.annotation.NonNull;
+import com.ds.eventwish.R;
 
 public class ContactRepository extends BaseRepository {
     private static final String TAG = "ContactRepository";
@@ -18,6 +22,7 @@ public class ContactRepository extends BaseRepository {
     private final MutableLiveData<String> errorLiveData;
     private final MutableLiveData<Boolean> loadingLiveData;
     private boolean isFetching = false;
+    private final Context context;
 
     public ContactRepository(Context context) {
         super();
@@ -25,6 +30,7 @@ public class ContactRepository extends BaseRepository {
         contactLiveData = new MutableLiveData<>();
         errorLiveData = new MutableLiveData<>();
         loadingLiveData = new MutableLiveData<>();
+        this.context = context;
     }
 
     public LiveData<Contact> getContact() {
@@ -63,14 +69,14 @@ public class ContactRepository extends BaseRepository {
 
         Log.d(TAG, "Fetching contact content" + (forceRefresh ? " (forced refresh)" : ""));
 
-        apiService.getContact().enqueue(new Callback<Contact>() {
+        apiService.getContact().enqueue(new Callback<BaseResponse<Contact>>() {
             @Override
-            public void onResponse(Call<Contact> call, Response<Contact> response) {
+            public void onResponse(Call<BaseResponse<Contact>> call, Response<BaseResponse<Contact>> response) {
                 isFetching = false;
                 loadingLiveData.postValue(false);
                 
-                if (response.isSuccessful() && response.body() != null) {
-                    contactLiveData.postValue(response.body());
+                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                    contactLiveData.postValue(response.body().getData());
                     Log.d(TAG, "Contact content fetched successfully");
                 } else {
                     handleApiError(response, errorLiveData);
@@ -78,12 +84,35 @@ public class ContactRepository extends BaseRepository {
             }
 
             @Override
-            public void onFailure(Call<Contact> call, Throwable t) {
-                isFetching = false;
+            public void onFailure(@NonNull Call<BaseResponse<Contact>> call, @NonNull Throwable t) {
+                Log.e(TAG, "Error fetching contact content: " + t.getMessage(), t);
+                
+                // Create fallback content
+                Contact fallbackContact = new Contact();
+                fallbackContact.setTitle("Contact Us");
+                fallbackContact.setHtmlCode(
+                    "<html><body style='padding: 16px; font-family: sans-serif;'>" +
+                    "<h2>Contact Us</h2>" +
+                    "<p>We'd love to hear from you! Here's how you can reach us:</p>" +
+                    "<div style='margin-top: 16px;'>" +
+                    "<p><strong>Email:</strong> support@eventwish.com</p>" +
+                    "<p><strong>Website:</strong> www.eventwish.com</p>" +
+                    "</div>" +
+                    "<div style='margin-top: 24px;'>" +
+                    "<h3>Send us feedback</h3>" +
+                    "<p>Your feedback helps us improve EventWish. Please let us know if you have any suggestions or encounter any issues.</p>" +
+                    "</div>" +
+                    "</body></html>"
+                );
+                
+                // Post fallback content to LiveData
+                contactLiveData.postValue(fallbackContact);
+                
+                // Post error message indicating offline content is being used
+                errorLiveData.postValue(context.getString(R.string.using_offline_content));
+                
+                // Update loading state
                 loadingLiveData.postValue(false);
-                String errorMessage = "Error fetching contact content: " + t.getMessage();
-                Log.e(TAG, errorMessage, t);
-                errorLiveData.postValue(errorMessage);
             }
         });
     }

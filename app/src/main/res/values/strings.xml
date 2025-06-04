@@ -439,4 +439,5 @@
     <string name="title_contact">Contact</string>
     <string name="error_loading_content">Error loading content</string>
     <string name="no_internet_connection">No internet connection</string>
+    <string name="using_offline_content">Using offline content. Check your internet connection.</string>
 </resources>
