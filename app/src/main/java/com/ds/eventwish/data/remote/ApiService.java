@@ -1,5 +1,7 @@
 package com.ds.eventwish.data.remote;
 
+import com.ds.eventwish.data.model.About;
+import com.ds.eventwish.data.model.Contact;
 import com.ds.eventwish.data.model.CategoryIcon;
 import com.ds.eventwish.data.model.Festival;
 import com.ds.eventwish.data.model.SharedWish;
@@ -432,4 +434,54 @@ public interface ApiService {
         @Path("id") String id,
         @retrofit2.http.Header("x-device-id") String deviceId
     );
+
+    // About endpoints
+    /**
+     * Get active about content
+     * @return Response containing about content
+     */
+    @GET("about")
+    Call<About> getAbout();
+
+    /**
+     * Create new about content (admin only)
+     * @param about About content
+     * @return Response
+     */
+    @POST("about")
+    Call<About> createAbout(@Body About about);
+
+    /**
+     * Update about content (admin only)
+     * @param id About content ID
+     * @param about Updated about content
+     * @return Response
+     */
+    @PUT("about/{id}")
+    Call<About> updateAbout(@Path("id") String id, @Body About about);
+
+    // Contact endpoints
+    /**
+     * Get active contact content
+     * @return Response containing contact content
+     */
+    @GET("contact")
+    Call<Contact> getContact();
+
+    /**
+     * Create new contact content (admin only)
+     * @param contact Contact content
+     * @return Response
+     */
+    @POST("contact")
+    Call<Contact> createContact(@Body Contact contact);
+
+    /**
+     * Update contact content (admin only)
+     * @param id Contact content ID
+     * @param contact Updated contact content
+     * @return Response
+     */
+    @PUT("contact/{id}")
+    Call<Contact> updateContact(@Path("id") String id, @Body Contact contact);
 }

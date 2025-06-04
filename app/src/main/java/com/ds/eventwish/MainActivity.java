@@ -370,7 +370,7 @@ public class MainActivity extends AppCompatActivity {
             
             // Configure app bar
             appBarConfiguration = new AppBarConfiguration.Builder(
-                    R.id.navigation_home, R.id.navigation_reminder, R.id.navigation_profile)
+                    R.id.navigation_home, R.id.navigation_reminder, R.id.navigation_more)
                     .build();
             
             // Handle bottom navigation item reselection properly
@@ -379,7 +379,7 @@ public class MainActivity extends AppCompatActivity {
                 int itemId = item.getItemId();
                 if (itemId == R.id.navigation_home || 
                     itemId == R.id.navigation_reminder || 
-                    itemId == R.id.navigation_profile) {
+                    itemId == R.id.navigation_more) {
                     // Pop back stack to the start destination of the current tab
                     navController.popBackStack(itemId, false);
                 }
@@ -439,11 +439,11 @@ public class MainActivity extends AppCompatActivity {
                     new Handler().postDelayed(() -> isNavigating = false, 300);
                     return true;
                 }
-                // Special handling for profile navigation
-                else if (itemId == R.id.navigation_profile) {
-                    Log.d(TAG, "Navigating to Profile");
-                    // Always navigate directly to the profile fragment
-                    navController.navigate(R.id.navigation_profile);
+                // Special handling for more navigation
+                else if (itemId == R.id.navigation_more) {
+                    Log.d(TAG, "Navigating to More");
+                    // Always navigate directly to the more fragment
+                    navController.navigate(R.id.navigation_more);
                     new Handler().postDelayed(() -> isNavigating = false, 300);
                     return true;
                 }

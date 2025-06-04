@@ -417,7 +417,7 @@
     <string name="ad_error_loading">Could not load advertisement</string>
 
     <!-- Ad Related -->
-    <string name="cooldown_timer_format">Ad in: %02d:%02d</string>
+    <string name="cooldown_timer_format" formatted="false">Ad in: %02d:%02d</string>
     <string name="share_unlocked">Share Unlocked!</string>
     <string name="cooldown_ended">Ad cooldown period ended. Watch another ad to share.</string>
 
@@ -433,4 +433,10 @@
 
     <!-- Ad Debugger -->
     <string name="ad_debugger_title">Ad Impression Debugger</string>
+
+    <!-- About and Contact -->
+    <string name="title_about">About</string>
+    <string name="title_contact">Contact</string>
+    <string name="error_loading_content">Error loading content</string>
+    <string name="no_internet_connection">No internet connection</string>
 </resources>

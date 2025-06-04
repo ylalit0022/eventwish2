@@ -284,6 +284,14 @@ app.use('/api/segments', require('./routes/segmentRoutes'));
 // Test routes
 app.use('/api/test', require('./routes/testRoutes'));
 
+// Import routes
+const aboutRoutes = require('./routes/aboutRoutes');
+const contactRoutes = require('./routes/contactRoutes');
+
+// Use routes
+app.use('/api/about', aboutRoutes);
+app.use('/api/contact', contactRoutes);
+
 // Debug logging middleware
 if (process.env.NODE_ENV === 'development') {
   app.use((req, res, next) => {

@@ -704,3 +704,247 @@ Common issues and solutions:
 ## Conclusion
 
 This documentation provides a comprehensive overview of the EventWish app architecture, components, and maintenance procedures. It should serve as a guide for future developers to understand, maintain, and enhance the application.
+
+## About and Contact Implementation Plan
+
+### Current Status
+[X] Server-side implementation complete
+- Models (About.js, Contact.js)
+- Routes (aboutRoutes.js, contactRoutes.js)
+- Server configuration updated
+
+### Android Implementation Plan
+
+#### 1. Examine Existing Structure
+[ ] Review current project structure:
+  - Check existing fragments and navigation
+  - Review current API service implementation
+  - Examine existing WebView implementations
+  - Check current error handling patterns
+
+#### 2. Data Models (app/src/main/java/com/ds/eventwish/data/model/)
+[ ] Create About.java
+```java
+public class About {
+    private String id;
+    private String title;
+    private String htmlCode;
+    private boolean isActive;
+    private String createdAt;
+    private String updatedAt;
+    
+    // Constructor
+    // Getters and Setters
+}
+```
+
+[ ] Create Contact.java
+```java
+public class Contact {
+    private String id;
+    private String title;
+    private String htmlCode;
+    private boolean isActive;
+    private String createdAt;
+    private String updatedAt;
+    
+    // Constructor
+    // Getters and Setters
+}
+```
+
+#### 3. API Service (app/src/main/java/com/ds/eventwish/data/api/)
+[ ] Update ApiService.java
+```java
+@GET("about")
+Call<ApiResponse<About>> getAboutContent();
+
+@GET("contact")
+Call<ApiResponse<Contact>> getContactContent();
+```
+
+#### 4. Repository Layer
+[ ] Create AboutRepository.java
+```java
+public class AboutRepository {
+    private final ApiService apiService;
+    private final MutableLiveData<About> aboutContent;
+    private final MutableLiveData<Boolean> isLoading;
+    private final MutableLiveData<String> error;
+    
+    // Constructor
+    // Methods for fetching and caching about content
+}
+```
+
+[ ] Create ContactRepository.java
+```java
+public class ContactRepository {
+    private final ApiService apiService;
+    private final MutableLiveData<Contact> contactContent;
+    private final MutableLiveData<Boolean> isLoading;
+    private final MutableLiveData<String> error;
+    
+    // Constructor
+    // Methods for fetching and caching contact content
+}
+```
+
+#### 5. ViewModels
+[ ] Create AboutViewModel.java
+```java
+public class AboutViewModel extends ViewModel {
+    private final AboutRepository repository;
+    private final LiveData<About> aboutContent;
+    private final LiveData<Boolean> isLoading;
+    private final LiveData<String> error;
+    
+    // Constructor
+    // Methods for managing about content state
+}
+```
+
+[ ] Create ContactViewModel.java
+```java
+public class ContactViewModel extends ViewModel {
+    private final ContactRepository repository;
+    private final LiveData<Contact> contactContent;
+    private final LiveData<Boolean> isLoading;
+    private final LiveData<String> error;
+    
+    // Constructor
+    // Methods for managing contact content state
+}
+```
+
+#### 6. UI Implementation
+[ ] Create fragment_about.xml
+```xml
+<androidx.constraintlayout.widget.ConstraintLayout>
+    <WebView/>
+    <ProgressBar/>
+    <TextView/> <!-- For error messages -->
+    <SwipeRefreshLayout/> <!-- For pull to refresh -->
+</androidx.constraintlayout.widget.ConstraintLayout>
+```
+
+[ ] Create fragment_contact.xml
+```xml
+<androidx.constraintlayout.widget.ConstraintLayout>
+    <WebView/>
+    <ProgressBar/>
+    <TextView/> <!-- For error messages -->
+    <SwipeRefreshLayout/> <!-- For pull to refresh -->
+</androidx.constraintlayout.widget.ConstraintLayout>
+```
+
+[ ] Create AboutFragment.java
+```java
+public class AboutFragment extends Fragment {
+    private AboutViewModel viewModel;
+    private WebView webView;
+    private ProgressBar progressBar;
+    private TextView errorView;
+    private SwipeRefreshLayout swipeRefresh;
+    
+    // Lifecycle methods
+    // WebView setup
+    // Error handling
+    // Loading state management
+}
+```
+
+[ ] Create ContactFragment.java
+```java
+public class ContactFragment extends Fragment {
+    private ContactViewModel viewModel;
+    private WebView webView;
+    private ProgressBar progressBar;
+    private TextView errorView;
+    private SwipeRefreshLayout swipeRefresh;
+    
+    // Lifecycle methods
+    // WebView setup
+    // Error handling
+    // Loading state management
+}
+```
+
+#### 7. Navigation Setup
+[ ] Update nav_graph.xml
+```xml
+<fragment
+    android:id="@+id/aboutFragment"
+    android:name="com.ds.eventwish.ui.about.AboutFragment"
+    android:label="About" />
+
+<fragment
+    android:id="@+id/contactFragment"
+    android:name="com.ds.eventwish.ui.contact.ContactFragment"
+    android:label="Contact" />
+```
+
+[ ] Update MoreFragment.java
+```java
+// Add click handlers for About and Contact cards
+aboutCard.setOnClickListener(v -> {
+    Navigation.findNavController(v).navigate(R.id.action_moreFragment_to_aboutFragment);
+});
+
+helpCard.setOnClickListener(v -> {
+    Navigation.findNavController(v).navigate(R.id.action_moreFragment_to_contactFragment);
+});
+```
+
+### Implementation Order
+1. [ ] Create data models
+2. [ ] Update API service
+3. [ ] Create repositories
+4. [ ] Create ViewModels
+5. [ ] Create UI layouts
+6. [ ] Implement fragments
+7. [ ] Update navigation
+8. [ ] Test implementation
+
+### Testing Checklist
+1. [ ] Test API integration
+   - Verify about content fetching
+   - Verify contact content fetching
+   - Test error handling
+   - Test loading states
+
+2. [ ] Test UI components
+   - Verify WebView rendering
+   - Test loading indicators
+   - Verify error messages
+   - Test pull-to-refresh
+   - Check navigation
+
+3. [ ] Test offline behavior
+   - Verify error handling without network
+   - Test cached content display
+
+4. [ ] Integration testing
+   - Test navigation flow
+   - Verify memory management
+   - Check WebView cleanup
+
+### Error Handling
+- Network errors
+- Invalid HTML content
+- WebView loading errors
+- Navigation errors
+- Memory management
+
+### Performance Considerations
+- WebView memory management
+- Content caching
+- Efficient navigation
+- Loading state management
+
+### Next Steps
+1. [ ] Start with data models and API service
+2. [ ] Implement repositories and ViewModels
+3. [ ] Create UI components
+4. [ ] Add navigation
+5. [ ] Comprehensive testing

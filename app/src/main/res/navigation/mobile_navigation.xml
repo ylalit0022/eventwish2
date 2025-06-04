@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/mobile_navigation"
-    app:startDestination="@id/navigation_home">
+    app:startDestination="@+id/navigation_home">
 
     <fragment
         android:id="@+id/navigation_home"
@@ -24,9 +24,9 @@
         tools:layout="@layout/fragment_reminder" />
 
     <fragment
-        android:id="@+id/navigation_profile"
-        android:name="com.ds.eventwish.ui.profile.ProfileFragment"
-        android:label="@string/title_profile"
-        tools:layout="@layout/fragment_profile" />
+        android:id="@+id/navigation_more"
+        android:name="com.ds.eventwish.ui.more.MoreFragment"
+        android:label="@string/title_more"
+        tools:layout="@layout/fragment_more" />
 
 </navigation> 

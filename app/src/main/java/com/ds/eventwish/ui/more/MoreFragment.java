@@ -6,6 +6,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.navigation.Navigation;
+import com.ds.eventwish.R;
 import com.ds.eventwish.databinding.FragmentMoreBinding;
 import com.ds.eventwish.ui.base.BaseFragment;
 
@@ -32,12 +34,12 @@ public class MoreFragment extends BaseFragment {
 
         binding.aboutCard.setOnClickListener(v -> {
             // Navigate to about
-            // Navigation.findNavController(v).navigate(R.id.action_more_to_about);
+            Navigation.findNavController(v).navigate(R.id.action_more_to_about);
         });
 
         binding.helpCard.setOnClickListener(v -> {
-            // Navigate to help & support
-            // Navigation.findNavController(v).navigate(R.id.action_more_to_help);
+            // Navigate to contact
+            Navigation.findNavController(v).navigate(R.id.action_more_to_contact);
         });
     }
 

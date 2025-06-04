@@ -212,6 +212,22 @@
             app:exitAnim="@anim/nav_default_exit_anim"
             app:popEnterAnim="@anim/nav_default_pop_enter_anim"
             app:popExitAnim="@anim/nav_default_pop_exit_anim" />
+
+        <action
+            android:id="@+id/action_more_to_about"
+            app:destination="@id/navigation_about"
+            app:enterAnim="@anim/nav_default_enter_anim"
+            app:exitAnim="@anim/nav_default_exit_anim"
+            app:popEnterAnim="@anim/nav_default_pop_enter_anim"
+            app:popExitAnim="@anim/nav_default_pop_exit_anim" />
+
+        <action
+            android:id="@+id/action_more_to_contact"
+            app:destination="@id/navigation_contact"
+            app:enterAnim="@anim/nav_default_enter_anim"
+            app:exitAnim="@anim/nav_default_exit_anim"
+            app:popEnterAnim="@anim/nav_default_pop_enter_anim"
+            app:popExitAnim="@anim/nav_default_pop_exit_anim" />
             
         <action
             android:id="@+id/action_more_to_reminder"
@@ -318,5 +334,19 @@
             app:popEnterAnim="@anim/nav_default_pop_enter_anim"
             app:popExitAnim="@anim/nav_default_pop_exit_anim" />
     </fragment>
+
+    <!-- About Fragment -->
+    <fragment
+        android:id="@+id/navigation_about"
+        android:name="com.ds.eventwish.ui.about.AboutFragment"
+        android:label="About"
+        tools:layout="@layout/fragment_about" />
+
+    <!-- Contact Fragment -->
+    <fragment
+        android:id="@+id/navigation_contact"
+        android:name="com.ds.eventwish.ui.contact.ContactFragment"
+        android:label="Contact"
+        tools:layout="@layout/fragment_contact" />
 
 </navigation>

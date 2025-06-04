@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EventWish Content Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .content-section {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .content-container {
+            border: 1px solid #eee;
+            border-radius: 4px;
+            padding: 10px;
+            min-height: 400px;
+        }
+        
+        h1 {
+            color: #4a90e2;
+            text-align: center;
+        }
+        
+        h2 {
+            color: #4a90e2;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        button {
+            background-color: #4a90e2;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background-color: #3a7bc8;
+        }
+        
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #4a90e2;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        .error {
+            color: #e74c3c;
+            padding: 20px;
+            background-color: #fdf7f7;
+            border-left: 4px solid #e74c3c;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+        }
+        
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background-color: #f5f5f5;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
+        }
+        
+        .tab.active {
+            background-color: #4a90e2;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>EventWish Content Viewer</h1>
+    
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('about')">About</div>
+        <div class="tab" onclick="switchTab('contact')">Contact</div>
+    </div>
+    
+    <div class="container">
+        <div id="about-section" class="content-section">
+            <h2>About Content</h2>
+            <div class="controls">
+                <button onclick="loadAboutContent()">Load Content</button>
+                <button onclick="clearContent('about')">Clear</button>
+            </div>
+            <div id="about-content" class="content-container">
+                <div class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                </div>
+                <div class="error" style="display: none;"></div>
+                <div class="content"></div>
+            </div>
+        </div>
+        
+        <div id="contact-section" class="content-section" style="display: none;">
+            <h2>Contact Content</h2>
+            <div class="controls">
+                <button onclick="loadContactContent()">Load Content</button>
+                <button onclick="clearContent('contact')">Clear</button>
+            </div>
+            <div id="contact-content" class="content-container">
+                <div class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                </div>
+                <div class="error" style="display: none;"></div>
+                <div class="content"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // API base URL - change this to your server URL
+        const API_BASE_URL = 'http://localhost:3001/api';
+        
+        // Switch between tabs
+        function switchTab(tab) {
+            // Hide all sections
+            document.getElementById('about-section').style.display = 'none';
+            document.getElementById('contact-section').style.display = 'none';
+            
+            // Show selected section
+            document.getElementById(`${tab}-section`).style.display = 'block';
+            
+            // Update active tab
+            document.querySelectorAll('.tab').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            event.target.classList.add('active');
+        }
+        
+        // Load About content
+        function loadAboutContent() {
+            const container = document.getElementById('about-content');
+            const loading = container.querySelector('.loading');
+            const error = container.querySelector('.error');
+            const content = container.querySelector('.content');
+            
+            // Show loading spinner
+            content.innerHTML = '';
+            error.style.display = 'none';
+            loading.style.display = 'flex';
+            
+            // Fetch content from API
+            fetch(`${API_BASE_URL}/about`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Hide loading spinner
+                    loading.style.display = 'none';
+                    
+                    if (data.success && data.data && data.data.htmlCode) {
+                        // Display content
+                        content.innerHTML = data.data.htmlCode;
+                        
+                        // Handle external links
+                        setupExternalLinks(content);
+                    } else {
+                        throw new Error('No content available');
+                    }
+                })
+                .catch(err => {
+                    // Hide loading spinner
+                    loading.style.display = 'none';
+                    
+                    // Show error message
+                    error.textContent = `Error loading content: ${err.message}`;
+                    error.style.display = 'block';
+                });
+        }
+        
+        // Load Contact content
+        function loadContactContent() {
+            const container = document.getElementById('contact-content');
+            const loading = container.querySelector('.loading');
+            const error = container.querySelector('.error');
+            const content = container.querySelector('.content');
+            
+            // Show loading spinner
+            content.innerHTML = '';
+            error.style.display = 'none';
+            loading.style.display = 'flex';
+            
+            // Fetch content from API
+            fetch(`${API_BASE_URL}/contact`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Hide loading spinner
+                    loading.style.display = 'none';
+                    
+                    if (data.success && data.data && data.data.htmlCode) {
+                        // Display content
+                        content.innerHTML = data.data.htmlCode;
+                        
+                        // Handle external links
+                        setupExternalLinks(content);
+                    } else {
+                        throw new Error('No content available');
+                    }
+                })
+                .catch(err => {
+                    // Hide loading spinner
+                    loading.style.display = 'none';
+                    
+                    // Show error message
+                    error.textContent = `Error loading content: ${err.message}`;
+                    error.style.display = 'block';
+                });
+        }
+        
+        // Clear content
+        function clearContent(section) {
+            const container = document.getElementById(`${section}-content`);
+            const error = container.querySelector('.error');
+            const content = container.querySelector('.content');
+            
+            content.innerHTML = '';
+            error.style.display = 'none';
+        }
+        
+        // Setup external links to open in new tab
+        function setupExternalLinks(container) {
+            const links = container.querySelectorAll('a');
+            
+            links.forEach(link => {
+                // Check if link is external
+                if (link.href.startsWith('http') || link.href.startsWith('mailto:') || link.href.startsWith('tel:')) {
+                    // Add target="_blank" for external links if not already present
+                    if (!link.hasAttribute('target')) {
+                        link.setAttribute('target', '_blank');
+                    }
+                    
+                    // Add rel="noopener noreferrer" for security
+                    link.setAttribute('rel', 'noopener noreferrer');
+                    
+                    // Add click event for tracking
+                    link.addEventListener('click', function(event) {
+                        console.log(`Link clicked: ${link.href}`);
+                        
+                        // For mailto: links, prevent default and show a message
+                        if (link.href.startsWith('mailto:')) {
+                            event.preventDefault();
+                            alert(`Email link clicked: ${link.href.substring(7)}`);
+                        }
+                    });
+                }
+            });
+        }
+        
+        // Load About content by default
+        window.onload = function() {
+            loadAboutContent();
+        };
+    </script>
+</body>
+</html> 
