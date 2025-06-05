@@ -10,15 +10,20 @@ import android.view.ViewGroup;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.Navigation;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.About;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 public class AboutFragment extends Fragment {
     private static final String TAG = "AboutFragment";
@@ -28,6 +33,7 @@ public class AboutFragment extends Fragment {
     private ProgressBar progressBar;
     private TextView errorText;
     private SwipeRefreshLayout swipeRefresh;
+    private FloatingActionButton backButton;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -44,6 +50,10 @@ public class AboutFragment extends Fragment {
         progressBar = view.findViewById(R.id.progressBar);
         errorText = view.findViewById(R.id.errorText);
         swipeRefresh = view.findViewById(R.id.swipeRefresh);
+        backButton = view.findViewById(R.id.backButton);
+
+        //setup backpress
+        backButtonFun();
 
         // Setup WebView
         setupWebView();
@@ -59,6 +69,14 @@ public class AboutFragment extends Fragment {
 
         // Load data
         viewModel.loadAboutContent();
+    }
+
+    private void backButtonFun() {
+        backButton.setOnClickListener(v -> {
+
+            Navigation.findNavController(v).navigate(R.id.navigation_more);
+
+        });
     }
 
     private void setupSwipeRefresh() {

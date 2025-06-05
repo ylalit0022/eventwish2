@@ -116,10 +116,9 @@ if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'tru
 }
 
 // Rate limiting
-// Rate limiting
 const apiLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 60 minutes
-  max: 1000, // limit each IP to 1000 requests per windowMs
+  max: Infinity, // No limit on requests per IP (unlimited)
   message: 'Too many requests from this IP, please try again after 60 minutes',
   standardHeaders: true,
   legacyHeaders: false,

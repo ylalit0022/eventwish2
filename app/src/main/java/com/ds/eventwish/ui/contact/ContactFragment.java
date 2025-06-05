@@ -16,11 +16,13 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.navigation.Navigation;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.ds.eventwish.R;
 import com.ds.eventwish.databinding.FragmentContactBinding;
 import com.ds.eventwish.ui.base.BaseFragment;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 public class ContactFragment extends BaseFragment {
     private static final String TAG = "ContactFragment";
@@ -31,6 +33,8 @@ public class ContactFragment extends BaseFragment {
     private ProgressBar progressBar;
     private TextView errorView;
     private SwipeRefreshLayout swipeRefresh;
+    private FloatingActionButton backButton;
+
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -47,7 +51,11 @@ public class ContactFragment extends BaseFragment {
         progressBar = binding.progressBar;
         errorView = binding.errorView;
         swipeRefresh = binding.swipeRefresh;
-        
+        backButton = view.findViewById(R.id.backButton);
+
+        //setup backpress
+        backButtonFun();
+
         // Setup WebView
         setupWebView();
         
@@ -63,7 +71,15 @@ public class ContactFragment extends BaseFragment {
         // Load data
         viewModel.loadContactContent();
     }
-    
+
+    private void backButtonFun() {
+        backButton.setOnClickListener(v -> {
+
+            Navigation.findNavController(v).navigate(R.id.navigation_more);
+
+        });
+    }
+
     private void setupSwipeRefresh() {
         // Set refresh colors
         swipeRefresh.setColorSchemeResources(

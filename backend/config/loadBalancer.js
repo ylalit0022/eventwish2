@@ -41,7 +41,7 @@ const loadBalancerConfig = {
       priority: 'high',
       rateLimit: {
         windowMs: 60000, // 1 minute
-        max: 100 // 100 requests per minute
+        max: Infinity // Allow unlimited requests
       },
       timeout: 10000 // 10 seconds
     },
@@ -49,7 +49,7 @@ const loadBalancerConfig = {
       priority: 'highest',
       rateLimit: {
         windowMs: 60000, // 1 minute
-        max: 200 // 200 requests per minute
+        max: Infinity // Allow unlimited requests
       },
       timeout: 5000 // 5 seconds
     },
@@ -57,7 +57,7 @@ const loadBalancerConfig = {
       priority: 'medium',
       rateLimit: {
         windowMs: 60000, // 1 minute
-        max: 150 // 150 requests per minute
+        max: Infinity // Allow unlimited requests
       },
       timeout: 15000 // 15 seconds
     },
@@ -65,7 +65,7 @@ const loadBalancerConfig = {
       priority: 'high',
       rateLimit: {
         windowMs: 60000, // 1 minute
-        max: 100 // 100 requests per minute
+        max: Infinity // Allow unlimited requests
       },
       timeout: 8000 // 8 seconds
     },
@@ -73,7 +73,7 @@ const loadBalancerConfig = {
       priority: 'medium',
       rateLimit: {
         windowMs: 60000, // 1 minute
-        max: 50 // 50 requests per minute
+        max: Infinity // Allow unlimited requests
       },
       timeout: 12000 // 12 seconds
     }

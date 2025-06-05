@@ -24,6 +24,8 @@ import com.google.android.material.snackbar.Snackbar;
 import android.view.View;
 import java.util.LinkedHashMap;
 import java.util.Objects;
+import java.util.Collections;
+import java.lang.StringBuilder;
 
 public class HomeViewModel extends ViewModel {
     private static final String TAG = "HomeViewModel";
@@ -272,6 +274,36 @@ public class HomeViewModel extends ViewModel {
         // Apply time filter
         applyTimeFilter(timeFilter.getValue());
         
+        // Create a named observer for templates
+        androidx.lifecycle.Observer<List<Template>> templatesObserver = new androidx.lifecycle.Observer<List<Template>>() {
+            @Override
+            public void onChanged(List<Template> templates) {
+                if (templates != null && !templates.isEmpty()) {
+                    // Create a new list to avoid modifying the repository's list directly
+                    List<Template> sortedTemplates = new ArrayList<>(templates);
+                    
+                    // Sort by creation date (newest first)
+                    Collections.sort(sortedTemplates, (t1, t2) -> {
+                        long time1 = t1.getCreatedAtTimestamp();
+                        long time2 = t2.getCreatedAtTimestamp();
+                        // Sort in descending order (newest first)
+                        return Long.compare(time2, time1);
+                    });
+                    
+                    Log.d(TAG, "Sorted " + sortedTemplates.size() + " templates by creation date (newest first)");
+                    
+                    // Check for new templates in the sorted list
+                    checkForNewTemplates(sortedTemplates);
+                    
+                    // Remove observer to avoid multiple callbacks
+                    repository.getTemplates().removeObserver(this);
+                }
+            }
+        };
+        
+        // Add the observer to get templates when they're loaded
+        repository.getTemplates().observeForever(templatesObserver);
+        
         // Load templates with the current filters
         repository.loadTemplates(clearExisting);
         
@@ -405,38 +437,82 @@ public class HomeViewModel extends ViewModel {
         
         Log.d(TAG, "Checking for new templates - Last check time: " + lastCheckTime);
         
+        // First check for completely new template IDs we haven't seen before
+        Set<String> allKnownIds = new HashSet<>(viewedTemplateIds);
+        
+        // Load previously seen template IDs from SharedPreferences
+        String savedIdsString = prefs.getString("all_template_ids", "");
+        if (!savedIdsString.isEmpty()) {
+            String[] savedIds = savedIdsString.split(",");
+            Collections.addAll(allKnownIds, savedIds);
+        }
+        
+        // Current template IDs for saving later
+        Set<String> currentIds = new HashSet<>();
+        
         for (Template template : templates) {
             if (template.getId() == null || template.getId().isEmpty()) {
                 continue;
             }
             
+            // Add to current IDs for tracking
+            currentIds.add(template.getId());
+            
+            // Check if this is a completely new template we haven't seen before
+            boolean isNewId = !allKnownIds.contains(template.getId());
+            
             // A template is "new" if:
             // 1. It hasn't been viewed before
-            // 2. AND (It's been created/updated since last check OR it's a recent template)
+            // 2. AND (It's a completely new ID OR it's been created/updated since last check OR it's a recent template)
             if (!viewedTemplateIds.contains(template.getId())) {
-                long templateTime = template.getCreatedAtTimestamp();
-                if (templateTime > lastCheckTime || templateTime > newThreshold) {
+                long templateTime = 0;
+                try {
+                    templateTime = template.getCreatedAtTimestamp();
+                } catch (Exception e) {
+                    Log.e(TAG, "Error getting timestamp for template: " + template.getId(), e);
+                }
+                
+                // Force templateTime to current time if it's zero or negative (invalid)
+                if (templateTime <= 0) {
+                    Log.d(TAG, "Template has invalid timestamp, using current time: " + template.getId());
+                    templateTime = currentTime;
+                }
+                
+                // Debug log to see what's happening with this template
+                Log.d(TAG, "Template " + template.getId() + 
+                      " created at: " + templateTime + 
+                      ", last check: " + lastCheckTime + 
+                      ", is new ID: " + isNewId +
+                      ", is new: " + (isNewId || templateTime > lastCheckTime || templateTime > newThreshold));
+                
+                // Mark as new if it's a new ID or has a recent timestamp
+                if (isNewId || templateTime > lastCheckTime || templateTime > newThreshold) {
                     newIds.add(template.getId());
                     Log.d(TAG, "Marking as new: " + template.getId() + " created at: " + templateTime);
                 }
             }
         }
         
+        // Save the current template IDs for future comparisons
+        StringBuilder idsBuilder = new StringBuilder();
+        for (String id : currentIds) {
+            idsBuilder.append(id).append(",");
+        }
+        prefs.edit().putString("all_template_ids", idsBuilder.toString()).apply();
+        
         Log.d(TAG, "Found " + newIds.size() + " new templates");
         
-        if (!newIds.isEmpty()) {
-            hasNewTemplates.setValue(true);
-            newTemplateIds.setValue(newIds);
-            
-            // Force a notification by setting a value
-            if (newTemplateIds.getValue() != null) {
-                newTemplateIds.setValue(new HashSet<>(newIds));
-            }
-        }
+        // Always update LiveData with current new templates, even if empty
+        // This ensures UI is always in sync with our data
+        hasNewTemplates.setValue(!newIds.isEmpty());
+        newTemplateIds.setValue(newIds);
         
-        // Update the last check time
-        prefs.edit().putLong(PREF_LAST_CHECK_TIME, currentTime).apply();
-        Log.d(TAG, "Updated last check time to: " + currentTime);
+        // Only update the last check time if we're not finding any new templates
+        // This ensures that if new templates are added, they'll still be detected on next check
+        if (newIds.isEmpty()) {
+            prefs.edit().putLong(PREF_LAST_CHECK_TIME, currentTime).apply();
+            Log.d(TAG, "Updated last check time to: " + currentTime);
+        }
     }
 
     public void markTemplateAsViewed(String templateId) {

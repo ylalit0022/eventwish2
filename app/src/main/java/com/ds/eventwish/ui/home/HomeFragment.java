@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.Date;
 
 import com.google.android.flexbox.FlexboxLayoutManager;
 import com.google.android.flexbox.FlexDirection;
@@ -615,15 +616,12 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         
         // Setup test button for debugging
         binding.refreshIcon.setOnLongClickListener(v -> {
-            // Toggle the indicator for testing
-            boolean currentState = binding.refreshIndicator.getVisibility() == View.VISIBLE;
-            binding.refreshIndicator.setVisibility(currentState ? View.GONE : View.VISIBLE);
-            
-            // Show a toast with the current state
-            Toast.makeText(requireContext(), 
-                          "Indicator " + (currentState ? "hidden" : "shown") + " for testing", 
-                          Toast.LENGTH_SHORT).show();
-            
+            // Just show/hide the indicator for testing
+            if (binding.refreshIndicator.getVisibility() == View.VISIBLE) {
+                binding.refreshIndicator.setVisibility(View.GONE);
+            } else {
+                binding.refreshIndicator.setVisibility(View.VISIBLE);
+            }
             return true;
         });
         
@@ -1551,15 +1549,18 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             }
         });
         
-        // Observe new template IDs
-        viewModel.getNewTemplateIds().observe(getViewLifecycleOwner(), newIds -> {
-            if (newIds != null && adapter != null) {
-                int count = newIds.size();
-                Log.d(TAG, "New template IDs updated: " + count + (count > 0 ? ", First ID: " + newIds.iterator().next() : ""));
-                adapter.setNewTemplateIds(newIds);
-                
-                // Force a refresh of all visible items to ensure badges are displayed
-                if (count > 0 && layoutManager != null) {
+        // Observe new templates indicator
+        viewModel.getHasNewTemplates().observe(getViewLifecycleOwner(), hasNew -> {
+            Log.d(TAG, "New templates indicator updated: " + hasNew);
+            binding.refreshIndicator.setVisibility(hasNew ? View.VISIBLE : View.GONE);
+            
+            // If we have new templates, also make sure to update the adapter with the IDs
+            if (hasNew && adapter != null) {
+                Set<String> newIds = viewModel.getNewTemplateIds().getValue();
+                if (newIds != null && !newIds.isEmpty()) {
+                    adapter.setNewTemplateIds(newIds);
+                    
+                    // Force a refresh of visible items to ensure badges are displayed
                     int firstVisible = layoutManager.findFirstVisibleItemPosition();
                     int lastVisible = layoutManager.findLastVisibleItemPosition();
                     if (firstVisible >= 0 && lastVisible >= 0) {
@@ -1651,11 +1652,6 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             }
         });
         
-        // Observe new templates indicator
-        viewModel.getHasNewTemplates().observe(getViewLifecycleOwner(), hasNew -> {
-            binding.refreshIndicator.setVisibility(hasNew ? View.VISIBLE : View.GONE);
-        });
-        
         // Observe unread festival count
         festivalViewModel.getUnreadCount().observe(getViewLifecycleOwner(), count -> {
             if (count != null && count > 0) {
@@ -1724,20 +1720,6 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         Bundle args = new Bundle();
         args.putString("templateId", templateId);
         Navigation.findNavController(requireView()).navigate(R.id.action_home_to_template_detail, args);
-    }
-
-    // Test method to simulate new templates (for development/testing only)
-    private void testNewTemplatesIndicator() {
-        // Toggle the indicator for testing
-        boolean currentState = binding.refreshIndicator.getVisibility() == View.VISIBLE;
-        binding.refreshIndicator.setVisibility(currentState ? View.GONE : View.VISIBLE);
-        
-        // Show a toast message
-        Toast.makeText(requireContext(), 
-                      currentState ? "Test: Indicator hidden" : "Test: New templates indicator shown", 
-                      Toast.LENGTH_SHORT).show();
-        
-        Log.d(TAG, "Test: Toggled new templates indicator to " + !currentState);
     }
 
     /**

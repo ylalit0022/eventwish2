@@ -12,4 +12,7 @@
     <item name="action_save" type="id" />
     <item name="action_delete" type="id" />
     <item name="action_premium_features" type="id" />
+    
+    <!-- View tags -->
+    <item name="tag_adapter" type="id" />
 </resources> 

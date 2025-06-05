@@ -27,6 +27,7 @@ import com.ds.eventwish.data.repository.CategoryIconRepository;
 import com.ds.eventwish.data.repository.EngagementRepository;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -51,6 +52,9 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
     private final TemplateClickListener clickListener;
     private CategoryIconRepository categoryIconRepository;
     private EngagementRepository engagementRepository;
+    
+    // Add this constant at the top of the class
+    private static final int TAG_ADAPTER = R.id.tag_adapter;
     
     /**
      * Interface for template click events
@@ -139,22 +143,38 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
                 categoryIcon.setVisibility(View.GONE);
             }
             
-            // Check if this template is recommended
-            boolean isRecommended = recommendedIds.contains(template.getId()) || template.isRecommended();
+            // Check if this template should show the NEW badge
+            boolean isNew = newIds != null && template.getId() != null && newIds.contains(template.getId());
             
-            // Special styling for recommended templates
-            if (isRecommended) {
+            // Check if this template is recommended
+            boolean isRecommended = (recommendedIds != null && 
+                                    template.getId() != null && 
+                                    recommendedIds.contains(template.getId())) || 
+                                    template.isRecommended();
+            
+            // Log the badge status for debugging
+            Log.d(TAG, "Template " + template.getId() + " - isNew: " + isNew + ", isRecommended: " + isRecommended);
+            
+            // Show NEW badge with higher priority than recommended
+            newBadge.setVisibility(isNew ? View.VISIBLE : View.GONE);
+            
+            // Special styling for templates
+            if (isNew) {
+                // Special styling for new templates (takes precedence)
+                recommendedBadge.setVisibility(View.GONE);
+                cardView.setCardBackgroundColor(0xFFF3E5F5); // Light purple background
+                cardView.setCardElevation(8f); // Increased elevation
+            } else if (isRecommended) {
+                // Styling for recommended templates
                 recommendedBadge.setVisibility(View.VISIBLE);
                 cardView.setCardBackgroundColor(0xFFFFF8E1); // Light amber background
                 cardView.setCardElevation(8f); // Increased elevation
             } else {
+                // Default styling
                 recommendedBadge.setVisibility(View.GONE);
                 cardView.setCardBackgroundColor(0xFFFFFFFF); // White background
                 cardView.setCardElevation(4f); // Normal elevation
             }
-            
-            // Show NEW badge if needed
-            newBadge.setVisibility(newIds.contains(template.getId()) ? View.VISIBLE : View.GONE);
             
             // Load image
             String imageUrl = template.getThumbnailUrl();
@@ -185,6 +205,15 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
             // Set click listener
             itemView.setOnClickListener(v -> {
                 if (listener != null) {
+                    // Mark as viewed in the adapter - fixed to use the adapter instance method
+                    if (isNew && template.getId() != null) {
+                        // Use the adapter's markAsViewed method
+                        RecommendedTemplateAdapter adapter = (RecommendedTemplateAdapter) itemView.getTag(R.id.tag_adapter);
+                        if (adapter != null) {
+                            adapter.markAsViewed(template.getId());
+                        }
+                    }
+                    
                     listener.onTemplateClick(template);
                 }
             });
@@ -219,6 +248,9 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
     
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+        // Set the adapter as a tag on the view holder
+        holder.itemView.setTag(TAG_ADAPTER, this);
+        
         if (holder instanceof HeaderViewHolder) {
             ((HeaderViewHolder) holder).bind((SectionHeader) items.get(position));
         } else if (holder instanceof TemplateViewHolder) {
@@ -237,21 +269,36 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
     }
     
     /**
-     * Update the adapter with a new list of templates, automatically organizing them into sections
+     * Update adapter with new templates
+     * @param templates List of templates to display
      */
     public void updateTemplates(List<Template> templates) {
-        items.clear();
-        
-        if (templates == null || templates.isEmpty()) {
-            notifyDataSetChanged();
+        if (templates == null) {
+            Log.w(TAG, "Received null templates list");
             return;
         }
         
-        // Split templates into recommended and regular
+        Log.d(TAG, "Updating adapter with " + templates.size() + " templates");
+        
+        // Sort templates by creation date (newest first)
+        List<Template> sortedTemplates = new ArrayList<>(templates);
+        Collections.sort(sortedTemplates, (t1, t2) -> {
+            long time1 = t1.getCreatedAtTimestamp();
+            long time2 = t2.getCreatedAtTimestamp();
+            // Sort in descending order (newest first)
+            return Long.compare(time2, time1);
+        });
+        
+        Log.d(TAG, "Sorted " + sortedTemplates.size() + " templates by creation date (newest first)");
+        
+        // Clear existing items
+        items.clear();
+        
+        // Split templates into recommended and regular, maintaining the sorted order
         List<Template> recommendedTemplates = new ArrayList<>();
         List<Template> regularTemplates = new ArrayList<>();
         
-        for (Template template : templates) {
+        for (Template template : sortedTemplates) {
             if (recommendedTemplateIds.contains(template.getId()) || template.isRecommended()) {
                 recommendedTemplates.add(template);
             } else {
@@ -266,13 +313,14 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
             items.addAll(recommendedTemplates);
         }
         
-        // Add regular templates
+        // Add regular templates section
         if (!regularTemplates.isEmpty()) {
             items.add(new SectionHeader("All Templates", 
-                recommendedTemplates.isEmpty() ? "" : "Browse all available templates"));
+                recommendedTemplates.isEmpty() ? "Choose from our collection of templates" : "Browse all available templates"));
             items.addAll(regularTemplates);
         }
         
+        // Notify adapter of changes
         notifyDataSetChanged();
     }
     
@@ -293,46 +341,44 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
     public void setNewTemplateIds(Set<String> ids) {
         Log.d(TAG, "Setting new template IDs: " + (ids != null ? ids.size() : 0));
         
-        // Check if an update is needed
-        if (ids == null && newTemplateIds.isEmpty()) {
-            return; // No change needed
-        }
-        
-        if (ids == null && !newTemplateIds.isEmpty()) {
-            // Clear all IDs
-            newTemplateIds.clear();
-            notifyDataSetChanged();
+        if (ids == null) {
+            // Clear all IDs if null is passed
+            if (!newTemplateIds.isEmpty()) {
+                newTemplateIds.clear();
+                notifyDataSetChanged();
+            }
             return;
         }
         
-        // Check for actual changes
-        boolean hasChanges = false;
+        // Create a copy of the new set to avoid modification issues
+        Set<String> newIds = new HashSet<>(ids);
         
-        // Check if any IDs were added
-        for (String id : ids) {
-            if (!newTemplateIds.contains(id)) {
-                hasChanges = true;
-                break;
-            }
+        // If there's no change, return early
+        if (newTemplateIds.size() == newIds.size() && newTemplateIds.containsAll(newIds)) {
+            Log.d(TAG, "No change in new template IDs, skipping update");
+            return;
         }
         
-        // Check if any IDs were removed
-        if (!hasChanges && newTemplateIds.size() != ids.size()) {
-            hasChanges = true;
+        // Update the set with new IDs
+        newTemplateIds.clear();
+        newTemplateIds.addAll(newIds);
+        
+        // Log the IDs for debugging
+        if (!newTemplateIds.isEmpty()) {
+            Log.d(TAG, "New template IDs updated: " + String.join(", ", newTemplateIds));
         }
         
-        // Only update if there are actual changes
-        if (hasChanges) {
-            newTemplateIds.clear();
-            newTemplateIds.addAll(ids);
-            
-            // Log the IDs for debugging
-            if (!newTemplateIds.isEmpty()) {
-                Log.d(TAG, "New template IDs: " + String.join(", ", newTemplateIds));
+        // Find positions of affected items and update them individually
+        // This is more efficient than notifyDataSetChanged()
+        for (int i = 0; i < items.size(); i++) {
+            if (items.get(i) instanceof Template) {
+                Template template = (Template) items.get(i);
+                if (template.getId() != null && 
+                    (newTemplateIds.contains(template.getId()) || 
+                     ids.contains(template.getId()))) {
+                    notifyItemChanged(i);
+                }
             }
-            
-            // Update the adapter
-            notifyDataSetChanged();
         }
     }
     

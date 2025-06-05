@@ -17,7 +17,7 @@ module.exports = {
         lockoutDuration: parseInt(process.env.LOCKOUT_DURATION, 10)
     },
     rateLimit: {
-        windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10),
-        max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, 10)
+        windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
+        max: Infinity
     }
 };

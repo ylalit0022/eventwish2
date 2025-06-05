@@ -232,10 +232,16 @@ public class Template {
     // Get createdAt as timestamp for comparison
     public long getCreatedAtTimestamp() {
         if (createdAt == null) {
-            Log.d("Template", "createdAt is null");
-            return 0;
+            Log.d("Template", "Template ID: " + id + " has null createdAt date, using current time");
+            // Use current time as fallback to ensure new templates without dates appear at top
+            return System.currentTimeMillis();
         }
-        return createdAt.getTime();
+        try {
+            return createdAt.getTime();
+        } catch (Exception e) {
+            Log.e("Template", "Error getting timestamp for template: " + id, e);
+            return System.currentTimeMillis(); // Use current time as fallback
+        }
     }
 
     public String getDescription() { return description; }

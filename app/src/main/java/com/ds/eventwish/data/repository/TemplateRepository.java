@@ -20,6 +20,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
+import java.util.Collections;
 
 public class TemplateRepository {
     private static final String TAG = "TemplateRepository";
@@ -379,19 +380,48 @@ public class TemplateRepository {
                     List<Template> currentList = templates.getValue();
                     if (currentList == null) currentList = new ArrayList<>();
                     
-                    if (forceRefresh) {
-                        currentList = new ArrayList<>(templateResponse.getTemplates());
-                    } else {
-                        currentList.addAll(templateResponse.getTemplates());
-                    }
+                    // Get the new templates from the response
+                    List<Template> newTemplates = templateResponse.getTemplates();
                     
-                    // Log all template IDs for debugging
-                    for (Template template : templateResponse.getTemplates()) {
-                        Log.d(TAG, "Template: " + template.getTitle() + 
+                    // Sort the new templates by creation date (newest first)
+                    if (newTemplates != null && !newTemplates.isEmpty()) {
+                        Collections.sort(newTemplates, (t1, t2) -> {
+                            long time1 = t1.getCreatedAtTimestamp();
+                            long time2 = t2.getCreatedAtTimestamp();
+                            // Sort in descending order (newest first)
+                            return Long.compare(time2, time1);
+                        });
+                        
+                        Log.d(TAG, "Sorted " + newTemplates.size() + " templates by creation date (newest first)");
+                        
+                        // Log all template IDs for debugging with their timestamps
+                        for (Template template : newTemplates) {
+                            Log.d(TAG, "Template: " + template.getTitle() + 
                                   ", ID: " + template.getId() + 
-                                  ", Created: " + template.getCreatedAt());
+                                  ", Created: " + template.getCreatedAt() +
+                                  ", Timestamp: " + template.getCreatedAtTimestamp());
+                        }
                     }
                     
+                    if (forceRefresh) {
+                        // For a force refresh, use only the sorted new templates
+                        currentList = new ArrayList<>(newTemplates);
+                    } else {
+                        // For pagination, we need to merge and re-sort all templates
+                        currentList.addAll(newTemplates);
+                        
+                        // Re-sort the entire list to ensure newest templates are always at the top
+                        Collections.sort(currentList, (t1, t2) -> {
+                            long time1 = t1.getCreatedAtTimestamp();
+                            long time2 = t2.getCreatedAtTimestamp();
+                            // Sort in descending order (newest first)
+                            return Long.compare(time2, time1);
+                        });
+                        
+                        Log.d(TAG, "Re-sorted complete list of " + currentList.size() + " templates by creation date");
+                    }
+                    
+                    // Post the sorted list to LiveData
                     templates.postValue(currentList);
                     
                     // Handle categories with persistence
@@ -648,5 +678,81 @@ public class TemplateRepository {
                 }
             }
         });
+    }
+
+    /**
+     * Insert a list of templates into the database
+     * @param templateList List of templates to insert
+     * @param notifyNewTemplates Whether to notify observers about new templates
+     */
+    public void insertAll(List<Template> templateList, boolean notifyNewTemplates) {
+        if (templateList == null || templateList.isEmpty()) {
+            return;
+        }
+        
+        Log.d(TAG, "Adding " + templateList.size() + " templates to the repository");
+        
+        // Sort the new templates by creation date (newest first)
+        Collections.sort(templateList, (t1, t2) -> {
+            long time1 = t1.getCreatedAtTimestamp();
+            long time2 = t2.getCreatedAtTimestamp();
+            // Sort in descending order (newest first)
+            return Long.compare(time2, time1);
+        });
+        
+        // Update the templates LiveData with the new templates
+        List<Template> currentList = templates.getValue();
+        if (currentList == null) {
+            currentList = new ArrayList<>();
+        }
+        
+        // Add new templates to the current list
+        List<Template> updatedList = new ArrayList<>(currentList);
+        updatedList.addAll(0, templateList); // Add at the beginning to show newest first
+        
+        // Re-sort the entire list to ensure newest templates are always at the top
+        Collections.sort(updatedList, (t1, t2) -> {
+            long time1 = t1.getCreatedAtTimestamp();
+            long time2 = t2.getCreatedAtTimestamp();
+            // Sort in descending order (newest first)
+            return Long.compare(time2, time1);
+        });
+        
+        // Update the LiveData
+        templates.postValue(updatedList);
+        
+        // Notify observers about new templates if requested
+        if (notifyNewTemplates) {
+            notifyNewTemplatesInserted(templateList);
+        }
+    }
+    
+    /**
+     * Insert a list of templates into the database
+     * @param templateList List of templates to insert
+     */
+    public void insertAll(List<Template> templateList) {
+        insertAll(templateList, true); // Default to notifying about new templates
+    }
+    
+    /**
+     * Notify observers that new templates have been inserted
+     * @param newTemplates The list of newly inserted templates
+     */
+    public void notifyNewTemplatesInserted(List<Template> newTemplates) {
+        if (newTemplates == null || newTemplates.isEmpty()) {
+            return;
+        }
+        
+        Log.d(TAG, "Notifying observers about " + newTemplates.size() + " new templates");
+        
+        // Reset the lastCheckTime in SharedPreferences to force detection of new templates
+        if (appContext != null) {
+            SharedPreferences prefs = appContext.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
+            // Set to a time before the new templates were created
+            long timeBeforeNewTemplates = System.currentTimeMillis() - (24 * 60 * 60 * 1000); // 1 day ago
+            prefs.edit().putLong("last_check_time", timeBeforeNewTemplates).apply();
+            Log.d(TAG, "Reset last_check_time to force detection of new templates");
+        }
     }
 }
