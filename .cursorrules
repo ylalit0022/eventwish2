@@ -296,6 +296,33 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Implement global opt-in/opt-out controls that respect user preferences
   - Add screen view tracking for both activities and fragments
   - Use Firebase Analytics setUserProperty for consistent user segmentation
+- When implementing Firebase In-App Messaging in Android apps:
+  - Add proper dependency management (firebase-inappmessaging-display and ktx variant)
+  - Create a singleton handler class with thread-safe initialization pattern
+  - Add proper error handling and logging for all Firebase interactions
+  - Ensure initialization happens in the correct order in the Application class
+  - Test messaging with specific, well-named test events ("test_notification_event")
+  - Register custom receivers in AndroidManifest.xml for handling notification interactions
+  - Implement multiple notification types (immediate and delayed) for comprehensive testing
+  - Ensure all notifications have proper error handling and fallbacks
+  - Add detailed logging of notification lifecycle events for debugging
+  - Create helper classes to abstract notification scheduling complexity
+  - Adapt to Android version differences in the notification scheduling APIs
+  - Use Intent extras for passing notification content between components
+  - Add proper cleanup in onDestroy to prevent memory leaks
+- When implementing proper initialization order in Android applications:
+  - Initialize core services first in the Application class
+  - Pay attention to dependency order: initialize dependencies before they're needed
+  - For DeviceUtils, always call DeviceUtils.init() before getInstance()
+  - For API services, initialize ApiClient early in the application lifecycle to avoid "not initialized" errors
+  - Initialize Firebase services in a consistent order (Crashlytics → Analytics → Performance → In-App Messaging)
+  - For SecurityManager implementations, initialize before any feature that needs encryption
+  - Provide helpful error messages that specify the correct initialization order
+  - Use try-catch blocks to prevent crashes during initialization
+  - Log detailed initialization errors with clear context for debugging
+  - Consider using dependency injection frameworks for complex initialization scenarios
+  - For Firebase components, ensure proper initialization before usage in services
+  - When a class has both init() and getInstance() methods, always call init() first
 
 # Scratchpad
 
@@ -948,3 +975,45 @@ helpCard.setOnClickListener(v -> {
 3. [ ] Create UI components
 4. [ ] Add navigation
 5. [ ] Comprehensive testing
+
+## Firebase In-App Messaging Implementation
+
+### Implementation Status
+[X] Added Firebase In-App Messaging dependencies
+  - Added firebase-inappmessaging-display
+  - Added firebase-inappmessaging-display-ktx
+
+[X] Created FirebaseInAppMessagingHandler singleton class
+  - Implemented thread-safe initialization
+  - Added proper error handling
+  - Created event triggering mechanism
+
+[X] Updated EventWishApplication
+  - Initialized FirebaseInAppMessagingHandler
+  - Added proper initialization in the Firebase services section
+
+[X] Enhanced testNotifications method in MainActivity
+  - Added Firebase In-App Messaging test event trigger
+  - Improved error handling and logging
+  - Added detailed comments
+
+[X] Created NotificationScheduler helper class
+  - Implemented immediate notification sending
+  - Added delayed notification scheduling
+
+[X] Created NotificationReceiver broadcast receiver
+  - Added manifest registration
+  - Implemented proper intent handling
+  - Added detailed logging for debugging
+
+### Testing Notes
+- Test notifications can be triggered from the MainActivity
+- Both immediate and delayed (5 seconds) notifications will appear
+- In-app messaging events are triggered with name "test_notification_event"
+- Configure in-app message campaigns in Firebase console to respond to this event
+
+### Next Steps
+- Create comprehensive in-app messaging campaign in Firebase Console
+- Add more event types for different user actions
+- Implement analytics tracking for in-app message interactions
+- Consider creating a custom in-app message display for more control

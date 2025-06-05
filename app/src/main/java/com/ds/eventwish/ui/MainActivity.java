@@ -40,6 +40,14 @@ public class MainActivity extends AppCompatActivity implements NavigationBarView
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // Initialize API client early to prevent initialization issues
+        try {
+            com.ds.eventwish.data.remote.ApiClient.init(getApplicationContext());
+            Log.d(TAG, "ApiClient initialized in MainActivity");
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing ApiClient in MainActivity", e);
+        }
+
         // Initialize views
         bottomNav = findViewById(R.id.bottomNavigation);
 

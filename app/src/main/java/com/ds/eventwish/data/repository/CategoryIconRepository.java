@@ -156,30 +156,56 @@ public class CategoryIconRepository {
         // Store application context if available
         this.context = context != null ? context.getApplicationContext() : null;
         
-        // Initialize dependencies with null checks
+        // Initialize with context safety checks
+        ResourceRepository resourceRepo = null;
+        ApiService apiSvc = null;
+        NetworkUtils netUtils = null;
+        Gson gsonInstance;
+        ErrorHandler errHandler = null;
+        
+        // Get the executors instance - always available
+        AppExecutors executors = AppExecutors.getInstance();
+        
         if (context != null) {
-            // Normal initialization with context
-            this.resourceRepository = ResourceRepository.getInstance(context);
-            this.apiService = ApiClient.getClient();
-            this.executors = AppExecutors.getInstance();
-            this.networkUtils = NetworkUtils.getInstance(context);
-            this.gson = new GsonBuilder()
+            try {
+                // Try to initialize ApiClient if needed
+                try {
+                    apiSvc = ApiClient.getClient();
+                } catch (IllegalStateException e) {
+                    Log.d(TAG, "ApiClient not initialized, initializing now");
+                    ApiClient.init(context);
+                    apiSvc = ApiClient.getClient();
+                }
+                
+                // Get other dependencies
+                resourceRepo = ResourceRepository.getInstance(context);
+                netUtils = NetworkUtils.getInstance(context);
+                errHandler = ErrorHandler.getInstance(context);
+                
+                // Create Gson with serialization options
+                gsonInstance = new GsonBuilder()
                     .serializeNulls()
                     .create();
-            this.errorHandler = ErrorHandler.getInstance(context);
-            
-            Log.d(TAG, "🏗️ CategoryIconRepository fully initialized with context");
+                
+                Log.d(TAG, "🏗️ CategoryIconRepository fully initialized with context");
+            } catch (Exception e) {
+                Log.e(TAG, "Error during CategoryIconRepository initialization", e);
+                // Use default Gson instance for fallback
+                gsonInstance = new Gson();
+            }
         } else {
-            // Fallback initialization - minimal functionality
-            this.resourceRepository = null;
-            this.apiService = null;
-            this.executors = AppExecutors.getInstance();
-            this.networkUtils = null;
-            this.gson = new Gson();
-            this.errorHandler = null;
-            
+            // Fallback case - no context
+            gsonInstance = new Gson();
             Log.w(TAG, "⚠️ CategoryIconRepository initialized with minimal functionality (no context)");
         }
+        
+        // Assign all fields at once after initialization attempts
+        this.resourceRepository = resourceRepo;
+        this.apiService = apiSvc;
+        this.executors = executors;
+        this.networkUtils = netUtils;
+        this.gson = gsonInstance;
+        this.errorHandler = errHandler;
         
         // Initialize category icons list - using postValue instead of setValue to avoid threading issues
         categoryIcons.postValue(new ArrayList<>());

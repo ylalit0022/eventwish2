@@ -116,15 +116,37 @@ public class ResourceRepository {
         if (context == null) {
             throw new IllegalArgumentException("Context cannot be null");
         }
+        
+        // Store application context
         this.context = context.getApplicationContext();
+        
+        // Get database and DAO
         ResourceDatabase database = ResourceDatabase.getInstance(context);
-        resourceDao = database.resourceDao();
-        apiService = ApiClient.getClient();
-        appExecutors = AppExecutors.getInstance();
-        networkUtils = NetworkUtils.getInstance(context);
-        resourceCache = ResourceCache.getInstance(context);
-        gson = new Gson();
-        errorHandler = ErrorHandler.getInstance(context);
+        this.resourceDao = database.resourceDao();
+        
+        // Get other dependencies
+        this.appExecutors = AppExecutors.getInstance();
+        this.resourceCache = ResourceCache.getInstance(context);
+        this.gson = new Gson();
+        this.networkUtils = NetworkUtils.getInstance(context);
+        this.errorHandler = ErrorHandler.getInstance(context);
+        
+        // Initialize ApiClient and get API service
+        ApiService tempApiService = null;
+        try {
+            // Try to get the ApiClient
+            tempApiService = ApiClient.getClient();
+        } catch (IllegalStateException e) {
+            // If not initialized, initialize it now
+            Log.d(TAG, "ApiClient not initialized, initializing now");
+            ApiClient.init(context);
+            tempApiService = ApiClient.getClient();
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting ApiClient: " + e.getMessage(), e);
+        }
+        
+        // Set field after all initialization attempts
+        this.apiService = tempApiService;
         
         // Clean up expired resources periodically
         cleanupExpiredResources();

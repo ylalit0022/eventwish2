@@ -194,4 +194,47 @@ public class NotificationPermissionManager {
                 .putInt(PREF_PERMISSION_DENIED_COUNT, 0)
                 .apply();
     }
+
+    /**
+     * Request notification permission from any context
+     * This will start an activity to request permission if on Android 13+
+     * @param context The context
+     */
+    public static void requestNotificationPermission(@NonNull Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (hasNotificationPermission(context)) {
+                Log.d(TAG, "Notification permission already granted");
+                return;
+            }
+
+            try {
+                // If context is an activity, use the activity version
+                if (context instanceof Activity) {
+                    requestNotificationPermission((Activity) context);
+                    return;
+                }
+
+                // Otherwise, try to start an activity to request permission
+                SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+                int deniedCount = prefs.getInt(PREF_PERMISSION_DENIED_COUNT, 0);
+
+                // If user has denied permission too many times, we can't do much from a non-activity context
+                if (deniedCount >= MAX_PERMISSION_REQUESTS) {
+                    Log.d(TAG, "Notification permission denied too many times from non-activity context");
+                    return;
+                }
+
+                // Try to start main activity to request permission
+                Intent intent = new Intent(context, com.ds.eventwish.ui.MainActivity.class);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                intent.putExtra("REQUEST_NOTIFICATION_PERMISSION", true);
+                context.startActivity(intent);
+
+                // Mark that we've requested permission
+                prefs.edit().putBoolean(PREF_PERMISSION_REQUESTED, true).apply();
+            } catch (Exception e) {
+                Log.e(TAG, "Error requesting notification permission: " + e.getMessage(), e);
+            }
+        }
+    }
 } 

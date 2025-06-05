@@ -44,7 +44,19 @@ public class DeviceUtils {
      */
     public static synchronized DeviceUtils getInstance() {
         if (instance == null) {
-            throw new IllegalStateException("DeviceUtils must be initialized first");
+            // Try to auto-initialize if possible
+            try {
+                Context appContext = EventWishApplication.getAppContext();
+                if (appContext != null) {
+                    Log.d(TAG, "Auto-initializing DeviceUtils using application context");
+                    init(appContext);
+                } else {
+                    throw new IllegalStateException("DeviceUtils must be initialized first. Call DeviceUtils.init(context) before using getInstance()");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to auto-initialize DeviceUtils: " + e.getMessage());
+                throw new IllegalStateException("DeviceUtils must be initialized first. Call DeviceUtils.init(context) before using getInstance()");
+            }
         }
         return instance;
     }
@@ -53,9 +65,28 @@ public class DeviceUtils {
      * Initialize with application context
      */
     public static synchronized void init(Context context) {
-        if (instance == null) {
-            instance = new DeviceUtils(context.getApplicationContext());
-            Log.d(TAG, "DeviceUtils initialized");
+        if (context == null) {
+            Log.e(TAG, "Cannot initialize DeviceUtils with null context");
+            throw new IllegalArgumentException("Context cannot be null when initializing DeviceUtils");
+        }
+        
+        try {
+            if (instance == null) {
+                instance = new DeviceUtils(context.getApplicationContext());
+                Log.d(TAG, "DeviceUtils initialized successfully");
+            } else {
+                // If already initialized but with a null context, update the context
+                if (instance.context == null) {
+                    instance.context = context.getApplicationContext();
+                    instance.cachedDeviceId = getUniqueDeviceId(context);
+                    Log.d(TAG, "DeviceUtils context updated");
+                } else {
+                    Log.d(TAG, "DeviceUtils already initialized, skipping initialization");
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing DeviceUtils: " + e.getMessage(), e);
+            throw new IllegalStateException("Failed to initialize DeviceUtils", e);
         }
     }
 

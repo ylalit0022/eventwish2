@@ -65,6 +65,8 @@ import com.ds.eventwish.utils.FirebaseCrashManager;
 import com.ds.eventwish.utils.PerformanceTracker;
 import com.google.firebase.analytics.FirebaseAnalytics;
 import com.google.firebase.perf.metrics.Trace;
+import com.ds.eventwish.firebase.FirebaseInAppMessagingHandler;
+import com.ds.eventwish.services.NotificationScheduler;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -502,11 +504,11 @@ public class MainActivity extends AppCompatActivity {
         int id = item.getItemId();
         
         if (id == R.id.action_settings) {
-            startActivity(new Intent(this, SettingsActivity.class));
+            // Start the settings activity
+            Intent intent = new Intent(this, SettingsActivity.class);
+            startActivity(intent);
             return true;
-        } else if (id == R.id.action_test_ads) {
-            startActivity(new Intent(this, AdDemoActivity.class));
-            return true;
+    
         }
         
         return super.onOptionsItemSelected(item);
@@ -667,4 +669,5 @@ public class MainActivity extends AppCompatActivity {
         getMenuInflater().inflate(R.menu.main_menu, menu);
         return true;
     }
+
 }

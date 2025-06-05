@@ -1,5 +1,6 @@
 package com.ds.eventwish.utils;
 
+import android.app.NotificationManager;
 import android.content.Context;
 import android.util.Log;
 
@@ -8,6 +9,7 @@ import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.NetworkType;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
+import androidx.work.OneTimeWorkRequest;
 
 import com.ds.eventwish.workers.FestivalNotificationWorker;
 
@@ -101,8 +103,8 @@ public class NotificationScheduler {
         Log.d(TAG, "Running festival notifications immediately");
         
         // Create a one-time work request
-        androidx.work.OneTimeWorkRequest festivalWorkRequest =
-                new androidx.work.OneTimeWorkRequest.Builder(FestivalNotificationWorker.class)
+        OneTimeWorkRequest festivalWorkRequest =
+                new OneTimeWorkRequest.Builder(FestivalNotificationWorker.class)
                         .addTag(FESTIVAL_NOTIFICATION_WORK + "_immediate")
                         .build();
         

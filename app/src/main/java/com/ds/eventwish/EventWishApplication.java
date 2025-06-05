@@ -51,6 +51,7 @@ import androidx.annotation.NonNull;
 import java.util.concurrent.Executor;
 import com.ds.eventwish.ui.ads.SponsoredAdManagerFactory;
 import com.ds.eventwish.utils.AdSessionManager;
+import com.ds.eventwish.firebase.FirebaseInAppMessagingHandler;
 
 public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
@@ -104,39 +105,131 @@ public class EventWishApplication extends Application implements Configuration.P
         Log.d(TAG, "EventWish application starting...");
         
         try {
-            // Verify Firebase project configuration
-            verifyFirebaseProject();
+            // INITIALIZATION ORDER: Core utilities first, then services
             
-            // Initialize services
-            initializeServices();
+            // 1. Initialize AppExecutors - required by many other components
+            appExecutors = AppExecutors.getInstance();
+            Log.d(TAG, "1. AppExecutors initialized");
             
-            // Register activity lifecycle callbacks
+            // 2. Initialize SecureTokenManager - required for security
+            try {
+                SecureTokenManager.init(this);
+                secureTokenManager = SecureTokenManager.getInstance();
+                Log.d(TAG, "2. SecureTokenManager initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing SecureTokenManager: " + e.getMessage(), e);
+                // Continue without SecureTokenManager
+            }
+            
+            // 3. Initialize DeviceUtils - required for device identification
+            try {
+                DeviceUtils.init(this);
+                deviceUtils = DeviceUtils.getInstance();
+                Log.d(TAG, "3. DeviceUtils initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing DeviceUtils: " + e.getMessage(), e);
+                // Continue without DeviceUtils
+            }
+            
+            // 4. Initialize ApiClient - required for API communication
+            try {
+                ApiClient.init(this);
+                Log.d(TAG, "4. ApiClient initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing ApiClient: " + e.getMessage(), e);
+                // Continue without ApiClient
+            }
+            
+            // 5. Initialize Firebase services
+            try {
+                initializeFirebaseServices();
+                Log.d(TAG, "5. Firebase services initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing Firebase services: " + e.getMessage(), e);
+                // Continue without Firebase
+            }
+            
+            // 6. Initialize time utils
+            timeUtils = new TimeUtils();
+            Log.d(TAG, "6. TimeUtils initialized");
+            
+            // 7. Initialize API service
+            try {
+                apiService = ApiClient.getClient();
+                Log.d(TAG, "7. API service initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing API service: " + e.getMessage(), e);
+                // Continue without API service
+            }
+            
+            // 8. Initialize repositories
+            try {
+                initializeRepositories();
+                Log.d(TAG, "8. Repositories initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing repositories: " + e.getMessage(), e);
+                // Continue without repositories
+            }
+            
+            // Setup WorkManager and schedule workers
+            try {
+                setupWorkManager();
+                scheduleWorkers();
+                Log.d(TAG, "9. WorkManager initialized and workers scheduled");
+            } catch (Exception e) {
+                Log.e(TAG, "Error setting up WorkManager: " + e.getMessage(), e);
+                // Continue without WorkManager
+            }
+            
+            // Initialize analytics
+            try {
+                setInitialAnalyticsUserProperties();
+                Log.d(TAG, "10. Analytics initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing analytics: " + e.getMessage(), e);
+                // Continue without analytics
+            }
+            
+            // Initialize Firebase In-App Messaging
+            try {
+                FirebaseInAppMessagingHandler.init(this);
+                Log.d(TAG, "11. Firebase In-App Messaging initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing Firebase In-App Messaging: " + e.getMessage(), e);
+                // Continue without In-App Messaging
+            }
+            
+            // Create notification channels
+            try {
+                EventWishNotificationManager.createNotificationChannels(this);
+                Log.d(TAG, "12. Notification channels created");
+            } catch (Exception e) {
+                Log.e(TAG, "Error creating notification channels: " + e.getMessage(), e);
+                // Continue without notification channels
+            }
+            
+            // Register lifecycle callbacks
             registerActivityLifecycleCallbacks(this);
             
-            // Register fragment lifecycle callbacks to track navigation
+            // Register fragment lifecycle callbacks
             registerFragmentLifecycleCallbacks();
             
             // Register user in background
             registerUserInBackground();
             
-            // Initialize AdMob
-            AdMobManager.init(this);
-
-            // Initialize app open ads
-            appOpenManager = new AppOpenManager(this);
-            appOpenManager.fetchAd(); // Pre-fetch first ad
+            // Initialize AdMob (if needed)
+            try {
+                AdMobManager.init(this);
+                Log.d(TAG, "13. AdMob initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing AdMob: " + e.getMessage(), e);
+                // Continue without AdMob
+            }
             
-            // Initialize Sponsored Ads
-            SponsoredAdManagerFactory.init(this);
-            Log.d(TAG, "SponsoredAdManagerFactory initialized");
-            
-            // Initialize AdSessionManager - for simple impression tracking
-            adSessionManager = AdSessionManager.getInstance(this);
-            Log.d(TAG, "AdSessionManager initialized with new session");
-            
-            Log.d(TAG, "EventWish application started successfully");
+            Log.d(TAG, "EventWish application initialization complete");
         } catch (Exception e) {
             Log.e(TAG, "Error during application startup", e);
+            // Allow app to continue even if there are errors during startup
         }
     }
 
@@ -395,92 +488,118 @@ public class EventWishApplication extends Application implements Configuration.P
      */
     private void initializeServices() {
         try {
-            // Log start of service initialization
-            Log.d(TAG, "Initializing application services...");
+            Log.d(TAG, "Initializing core services in proper order...");
             
-            // Initialize performance tracking (must be done early)
-            PerformanceTracker.init(this);
-            
-            // Create notification channels
-            createNotificationChannels();
-            
-            // Initialize Firebase first to enable crash reporting for initialization
-            FirebaseCrashManager.init(this);
-            
-            // Initialize API client
-            com.ds.eventwish.data.remote.ApiClient.init(this);
-            apiService = com.ds.eventwish.data.remote.ApiClient.getClient();
-            
-            // Initialize executors with proper parameters
+            // 1. AppExecutors should be initialized first as other components may need it
             appExecutors = AppExecutors.getInstance();
+            Log.d(TAG, "✅ AppExecutors initialized");
             
-            // Initialize security - this must be done before other services that need it
-            SecureTokenManager.init(this);
-            secureTokenManager = SecureTokenManager.getInstance();
-            
-            // Initialize device utils
-            DeviceUtils.init(this);
-            deviceUtils = DeviceUtils.getInstance();
-            
-            // Initialize time utilities
-            timeUtils = new TimeUtils();
-            
-            // Initialize analytics
-            AnalyticsUtils.init(this);
-            
-            // Enable debug mode for analytics in debug builds
-            if (BuildConfig.DEBUG) {
-                AnalyticsUtils.setDebugMode(true);
-                
-                // Set metadata tag to enable debug analytics
-                try {
-                    FirebaseAnalytics.getInstance(this).setAnalyticsCollectionEnabled(true);
-                    
-                    // Add special debug parameter to force data collection
-                    Bundle debugParams = new Bundle();
-                    debugParams.putBoolean("debug_mode", true);
-                    debugParams.putString("app_version", BuildConfig.VERSION_NAME);
-                    debugParams.putString("device_model", android.os.Build.MODEL);
-                    debugParams.putLong("startup_time", System.currentTimeMillis());
-                    FirebaseAnalytics.getInstance(this).logEvent("debug_analytics_startup", debugParams);
-                    
-                    Log.d(TAG, "Firebase Analytics debug mode enabled");
-                } catch (Exception e) {
-                    Log.e(TAG, "Error enabling Firebase Analytics debug mode", e);
-                }
+            // 2. Initialize SecureTokenManager early
+            try {
+                SecureTokenManager.init(this);
+                secureTokenManager = SecureTokenManager.getInstance();
+                Log.d(TAG, "✅ SecureTokenManager initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Error initializing SecureTokenManager: " + e.getMessage(), e);
+                // Continue without SecureTokenManager - this will cause login features to be disabled
             }
             
-            // Track detailed device information
-            AnalyticsUtils.trackDeviceInfo(this);
+            // 3. Initialize DeviceUtils before any component that might need device info
+            try {
+                DeviceUtils.init(this);
+                deviceUtils = DeviceUtils.getInstance();
+                Log.d(TAG, "✅ DeviceUtils initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Error initializing DeviceUtils: " + e.getMessage(), e);
+                // Continue without DeviceUtils - some features will be limited
+            }
             
-            // Initialize repositories
-            initializeRepositories();
+            // 4. Create notification channels for Android O and above
+            createNotificationChannels();
+            Log.d(TAG, "✅ Notification channels created");
             
-            // Set initial analytics user properties
-            setInitialAnalyticsUserProperties();
+            // 5. Initialize time utils (no dependencies)
+            timeUtils = new TimeUtils();
+            Log.d(TAG, "✅ TimeUtils initialized");
             
-            // Verify Analytics tracking
-            AnalyticsUtils.verifyConfiguration(this);
+            // 6. Verify the API client is initialized (should have been done in onCreate)
+            if (!ApiClient.isInitialized()) {
+                Log.w(TAG, "ApiClient not initialized yet, initializing now");
+                ApiClient.init(this);
+            }
             
-            // Force dispatch analytics events to verify data is being sent
-            AnalyticsUtils.forceDispatchEvents();
+            // 7. Get the API service instance
+            try {
+                apiService = ApiClient.getClient();
+                Log.d(TAG, "✅ ApiService obtained");
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Error getting ApiService: " + e.getMessage(), e);
+                // Continue without API service - app will work in offline mode
+            }
             
-            // Initialize all fragments
-            initializeComponents();
+            // 8. Initialize Firebase services
+            try {
+                initializeFirebaseServices();
+                Log.d(TAG, "✅ Firebase services initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Error initializing Firebase services: " + e.getMessage(), e);
+                // Continue without Firebase - analytics and crash reporting will be disabled
+            }
             
-            // Clear database cache
-            clearDatabaseCache();
+            // 9. Initialize repositories - depends on ApiClient and other services
+            try {
+                initializeRepositories();
+                Log.d(TAG, "✅ Repositories initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Error initializing repositories: " + e.getMessage(), e);
+                // Continue with partial repository initialization
+            }
             
-            // Schedule worker threads
-            scheduleWorkers();
+            // 10. Setup WorkManager for background tasks
+            try {
+                setupWorkManager();
+                Log.d(TAG, "✅ WorkManager setup complete");
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Error setting up WorkManager: " + e.getMessage(), e);
+                // Continue without WorkManager - background tasks will not run
+            }
             
-            // Restore pending reminders
-            restorePendingReminders();
+            // 11. Schedule reminders and notifications - requires WorkManager
+            try {
+                scheduleWorkers();
+                Log.d(TAG, "✅ Workers scheduled");
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Error scheduling workers: " + e.getMessage(), e);
+                // Continue without scheduled workers - reminders will not work
+            }
             
-            Log.d(TAG, "Service initialization complete");
+            // 12. Set initial analytics properties - requires Firebase
+            try {
+                setInitialAnalyticsUserProperties();
+                Log.d(TAG, "✅ Initial analytics properties set");
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Error setting initial analytics properties: " + e.getMessage(), e);
+                // Continue without analytics - tracking will be limited
+            }
+            
+            // 13. Initialize Firebase In-App Messaging Handler - should be last Firebase component
+            try {
+                FirebaseInAppMessagingHandler.init(this);
+                Log.d(TAG, "✅ Firebase In-App Messaging Handler initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Error initializing Firebase In-App Messaging Handler: " + e.getMessage(), e);
+                // Continue without In-App Messaging - no in-app messages will be shown
+            }
+            
+            Log.d(TAG, "✅ All services initialized successfully");
         } catch (Exception e) {
-            Log.e(TAG, "Error initializing services", e);
-            FirebaseCrashManager.logException(e);
+            Log.e(TAG, "❌ Fatal error during service initialization: " + e.getMessage(), e);
+            // Try to log the exception to Firebase if possible
+            try {
+                FirebaseCrashManager.logException(e);
+            } catch (Exception ignored) {
+                // Ignore if Firebase is not initialized
+            }
         }
     }
 
@@ -787,5 +906,50 @@ public class EventWishApplication extends Application implements Configuration.P
      */
     public AdSessionManager getAdSessionManager() {
         return adSessionManager;
+    }
+
+    /**
+     * Initialize Firebase services (Analytics, Crashlytics, Performance, etc.)
+     */
+    private void initializeFirebaseServices() {
+        try {
+            // Initialize Firebase Crash Reporting
+            FirebaseCrashManager.init(this);
+            
+            // Initialize Firebase Analytics
+            AnalyticsUtils.init(this);
+            
+            // Enable debug mode for analytics in debug builds
+            if (BuildConfig.DEBUG) {
+                AnalyticsUtils.setDebugMode(true);
+                
+                // Set metadata tag to enable debug analytics
+                try {
+                    FirebaseAnalytics.getInstance(this).setAnalyticsCollectionEnabled(true);
+                    
+                    // Add special debug parameter to force data collection
+                    Bundle debugParams = new Bundle();
+                    debugParams.putBoolean("debug_mode", true);
+                    debugParams.putString("app_version", BuildConfig.VERSION_NAME);
+                    debugParams.putString("device_model", android.os.Build.MODEL);
+                    debugParams.putLong("startup_time", System.currentTimeMillis());
+                    FirebaseAnalytics.getInstance(this).logEvent("debug_analytics_startup", debugParams);
+                    
+                    Log.d(TAG, "Firebase Analytics debug mode enabled");
+                } catch (Exception e) {
+                    Log.e(TAG, "Error enabling Firebase Analytics debug mode", e);
+                }
+            }
+            
+            // Track detailed device information
+            AnalyticsUtils.trackDeviceInfo(this);
+            
+            // Initialize Firebase Performance Monitoring
+            PerformanceTracker.init(this);
+            
+            Log.d(TAG, "Firebase services initialized successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing Firebase services: " + e.getMessage(), e);
+        }
     }
 }

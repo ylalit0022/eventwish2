@@ -60,6 +60,19 @@ public class ApiClient {
     private static Context context;
 
     /**
+     * Flag to track initialization status
+     */
+    private static boolean isInitialized = false;
+
+    /**
+     * Check if ApiClient is initialized
+     * @return true if initialized, false otherwise
+     */
+    public static boolean isInitialized() {
+        return isInitialized && context != null;
+    }
+
+    /**
      * Exception thrown when there is no network connectivity
      */
     public static class NoConnectivityException extends IOException {
@@ -69,28 +82,65 @@ public class ApiClient {
     }
 
     /**
-     * Initialize the API client with the application context
+     * Initialize API client with application context
      * @param appContext Application context
      */
     public static void init(Context appContext) {
+        // Check if already initialized
+        if (isInitialized && context != null) {
+            Log.d(TAG, "ApiClient already initialized, skipping initialization");
+            return;
+        }
+        
+        // Handle null context gracefully
         if (appContext == null) {
             Log.e(TAG, "Cannot initialize ApiClient with null context");
-            throw new IllegalArgumentException("Context cannot be null");
+            throw new IllegalArgumentException("Context cannot be null when initializing ApiClient");
         }
         
-        context = appContext.getApplicationContext();
-        
-        // Try to ensure SecureTokenManager is initialized
         try {
-            SecureTokenManager.init(context);
-            Log.d(TAG, "SecureTokenManager initialized during ApiClient init");
+            // Use application context to prevent memory leaks
+            context = appContext.getApplicationContext();
+            
+            // Initialize SecureTokenManager if not already initialized
+            try {
+                if (SecureTokenManager.getInstance() == null) {
+                    Log.d(TAG, "Initializing SecureTokenManager from ApiClient");
+                    SecureTokenManager.init(context);
+                }
+            } catch (IllegalStateException e) {
+                // SecureTokenManager not initialized, initialize it now
+                Log.d(TAG, "SecureTokenManager not initialized, initializing now");
+                try {
+                    SecureTokenManager.init(context);
+                } catch (Exception e2) {
+                    Log.w(TAG, "Could not initialize SecureTokenManager: " + e2.getMessage());
+                    // Continue without SecureTokenManager - will use fallback methods
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Error checking/initializing SecureTokenManager: " + e.getMessage());
+                // Continue without SecureTokenManager - will use fallback methods
+            }
+            
+            // Initialize NetworkUtils if needed
+            try {
+                NetworkUtils.getInstance(context);
+            } catch (Exception e) {
+                Log.w(TAG, "Error initializing NetworkUtils: " + e.getMessage());
+                // Continue without NetworkUtils - will use default behavior
+            }
+            
+            // Only set to initialized after context is successfully assigned
+            isInitialized = true;
+            
+            // Log for debugging
+            Log.d(TAG, "ApiClient successfully initialized with API URL: " + BASE_URL);
         } catch (Exception e) {
-            Log.w(TAG, "Could not initialize SecureTokenManager during ApiClient init: " + e.getMessage());
-            // Continue without secure token manager - will use fallback methods
+            Log.e(TAG, "Failed to initialize ApiClient: " + e.getMessage(), e);
+            context = null;
+            isInitialized = false;
+            throw new IllegalStateException("Failed to initialize ApiClient", e);
         }
-        
-        // Log for debugging
-        Log.d(TAG, "ApiClient initialized with API URL: " + BASE_URL);
     }
 
     /**
@@ -98,7 +148,7 @@ public class ApiClient {
      * @return API service
      */
     public static ApiService getClient() {
-        if (context == null) {
+        if (!isInitialized()) {
             Log.e(TAG, "ApiClient not initialized. Call ApiClient.init() first");
             throw new IllegalStateException("ApiClient not initialized. Call ApiClient.init() first");
         }

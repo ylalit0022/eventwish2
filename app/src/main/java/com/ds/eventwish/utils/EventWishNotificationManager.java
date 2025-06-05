@@ -127,6 +127,98 @@ public class EventWishNotificationManager {
     }
     
     /**
+     * Get singleton instance of EventWishNotificationManager
+     * @param context Application context
+     * @return EventWishNotificationManager instance
+     */
+    public static EventWishNotificationManager getInstance(Context context) {
+        return new EventWishNotificationManager();
+    }
+    
+    // Notification channel for general notifications
+    public static final String NOTIFICATION_CHANNEL_GENERAL = CHANNEL_UPDATES; // Reuse updates channel
+    
+    /**
+     * Show a generic notification
+     * @param channelId Notification channel ID
+     * @param notificationId Notification ID (should be unique)
+     * @param title Notification title
+     * @param content Notification content
+     * @param pendingIntent PendingIntent to launch when notification is tapped (can be null)
+     * @return true if notification was shown, false otherwise
+     */
+    public boolean showNotification(String channelId, int notificationId, String title, String content, PendingIntent pendingIntent) {
+        Context context = com.ds.eventwish.EventWishApplication.getAppContext();
+        if (context == null) {
+            Log.e(TAG, "Context is null");
+            return false;
+        }
+        
+        // Check notification permission
+        if (!NotificationPermissionManager.hasNotificationPermission(context)) {
+            Log.d(TAG, "Notification permission not granted, requesting permission");
+            // Request permission if on Android 13 or higher
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                NotificationPermissionManager.requestNotificationPermission(context);
+            }
+            return false;
+        }
+        
+        try {
+            Log.d(TAG, "Showing notification: " + title);
+            
+            // If no pending intent provided, create a default one
+            if (pendingIntent == null) {
+                Intent intent = new Intent(context, com.ds.eventwish.ui.MainActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                pendingIntent = PendingIntent.getActivity(
+                        context,
+                        0,
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            }
+            
+            // Ensure notification channels are created
+            createNotificationChannels(context);
+            
+            // Build the notification
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId)
+                    .setSmallIcon(R.drawable.ic_notification)
+                    .setContentTitle(title)
+                    .setContentText(content)
+                    .setStyle(new NotificationCompat.BigTextStyle().bigText(content))
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setContentIntent(pendingIntent)
+                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                    .setAutoCancel(true)
+                    .setDefaults(NotificationCompat.DEFAULT_ALL);  // Enable sound, vibration, and lights
+            
+            // Show the notification
+            NotificationManager notificationManager = 
+                    (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            
+            if (notificationManager != null) {
+                // Log for debugging
+                Log.d(TAG, "Showing notification with ID: " + notificationId + 
+                        ", Channel: " + channelId + 
+                        ", Title: " + title + 
+                        ", Content: " + content);
+                
+                // Actually show the notification
+                notificationManager.notify(notificationId, builder.build());
+                Log.d(TAG, "✅ Notification shown with ID: " + notificationId);
+                return true;
+            } else {
+                Log.e(TAG, "⚠️ NotificationManager is null");
+                return false;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error showing notification: " + e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    /**
      * Show a notification for a festival
      * @param context Application context
      * @param festival Festival to show notification for

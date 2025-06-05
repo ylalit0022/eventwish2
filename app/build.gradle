@@ -201,6 +201,14 @@ dependencies {
     implementation 'com.google.firebase:firebase-perf'
     implementation 'com.google.firebase:firebase-perf-ktx'
     
+    // Firebase Messaging (FCM)
+    implementation 'com.google.firebase:firebase-messaging'
+    implementation 'com.google.firebase:firebase-messaging-ktx'
+    
+    // Firebase In-App Messaging
+    implementation 'com.google.firebase:firebase-inappmessaging-display'
+    implementation 'com.google.firebase:firebase-inappmessaging-display-ktx'
+    
     // Firebase core (with explicit version)
     implementation 'com.google.firebase:firebase-core:21.1.1'
 
