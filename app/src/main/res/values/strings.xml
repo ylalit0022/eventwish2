@@ -157,6 +157,8 @@
     <string name="force_update_message">This version of the app is no longer supported. Please update to continue.</string>
     <string name="update_now">Update Now</string>
     <string name="later">Later</string>
+    <string name="check_for_updates">Check for Updates</string>
+    <string name="new_version_available">New version available!</string>
 
     <!-- App Name -->
     <string name="app_name_debug">EventWish Debug</string>

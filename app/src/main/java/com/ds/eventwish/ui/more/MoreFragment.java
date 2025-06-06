@@ -4,15 +4,18 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.navigation.Navigation;
 import com.ds.eventwish.R;
 import com.ds.eventwish.databinding.FragmentMoreBinding;
 import com.ds.eventwish.ui.base.BaseFragment;
+import com.ds.eventwish.ui.viewmodel.AppUpdateViewModel;
 
 public class MoreFragment extends BaseFragment {
     private FragmentMoreBinding binding;
+    private AppUpdateViewModel updateViewModel;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -24,6 +27,32 @@ public class MoreFragment extends BaseFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         setupClickListeners();
+        setupUpdateChecker();
+    }
+
+    private void setupUpdateChecker() {
+        updateViewModel = AppUpdateViewModel.getInstance(requireContext());
+        updateViewModel.init(requireActivity());
+        
+        // Verify Remote Config setup
+        if (updateViewModel.getRemoteConfigManager() != null) {
+            updateViewModel.getRemoteConfigManager().verifyRemoteConfigSetup();
+        }
+        
+        // Observe update availability for the indicator
+        updateViewModel.getIsUpdateAvailable().observe(getViewLifecycleOwner(), isAvailable -> {
+            binding.updateIndicator.setVisibility(isAvailable ? View.VISIBLE : View.GONE);
+        });
+        
+        // Observe error messages
+        updateViewModel.getErrorMessage().observe(getViewLifecycleOwner(), errorMsg -> {
+            if (errorMsg != null && !errorMsg.isEmpty()) {
+                Toast.makeText(requireContext(), errorMsg, Toast.LENGTH_LONG).show();
+            }
+        });
+        
+        // Check silently for updates to update the indicator
+        updateViewModel.checkForUpdatesSilentlyWithRemoteConfig();
     }
 
     private void setupClickListeners() {
@@ -40,6 +69,14 @@ public class MoreFragment extends BaseFragment {
         binding.helpCard.setOnClickListener(v -> {
             // Navigate to contact
             Navigation.findNavController(v).navigate(R.id.action_more_to_contact);
+        });
+        
+        binding.updateCard.setOnClickListener(v -> {
+            // Force check for updates and show dialog
+            if (getActivity() != null) {
+                Toast.makeText(requireContext(), "Checking for updates...", Toast.LENGTH_SHORT).show();
+                updateViewModel.forceCheckForUpdatesWithRemoteConfig();
+            }
         });
     }
 

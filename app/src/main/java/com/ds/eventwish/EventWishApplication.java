@@ -918,41 +918,44 @@ public class EventWishApplication extends Application implements Configuration.P
      */
     private void initializeFirebaseServices() {
         try {
-            // Initialize Firebase Crash Reporting
-            FirebaseCrashManager.init(this);
-            
             // Initialize Firebase Analytics
-            AnalyticsUtils.init(this);
+            FirebaseAnalytics.getInstance(this);
+            Log.d(TAG, "Firebase Analytics initialized");
             
-            // Enable debug mode for analytics in debug builds
-            if (BuildConfig.DEBUG) {
-                AnalyticsUtils.setDebugMode(true);
-                
-                // Set metadata tag to enable debug analytics
-                try {
-                    FirebaseAnalytics.getInstance(this).setAnalyticsCollectionEnabled(true);
-                    
-                    // Add special debug parameter to force data collection
-                    Bundle debugParams = new Bundle();
-                    debugParams.putBoolean("debug_mode", true);
-                    debugParams.putString("app_version", BuildConfig.VERSION_NAME);
-                    debugParams.putString("device_model", android.os.Build.MODEL);
-                    debugParams.putLong("startup_time", System.currentTimeMillis());
-                    FirebaseAnalytics.getInstance(this).logEvent("debug_analytics_startup", debugParams);
-                    
-                    Log.d(TAG, "Firebase Analytics debug mode enabled");
-                } catch (Exception e) {
-                    Log.e(TAG, "Error enabling Firebase Analytics debug mode", e);
-                }
+            // Initialize Firebase Crashlytics
+            try {
+                FirebaseCrashManager.init(this);
+                Log.d(TAG, "Firebase Crashlytics initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing Firebase Crashlytics: " + e.getMessage(), e);
             }
             
-            // Track detailed device information
-            AnalyticsUtils.trackDeviceInfo(this);
+            // Initialize Firebase Performance
+            try {
+                PerformanceTracker.init(this);
+                Log.d(TAG, "Firebase Performance initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing Firebase Performance: " + e.getMessage(), e);
+            }
             
-            // Initialize Firebase Performance Monitoring
-            PerformanceTracker.init(this);
+            // Initialize Firebase In-App Messaging
+            try {
+                FirebaseInAppMessagingHandler.init(this);
+                Log.d(TAG, "Firebase In-App Messaging initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing Firebase In-App Messaging: " + e.getMessage(), e);
+            }
             
-            Log.d(TAG, "Firebase services initialized successfully");
+            // Initialize Firebase Remote Config
+            try {
+                com.ds.eventwish.utils.RemoteConfigManager.getInstance(this);
+                Log.d(TAG, "Firebase Remote Config initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing Firebase Remote Config: " + e.getMessage(), e);
+            }
+            
+            // Verify Firebase project configuration
+            verifyFirebaseProject();
         } catch (Exception e) {
             Log.e(TAG, "Error initializing Firebase services: " + e.getMessage(), e);
         }

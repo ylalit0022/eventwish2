@@ -291,12 +291,47 @@ public class AppUpdateHandler implements DefaultLifecycleObserver {
         this.updateCallback = callback;
     }
 
+    /**
+     * Get the activity associated with this handler
+     * @return The activity
+     */
+    public Activity getActivity() {
+        return activity;
+    }
+
     public boolean isUpdateInProgress() {
         return isUpdateInProgress;
     }
 
     public static int getRequestCode() {
         return REQUEST_CODE_UPDATE;
+    }
+
+    /**
+     * Check for updates silently without showing the dialog
+     * Only notifies the callback about update availability
+     */
+    public void checkForUpdateSilently() {
+        if (!connectivityChecker.isNetworkAvailable()) {
+            return;
+        }
+        
+        Task<AppUpdateInfo> appUpdateInfoTask = appUpdateManager.getAppUpdateInfo();
+        appUpdateInfoTask.addOnSuccessListener(appUpdateInfo -> {
+            if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE) {
+                Log.d(TAG, "Silent check: Update available");
+                if (updateCallback != null) {
+                    updateCallback.onUpdateAvailable(false);
+                }
+            } else {
+                Log.d(TAG, "Silent check: No update available");
+                if (updateCallback != null) {
+                    updateCallback.onUpdateNotAvailable();
+                }
+            }
+        }).addOnFailureListener(e -> {
+            Log.e(TAG, "Silent update check failed: " + e.getMessage(), e);
+        });
     }
 
     @Override

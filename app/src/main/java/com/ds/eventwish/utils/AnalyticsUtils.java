@@ -52,6 +52,11 @@ public class AnalyticsUtils {
     public static final String EVENT_DEVICE_INFO = "device_info";
     public static final String EVENT_SPONSORED_AD_IMPRESSION = "sponsored_ad_impression";
     public static final String EVENT_SPONSORED_AD_CLICK = "sponsored_ad_click";
+    public static final String EVENT_UPDATE_CHECK = "update_check";
+    public static final String EVENT_UPDATE_AVAILABLE = "update_available";
+    public static final String EVENT_UPDATE_PROMPT_SHOWN = "update_prompt_shown";
+    public static final String EVENT_UPDATE_PROMPT_ACTION = "update_prompt_action";
+    public static final String EVENT_UPDATE_DIALOG_SHOWN = "update_dialog_shown";
     
     // Param keys
     public static final String PARAM_TEMPLATE_ID = "template_id";
@@ -81,6 +86,24 @@ public class AnalyticsUtils {
     public static final String PARAM_AD_ID = "ad_id";
     public static final String PARAM_AD_TITLE = "ad_title";
     public static final String PARAM_AD_LOCATION = "ad_location";
+    public static final String PARAM_CURRENT_VERSION_CODE = "current_version_code";
+    public static final String PARAM_LATEST_VERSION_CODE = "latest_version_code";
+    public static final String PARAM_CURRENT_VERSION_NAME = "current_version_name";
+    public static final String PARAM_LATEST_VERSION_NAME = "latest_version_name";
+    public static final String PARAM_IS_FORCE_UPDATE = "is_force_update";
+    public static final String PARAM_UPDATE_SOURCE = "update_source";
+    public static final String PARAM_VERSION_NAME = "version_name";
+    public static final String PARAM_ACTION = "action";
+    
+    // Update source values
+    public static final String UPDATE_SOURCE_PLAY_STORE = "play_store";
+    public static final String UPDATE_SOURCE_REMOTE_CONFIG = "remote_config";
+    public static final String UPDATE_SOURCE_MANUAL = "manual_check";
+    
+    // Update action values
+    public static final String UPDATE_ACTION_ACCEPTED = "accepted";
+    public static final String UPDATE_ACTION_DECLINED = "declined";
+    public static final String UPDATE_ACTION_DEFERRED = "deferred";
     
     private static String sessionId;
     private static FirebaseAnalytics firebaseAnalytics;

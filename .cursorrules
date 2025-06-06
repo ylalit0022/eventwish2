@@ -976,44 +976,155 @@ helpCard.setOnClickListener(v -> {
 4. [ ] Add navigation
 5. [ ] Comprehensive testing
 
-## Firebase In-App Messaging Implementation
+### Implementation Details
 
-### Implementation Status
-[X] Added Firebase In-App Messaging dependencies
-  - Added firebase-inappmessaging-display
-  - Added firebase-inappmessaging-display-ktx
+All implementation details have been completed according to the plan. The app now has:
 
-[X] Created FirebaseInAppMessagingHandler singleton class
-  - Implemented thread-safe initialization
-  - Added proper error handling
-  - Created event triggering mechanism
+1. A new "Check for Updates" button in the More screen
+2. A red indicator that shows when updates are available
+3. The ability to force check for updates by clicking the button
+4. Silent update checking to update the indicator status
 
-[X] Updated EventWishApplication
-  - Initialized FirebaseInAppMessagingHandler
-  - Added proper initialization in the Firebase services section
+### Testing Plan
+1. Test with no update available:
+   - Red indicator should not be visible
+   - Clicking "Check for Updates" should show "No update available" message
 
-[X] Enhanced testNotifications method in MainActivity
-  - Added Firebase In-App Messaging test event trigger
-  - Improved error handling and logging
-  - Added detailed comments
+2. Test with update available:
+   - Red indicator should be visible
+   - Clicking "Check for Updates" should trigger the update flow
 
-[X] Created NotificationScheduler helper class
-  - Implemented immediate notification sending
-  - Added delayed notification scheduling
+3. Test after app restart:
+   - Indicator state should persist based on update availability
 
-[X] Created NotificationReceiver broadcast receiver
-  - Added manifest registration
-  - Implemented proper intent handling
-  - Added detailed logging for debugging
+### Implementation Timeline
+1. [ ] Day 1: Add dependencies and create RemoteConfigManager
+2. [ ] Day 2: Update AppUpdateViewModel and create dialog helper
+3. [ ] Day 3: Set up Firebase Console and implement analytics
+4. [ ] Day 4: Testing and refinement
 
-### Testing Notes
-- Test notifications can be triggered from the MainActivity
-- Both immediate and delayed (5 seconds) notifications will appear
-- In-app messaging events are triggered with name "test_notification_event"
-- Configure in-app message campaigns in Firebase console to respond to this event
+### Benefits
+1. Works in all environments (dev, test, prod)
+2. No Play Store dependency for testing
+3. Detailed analytics on update behavior
+4. Flexible update messages and URLs
+5. Support for force updates
+6. A/B testing capability for update prompts
+7. Remote control of update availability
+8. Enhanced user experience with custom dialogs
 
-### Next Steps
-- Create comprehensive in-app messaging campaign in Firebase Console
-- Add more event types for different user actions
-- Implement analytics tracking for in-app message interactions
-- Consider creating a custom in-app message display for more control
+### Key Metrics to Track
+1. Update check rate: % of sessions where update check occurs
+2. Update available rate: % of checks where update is available
+3. Update prompt impression rate: % of users who see update dialog
+4. Update acceptance rate: % of users who accept the update
+5. Update deferral rate: % of users who defer the update
+6. Update completion rate: % of users who complete the update process
+7. Time-to-update: Average time between update availability and acceptance
+8. Version distribution: % of users on each app version
+9. Force update compliance: % of users who update when forced
+
+## Firebase Remote Config for Update Checking Implementation Plan
+
+### Overview
+Implement Firebase Remote Config to check for app updates during development and track update prompt impressions and conversion rates using analytics.
+
+### Current Status
+- Google Play Core update mechanism is implemented but only works for Play Store installs
+- Firebase Analytics is already integrated
+- No Firebase Remote Config implementation yet
+
+### Implementation Tasks
+
+#### 1. Add Firebase Remote Config Dependencies ✓
+- Added Firebase Remote Config dependency to app/build.gradle
+
+#### 2. Create RemoteConfigManager Class ✓
+- Created singleton class for Firebase Remote Config operations
+- Implemented methods for fetching and activating config
+- Added update checking logic
+- Implemented analytics tracking for update events
+- Created LiveData for update availability
+
+#### 3. Update AppUpdateViewModel ✓
+- Modified to integrate with RemoteConfigManager
+- Added methods for Remote Config update checking
+- Implemented update dialog display
+- Added analytics tracking integration
+
+#### 4. Create Update Dialog Helper ✓
+- Created helper class for showing update dialogs
+- Implemented analytics tracking for dialog interactions
+- Added methods for opening Play Store
+- Implemented proper error handling
+
+#### 5. Initialize RemoteConfigManager in EventWishApplication ✓
+- Added initialization in initializeFirebaseServices() method
+- Implemented proper error handling
+- Added debug logging
+
+#### 6. Update MainActivity for Update Checking ✓
+- Added checkForUpdates() method that uses Remote Config for debug builds
+- Added forceCheckForUpdates() method for manual update checks
+- Implemented proper error handling and logging
+
+#### 7. Create Documentation ✓
+- Created docs/firebase_remote_config_setup.md
+- Added detailed setup instructions
+- Included testing procedures
+- Added analytics dashboard setup guide
+- Included code usage examples
+- Added troubleshooting section
+
+#### 8. Create Analytics Dashboards ✓
+- Created docs/update_analytics_dashboards.md with comprehensive analytics setup
+- Designed 5 specialized dashboards for tracking update metrics
+- Added BigQuery integration for advanced analysis
+- Included automated reporting setup instructions
+- Added troubleshooting guidance for analytics issues
+
+### Testing Plan
+1. Test with no update available:
+   - Set remote config version equal to app version
+   - Verify no update dialog appears
+   - Check analytics events
+
+2. Test with update available:
+   - Set remote config version higher than app version
+   - Verify update dialog appears
+   - Test accepting the update
+   - Test deferring the update
+   - Check analytics events
+
+3. Test with force update:
+   - Set remote config version higher than app version
+   - Set force_update to true
+   - Verify force update dialog appears
+   - Verify app exits if update declined
+   - Check analytics events
+
+4. Test in different app states:
+   - Fresh start
+   - Resume from background
+   - After specific actions
+
+### Benefits
+1. Works in all environments (dev, test, prod)
+2. No Play Store dependency for testing
+3. Detailed analytics on update behavior
+4. Flexible update messages and URLs
+5. Support for force updates
+6. A/B testing capability for update prompts
+7. Remote control of update availability
+8. Enhanced user experience with custom dialogs
+
+### Key Metrics to Track
+1. Update check rate: % of sessions where update check occurs
+2. Update available rate: % of checks where update is available
+3. Update prompt impression rate: % of users who see update dialog
+4. Update acceptance rate: % of users who accept the update
+5. Update deferral rate: % of users who defer the update
+6. Update completion rate: % of users who complete the update process
+7. Time-to-update: Average time between update availability and acceptance
+8. Version distribution: % of users on each app version
+9. Force update compliance: % of users who update when forced

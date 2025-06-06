@@ -111,7 +111,8 @@ public class AppUpdateChecker implements DefaultLifecycleObserver {
             
             if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE) {
                 Integer stalenessDays = appUpdateInfo.clientVersionStalenessDays();
-                boolean isStale = stalenessDays != null && 
+                // Always consider update available for silent check, but use staleness for actual update flow
+                boolean isStale = forceUpdate || stalenessDays == null || 
                     (forceUpdate ? stalenessDays >= DAYS_FOR_IMMEDIATE_UPDATE 
                                 : stalenessDays >= DAYS_FOR_FLEXIBLE_UPDATE);
                 
@@ -267,6 +268,33 @@ public class AppUpdateChecker implements DefaultLifecycleObserver {
     
     public static int getRequestCode() {
         return REQUEST_CODE_UPDATE;
+    }
+
+    /**
+     * Check for updates silently without showing the dialog
+     * Only notifies the callback about update availability
+     */
+    public void checkForUpdateSilently() {
+        if (!connectivityChecker.isNetworkAvailable()) {
+            return;
+        }
+        
+        Task<AppUpdateInfo> appUpdateInfoTask = appUpdateManager.getAppUpdateInfo();
+        appUpdateInfoTask.addOnSuccessListener(appUpdateInfo -> {
+            if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE) {
+                Log.d(TAG, "Silent check: Update available");
+                if (updateCallback != null) {
+                    updateCallback.onUpdateAvailable(false);
+                }
+            } else {
+                Log.d(TAG, "Silent check: No update available");
+                if (updateCallback != null) {
+                    updateCallback.onUpdateNotAvailable();
+                }
+            }
+        }).addOnFailureListener(e -> {
+            Log.e(TAG, "Silent update check failed: " + e.getMessage(), e);
+        });
     }
 
     private void setupInstallStateListener() {

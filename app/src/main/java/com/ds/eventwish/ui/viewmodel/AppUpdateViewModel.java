@@ -9,7 +9,11 @@ import android.net.Uri;
 import android.util.Log;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
+
+import com.ds.eventwish.BuildConfig;
+import com.ds.eventwish.ui.dialogs.UpdateDialogHelper;
 import com.ds.eventwish.utils.AppUpdateHandler;
+import com.ds.eventwish.utils.RemoteConfigManager;
 
 /**
  * View model for managing app updates
@@ -19,6 +23,7 @@ public class AppUpdateViewModel implements AppUpdateHandler.UpdateCallback {
     private static AppUpdateViewModel instance;
     private final Context context;
     private AppUpdateHandler updateHandler;
+    private RemoteConfigManager remoteConfigManager;
     
     // LiveData for update states
     private final MutableLiveData<Boolean> isUpdateAvailable = new MutableLiveData<>(false);
@@ -29,6 +34,14 @@ public class AppUpdateViewModel implements AppUpdateHandler.UpdateCallback {
 
     private AppUpdateViewModel(Context context) {
         this.context = context.getApplicationContext();
+        
+        // Initialize RemoteConfigManager
+        try {
+            this.remoteConfigManager = RemoteConfigManager.getInstance(context);
+            Log.d(TAG, "RemoteConfigManager initialized");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to initialize RemoteConfigManager", e);
+        }
     }
 
     public static synchronized AppUpdateViewModel getInstance(Context context) {
@@ -73,6 +86,167 @@ public class AppUpdateViewModel implements AppUpdateHandler.UpdateCallback {
         } else {
             errorMessage.setValue("Update handler not initialized");
         }
+    }
+
+    /**
+     * Check for updates silently without showing the dialog
+     * Only updates the isUpdateAvailable LiveData
+     */
+    public void checkForUpdatesSilently() {
+        if (updateHandler != null) {
+            updateHandler.checkForUpdateSilently();
+        } else {
+            errorMessage.setValue("Update handler not initialized");
+        }
+    }
+    
+    /**
+     * Check for updates using Firebase Remote Config
+     * This works in both development and production environments
+     */
+    public void checkForUpdatesWithRemoteConfig() {
+        if (remoteConfigManager == null) {
+            Log.e(TAG, "RemoteConfigManager not initialized");
+            errorMessage.setValue("RemoteConfigManager not initialized");
+            return;
+        }
+        
+        Log.d(TAG, "Starting Remote Config update check");
+        isUpdateInProgress.setValue(true);
+        
+        remoteConfigManager.fetchAndActivate()
+            .addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    Log.d(TAG, "Remote Config fetch and activate successful");
+                    remoteConfigManager.checkForUpdates(new RemoteConfigManager.UpdateCheckCallback() {
+                        @Override
+                        public void onUpdateAvailable(boolean isForceUpdate, String versionName, String updateMessage) {
+                            Log.d(TAG, "Remote Config update available: " + versionName + ", force: " + isForceUpdate);
+                            isUpdateAvailable.postValue(true);
+                            isImmediateUpdateRequired.postValue(isForceUpdate);
+                            isUpdateInProgress.postValue(false);
+                            
+                            // Show update dialog if needed
+                            if (updateHandler != null && updateHandler.getActivity() != null) {
+                                Log.d(TAG, "Showing update dialog");
+                                UpdateDialogHelper.showUpdateDialog(
+                                    updateHandler.getActivity(), 
+                                    versionName, 
+                                    updateMessage, 
+                                    isForceUpdate
+                                );
+                            } else {
+                                Log.e(TAG, "Cannot show update dialog - updateHandler or activity is null");
+                                if (updateHandler == null) {
+                                    Log.e(TAG, "updateHandler is null");
+                                } else {
+                                    Log.e(TAG, "activity is null");
+                                }
+                            }
+                        }
+
+                        @Override
+                        public void onUpdateNotAvailable() {
+                            Log.d(TAG, "Remote Config update not available");
+                            isUpdateAvailable.postValue(false);
+                            isUpdateInProgress.postValue(false);
+                            errorMessage.postValue("No update available");
+                        }
+
+                        @Override
+                        public void onError(Exception exception) {
+                            Log.e(TAG, "Remote Config update check error: " + exception.getMessage(), exception);
+                            errorMessage.postValue("Error checking for updates: " + exception.getMessage());
+                            isUpdateInProgress.postValue(false);
+                        }
+                    });
+                } else {
+                    Log.e(TAG, "Failed to fetch remote config", task.getException());
+                    errorMessage.postValue("Failed to fetch remote config");
+                    isUpdateInProgress.postValue(false);
+                }
+            });
+    }
+    
+    /**
+     * Check for updates silently using Firebase Remote Config
+     * Only updates the isUpdateAvailable LiveData
+     */
+    public void checkForUpdatesSilentlyWithRemoteConfig() {
+        if (remoteConfigManager == null) {
+            Log.e(TAG, "RemoteConfigManager not initialized");
+            return;
+        }
+        
+        remoteConfigManager.fetchAndActivate()
+            .addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    remoteConfigManager.checkForUpdates(null);
+                }
+            });
+    }
+
+    /**
+     * Force check for updates using Firebase Remote Config
+     * This will bypass the cache and fetch the latest values from the server
+     */
+    public void forceCheckForUpdatesWithRemoteConfig() {
+        if (remoteConfigManager == null) {
+            Log.e(TAG, "RemoteConfigManager not initialized");
+            errorMessage.setValue("RemoteConfigManager not initialized");
+            return;
+        }
+        
+        Log.d(TAG, "Starting forced Remote Config update check");
+        isUpdateInProgress.setValue(true);
+        
+        remoteConfigManager.forceFetchAndActivate()
+            .addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    Log.d(TAG, "Remote Config force fetch and activate successful");
+                    remoteConfigManager.checkForUpdates(new RemoteConfigManager.UpdateCheckCallback() {
+                        @Override
+                        public void onUpdateAvailable(boolean isForceUpdate, String versionName, String updateMessage) {
+                            Log.d(TAG, "Remote Config update available: " + versionName + ", force: " + isForceUpdate);
+                            isUpdateAvailable.postValue(true);
+                            isImmediateUpdateRequired.postValue(isForceUpdate);
+                            isUpdateInProgress.postValue(false);
+                            
+                            // Show update dialog if needed
+                            if (updateHandler != null && updateHandler.getActivity() != null) {
+                                Log.d(TAG, "Showing update dialog");
+                                UpdateDialogHelper.showUpdateDialog(
+                                    updateHandler.getActivity(), 
+                                    versionName, 
+                                    updateMessage, 
+                                    isForceUpdate
+                                );
+                            } else {
+                                Log.e(TAG, "Cannot show update dialog - updateHandler or activity is null");
+                            }
+                        }
+
+                        @Override
+                        public void onUpdateNotAvailable() {
+                            Log.d(TAG, "Remote Config update not available");
+                            isUpdateAvailable.postValue(false);
+                            isUpdateInProgress.postValue(false);
+                            errorMessage.postValue("No update available");
+                        }
+
+                        @Override
+                        public void onError(Exception exception) {
+                            Log.e(TAG, "Remote Config update check error: " + exception.getMessage(), exception);
+                            errorMessage.postValue("Error checking for updates: " + exception.getMessage());
+                            isUpdateInProgress.postValue(false);
+                        }
+                    });
+                } else {
+                    Log.e(TAG, "Failed to force fetch remote config", task.getException());
+                    errorMessage.postValue("Failed to fetch remote config");
+                    isUpdateInProgress.postValue(false);
+                }
+            });
     }
 
     /**
@@ -178,5 +352,13 @@ public class AppUpdateViewModel implements AppUpdateHandler.UpdateCallback {
 
     public LiveData<Integer> getDownloadProgress() {
         return downloadProgress;
+    }
+    
+    /**
+     * Get the RemoteConfigManager instance
+     * @return The RemoteConfigManager instance
+     */
+    public RemoteConfigManager getRemoteConfigManager() {
+        return remoteConfigManager;
     }
 } 

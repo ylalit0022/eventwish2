@@ -209,6 +209,10 @@ dependencies {
     implementation 'com.google.firebase:firebase-inappmessaging-display'
     implementation 'com.google.firebase:firebase-inappmessaging-display-ktx'
     
+    // Firebase Remote Config
+    implementation 'com.google.firebase:firebase-config'
+    implementation 'com.google.firebase:firebase-config-ktx'
+    
     // Firebase core (with explicit version)
     implementation 'com.google.firebase:firebase-core:21.1.1'
 

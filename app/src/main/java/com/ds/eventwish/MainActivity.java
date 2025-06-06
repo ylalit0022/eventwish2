@@ -67,6 +67,8 @@ import com.google.firebase.analytics.FirebaseAnalytics;
 import com.google.firebase.perf.metrics.Trace;
 import com.ds.eventwish.firebase.FirebaseInAppMessagingHandler;
 import com.ds.eventwish.services.NotificationScheduler;
+import com.ds.eventwish.ui.viewmodel.AppUpdateViewModel;
+import com.ds.eventwish.BuildConfig;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -751,20 +753,80 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Check for app updates
+     * Check for app updates using the appropriate method based on build type
      */
     private void checkForUpdates() {
-        if (appUpdateChecker != null) {
-            appUpdateChecker.checkForUpdate(false);
+        try {
+            Toast.makeText(this, "Checking for updates...", Toast.LENGTH_SHORT).show();
+            
+            AppUpdateViewModel appUpdateViewModel = AppUpdateViewModel.getInstance(this);
+            appUpdateViewModel.init(this);
+            
+            // Listen for errors to show to the user
+            appUpdateViewModel.getErrorMessage().observe(this, errorMsg -> {
+                if (errorMsg != null && !errorMsg.isEmpty()) {
+                    Toast.makeText(this, errorMsg, Toast.LENGTH_LONG).show();
+                }
+            });
+            
+            // Listen for update availability
+            appUpdateViewModel.getIsUpdateAvailable().observe(this, isAvailable -> {
+                if (isAvailable != null && !isAvailable) {
+                    Toast.makeText(this, "No update available", Toast.LENGTH_SHORT).show();
+                }
+            });
+            
+            if (BuildConfig.DEBUG) {
+                // For debug builds, use Remote Config
+                Log.d(TAG, "Checking for updates with Remote Config");
+                appUpdateViewModel.checkForUpdatesWithRemoteConfig();
+            } else {
+                // For production builds, use Play Store
+                Log.d(TAG, "Checking for updates with Play Store");
+                appUpdateViewModel.checkForUpdates(false);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking for updates", e);
+            Toast.makeText(this, "Error checking for updates: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
-
+    
     /**
-     * Force check for app updates
+     * Force check for app updates using the appropriate method based on build type
      */
     private void forceCheckForUpdates() {
-        if (appUpdateChecker != null) {
-            appUpdateChecker.checkForUpdate(true);
+        try {
+            Toast.makeText(this, "Force checking for updates...", Toast.LENGTH_SHORT).show();
+            
+            AppUpdateViewModel appUpdateViewModel = AppUpdateViewModel.getInstance(this);
+            appUpdateViewModel.init(this);
+            
+            // Listen for errors to show to the user
+            appUpdateViewModel.getErrorMessage().observe(this, errorMsg -> {
+                if (errorMsg != null && !errorMsg.isEmpty()) {
+                    Toast.makeText(this, errorMsg, Toast.LENGTH_LONG).show();
+                }
+            });
+            
+            // Listen for update availability
+            appUpdateViewModel.getIsUpdateAvailable().observe(this, isAvailable -> {
+                if (isAvailable != null && !isAvailable) {
+                    Toast.makeText(this, "No update available", Toast.LENGTH_SHORT).show();
+                }
+            });
+            
+            if (BuildConfig.DEBUG) {
+                // For debug builds, use Remote Config
+                Log.d(TAG, "Force checking for updates with Remote Config");
+                appUpdateViewModel.checkForUpdatesWithRemoteConfig();
+            } else {
+                // For production builds, use Play Store
+                Log.d(TAG, "Force checking for updates with Play Store");
+                appUpdateViewModel.checkForUpdates(true);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error force checking for updates", e);
+            Toast.makeText(this, "Error checking for updates: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 }
