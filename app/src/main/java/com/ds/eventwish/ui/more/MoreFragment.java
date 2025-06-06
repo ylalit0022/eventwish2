@@ -8,6 +8,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.navigation.Navigation;
+import com.ds.eventwish.BuildConfig;
 import com.ds.eventwish.R;
 import com.ds.eventwish.databinding.FragmentMoreBinding;
 import com.ds.eventwish.ui.base.BaseFragment;
@@ -35,7 +36,7 @@ public class MoreFragment extends BaseFragment {
         updateViewModel.init(requireActivity());
         
         // Verify Remote Config setup
-        if (updateViewModel.getRemoteConfigManager() != null) {
+        if (BuildConfig.DEBUG && updateViewModel.getRemoteConfigManager() != null) {
             updateViewModel.getRemoteConfigManager().verifyRemoteConfigSetup();
         }
         
@@ -52,7 +53,13 @@ public class MoreFragment extends BaseFragment {
         });
         
         // Check silently for updates to update the indicator
-        updateViewModel.checkForUpdatesSilentlyWithRemoteConfig();
+        if (BuildConfig.DEBUG) {
+            // For debug builds, use Remote Config
+            updateViewModel.checkForUpdatesWithRemoteConfigSilently();
+        } else {
+            // For production builds, use Play Store
+            updateViewModel.checkForUpdatesSilently();
+        }
     }
 
     private void setupClickListeners() {
@@ -75,7 +82,14 @@ public class MoreFragment extends BaseFragment {
             // Force check for updates and show dialog
             if (getActivity() != null) {
                 Toast.makeText(requireContext(), "Checking for updates...", Toast.LENGTH_SHORT).show();
-                updateViewModel.forceCheckForUpdatesWithRemoteConfig();
+                
+                if (BuildConfig.DEBUG) {
+                    // For debug builds, use Remote Config
+                    updateViewModel.forceCheckForUpdatesWithRemoteConfig();
+                } else {
+                    // For production builds, use Play Store
+                    updateViewModel.checkForUpdates(true);
+                }
             }
         });
     }

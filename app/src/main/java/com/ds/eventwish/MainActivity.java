@@ -154,8 +154,16 @@ public class MainActivity extends AppCompatActivity {
                     // Just reconnected
                     showConnectivityMessage(true);
                     // Check for updates when we get internet connection
-                    if (appUpdateChecker != null) {
-                        appUpdateChecker.checkForUpdate();
+                    if (BuildConfig.DEBUG) {
+                        // For debug builds, use AppUpdateViewModel with Remote Config
+                        AppUpdateViewModel appUpdateViewModel = AppUpdateViewModel.getInstance(this);
+                        appUpdateViewModel.init(this);
+                        appUpdateViewModel.checkForUpdatesWithRemoteConfigSilently();
+                    } else {
+                        // For production builds, use AppUpdateChecker with Play Store
+                        if (appUpdateChecker != null) {
+                            appUpdateChecker.checkForUpdate();
+                        }
                     }
                 }
                 isConnected = isNetworkConnected;
@@ -196,7 +204,15 @@ public class MainActivity extends AppCompatActivity {
 
             // Check for updates if we have internet
             if (connectivityChecker.isNetworkAvailable()) {
-                appUpdateChecker.checkForUpdate();
+                if (BuildConfig.DEBUG) {
+                    // For debug builds, use AppUpdateViewModel with Remote Config
+                    AppUpdateViewModel appUpdateViewModel = AppUpdateViewModel.getInstance(this);
+                    appUpdateViewModel.init(this);
+                    appUpdateViewModel.checkForUpdatesWithRemoteConfigSilently();
+                } else {
+                    // For production builds, use AppUpdateChecker with Play Store
+                    appUpdateChecker.checkForUpdate();
+                }
             }
 
             // Log app started
@@ -290,63 +306,10 @@ public class MainActivity extends AppCompatActivity {
             // Initialize API client
             apiClient = new ApiClient();
             
-            // Setup connectivity checker first
-            connectivityChecker = new InternetConnectivityChecker(this);
-            connectivityChecker.observe(this, isNetworkConnected -> {
-                if (isConnected && !isNetworkConnected) {
-                    // Just disconnected
-                    showConnectivityMessage(false);
-                } else if (!isConnected && isNetworkConnected) {
-                    // Just reconnected
-                    showConnectivityMessage(true);
-                    // Check for updates when we get internet connection
-                    if (appUpdateChecker != null) {
-                        appUpdateChecker.checkForUpdate();
-                    }
-                }
-                isConnected = isNetworkConnected;
-            });
+            // Note: Connectivity checker and app update checker are already initialized in onCreate
             
-            // Setup app update checking
-            appUpdateChecker = new AppUpdateChecker(this);
-            getLifecycle().addObserver(appUpdateChecker);
-            appUpdateChecker.setUpdateCallback(new AppUpdateChecker.UpdateCallback() {
-                @Override
-                public void onUpdateAvailable(boolean isImmediateUpdate) {
-                    Log.d(TAG, "Update available, immediate: " + isImmediateUpdate);
-                    // The native Google Play dialog will be shown automatically
-                }
-
-                @Override
-                public void onUpdateNotAvailable() {
-                    Log.d(TAG, "No update available");
-                }
-
-                @Override
-                public void onUpdateError(Exception error) {
-                    Log.e(TAG, "Update error: " + error.getMessage());
-                    if (error.getMessage() != null && error.getMessage().contains("internet")) {
-                        showConnectivityMessage(false);
-                    }
-                }
-
-                @Override
-                public void onDownloadProgress(long bytesDownloaded, long totalBytesToDownload) {
-                    if (totalBytesToDownload > 0) {
-                        int progress = (int) ((bytesDownloaded * 100) / totalBytesToDownload);
-                        Log.d(TAG, "Download progress: " + progress + "%");
-                        // You could show this in a progress bar if desired
-                    }
-                }
-            });
-
-            // Check for updates if we have internet
-            if (connectivityChecker.isNetworkAvailable()) {
-                appUpdateChecker.checkForUpdate();
-            }
-
             // Log app started
-            Log.d(TAG, "MainActivity created");
+            Log.d(TAG, "MainActivity UI initialized");
 
             // Set up view model
             sharedViewModel = new ViewModelProvider(this).get(SharedViewModel.class);
@@ -609,9 +572,18 @@ public class MainActivity extends AppCompatActivity {
             }
             
             // Check for updates if we have internet and an update is not in progress
-            if (connectivityChecker != null && connectivityChecker.isNetworkAvailable() && 
-                appUpdateChecker != null && !appUpdateChecker.isUpdateInProgress()) {
-                appUpdateChecker.checkForUpdate();
+            if (connectivityChecker != null && connectivityChecker.isNetworkAvailable()) {
+                if (BuildConfig.DEBUG) {
+                    // For debug builds, use AppUpdateViewModel with Remote Config
+                    AppUpdateViewModel appUpdateViewModel = AppUpdateViewModel.getInstance(this);
+                    appUpdateViewModel.init(this);
+                    appUpdateViewModel.checkForUpdatesWithRemoteConfigSilently();
+                } else {
+                    // For production builds, use AppUpdateChecker with Play Store
+                    if (appUpdateChecker != null && !appUpdateChecker.isUpdateInProgress()) {
+                        appUpdateChecker.checkForUpdate();
+                    }
+                }
             }
             
             // Record user session
@@ -818,7 +790,7 @@ public class MainActivity extends AppCompatActivity {
             if (BuildConfig.DEBUG) {
                 // For debug builds, use Remote Config
                 Log.d(TAG, "Force checking for updates with Remote Config");
-                appUpdateViewModel.checkForUpdatesWithRemoteConfig();
+                appUpdateViewModel.forceCheckForUpdatesWithRemoteConfig();
             } else {
                 // For production builds, use Play Store
                 Log.d(TAG, "Force checking for updates with Play Store");

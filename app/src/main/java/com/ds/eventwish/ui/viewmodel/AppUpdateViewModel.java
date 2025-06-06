@@ -172,7 +172,7 @@ public class AppUpdateViewModel implements AppUpdateHandler.UpdateCallback {
      * Check for updates silently using Firebase Remote Config
      * Only updates the isUpdateAvailable LiveData
      */
-    public void checkForUpdatesSilentlyWithRemoteConfig() {
+    public void checkForUpdatesWithRemoteConfigSilently() {
         if (remoteConfigManager == null) {
             Log.e(TAG, "RemoteConfigManager not initialized");
             return;
