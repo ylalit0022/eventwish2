@@ -65,6 +65,7 @@ import com.google.android.material.snackbar.Snackbar;
 
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
+import com.ds.eventwish.utils.ShareMessageManager;
 
 public class SharedWishFragment extends Fragment {
     private SharedPrefsManager prefsManager;
@@ -191,6 +192,9 @@ public class SharedWishFragment extends Fragment {
             }
         }
         
+        // Preload share messages from Firebase Remote Config
+        preloadShareMessages();
+        
         // UNCOMMENT THE AD CODE - Important for fixing visibility issues
         
         // Check if we should skip ads - can be controlled by server config
@@ -232,6 +236,29 @@ public class SharedWishFragment extends Fragment {
                 }
             }
         }, 500); // Check after 500ms
+    }
+    
+    /**
+     * Preload share messages from Firebase Remote Config
+     */
+    private void preloadShareMessages() {
+        try {
+            // Get instance of ShareMessageManager
+            ShareMessageManager messageManager = ShareMessageManager.getInstance(requireContext());
+            
+            // Fetch latest messages from Remote Config
+            messageManager.fetchAndActivate()
+                .addOnSuccessListener(updated -> {
+                    Log.d(TAG, "Share messages fetched successfully, updated: " + updated);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to fetch share messages", e);
+                });
+                
+            Log.d(TAG, "Started preloading share messages");
+        } catch (Exception e) {
+            Log.e(TAG, "Error preloading share messages", e);
+        }
     }
 
     private void setupWebView() {
@@ -893,6 +920,9 @@ public class SharedWishFragment extends Fragment {
         // Generate share URL
         String shareUrl = getString(R.string.share_url_format, currentWish.getShortCode());
         
+        // Get ShareMessageManager instance
+        ShareMessageManager messageManager = ShareMessageManager.getInstance(requireContext());
+        
         // Create and show the bottom sheet
         BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext());
         View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_share, null);
@@ -900,43 +930,36 @@ public class SharedWishFragment extends Fragment {
         
         // Add click listeners to the social media buttons
         bottomSheetView.findViewById(R.id.whatsappShare).setOnClickListener(v -> {
-            final String shareText = getString(R.string.share_wish_text_whatsapp, shareUrl);
             handleShareVia(SHARE_VIA_WHATSAPP);
             bottomSheetDialog.dismiss();
         });
         
         bottomSheetView.findViewById(R.id.facebookShare).setOnClickListener(v -> {
-            final String shareText = getString(R.string.share_wish_text_facebook, shareUrl);
             handleShareVia(SHARE_VIA_FACEBOOK);
             bottomSheetDialog.dismiss();
         });
         
         bottomSheetView.findViewById(R.id.twitterShare).setOnClickListener(v -> {
-            final String shareText = getString(R.string.share_wish_text_twitter, shareUrl);
             handleShareVia(SHARE_VIA_TWITTER);
             bottomSheetDialog.dismiss();
         });
         
         bottomSheetView.findViewById(R.id.instagramShare).setOnClickListener(v -> {
-            final String shareText = getString(R.string.share_wish_text_instagram, shareUrl);
             handleShareVia(SHARE_VIA_INSTAGRAM);
             bottomSheetDialog.dismiss();
         });
         
         bottomSheetView.findViewById(R.id.emailShare).setOnClickListener(v -> {
-            final String shareText = getString(R.string.share_wish_text_email, shareUrl);
             handleShareVia(SHARE_VIA_EMAIL);
             bottomSheetDialog.dismiss();
         });
 
         bottomSheetView.findViewById(R.id.smsShare).setOnClickListener(v -> {
-            final String shareText = getString(R.string.share_wish_text_sms, shareUrl);
             handleShareVia(SHARE_VIA_SMS);
             bottomSheetDialog.dismiss();
         });
 
         bottomSheetView.findViewById(R.id.moreOptions).setOnClickListener(v -> {
-            final String shareText = getString(R.string.share_wish_text, shareUrl);
             handleShareVia(SHARE_VIA_OTHER);
             bottomSheetDialog.dismiss();
         });
@@ -1013,6 +1036,18 @@ public class SharedWishFragment extends Fragment {
         // Track the share
         trackShare(platform);
 
+        // Get share URL
+        String shareUrl = getString(R.string.share_url_format, currentWish.getShortCode());
+        
+        // Get dynamic share message from ShareMessageManager with placeholders replaced
+        String shareText = ShareMessageManager.getInstance(requireContext())
+            .getShareMessage(
+                currentWish.getSenderName(),
+                currentWish.getRecipientName(),
+                shareUrl,
+                platform
+            );
+        
         // Create a SharedWish object from the WishResponse
         SharedWish sharedWish = new SharedWish();
 
@@ -1070,7 +1105,8 @@ public class SharedWishFragment extends Fragment {
               ", templateId: " + sharedWish.getTemplateId() +
               ", customizedHtml length: " + (sharedWish.getCustomizedHtml() != null ? sharedWish.getCustomizedHtml().length() : 0) +
               ", cssContent length: " + (sharedWish.getCssContent() != null ? sharedWish.getCssContent().length() : 0) +
-              ", jsContent length: " + (sharedWish.getJsContent() != null ? sharedWish.getJsContent().length() : 0));
+              ", jsContent length: " + (sharedWish.getJsContent() != null ? sharedWish.getJsContent().length() : 0) +
+              ", shareText: " + shareText);
 
         // Save the wish to history
         try {
@@ -1081,9 +1117,6 @@ public class SharedWishFragment extends Fragment {
         } catch (Exception e) {
             Log.e(TAG, "Failed to save to history from handleShareVia", e);
         }
-
-        // Create the share text
-        String shareText = getString(R.string.share_wish_text, getString(R.string.share_url_format, currentWish.getShortCode()));
 
         // Create a simple share intent
         Intent shareIntent = new Intent(Intent.ACTION_SEND);

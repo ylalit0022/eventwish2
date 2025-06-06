@@ -66,13 +66,13 @@
     <string name="offline">Offline</string>
 
     <!-- Shared Wish -->
-    <string name="share_wish_text">I sent you a special wish! Check it out here: %s</string>
-    <string name="share_wish_text_whatsapp">Hey! I created a special wish for you using EventWish. Check it out here: %s</string>
-    <string name="share_wish_text_facebook">I just created a special wish with EventWish! Check it out here: %s</string>
-    <string name="share_wish_text_twitter">I created a special wish with @EventWish! Check it out here: %s</string>
-    <string name="share_wish_text_instagram">I created a special wish with #EventWish! Check it out here: %s</string>
-    <string name="share_wish_text_email">Hello,\n\nI created a special wish for you using EventWish.\n\nCheck it out here: %s\n\nEnjoy!\n</string>
-    <string name="share_wish_text_sms">I created a special wish for you! Check it out here: %s</string>
+    <string name="share_wish_text">I sent you a special wish! Check it out here: {{share_url}}</string>
+    <string name="share_wish_text_whatsapp">Hey! {{sender_name}} created a special wish for you using EventWish. Check it out here: {{share_url}}</string>
+    <string name="share_wish_text_facebook">{{sender_name}} just created a special wish for {{recipient_name}} with EventWish! Check it out here: {{share_url}}</string>
+    <string name="share_wish_text_twitter">{{sender_name}} created a special wish for {{recipient_name}} with @EventWish! Check it out here: {{share_url}}</string>
+    <string name="share_wish_text_instagram">{{sender_name}} created a special wish for {{recipient_name}} with #EventWish! Check it out here: {{share_url}}</string>
+    <string name="share_wish_text_email">Hello {{recipient_name}},\n\n{{sender_name}} created a special wish for you using EventWish.\n\nCheck it out here: {{share_url}}\n\nEnjoy!\n</string>
+    <string name="share_wish_text_sms">{{sender_name}} created a special wish for you, {{recipient_name}}! Check it out here: {{share_url}}</string>
     <string name="share_via">Share via</string>
     <string name="share_via_whatsapp">Share via WhatsApp</string>
     <string name="share_via_other">Share via Other</string>

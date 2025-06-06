@@ -923,41 +923,40 @@ public class EventWishApplication extends Application implements Configuration.P
             Log.d(TAG, "Firebase Analytics initialized");
             
             // Initialize Firebase Crashlytics
-            try {
-                FirebaseCrashManager.init(this);
-                Log.d(TAG, "Firebase Crashlytics initialized");
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing Firebase Crashlytics: " + e.getMessage(), e);
-            }
+            FirebaseCrashManager.init(this);
+            Log.d(TAG, "Firebase Crashlytics initialized");
             
             // Initialize Firebase Performance
-            try {
-                PerformanceTracker.init(this);
-                Log.d(TAG, "Firebase Performance initialized");
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing Firebase Performance: " + e.getMessage(), e);
-            }
-            
-            // Initialize Firebase In-App Messaging
-            try {
-                FirebaseInAppMessagingHandler.init(this);
-                Log.d(TAG, "Firebase In-App Messaging initialized");
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing Firebase In-App Messaging: " + e.getMessage(), e);
-            }
+            PerformanceTracker.init(this);
+            Log.d(TAG, "Firebase Performance initialized");
             
             // Initialize Firebase Remote Config
             try {
+                FirebaseInAppMessagingHandler.init(this);
+                Log.d(TAG, "Firebase In-App Messaging initialized");
                 com.ds.eventwish.utils.RemoteConfigManager.getInstance(this);
                 Log.d(TAG, "Firebase Remote Config initialized");
             } catch (Exception e) {
                 Log.e(TAG, "Error initializing Firebase Remote Config: " + e.getMessage(), e);
+                Log.e(TAG, "Error initializing Firebase In-App Messaging: " + e.getMessage(), e);
+            }
+            
+            // Initialize ShareMessageManager for dynamic share messages
+            try {
+                com.ds.eventwish.utils.RemoteConfigManager.getInstance(this);
+                Log.d(TAG, "Firebase Remote Config initialized");
+                com.ds.eventwish.utils.ShareMessageManager.getInstance(this);
+                Log.d(TAG, "ShareMessageManager initialized with Firebase Remote Config");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing Firebase Remote Config: " + e.getMessage(), e);
+                Log.e(TAG, "Error initializing ShareMessageManager: " + e.getMessage(), e);
             }
             
             // Verify Firebase project configuration
             verifyFirebaseProject();
         } catch (Exception e) {
             Log.e(TAG, "Error initializing Firebase services: " + e.getMessage(), e);
+            Log.e(TAG, "Error initializing Firebase services", e);
         }
     }
 }

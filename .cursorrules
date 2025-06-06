@@ -1024,107 +1024,84 @@ All implementation details have been completed according to the plan. The app no
 8. Version distribution: % of users on each app version
 9. Force update compliance: % of users who update when forced
 
-## Firebase Remote Config for Update Checking Implementation Plan
+## Firebase Remote Config for Dynamic Share Messages
 
-### Overview
-Implement Firebase Remote Config to check for app updates during development and track update prompt impressions and conversion rates using analytics.
+### Current Implementation
+- Currently, the `handleShareVia` method uses hardcoded share text from string resources
+- No caching mechanism for remote messages
+- No dynamic placeholder replacement for sender/recipient names
 
-### Current Status
-- Google Play Core update mechanism is implemented but only works for Play Store installs
-- Firebase Analytics is already integrated
-- No Firebase Remote Config implementation yet
+### Requirements
+1. Fetch share message from Firebase Remote Config parameter "share_message"
+2. Support dynamic placeholders for sender and recipient names
+3. Implement 24-hour cache expiration for fetched messages
+4. Graceful fallback to local strings if remote fetch fails
 
-### Implementation Tasks
+### Implementation Plan
 
-#### 1. Add Firebase Remote Config Dependencies ✓
-- Added Firebase Remote Config dependency to app/build.gradle
+#### 1. Firebase Remote Config Setup
+- [X] Ensure Firebase Remote Config is properly initialized in the app
+- [X] Add default values for "share_message" parameter
+- [X] Configure Remote Config in Firebase Console with appropriate message templates
 
-#### 2. Create RemoteConfigManager Class ✓
-- Created singleton class for Firebase Remote Config operations
-- Implemented methods for fetching and activating config
-- Added update checking logic
-- Implemented analytics tracking for update events
-- Created LiveData for update availability
+#### 2. Create ShareMessageManager Class
+- [X] Create a new class `ShareMessageManager` to handle fetching and caching of share messages
+- [X] Implement singleton pattern for easy access
+- [X] Add methods for fetching, caching, and retrieving share messages
 
-#### 3. Update AppUpdateViewModel ✓
-- Modified to integrate with RemoteConfigManager
-- Added methods for Remote Config update checking
-- Implemented update dialog display
-- Added analytics tracking integration
+#### 3. Implement Caching Mechanism
+- [X] Use SharedPreferences to store cached messages
+- [X] Store timestamp alongside cached messages
+- [X] Implement cache validity check (24-hour expiration)
+- [X] Add methods to clear expired cache
 
-#### 4. Create Update Dialog Helper ✓
-- Created helper class for showing update dialogs
-- Implemented analytics tracking for dialog interactions
-- Added methods for opening Play Store
-- Implemented proper error handling
+#### 4. Add Placeholder Processing
+- [X] Implement placeholder replacement logic for:
+  - `{{sender_name}}` - Replace with sender's name
+  - `{{recipient_name}}` - Replace with recipient's name
+  - `{{share_url}}` - Replace with the share URL
+- [X] Add fallback for missing placeholder values
 
-#### 5. Initialize RemoteConfigManager in EventWishApplication ✓
-- Added initialization in initializeFirebaseServices() method
-- Implemented proper error handling
-- Added debug logging
+#### 5. Update handleShareVia Method
+- [X] Modify to use ShareMessageManager to get share text
+- [X] Pass sender and recipient names for placeholder replacement
+- [X] Handle cases where remote config fetch fails
+- [X] Maintain platform-specific customization if needed
 
-#### 6. Update MainActivity for Update Checking ✓
-- Added checkForUpdates() method that uses Remote Config for debug builds
-- Added forceCheckForUpdates() method for manual update checks
-- Implemented proper error handling and logging
+#### 6. Testing and Validation
+- [X] Test with various placeholder combinations
+- [X] Test cache expiration logic
+- [X] Test fallback to default messages
+- [X] Verify proper message formatting across platforms
 
-#### 7. Create Documentation ✓
-- Created docs/firebase_remote_config_setup.md
-- Added detailed setup instructions
-- Included testing procedures
-- Added analytics dashboard setup guide
-- Included code usage examples
-- Added troubleshooting section
+### Implementation Summary
 
-#### 8. Create Analytics Dashboards ✓
-- Created docs/update_analytics_dashboards.md with comprehensive analytics setup
-- Designed 5 specialized dashboards for tracking update metrics
-- Added BigQuery integration for advanced analysis
-- Included automated reporting setup instructions
-- Added troubleshooting guidance for analytics issues
+1. Created `ShareMessageManager` class with:
+   - Singleton pattern for easy access
+   - Caching with 24-hour expiration using SharedPreferences
+   - Platform-specific message support
+   - Placeholder replacement for sender name, recipient name, and share URL
 
-### Testing Plan
-1. Test with no update available:
-   - Set remote config version equal to app version
-   - Verify no update dialog appears
-   - Check analytics events
+2. Updated string resources to use placeholders:
+   - Changed format strings to use `{{placeholder}}` syntax
+   - Added platform-specific message templates
 
-2. Test with update available:
-   - Set remote config version higher than app version
-   - Verify update dialog appears
-   - Test accepting the update
-   - Test deferring the update
-   - Check analytics events
+3. Updated `handleShareVia` method to:
+   - Get dynamic share message from ShareMessageManager
+   - Pass sender name, recipient name, and share URL for placeholder replacement
+   - Support platform-specific messages
 
-3. Test with force update:
-   - Set remote config version higher than app version
-   - Set force_update to true
-   - Verify force update dialog appears
-   - Verify app exits if update declined
-   - Check analytics events
+4. Added initialization in `EventWishApplication`:
+   - Initialize ShareMessageManager during app startup
+   - Preload share messages when viewing shared wishes
 
-4. Test in different app states:
-   - Fresh start
-   - Resume from background
-   - After specific actions
+5. Added preloading in `SharedWishFragment`:
+   - Fetch messages in advance when viewing shared wishes
+   - Use cached messages when sharing
 
-### Benefits
-1. Works in all environments (dev, test, prod)
-2. No Play Store dependency for testing
-3. Detailed analytics on update behavior
-4. Flexible update messages and URLs
-5. Support for force updates
-6. A/B testing capability for update prompts
-7. Remote control of update availability
-8. Enhanced user experience with custom dialogs
-
-### Key Metrics to Track
-1. Update check rate: % of sessions where update check occurs
-2. Update available rate: % of checks where update is available
-3. Update prompt impression rate: % of users who see update dialog
-4. Update acceptance rate: % of users who accept the update
-5. Update deferral rate: % of users who defer the update
-6. Update completion rate: % of users who complete the update process
-7. Time-to-update: Average time between update availability and acceptance
-8. Version distribution: % of users on each app version
-9. Force update compliance: % of users who update when forced
+### Benefits Achieved
+- Dynamically updatable share messages without app updates
+- Personalized messages with sender/recipient names
+- Reduced network requests with caching
+- Graceful fallback to local resources
+- A/B testing capability for share messages
