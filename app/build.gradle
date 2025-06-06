@@ -29,8 +29,8 @@ android {
         applicationId "com.ds.eventwish"
         minSdk 24
         targetSdk 34
-        versionCode 4
-        versionName "1.3"
+        versionCode 17
+        versionName "2.6"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
@@ -141,8 +141,7 @@ dependencies {
     implementation 'io.reactivex.rxjava3:rxandroid:3.0.2'
 
     // Google Mobile Ads SDK
-    implementation 'com.google.android.gms:play-services-ads:22.6.0'
-    implementation 'com.google.android.gms:play-services-ads-lite:22.6.0'
+    implementation 'com.google.android.gms:play-services-ads:24.3.0'
     implementation 'com.google.android.gms:play-services-basement:18.3.0'
 
     // Guava for ListenableFuture
@@ -172,6 +171,7 @@ dependencies {
 
     // Play Core for in-app updates
     implementation 'com.google.android.play:app-update:2.1.0'
+    implementation 'com.google.android.play:app-update-ktx:2.1.0'
     implementation 'com.google.android.play:core-common:2.0.3'
 
     // DiskLruCache for disk caching

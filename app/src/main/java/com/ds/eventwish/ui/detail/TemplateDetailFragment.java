@@ -17,6 +17,8 @@ import android.view.inputmethod.InputMethodManager;
 import android.webkit.WebSettings;
 import android.widget.Button;
 import android.widget.EditText;
+import android.view.WindowManager;
+import android.view.WindowInsets;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -33,6 +35,10 @@ import com.ds.eventwish.ui.render.TemplateRenderer;
 import com.ds.eventwish.utils.AnalyticsUtils;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 public class TemplateDetailFragment extends Fragment implements TemplateRenderer.TemplateRenderListener {
     private static final String TAG = "TemplateDetailFragment";
@@ -76,26 +82,16 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
             }
         }
 
-        // Get bottom navigation from activity and setup
+        // Get bottom navigation from activity
         if (getActivity() instanceof MainActivity) {
             bottomNav = getActivity().findViewById(R.id.bottomNavigation);
-            // Keep bottom navigation visible but disable it temporarily
-            bottomNav.setEnabled(false);
-            setupKeyboardVisibilityListener(view);
+            setupWindowInsets();
         }
-        
-        // Setup touch interceptor for the entire layout
-        binding.getRoot().setOnTouchListener((v, event) -> {
-            hideKeyboard();
-            return false; // Allow the event to be processed further
-        });
         
         setupWebView();
         setupInputListeners();
         setupObservers();
         setupClickListeners();
-        
-        // Adjust WebView container layout parameters for better display
         adjustWebViewLayout();
         
         // Load template data
@@ -112,138 +108,83 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         isViewCreated = true;
     }
 
-    private void setupKeyboardVisibilityListener(View view) {
-        Button shareButton = binding.shareButton;
-        view.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
-            if (!isAdded() || binding == null) return;
-            
-            Rect r = new Rect();
-            view.getWindowVisibleDisplayFrame(r);
-            int screenHeight = view.getRootView().getHeight();
-            int keypadHeight = screenHeight - r.bottom;
+    private void setupWindowInsets() {
+        if (binding == null || !isAdded()) return;
 
-            if (keypadHeight > screenHeight * 0.15) { // Keyboard is shown
-                if (bottomNav != null) {
-                    bottomNav.setVisibility(View.GONE);
-                }
-                if (shareButton != null) {
-                    shareButton.setVisibility(View.GONE);
-                }
-                // Reduce WebView width when keyboard is shown
-                if (binding.templatePreview != null) {
-                    ViewGroup.LayoutParams params = binding.templatePreview.getLayoutParams();
-                    params.width = (int) (view.getWidth() * 0.8f); // 80% of screen width
-                    binding.templatePreview.setLayoutParams(params);
-                }
-            } else { // Keyboard is hidden
-                if (bottomNav != null) {
-                    bottomNav.setVisibility(View.VISIBLE);
-                }
-                if (shareButton != null) {
-                    shareButton.setVisibility(View.VISIBLE);
-                }
-                // Restore WebView width when keyboard is hidden
-                if (binding.templatePreview != null) {
-                    ViewGroup.LayoutParams params = binding.templatePreview.getLayoutParams();
-                    params.width = ViewGroup.LayoutParams.MATCH_PARENT;
-                    binding.templatePreview.setLayoutParams(params);
-                }
-            }
-        });
+        View rootView = binding.getRoot();
+        WindowCompat.setDecorFitsSystemWindows(requireActivity().getWindow(), false);
 
-        // Add touch listener to the root view
-        binding.getRoot().setOnTouchListener((v, event) -> {
-            // Check if the touch is on an input field
-            View focusedView = requireActivity().getCurrentFocus();
-            if (focusedView instanceof EditText) {
-                // If touch is on an input field, don't hide keyboard
-                return false;
-            }
+        ViewCompat.setOnApplyWindowInsetsListener(rootView, (v, windowInsets) -> {
+            boolean isKeyboardVisible = windowInsets.isVisible(WindowInsetsCompat.Type.ime());
+            int imeHeight = windowInsets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
+            int navigationHeight = windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
             
-            // If touch is not on an input field, hide keyboard
-            hideKeyboard();
-            return false;
-        });
-        
-        // Add touch listener to the WebView container
-        binding.templatePreview.setOnTouchListener((v, event) -> {
-            // Check if the touch is on an input field
-            View focusedView = requireActivity().getCurrentFocus();
-            if (focusedView instanceof EditText) {
-                // If touch is on an input field, don't hide keyboard
-                return false;
-            }
-            
-            // If touch is not on an input field, hide keyboard
-            hideKeyboard();
-            return false;
-        });
-        
-        // Add touch listener to the WebView
-        binding.webView.setOnTouchListener((v, event) -> {
-            // Check if the touch is on an input field
-            View focusedView = requireActivity().getCurrentFocus();
-            if (focusedView instanceof EditText) {
-                // If touch is on an input field, don't hide keyboard
-                return false;
-            }
-            
-            // If touch is not on an input field, hide keyboard
-            hideKeyboard();
-            return false;
-        });
-        
-        // Add focus change listeners to input fields to prevent keyboard hiding
-        binding.recipientNameInput.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus) {
-                // When input field gets focus, don't hide keyboard
-                return;
-            }
-        });
-        
-        binding.senderNameInput.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus) {
-                // When input field gets focus, don't hide keyboard
-                return;
-            }
+            mainHandler.post(() -> {
+                if (isKeyboardVisible) {
+                    // When keyboard is visible
+                    if (bottomNav != null) {
+                        bottomNav.setVisibility(View.GONE);
+                    }
+                    if (binding.shareButton != null) {
+                        binding.shareButton.setVisibility(View.GONE);
+                    }
+                    if (binding.backButton != null) {
+                        binding.backButton.setVisibility(View.GONE);
+                    }
+                    
+                    // Adjust content padding
+                    binding.contentLayout.setPadding(
+                        binding.contentLayout.getPaddingLeft(),
+                        binding.contentLayout.getPaddingTop(),
+                        binding.contentLayout.getPaddingRight(),
+                        imeHeight
+                    );
+                } else {
+                    // When keyboard is hidden
+                    if (bottomNav != null) {
+                        bottomNav.setVisibility(View.VISIBLE);
+                    }
+                    if (binding.shareButton != null) {
+                        binding.shareButton.setVisibility(View.VISIBLE);
+                    }
+                    if (binding.backButton != null) {
+                        binding.backButton.setVisibility(View.VISIBLE);
+                    }
+                    
+                    // Reset content padding
+                    binding.contentLayout.setPadding(
+                        binding.contentLayout.getPaddingLeft(),
+                        binding.contentLayout.getPaddingTop(),
+                        binding.contentLayout.getPaddingRight(),
+                        navigationHeight
+                    );
+                }
+            });
+
+            return windowInsets;
         });
     }
 
     private void hideKeyboard() {
-        try {
-            android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager)
-                    requireActivity().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
-            View currentFocus = requireActivity().getCurrentFocus();
+        if (getActivity() == null || !isAdded()) return;
+
+        View view = getActivity().getCurrentFocus();
+        if (view != null) {
+            InputMethodManager imm = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
             
-            // Clear focus from any EditText
-            if (binding.recipientNameInput != null) {
-                binding.recipientNameInput.clearFocus();
+            // Ensure bottom navigation is visible after keyboard is hidden
+            if (bottomNav != null) {
+                bottomNav.setVisibility(View.VISIBLE);
             }
-            if (binding.senderNameInput != null) {
-                binding.senderNameInput.clearFocus();
+            if (binding != null) {
+                if (binding.shareButton != null) {
+                    binding.shareButton.setVisibility(View.VISIBLE);
+                }
+                if (binding.backButton != null) {
+                    binding.backButton.setVisibility(View.VISIBLE);
+                }
             }
-            
-            // Hide keyboard
-            if (currentFocus != null) {
-                imm.hideSoftInputFromWindow(currentFocus.getWindowToken(), 0);
-            } else {
-                // If no focus, try hiding using the root view
-                View rootView = binding.getRoot();
-                imm.hideSoftInputFromWindow(rootView.getWindowToken(), 0);
-            }
-            
-            // Ensure WebView width is restored to full width
-            if (binding.templatePreview != null) {
-                binding.templatePreview.post(() -> {
-                    ViewGroup.LayoutParams params = binding.templatePreview.getLayoutParams();
-                    params.width = ViewGroup.LayoutParams.MATCH_PARENT;
-                    binding.templatePreview.setLayoutParams(params);
-                });
-            }
-            
-            Log.d(TAG, "Keyboard hidden and WebView width adjusted");
-        } catch (Exception e) {
-            Log.e(TAG, "Error hiding keyboard: " + e.getMessage());
         }
     }
 
@@ -568,21 +509,56 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
 
         binding.customizeButton.setVisibility(View.GONE);
 
+        // Setup touch listeners for keyboard dismissal
         View rootView = binding.getRoot();
         rootView.setOnTouchListener((v, event) -> {
-            hideKeyboard();
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                // Check if touch is outside of input fields
+                if (!isTouchInsideView(event, binding.recipientNameInput) && 
+                    !isTouchInsideView(event, binding.senderNameInput)) {
+                    hideKeyboard();
+                    return true; // Consume the touch event
+                }
+            }
             return false;
         });
 
-        binding.webView.setOnTouchListener((v, event) -> {
-            hideKeyboard();
-            return false;
-        });
+        // Setup input field touch listeners with proper focus handling
+        if (binding.recipientNameInput != null) {
+            binding.recipientNameInput.setOnEditorActionListener((v, actionId, event) -> {
+                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                    hideKeyboard();
+                    return true;
+                }
+                return false;
+            });
+        }
 
-        binding.templatePreview.setOnTouchListener((v, event) -> {
-            hideKeyboard();
-            return false;
-        });
+        if (binding.senderNameInput != null) {
+            binding.senderNameInput.setOnEditorActionListener((v, actionId, event) -> {
+                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_NEXT) {
+                    binding.recipientNameInput.requestFocus();
+                    return true;
+                }
+                return false;
+            });
+        }
+    }
+
+    /**
+     * Check if touch event is inside a view
+     */
+    private boolean isTouchInsideView(MotionEvent event, View view) {
+        if (view == null) return false;
+        
+        int[] viewLocation = new int[2];
+        view.getLocationOnScreen(viewLocation);
+        
+        float x = event.getRawX();
+        float y = event.getRawY();
+        
+        return (x >= viewLocation[0] && x <= (viewLocation[0] + view.getWidth()) &&
+                y >= viewLocation[1] && y <= (viewLocation[1] + view.getHeight()));
     }
 
     /**
@@ -903,12 +879,7 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
     public void onDestroyView() {
         super.onDestroyView();
         
-        // Stop analytics tracking if still running
-        stopAnalyticsTracking();
-        
-        isViewCreated = false;
-        
-        // Cleanup WebView more thoroughly
+        // Cleanup WebView
         if (binding != null && binding.webView != null) {
             binding.webView.stopLoading();
             binding.webView.clearCache(true);
@@ -919,16 +890,14 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
             binding.webView.destroy();
         }
         
-        // Re-enable bottom navigation when leaving
-        if (bottomNav != null) {
-            bottomNav.setEnabled(true);
-            bottomNav.setVisibility(View.VISIBLE);
-        }
-        
-        // Remove any pending callbacks
         if (pendingNameUpdate != null) {
             backgroundHandler.removeCallbacks(pendingNameUpdate);
             pendingNameUpdate = null;
+        }
+        
+        // Ensure bottom navigation is visible when leaving
+        if (bottomNav != null) {
+            bottomNav.setVisibility(View.VISIBLE);
         }
         
         binding = null;

@@ -261,50 +261,66 @@ public class CategoryIconRepository {
             return null;
         }
         
-        // Normalize the category name for consistent lookup
-        String normalizedCategory = normalizeCategory(category);
-        
-        // Quick return from exact match
-        CategoryIcon icon = categoryIconMap.get(normalizedCategory);
-        if (icon != null) {
-            Log.d(TAG, "✅ Found exact match icon for category: '" + normalizedCategory + "'");
-            return icon;
-        }
-        
-        // Try to initialize if needed
-        if (!isInitialized.get() || categoryIconMap.isEmpty()) {
-            Log.d(TAG, "🔄 Icons not initialized yet, loading category icons");
+        try {
+            // Normalize the category name for consistent lookup
+            String normalizedCategory = normalizeCategory(category);
             
-            // Synchronous loading for real-time requests
-            synchronized (this) {
-                loadCategoryIconsSync();
-                
-                // Check again after loading
-                icon = categoryIconMap.get(normalizedCategory);
+            // Quick return from exact match with proper synchronization
+            synchronized (categoryIconMap) {
+                CategoryIcon icon = categoryIconMap.get(normalizedCategory);
                 if (icon != null) {
-                    Log.d(TAG, "✅ Found icon after sync loading for category: '" + normalizedCategory + "'");
+                    Log.d(TAG, "✅ Found exact match icon for category: '" + normalizedCategory + "'");
                     return icon;
                 }
             }
+            
+            // Try to initialize if needed
+            if (!isInitialized.get() || categoryIconMap.isEmpty()) {
+                Log.d(TAG, "🔄 Icons not initialized yet, loading category icons");
+                
+                // Synchronous loading for real-time requests
+                synchronized (this) {
+                    loadCategoryIconsSync();
+                    
+                    // Check again after loading with proper synchronization
+                    synchronized (categoryIconMap) {
+                        CategoryIcon icon = categoryIconMap.get(normalizedCategory);
+                        if (icon != null) {
+                            Log.d(TAG, "✅ Found icon after sync loading for category: '" + normalizedCategory + "'");
+                            return icon;
+                        }
+                    }
+                }
+            }
+            
+            // Try fuzzy matching if exact match failed
+            CategoryIcon icon = findBestMatchingIcon(normalizedCategory);
+            if (icon != null) {
+                // Cache this match for future lookups with proper synchronization
+                synchronized (categoryIconMap) {
+                    categoryIconMap.put(normalizedCategory, icon);
+                    Log.d(TAG, "🔍 Found fuzzy match for category: '" + normalizedCategory + 
+                          "' → '" + icon.getCategory() + "'");
+                }
+                return icon;
+            }
+            
+            // If still not found, add a generic fallback for this specific category
+            Log.d(TAG, "⚠️ No icon found for category: '" + normalizedCategory + "', adding generic fallback");
+            String fallbackUrl = generateFallbackUrl(normalizedCategory);
+            CategoryIcon fallbackIcon = new CategoryIcon(normalizedCategory, category, fallbackUrl);
+            
+            // Add fallback with proper synchronization
+            synchronized (categoryIconMap) {
+                categoryIconMap.put(normalizedCategory, fallbackIcon);
+            }
+            
+            return fallbackIcon;
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error getting category icon for: " + category, e);
+            // Return a fallback icon in case of any error
+            return new CategoryIcon(category, category, generateFallbackUrl(category));
         }
-        
-        // Try fuzzy matching if exact match failed
-        icon = findBestMatchingIcon(normalizedCategory);
-        if (icon != null) {
-            // Cache this match for future lookups
-            categoryIconMap.put(normalizedCategory, icon);
-            Log.d(TAG, "🔍 Found fuzzy match for category: '" + normalizedCategory + 
-                  "' → '" + icon.getCategory() + "'");
-            return icon;
-        }
-        
-        // If still not found, add a generic fallback for this specific category
-        Log.d(TAG, "⚠️ No icon found for category: '" + normalizedCategory + "', adding generic fallback");
-        String fallbackUrl = generateFallbackUrl(normalizedCategory);
-        CategoryIcon fallbackIcon = new CategoryIcon(normalizedCategory, category, fallbackUrl);
-        categoryIconMap.put(normalizedCategory, fallbackIcon);
-        
-        return fallbackIcon;
     }
 
     /**
@@ -403,86 +419,100 @@ public class CategoryIconRepository {
      */
     @Nullable
     private CategoryIcon findBestMatchingIcon(String category) {
-        if (category == null || category.isEmpty() || categoryIconMap.isEmpty()) {
+        if (category == null || category.isEmpty()) {
             return null;
         }
         
-        // Special case for "All" category - it's important to handle this consistently
-        if ("all".equalsIgnoreCase(category) || "all".equalsIgnoreCase(category.trim())) {
-            CategoryIcon allIcon = categoryIconMap.get("all");
-            if (allIcon != null) {
-                Log.d(TAG, "✅ Found exact match for 'All' category");
-                return allIcon;
-            }
-        }
-        
-        CategoryIcon bestMatch = null;
-        int bestScore = 0;
-        
-        // Create a snapshot of the map entries to avoid ConcurrentModificationException
-        List<Map.Entry<String, CategoryIcon>> entries;
-        synchronized (categoryIconMap) {
-            entries = new ArrayList<>(categoryIconMap.entrySet());
-        }
-        
-        // First try direct substring matching (most reliable)
-        for (Map.Entry<String, CategoryIcon> entry : entries) {
-            String key = entry.getKey();
-            
-            // Skip empty keys
-            if (key == null || key.isEmpty()) continue;
-            
-            // Direct substring matches are highest priority
-            if (key.contains(category) || category.contains(key)) {
-                int matchLength = Math.min(key.length(), category.length());
-                int currentScore = 100 + matchLength; // Prioritize substring matches
-                
-                if (currentScore > bestScore) {
-                    bestScore = currentScore;
-                    bestMatch = entry.getValue();
-                }
-            }
-        }
-        
-        // If we got a good substring match, return it
-        if (bestScore > 100) {
-            return bestMatch;
-        }
-        
-        // Try word-by-word matching for multi-word categories
-        String[] categoryWords = category.split("\\s+");
-        if (categoryWords.length > 1) {
-            for (Map.Entry<String, CategoryIcon> entry : entries) {
-                String key = entry.getKey();
-                if (key == null || key.isEmpty()) continue;
-                
-                String[] keyWords = key.split("\\s+");
-                int matchedWords = 0;
-                
-                for (String categoryWord : categoryWords) {
-                    if (categoryWord.length() < 3) continue; // Skip short words
-                    
-                    for (String keyWord : keyWords) {
-                        if (keyWord.length() < 3) continue; // Skip short words
-                        
-                        if (keyWord.contains(categoryWord) || categoryWord.contains(keyWord)) {
-                            matchedWords++;
-                            break;
-                        }
+        try {
+            // Special case for "All" category - it's important to handle this consistently
+            if ("all".equalsIgnoreCase(category) || "all".equalsIgnoreCase(category.trim())) {
+                synchronized (categoryIconMap) {
+                    CategoryIcon allIcon = categoryIconMap.get("all");
+                    if (allIcon != null) {
+                        Log.d(TAG, "✅ Found exact match for 'All' category");
+                        return allIcon;
                     }
                 }
+            }
+            
+            CategoryIcon bestMatch = null;
+            int bestScore = 0;
+            
+            // Create a thread-safe copy of entries to prevent ConcurrentModificationException
+            List<Map.Entry<String, CategoryIcon>> entries;
+            synchronized (categoryIconMap) {
+                entries = new ArrayList<>(categoryIconMap.entrySet());
+            }
+            
+            // First try direct substring matching (most reliable)
+            for (Map.Entry<String, CategoryIcon> entry : entries) {
+                String key = entry.getKey();
                 
-                if (matchedWords > 0) {
-                    int currentScore = matchedWords * 50; // 50 points per matched word
+                // Skip empty keys
+                if (key == null || key.isEmpty()) continue;
+                
+                // Direct substring matches are highest priority
+                if (key.contains(category) || category.contains(key)) {
+                    int matchLength = Math.min(key.length(), category.length());
+                    int currentScore = 100 + matchLength; // Prioritize substring matches
+                    
                     if (currentScore > bestScore) {
                         bestScore = currentScore;
                         bestMatch = entry.getValue();
                     }
                 }
             }
+            
+            // If we got a good substring match, return it
+            if (bestScore > 100) {
+                return bestMatch;
+            }
+            
+            // Try word-by-word matching for multi-word categories
+            String[] categoryWords = category.split("\\s+");
+            if (categoryWords.length > 1) {
+                for (Map.Entry<String, CategoryIcon> entry : entries) {
+                    String key = entry.getKey();
+                    if (key == null || key.isEmpty()) continue;
+                    
+                    String[] keyWords = key.split("\\s+");
+                    int matchedWords = 0;
+                    
+                    for (String categoryWord : categoryWords) {
+                        if (categoryWord.length() < 3) continue; // Skip short words
+                        
+                        for (String keyWord : keyWords) {
+                            if (keyWord.length() < 3) continue; // Skip short words
+                            
+                            if (keyWord.contains(categoryWord) || categoryWord.contains(keyWord)) {
+                                matchedWords++;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (matchedWords > 0) {
+                        int currentScore = matchedWords * 50; // 50 points per matched word
+                        if (currentScore > bestScore) {
+                            bestScore = currentScore;
+                            bestMatch = entry.getValue();
+                        }
+                    }
+                }
+            }
+            
+            // If we found a match, cache it safely
+            if (bestMatch != null) {
+                synchronized (categoryIconMap) {
+                    categoryIconMap.put(category.toLowerCase(Locale.US).trim(), bestMatch);
+                }
+            }
+            
+            return bestMatch;
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error finding best matching icon for: " + category, e);
+            return null;
         }
-        
-        return bestMatch;
     }
 
     /**

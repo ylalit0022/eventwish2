@@ -81,7 +81,9 @@
         <activity
             android:name=".ui.MainActivity"
             android:screenOrientation="portrait"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:alwaysRetainTaskState="true">
 
             <!-- HTTPS/HTTP deep links for wishes -->
             <intent-filter android:autoVerify="true">
@@ -148,17 +150,6 @@
 
             <nav-graph android:value="@navigation/nav_graph" />
         </activity>
-
-
-<!--        <activity-->
-<!--            android:name=".TestNotificationActivity"-->
-<!--            android:exported="true">-->
-<!--            <intent-filter>-->
-<!--                <action android:name="android.intent.action.MAIN" />-->
-<!--                <category android:name="android.intent.category.LAUNCHER" />-->
-<!--            </intent-filter>-->
-<!--        </activity>-->
-
 
 
         <meta-data

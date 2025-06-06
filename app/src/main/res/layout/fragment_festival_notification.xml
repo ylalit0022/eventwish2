@@ -1,145 +1,193 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    app:cardCornerRadius="8dp"
-    app:cardElevation="4dp"
-    android:background="#FFFFFF">
+    android:background="@android:color/white">
 
-    <TextView
-        android:id="@+id/titleTextView"
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBarLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        android:layout_marginEnd="16dp"
-        android:text="Upcoming Festivals"
-        android:textColor="#1976D2"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:fontFamily="sans-serif-medium"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:background="@android:color/white"
+        android:elevation="0dp">
 
-    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-        android:id="@+id/swipeRefreshLayout"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginTop="8dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/titleTextView">
-
-        <androidx.core.widget.NestedScrollView
+        <com.google.android.material.appbar.CollapsingToolbarLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="#FFFFFF">
+            android:layout_height="wrap_content"
+            app:layout_scrollFlags="scroll|exitUntilCollapsed|snap">
 
             <LinearLayout
-                android:id="@+id/festivalsContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingBottom="16dp">
+                android:padding="16dp"
+                app:layout_collapseMode="parallax">
 
+                <TextView
+                    android:id="@+id/titleTextView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Upcoming Festivals"
+                    android:textColor="@color/colorPrimary"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Stay updated with upcoming celebrations"
+                    android:textColor="@android:color/darker_gray"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
+        </com.google.android.material.appbar.CollapsingToolbarLayout>
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefreshLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <androidx.core.widget.NestedScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <!-- Loading State -->
                 <com.facebook.shimmer.ShimmerFrameLayout
                     android:id="@+id/shimmerFrameLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    app:shimmer_base_color="#F0F0F0"
-                    app:shimmer_highlight_color="#E0E0E0"
-                    android:orientation="vertical">
-                
+                    app:shimmer_duration="800">
+
                     <LinearLayout
                         android:id="@+id/loadingLayout"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:visibility="gone">
+                        android:padding="16dp">
 
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical">
-                
-                            <include layout="@layout/item_festival_shimmer" />
-                            <include layout="@layout/item_festival_shimmer" />
-                            <include layout="@layout/item_festival_shimmer" />
-                
-                        </LinearLayout>
+                        <include layout="@layout/item_festival_shimmer" />
+                        <include layout="@layout/item_festival_shimmer" />
+                        <include layout="@layout/item_festival_shimmer" />
+
                     </LinearLayout>
-                
+
                 </com.facebook.shimmer.ShimmerFrameLayout>
 
+                <!-- Content -->
+                <LinearLayout
+                    android:id="@+id/festivalsContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="8dp"
+                    android:visibility="gone" />
+
+                <!-- Error State -->
                 <LinearLayout
                     android:id="@+id/errorLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_gravity="center"
                     android:gravity="center"
                     android:orientation="vertical"
                     android:padding="24dp"
-                    android:visibility="gone"
-                    android:background="#FFF3F3">
+                    android:visibility="gone">
 
                     <ImageView
-                        android:layout_width="72dp"
-                        android:layout_height="72dp"
-                        android:src="@android:drawable/ic_dialog_alert"
+                        android:id="@+id/errorIcon"
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:src="@drawable/ic_error"
                         app:tint="#E53935" />
 
                     <TextView
                         android:id="@+id/errorTextView"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
+                        android:layout_marginTop="16dp"
+                        android:gravity="center"
                         android:text="Something went wrong"
                         android:textAlignment="center"
                         android:textColor="#D32F2F"
-                        android:textSize="16sp" />
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
 
-                    <Button
+                    <TextView
+                        android:id="@+id/errorDescriptionTextView"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:layout_marginHorizontal="32dp"
+                        android:gravity="center"
+                        android:text="Please check your internet connection and try again"
+                        android:textAlignment="center"
+                        android:textColor="#757575"
+                        android:textSize="14sp" />
+
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/retryButton"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
+                        android:layout_marginTop="24dp"
                         android:text="Retry"
-                        android:textColor="#FFFFFF"
-                        android:backgroundTint="#1976D2" />
+                        android:textColor="@android:color/white"
+                        app:cornerRadius="8dp"
+                        app:backgroundTint="@color/colorPrimary" />
                 </LinearLayout>
 
+                <!-- Empty State -->
                 <LinearLayout
                     android:id="@+id/emptyLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_gravity="center"
                     android:gravity="center"
                     android:orientation="vertical"
                     android:padding="24dp"
-                    android:visibility="gone"
-                    android:background="#F5F5F5">
+                    android:visibility="gone">
 
                     <ImageView
-                        android:layout_width="72dp"
-                        android:layout_height="72dp"
-                        android:src="@android:drawable/ic_menu_info_details"
-                        app:tint="#607D8B" />
+                        android:layout_width="80dp"
+                        android:layout_height="80dp"
+                        android:src="@drawable/ic_empty_calendar"
+                        app:tint="#78909C" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="No upcoming festivals"
+                        android:layout_marginTop="16dp"
+                        android:text="No Upcoming Festivals"
                         android:textAlignment="center"
                         android:textColor="#455A64"
-                        android:textSize="16sp" />
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:layout_marginHorizontal="32dp"
+                        android:text="Currently there are no upcoming festivals. Check back later for new celebrations!"
+                        android:textAlignment="center"
+                        android:textColor="#78909C"
+                        android:textSize="14sp" />
+
                 </LinearLayout>
 
-            </LinearLayout>
+            </FrameLayout>
+
         </androidx.core.widget.NestedScrollView>
+
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

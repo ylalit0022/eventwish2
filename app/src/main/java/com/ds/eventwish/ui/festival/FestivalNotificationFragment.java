@@ -31,7 +31,6 @@ import com.ds.eventwish.data.model.CategoryIcon;
 import com.ds.eventwish.data.model.Festival;
 import com.ds.eventwish.data.model.FestivalTemplate;
 import com.ds.eventwish.data.model.Result;
-import com.ds.eventwish.databinding.FragmentFestivalNotificationBinding;
 import com.ds.eventwish.ui.festival.adapter.TemplateAdapter;
 import com.ds.eventwish.ui.views.OfflineIndicatorView;
 import com.ds.eventwish.ui.views.StaleDataIndicatorView;
@@ -42,6 +41,8 @@ import com.ds.eventwish.utils.NotificationScheduler;
 import com.facebook.shimmer.ShimmerFrameLayout;
 import com.google.android.material.snackbar.Snackbar;
 
+import java.io.IOException;
+import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -64,6 +65,7 @@ public class FestivalNotificationFragment extends Fragment {
     private SwipeRefreshLayout swipeRefreshLayout;
     private NavController navController;
     private TextView errorText;
+    private TextView errorDescriptionText;
     private Observer<Result<List<Festival>>> festivalsObserver;
     private boolean isDataLoaded = false;
     private NetworkUtils networkUtils;
@@ -87,47 +89,62 @@ public class FestivalNotificationFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        initializeViews(view);
+        setupViewModel();
+        setupObservers();
+        setupListeners();
+        
+        if (!isDataLoaded) {
+            loadFestivals();
+        }
+    }
 
-        // Initialize ViewModel
-        viewModel = new ViewModelProvider(requireActivity()).get(FestivalViewModel.class);
-
-        // Get NavController for navigation
-        navController = Navigation.findNavController(view);
-
-        // Initialize views
+    private void initializeViews(@NonNull View view) {
         festivalsContainer = view.findViewById(R.id.festivalsContainer);
         loadingLayout = view.findViewById(R.id.loadingLayout);
         errorLayout = view.findViewById(R.id.errorLayout);
         emptyLayout = view.findViewById(R.id.emptyLayout);
         retryButton = view.findViewById(R.id.retryButton);
         swipeRefreshLayout = view.findViewById(R.id.swipeRefreshLayout);
-        errorText = errorLayout.findViewById(R.id.errorTextView);
+        errorText = view.findViewById(R.id.errorTextView);
+        errorDescriptionText = view.findViewById(R.id.errorDescriptionTextView);
         shimmerFrameLayout = view.findViewById(R.id.shimmerFrameLayout);
-        
-        // Initialize network utils
-        networkUtils = NetworkUtils.getInstance(requireContext());
-        
-        // Initialize offline and stale data indicators
         offlineIndicator = view.findViewById(R.id.offlineIndicator);
         staleDataIndicator = view.findViewById(R.id.staleDataIndicator);
+        navController = Navigation.findNavController(view);
+    }
+
+    private void setupViewModel() {
+        viewModel = new ViewModelProvider(requireActivity()).get(FestivalViewModel.class);
+        networkUtils = NetworkUtils.getInstance(requireContext());
+    }
+
+    private void setupObservers() {
+        createFestivalsObserver();
+        viewModel.getFestivals().observe(getViewLifecycleOwner(), festivalsObserver);
         
-        // Set up offline indicator
-        if (offlineIndicator != null) {
-            offlineIndicator.setRetryListener(() -> refreshFestivals());
-        }
+        // Observe network state
+        networkUtils.getNetworkAvailability().observe(getViewLifecycleOwner(), this::handleNetworkState);
         
-        // Set up stale data indicator
-        if (staleDataIndicator != null) {
-            staleDataIndicator.setRefreshListener(() -> refreshFestivals());
-        }
+        // Observe stale data
+        viewModel.getStaleData().observe(getViewLifecycleOwner(), isStale -> {
+            if (staleDataIndicator != null) {
+                staleDataIndicator.setVisibility(isStale ? View.VISIBLE : View.GONE);
+            }
+        });
 
-        shimmerFrameLayout.startShimmer();
+        // Observe cache snackbar
+        viewModel.getShowCacheSnackbar().observe(getViewLifecycleOwner(), this::handleCacheSnackbar);
+    }
 
-        // Set up retry button
-        retryButton.setOnClickListener(v -> refreshFestivals());
-
-        // Set up swipe refresh
-        swipeRefreshLayout.setOnRefreshListener(this::refreshFestivals);
+    private void setupListeners() {
+        retryButton.setOnClickListener(v -> loadFestivals());
+        
+        swipeRefreshLayout.setOnRefreshListener(() -> {
+            Log.d(TAG, "SwipeRefresh triggered");
+            viewModel.refreshFestivals();
+        });
+        
         swipeRefreshLayout.setColorSchemeResources(
                 android.R.color.holo_blue_bright,
                 android.R.color.holo_green_light,
@@ -135,126 +152,137 @@ public class FestivalNotificationFragment extends Fragment {
                 android.R.color.holo_red_light
         );
 
-        // Create the festivals observer
-        createFestivalsObserver();
-
-        // Observe festivals
-        viewModel.getFestivals().observe(getViewLifecycleOwner(), festivalsObserver);
-
-        // Observe cache snackbar
-        viewModel.getShowCacheSnackbar().observe(getViewLifecycleOwner(), showSnackbar -> {
-            if (showSnackbar != null && showSnackbar && getView() != null) {
-                Snackbar.make(getView(), "Showing data from cache", Snackbar.LENGTH_LONG)
-                        .setAction("Refresh", v -> refreshFestivals())
-                        .show();
-                viewModel.clearCacheSnackbarFlag();
-            }
-        });
+        if (offlineIndicator != null) {
+            offlineIndicator.setRetryListener(this::loadFestivals);
+        }
         
-        // Observe network state
-        networkUtils.getNetworkAvailability().observe(getViewLifecycleOwner(), isConnected -> {
-            if (offlineIndicator != null) {
-                offlineIndicator.setVisibility(isConnected ? View.GONE : View.VISIBLE);
-            }
-            
-            if (!isConnected && !isDataLoaded) {
-                // If offline and no data loaded yet, try to load from cache
-                loadFestivals();
-            } else if (isConnected && !isDataLoaded) {
-                // If online and no data loaded yet, load fresh data
+        if (staleDataIndicator != null) {
+            staleDataIndicator.setRefreshListener(this::loadFestivals);
+        }
+    }
+
+    private void hideAllStateViews() {
+        // Hide all state containers
+        errorLayout.setVisibility(View.GONE);
+        emptyLayout.setVisibility(View.GONE);
+        festivalsContainer.setVisibility(View.GONE);
+        
+        // Don't hide shimmer here as it's handled separately
+        if (!swipeRefreshLayout.isRefreshing()) {
+            shimmerFrameLayout.setVisibility(View.GONE);
+            shimmerFrameLayout.stopShimmer();
+        }
+        
+        // Hide indicators
+        if (offlineIndicator != null) {
+            offlineIndicator.setVisibility(View.GONE);
+        }
+        if (staleDataIndicator != null) {
+            staleDataIndicator.setVisibility(View.GONE);
+        }
+    }
+
+    private void showLoading() {
+        hideAllStateViews();
+        
+        // Only show shimmer if not refreshing
+        if (!swipeRefreshLayout.isRefreshing()) {
+            shimmerFrameLayout.startShimmer();
+            shimmerFrameLayout.setVisibility(View.VISIBLE);
+            loadingLayout.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void hideLoading() {
+        shimmerFrameLayout.stopShimmer();
+        shimmerFrameLayout.setVisibility(View.GONE);
+        loadingLayout.setVisibility(View.GONE);
+        swipeRefreshLayout.setRefreshing(false);
+    }
+
+    private void showContent() {
+        hideAllStateViews();
+        festivalsContainer.setVisibility(View.VISIBLE);
+    }
+
+    private void showError(boolean isNetworkError) {
+        hideAllStateViews();
+        errorLayout.setVisibility(View.VISIBLE);
+        
+        if (offlineIndicator != null && isNetworkError) {
+            offlineIndicator.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void showEmpty() {
+        hideAllStateViews();
+        emptyLayout.setVisibility(View.VISIBLE);
+    }
+
+    private void handleNetworkState(boolean isConnected) {
+        if (offlineIndicator != null) {
+            offlineIndicator.setVisibility(isConnected ? View.GONE : View.VISIBLE);
+        }
+        
+        // Only handle initial load state
+        if (!isDataLoaded) {
+            if (!isConnected) {
+                loadFestivals(); // Try loading from cache first
+            } else {
                 refreshFestivals();
             }
-        });
-        
-        // Observe stale data state
-        viewModel.getStaleData().observe(getViewLifecycleOwner(), isStale -> {
-            if (staleDataIndicator != null) {
-                staleDataIndicator.setVisibility(isStale ? View.VISIBLE : View.GONE);
-            }
-        });
-
-        // Only load festivals if we haven't loaded them yet
-        if (!isDataLoaded) {
-            loadFestivals();
         }
+    }
 
-        // Add test notification button
-        addTestNotificationButton();
+    private void handleCacheSnackbar(Boolean showSnackbar) {
+        if (showSnackbar != null && showSnackbar && getView() != null) {
+            Snackbar.make(getView(), "Showing data from cache", Snackbar.LENGTH_LONG)
+                    .setAction("Refresh", v -> refreshFestivals())
+                    .show();
+            viewModel.clearCacheSnackbarFlag();
+        }
     }
 
     private void createFestivalsObserver() {
-        shimmerFrameLayout.startShimmer();
-        shimmerFrameLayout.setVisibility(View.VISIBLE);
-        loadingLayout.setVisibility(View.VISIBLE);
-        // Create a single observer that we can reuse
         festivalsObserver = result -> {
-            loadingLayout.setVisibility(View.GONE);
-            swipeRefreshLayout.setRefreshing(false);
-            shimmerFrameLayout.stopShimmer();
-            shimmerFrameLayout.setVisibility(View.GONE);
-
+            Log.d(TAG, "Received result: " + (result.isSuccess() ? "success" : "error"));
+            
             if (result.isSuccess()) {
                 List<Festival> festivals = result.getData();
                 if (festivals != null && !festivals.isEmpty()) {
+                    showContent();
                     displayFestivals(festivals);
-                    festivalsContainer.setVisibility(View.VISIBLE);
-                    emptyLayout.setVisibility(View.GONE);
-                    errorLayout.setVisibility(View.GONE);
                     isDataLoaded = true;
-                    
-                    // Check if data is stale
-                    if (result.isStale()) {
-                        viewModel.setStaleData(true);
-                    } else {
-                        viewModel.setStaleData(false);
-                    }
+                    viewModel.setStaleData(result.isStale());
                 } else {
-                    festivalsContainer.setVisibility(View.GONE);
-                    emptyLayout.setVisibility(View.VISIBLE);
-                    errorLayout.setVisibility(View.GONE);
+                    showEmpty();
                 }
             } else {
-                errorLayout.setVisibility(View.VISIBLE);
-                festivalsContainer.setVisibility(View.GONE);
-                emptyLayout.setVisibility(View.GONE);
-                errorText.setText(result.getError());
-                
-                // Check if error is due to being offline
-                if (result.getError() != null && 
+                boolean isNetworkError = result.getError() != null && 
                     (result.getError().contains("offline") || 
                      result.getError().contains("network") || 
-                     result.getError().contains("connection"))) {
-                    // Show offline indicator
-                    if (offlineIndicator != null) {
-                        offlineIndicator.setVisibility(View.VISIBLE);
+                     result.getError().contains("connection"));
+
+                if (isDataLoaded && festivalsContainer.getVisibility() == View.VISIBLE) {
+                    // Keep showing existing content
+                    showContent();
+                } else {
+                    // Show error state for initial load
+                    showError(isNetworkError);
+                    
+                    if (isNetworkError) {
+                        errorText.setText("No Internet Connection");
+                        errorDescriptionText.setText("Please check your internet connection and try again");
+                    } else {
+                        errorText.setText("Something went wrong");
+                        errorDescriptionText.setText("We're having trouble loading festivals. Please try again");
                     }
                 }
             }
+            
+            // Always stop loading states at the end
+            hideLoading();
         };
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        // Only load data on first app launch, not when switching fragments
-        if (!isDataLoaded) {
-            Log.d(TAG, "First time loading data");
-            loadFestivals();
-        } else {
-            Log.d(TAG, "Data already loaded, not refreshing");
-        }
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        // Cancel all countdown timers to prevent memory leaks
-        for (CountDownTimer timer : countdownTimers.values()) {
-            if (timer != null) {
-                timer.cancel();
-            }
-        }
-        countdownTimers.clear();
     }
 
     private void setCategoryIcon(ImageView imageView, Festival festival) {
@@ -281,30 +309,6 @@ public class FestivalNotificationFragment extends Fragment {
                     .centerCrop()
                     .into(imageView);
         }
-    }
-
-    private void refreshFestivals() {
-        Log.d(TAG, "Manually refreshing festivals from server");
-        swipeRefreshLayout.setRefreshing(true);
-        errorLayout.setVisibility(View.GONE);
-        shimmerFrameLayout.startShimmer();
-        shimmerFrameLayout.setVisibility(View.VISIBLE);
-        loadingLayout.setVisibility(View.VISIBLE);
-
-        // Force a refresh from the server
-        viewModel.refreshFestivals();
-    }
-
-    private void loadFestivals() {
-        shimmerFrameLayout.startShimmer();
-        shimmerFrameLayout.setVisibility(View.VISIBLE);
-        loadingLayout.setVisibility(View.VISIBLE);
-        errorLayout.setVisibility(View.GONE);
-        emptyLayout.setVisibility(View.GONE);
-        festivalsContainer.setVisibility(View.GONE);
-
-        // Load festivals from cache first
-        viewModel.loadFestivals();
     }
 
     private void displayFestivals(List<Festival> festivals) {
@@ -529,9 +533,20 @@ public class FestivalNotificationFragment extends Fragment {
     }
 
     @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        // Cancel all countdown timers to prevent memory leaks
+        for (CountDownTimer timer : countdownTimers.values()) {
+            if (timer != null) {
+                timer.cancel();
+            }
+        }
+        countdownTimers.clear();
+    }
+
+    @Override
     public void onPause() {
         super.onPause();
-        // Clear memory cache when fragment is paused
         viewModel.clearMemoryCache();
     }
 
@@ -595,5 +610,18 @@ public class FestivalNotificationFragment extends Fragment {
                     "Running notification worker...", 
                     Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void refreshFestivals() {
+        if (!swipeRefreshLayout.isRefreshing()) {
+            swipeRefreshLayout.setRefreshing(true);
+            viewModel.refreshFestivals();
+        }
+    }
+
+    private void loadFestivals() {
+        hideAllStateViews();
+        showLoading();
+        viewModel.loadFestivals();
     }
 }

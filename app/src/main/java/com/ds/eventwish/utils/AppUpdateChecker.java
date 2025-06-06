@@ -6,6 +6,8 @@ import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -14,27 +16,48 @@ import androidx.lifecycle.LifecycleOwner;
 
 import com.ds.eventwish.R;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.android.play.core.appupdate.AppUpdateInfo;
 import com.google.android.play.core.appupdate.AppUpdateManager;
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory;
 import com.google.android.play.core.appupdate.AppUpdateOptions;
+import com.google.android.play.core.install.InstallState;
 import com.google.android.play.core.install.InstallStateUpdatedListener;
 import com.google.android.play.core.install.model.AppUpdateType;
 import com.google.android.play.core.install.model.InstallStatus;
 import com.google.android.play.core.install.model.UpdateAvailability;
+import com.google.android.gms.tasks.Task;
+import com.ds.eventwish.ui.connectivity.InternetConnectivityChecker;
 
 /**
- * Utility class for checking and handling app updates with forced update capability
+ * Utility class for checking and handling app updates
  */
 public class AppUpdateChecker implements DefaultLifecycleObserver {
     private static final String TAG = "AppUpdateChecker";
     private static final int REQUEST_CODE_UPDATE = 100;
+    private static final int MAX_RETRY_ATTEMPTS = 3;
+    private static final long RETRY_DELAY_MS = 1000; // 1 second
+    private static final int DAYS_FOR_FLEXIBLE_UPDATE = 2;
+    private static final int DAYS_FOR_IMMEDIATE_UPDATE = 5;
     
     private final AppUpdateManager appUpdateManager;
     private final Activity activity;
     private InstallStateUpdatedListener installStateUpdatedListener;
-    private boolean isForceUpdateMode = false;
-    
+    private final InternetConnectivityChecker connectivityChecker;
+    private int retryAttempt = 0;
+    private boolean isUpdateInProgress = false;
+    private UpdateCallback updateCallback;
+
+    /**
+     * Interface for update callbacks
+     */
+    public interface UpdateCallback {
+        void onUpdateAvailable(boolean isImmediateUpdate);
+        void onUpdateNotAvailable();
+        void onUpdateError(Exception error);
+        void onDownloadProgress(long bytesDownloaded, long totalBytesToDownload);
+    }
+
     /**
      * Create a new AppUpdateChecker
      * @param activity The activity
@@ -42,26 +65,18 @@ public class AppUpdateChecker implements DefaultLifecycleObserver {
     public AppUpdateChecker(@NonNull Activity activity) {
         this.activity = activity;
         this.appUpdateManager = AppUpdateManagerFactory.create(activity);
+        this.connectivityChecker = new InternetConnectivityChecker(activity);
         
         // Register the install state listener
-        installStateUpdatedListener = state -> {
-            if (state.installStatus() == InstallStatus.DOWNLOADED) {
-                // If we get here and we're in force update mode, the user has downloaded the update but not installed it
-                // We should prompt them to complete installation
-                popupSnackbarForCompleteUpdate();
-            } else if (state.installStatus() == InstallStatus.INSTALLED) {
-                // Update has been installed, clean up
-                if (appUpdateManager != null) {
-                    appUpdateManager.unregisterListener(installStateUpdatedListener);
-                }
-            }
-        };
-        
-        appUpdateManager.registerListener(installStateUpdatedListener);
+        setupInstallStateListener();
+    }
+    
+    public void setUpdateCallback(UpdateCallback callback) {
+        this.updateCallback = callback;
     }
     
     /**
-     * Check for updates and show appropriate UI, with force update if required
+     * Check for updates with default settings (non-forced)
      */
     public void checkForUpdate() {
         checkForUpdate(false);
@@ -69,110 +84,141 @@ public class AppUpdateChecker implements DefaultLifecycleObserver {
     
     /**
      * Check for updates and show appropriate UI
-     * @param forceUpdateOnly If true, only show the update dialog if a force update is required
+     * @param forceUpdate If true, try to use immediate update
      */
-    public void checkForUpdate(boolean forceUpdateOnly) {
-        Log.d(TAG, "Checking for app updates, forceUpdateOnly: " + forceUpdateOnly);
+    public void checkForUpdate(boolean forceUpdate) {
+        if (!connectivityChecker.isNetworkAvailable()) {
+            Log.d(TAG, "No internet connection available, skipping update check");
+            if (updateCallback != null) {
+                updateCallback.onUpdateError(new Exception("No internet connection available"));
+            }
+            return;
+        }
         
-        // First check if there's a downloaded update that hasn't been installed yet
-        appUpdateManager.getAppUpdateInfo().addOnSuccessListener(appUpdateInfo -> {
+        Log.d(TAG, "Checking for app updates, forceUpdate: " + forceUpdate);
+        
+        Task<AppUpdateInfo> appUpdateInfoTask = appUpdateManager.getAppUpdateInfo();
+        appUpdateInfoTask.addOnSuccessListener(appUpdateInfo -> {
+            Log.d(TAG, "Update check success. Availability: " + appUpdateInfo.updateAvailability() +
+                      ", Version code: " + appUpdateInfo.availableVersionCode() +
+                      ", Staleness days: " + appUpdateInfo.clientVersionStalenessDays());
+            
             if (appUpdateInfo.installStatus() == InstallStatus.DOWNLOADED) {
-                // Update has been downloaded but not installed, prompt the user to complete installation
+                Log.d(TAG, "Update already downloaded, showing completion snackbar");
                 popupSnackbarForCompleteUpdate();
                 return;
             }
             
-            // Check if an update is available
             if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE) {
-                Log.d(TAG, "Update available, checking if immediate update is allowed");
+                Integer stalenessDays = appUpdateInfo.clientVersionStalenessDays();
+                boolean isStale = stalenessDays != null && 
+                    (forceUpdate ? stalenessDays >= DAYS_FOR_IMMEDIATE_UPDATE 
+                                : stalenessDays >= DAYS_FOR_FLEXIBLE_UPDATE);
                 
-                // Check if an immediate update is allowed (indicates a critical update)
-                if (appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)) {
-                    Log.d(TAG, "Immediate update is allowed, starting update flow");
-                    // This is a critical update that should be forced
-                    isForceUpdateMode = true;
+                if ((forceUpdate || isStale) && appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)) {
+                    Log.d(TAG, "Starting immediate update");
                     startImmediateUpdate(appUpdateInfo);
-                } else if (!forceUpdateOnly && appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)) {
-                    // This is a regular update
-                    Log.d(TAG, "Flexible update is allowed, showing update dialog");
-                    showUpdateDialog(appUpdateInfo, false);
+                    if (updateCallback != null) {
+                        updateCallback.onUpdateAvailable(true);
+                    }
+                } else if (appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)) {
+                    Log.d(TAG, "Starting flexible update");
+                    startFlexibleUpdate(appUpdateInfo);
+                    if (updateCallback != null) {
+                        updateCallback.onUpdateAvailable(false);
+                    }
                 }
             } else {
-                Log.d(TAG, "No update available or update not needed");
+                Log.d(TAG, "No update available");
+                if (updateCallback != null) {
+                    updateCallback.onUpdateNotAvailable();
+                }
             }
         }).addOnFailureListener(e -> {
-            Log.e(TAG, "Error checking for update", e);
+            Log.e(TAG, "Error checking for update: " + e.getMessage(), e);
+            if (updateCallback != null) {
+                updateCallback.onUpdateError(e);
+            }
         });
     }
     
     /**
-     * Show a dialog to the user prompting them to update the app
-     * @param appUpdateInfo The app update info
-     * @param isForced Whether this is a forced update that cannot be skipped
+     * Retry update with exponential backoff
      */
-    private void showUpdateDialog(AppUpdateInfo appUpdateInfo, boolean isForced) {
-        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(activity)
-                .setTitle(R.string.update_available)
-                .setMessage(isForced ? R.string.force_update_message : R.string.update_message)
-                .setPositiveButton(R.string.update_now, (dialog, which) -> {
-                    try {
-                        if (isForced) {
-                            startImmediateUpdate(appUpdateInfo);
-                        } else {
-                            startFlexibleUpdate(appUpdateInfo);
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error starting update flow", e);
-                        // Fallback to Play Store
-                        openPlayStore(activity);
-                    }
-                });
-        
-        if (!isForced) {
-            // Only add "Later" button if this is not a forced update
-            builder.setNegativeButton(R.string.later, (dialog, which) -> {
-                dialog.dismiss();
-            });
+    private void retryUpdate() {
+        if (retryAttempt < MAX_RETRY_ATTEMPTS) {
+            retryAttempt++;
+            long delay = RETRY_DELAY_MS * (1L << (retryAttempt - 1));
+            Log.d(TAG, String.format("Scheduling update retry attempt %d/%d in %d ms", 
+                retryAttempt, MAX_RETRY_ATTEMPTS, delay));
+            
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                checkForUpdate(false);
+            }, delay);
+        } else {
+            Log.e(TAG, "Max retry attempts reached");
+            retryAttempt = 0;
+            if (updateCallback != null) {
+                updateCallback.onUpdateError(new Exception("Max retry attempts reached"));
+            }
         }
-        
-        // Make the dialog non-cancelable if this is a forced update
-        builder.setCancelable(!isForced);
-        builder.show();
     }
     
     /**
-     * Start an immediate (forced) update flow
-     * @param appUpdateInfo The app update info
+     * Start an immediate update flow
      */
     private void startImmediateUpdate(AppUpdateInfo appUpdateInfo) {
+        if (isUpdateInProgress) {
+            Log.d(TAG, "Update already in progress");
+            return;
+        }
+        
         try {
+            isUpdateInProgress = true;
+            Log.d(TAG, "Starting immediate update flow");
             appUpdateManager.startUpdateFlowForResult(
                     appUpdateInfo,
                     activity,
-                    AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE).build(),
+                    AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE)
+                        .setAllowAssetPackDeletion(true)
+                        .build(),
                     REQUEST_CODE_UPDATE);
         } catch (Exception e) {
-            Log.e(TAG, "Failed to start immediate update flow", e);
-            // Fallback to Play Store
-            openPlayStore(activity);
+            Log.e(TAG, "Failed to start immediate update flow: " + e.getMessage(), e);
+            isUpdateInProgress = false;
+            if (updateCallback != null) {
+                updateCallback.onUpdateError(e);
+            }
+            retryUpdate();
         }
     }
     
     /**
-     * Start a flexible (non-forced) update flow
-     * @param appUpdateInfo The app update info
+     * Start a flexible update flow
      */
     private void startFlexibleUpdate(AppUpdateInfo appUpdateInfo) {
+        if (isUpdateInProgress) {
+            Log.d(TAG, "Update already in progress");
+            return;
+        }
+        
         try {
+            isUpdateInProgress = true;
+            Log.d(TAG, "Starting flexible update flow");
             appUpdateManager.startUpdateFlowForResult(
                     appUpdateInfo,
                     activity,
-                    AppUpdateOptions.newBuilder(AppUpdateType.FLEXIBLE).build(),
+                    AppUpdateOptions.newBuilder(AppUpdateType.FLEXIBLE)
+                        .setAllowAssetPackDeletion(true)
+                        .build(),
                     REQUEST_CODE_UPDATE);
         } catch (Exception e) {
-            Log.e(TAG, "Failed to start flexible update flow", e);
-            // Fallback to Play Store
-            openPlayStore(activity);
+            Log.e(TAG, "Failed to start flexible update flow: " + e.getMessage(), e);
+            isUpdateInProgress = false;
+            if (updateCallback != null) {
+                updateCallback.onUpdateError(e);
+            }
+            retryUpdate();
         }
     }
     
@@ -180,61 +226,17 @@ public class AppUpdateChecker implements DefaultLifecycleObserver {
      * Show a snackbar to complete a downloaded update
      */
     private void popupSnackbarForCompleteUpdate() {
-        appUpdateManager.completeUpdate();
+        Snackbar.make(
+            activity.findViewById(android.R.id.content),
+            activity.getString(R.string.update_downloaded),
+            Snackbar.LENGTH_INDEFINITE
+        ).setAction(activity.getString(R.string.restart), view -> {
+            appUpdateManager.completeUpdate();
+        }).show();
     }
     
     /**
-     * Open the Play Store to the app's page
-     * @param context The context
-     */
-    public static void openPlayStore(Context context) {
-        try {
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setData(Uri.parse("market://details?id=" + context.getPackageName()));
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            context.startActivity(intent);
-        } catch (Exception e) {
-            // If Play Store app is not installed, open in browser
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setData(Uri.parse("https://play.google.com/store/apps/details?id=" + context.getPackageName()));
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            context.startActivity(intent);
-        }
-    }
-    
-    /**
-     * Resume update checks - should be called in onResume() of the Activity
-     */
-    public void resumeUpdates() {
-        // If in force update mode, check again to ensure the user can't skip the update
-        if (isForceUpdateMode) {
-            checkForUpdate(true);
-        }
-        
-        // Check for downloaded updates
-        appUpdateManager.getAppUpdateInfo().addOnSuccessListener(appUpdateInfo -> {
-            if (appUpdateInfo.installStatus() == InstallStatus.DOWNLOADED) {
-                popupSnackbarForCompleteUpdate();
-            }
-            
-            // If there's a pending update that requires immediate installation,
-            // make sure it's still shown to the user
-            if (appUpdateInfo.updateAvailability() == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
-                try {
-                    appUpdateManager.startUpdateFlowForResult(
-                            appUpdateInfo,
-                            activity,
-                            AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE).build(),
-                            REQUEST_CODE_UPDATE);
-                } catch (Exception e) {
-                    Log.e(TAG, "Failed to resume update flow", e);
-                }
-            }
-        });
-    }
-    
-    /**
-     * Clean up resources - should be called in onDestroy() of the Activity
+     * Clean up resources
      */
     @Override
     public void onDestroy(@NonNull LifecycleOwner owner) {
@@ -244,17 +246,66 @@ public class AppUpdateChecker implements DefaultLifecycleObserver {
     }
     
     /**
-     * Get the app version name
-     * @param context The context
-     * @return The app version name
+     * Handle update result
      */
-    public static String getAppVersionName(Context context) {
-        try {
-            PackageInfo packageInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
-            return packageInfo.versionName;
-        } catch (PackageManager.NameNotFoundException e) {
-            Log.e(TAG, "Error getting app version", e);
-            return "Unknown";
+    public void onActivityResult(int requestCode, int resultCode) {
+        if (requestCode == REQUEST_CODE_UPDATE) {
+            isUpdateInProgress = false;
+            if (resultCode != Activity.RESULT_OK) {
+                Log.e(TAG, "Update flow failed! Result code: " + resultCode);
+                retryUpdate();
+            }
         }
+    }
+
+    /**
+     * Check if an update is in progress
+     */
+    public boolean isUpdateInProgress() {
+        return isUpdateInProgress;
+    }
+    
+    public static int getRequestCode() {
+        return REQUEST_CODE_UPDATE;
+    }
+
+    private void setupInstallStateListener() {
+        installStateUpdatedListener = state -> {
+            logInstallState(state);
+            switch (state.installStatus()) {
+                case InstallStatus.DOWNLOADING:
+                    if (state.bytesDownloaded() > 0 && state.totalBytesToDownload() > 0) {
+                        if (updateCallback != null) {
+                            updateCallback.onDownloadProgress(state.bytesDownloaded(), state.totalBytesToDownload());
+                        }
+                    }
+                    break;
+                case InstallStatus.DOWNLOADED:
+                    popupSnackbarForCompleteUpdate();
+                    break;
+                case InstallStatus.INSTALLED:
+                    isUpdateInProgress = false;
+                    if (appUpdateManager != null) {
+                        appUpdateManager.unregisterListener(installStateUpdatedListener);
+                    }
+                    break;
+                case InstallStatus.FAILED:
+                    isUpdateInProgress = false;
+                    Log.e(TAG, "Update failed! Error code: " + state.installErrorCode());
+                    if (updateCallback != null) {
+                        updateCallback.onUpdateError(new Exception("Update installation failed with code: " + state.installErrorCode()));
+                    }
+                    retryUpdate();
+                    break;
+                case InstallStatus.CANCELED:
+                    isUpdateInProgress = false;
+                    break;
+            }
+        };
+        appUpdateManager.registerListener(installStateUpdatedListener);
+    }
+
+    private void logInstallState(InstallState state) {
+        Log.d(TAG, "Install state updated: " + state.installStatus());
     }
 } 

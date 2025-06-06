@@ -28,6 +28,13 @@ public class InternetConnectivityChecker {
     private final MutableLiveData<Boolean> isConnected = new MutableLiveData<>(false);
     private ConnectivityManager connectivityManager;
     private ConnectivityManager.NetworkCallback networkCallback;
+
+    /**
+     * Interface for network state changes
+     */
+    public interface NetworkStateObserver {
+        void onNetworkStateChanged(boolean isConnected);
+    }
     
     /**
      * Constructor with context
@@ -136,10 +143,10 @@ public class InternetConnectivityChecker {
     /**
      * Observe connection status changes
      * @param owner LifecycleOwner to observe with
-     * @param observer Observer to receive connection status updates
+     * @param observer NetworkStateObserver to receive connection status updates
      */
-    public void observe(LifecycleOwner owner, Observer<Boolean> observer) {
-        isConnected.observe(owner, observer);
+    public void observe(LifecycleOwner owner, NetworkStateObserver observer) {
+        isConnected.observe(owner, isConnected -> observer.onNetworkStateChanged(isConnected));
     }
     
     /**

@@ -52,6 +52,7 @@ import java.util.concurrent.Executor;
 import com.ds.eventwish.ui.ads.SponsoredAdManagerFactory;
 import com.ds.eventwish.utils.AdSessionManager;
 import com.ds.eventwish.firebase.FirebaseInAppMessagingHandler;
+import com.ds.eventwish.ui.connectivity.InternetConnectivityChecker;
 
 public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
@@ -220,11 +221,15 @@ public class EventWishApplication extends Application implements Configuration.P
             // Initialize AdMob (if needed)
             try {
                 AdMobManager.init(this);
-                Log.d(TAG, "13. AdMob initialized");
+                appOpenManager = new AppOpenManager(this);
+                Log.d(TAG, "13. AdMob and AppOpenManager initialized");
             } catch (Exception e) {
                 Log.e(TAG, "Error initializing AdMob: " + e.getMessage(), e);
                 // Continue without AdMob
             }
+            
+            // Initialize InternetConnectivityChecker
+            InternetConnectivityChecker.getInstance(this);
             
             Log.d(TAG, "EventWish application initialization complete");
         } catch (Exception e) {

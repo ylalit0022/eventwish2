@@ -142,10 +142,7 @@ public class AppOpenManager implements LifecycleObserver, Application.ActivityLi
         // 2. Ad is not available
         // 3. Current activity is null
         // 4. Current activity is in disabled list
-        // 5. Not first launch (cold start)
-        if (!isShowingAd && isAdAvailable() && currentActivity != null 
-            && !isAppOpenDisabled() && isFirstLaunch) {
-            
+        if (!isShowingAd && isAdAvailable() && currentActivity != null && !isAppOpenDisabled()) {
             Log.d(TAG, "Showing app open ad");
 
             FullScreenContentCallback fullScreenContentCallback =
@@ -167,17 +164,16 @@ public class AppOpenManager implements LifecycleObserver, Application.ActivityLi
                         @Override
                         public void onAdShowedFullScreenContent() {
                             isShowingAd = true;
-                            isFirstLaunch = false; // Reset first launch flag after showing
                         }
                     };
 
             appOpenAd.setFullScreenContentCallback(fullScreenContentCallback);
             appOpenAd.show(currentActivity);
         } else {
-            Log.d(TAG, String.format("Can't show ad: showing=%b available=%b activity=%s disabled=%b firstLaunch=%b",
+            Log.d(TAG, String.format("Can't show ad: showing=%b available=%b activity=%s disabled=%b",
                 isShowingAd, isAdAvailable(), 
                 currentActivity != null ? currentActivity.getClass().getSimpleName() : "null",
-                isAppOpenDisabled(), isFirstLaunch));
+                isAppOpenDisabled()));
             
             if (!isLoadingAd && !isAdAvailable()) {
                 fetchAd();

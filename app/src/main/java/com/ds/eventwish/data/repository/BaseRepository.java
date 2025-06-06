@@ -1,9 +1,11 @@
 package com.ds.eventwish.data.repository;
 
+import android.content.Context;
 import android.util.Log;
 import androidx.lifecycle.MutableLiveData;
+import com.ds.eventwish.EventWishApplication;
+import com.ds.eventwish.ui.connectivity.InternetConnectivityChecker;
 import com.ds.eventwish.data.remote.ApiClient;
-import com.ds.eventwish.utils.InternetConnectivityChecker;
 import retrofit2.Response;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
@@ -13,7 +15,7 @@ public abstract class BaseRepository {
     protected final InternetConnectivityChecker connectivityChecker;
 
     protected BaseRepository() {
-        this.connectivityChecker = InternetConnectivityChecker.getInstance();
+        this.connectivityChecker = InternetConnectivityChecker.getInstance(EventWishApplication.getAppContext());
     }
 
     protected <T> void handleApiError(Response<T> response, MutableLiveData<String> errorLiveData) {
@@ -68,10 +70,6 @@ public abstract class BaseRepository {
     }
 
     protected boolean isNetworkAvailable() {
-        boolean isAvailable = connectivityChecker.isNetworkAvailable();
-        if (!isAvailable) {
-            Log.d(TAG, "Network is not available");
-        }
-        return isAvailable;
+        return connectivityChecker.isNetworkAvailable();
     }
 } 

@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.Date;
+import java.util.ConcurrentModificationException;
 
 import com.google.android.flexbox.FlexboxLayoutManager;
 import com.google.android.flexbox.FlexDirection;
@@ -81,6 +82,9 @@ import android.provider.Settings;
 import android.net.Uri;
 import android.content.Intent;
 
+import com.ds.eventwish.utils.NetworkUtils;
+import com.ds.eventwish.ui.connectivity.InternetConnectivityChecker;
+
 public class HomeFragment extends BaseFragment implements RecommendedTemplateAdapter.TemplateClickListener {
     private static final String TAG = "HomeFragment";
     
@@ -108,6 +112,8 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     private boolean hasShownEndMessage = false; // Add this flag at the class level
     private long lastPaginationCheck = 0;
     private static final long PAGINATION_CHECK_INTERVAL = 1500; // 1.5 seconds between checks
+
+    private InternetConnectivityChecker.NetworkStateObserver networkStateObserver;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -1457,17 +1463,8 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             }
         });
         
-        // Trigger category load immediately
-        viewModel.forceReloadCategories();
-        
-        // Observe category icons
-        categoryIconRepository.getCategoryIcons().observe(getViewLifecycleOwner(), categoryIcons -> {
-            Log.d(TAG, "Received " + (categoryIcons != null ? categoryIcons.size() : 0) + " category icons");
-            // Force refresh of categories adapter if we have categories
-            if (categoriesAdapter != null && categoriesAdapter.getItemCount() > 0) {
-                categoriesAdapter.notifyDataSetChanged();
-            }
-        });
+        // Observe network state
+        createNetworkStateObserver();
         
         // Observe templates from the ViewModel
         viewModel.getTemplates().observe(getViewLifecycleOwner(), templates -> {
@@ -1600,55 +1597,18 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             }
         });
         
-        // Observe error state
+        // Observe error state with improved error handling
         viewModel.getError().observe(getViewLifecycleOwner(), error -> {
             if (error != null && !error.isEmpty()) {
                 Log.e(TAG, "Error: " + error);
-                String userMessage;
-                if (error.contains("504")) {
-                    userMessage = "Server timeout. Please check your internet connection and try again.";
-                } else if (error.contains("404")) {
-                    userMessage = "Content not found. Please refresh and try again.";
-                } else if (error.contains("403")) {
-                    userMessage = "Access denied. Please check your permissions.";
-                } else if (error.contains("500")) {
-                    userMessage = "Server error. Please try again later.";
-                } else if (error.toLowerCase().contains("timeout") || error.toLowerCase().contains("failed to connect")) {
-                    userMessage = "Connection timeout. Please check your internet and try again.";
-                } else {
-                    userMessage = error;
-                }
-                
-                // Show error in retry layout
-                binding.retryLayout.setVisibility(View.VISIBLE);
-                binding.templatesRecyclerView.setVisibility(View.GONE);
-                TextView errorText = binding.retryLayout.findViewById(R.id.errorText);
-                if (errorText != null) {
-                    errorText.setText(userMessage);
-                }
-                
-                // Setup retry button
-                Button retryButton = binding.retryLayout.findViewById(R.id.retryButton);
-                if (retryButton != null) {
-                    retryButton.setOnClickListener(v -> {
-                        // Clear the error state immediately to prevent it from showing again
-                        viewModel.clearErrorState();
-                        
-                        // Hide retry layout and show templates
-                        binding.retryLayout.setVisibility(View.GONE);
-                        binding.templatesRecyclerView.setVisibility(View.VISIBLE);
-                        
-                        // Force reload templates
-                        viewModel.loadTemplates(true);
-                    });
-                }
-                
-                // Also show a toast for immediate feedback
-                Toast.makeText(requireContext(), userMessage, Toast.LENGTH_SHORT).show();
+                boolean isNetworkError = error.contains("timeout") || 
+                                       error.contains("failed to connect") ||
+                                       error.contains("offline") || 
+                                       error.contains("network") || 
+                                       error.contains("connection");
+                showNetworkError(isNetworkError);
             } else {
-                // Hide retry layout if there's no error
-                binding.retryLayout.setVisibility(View.GONE);
-                binding.templatesRecyclerView.setVisibility(View.VISIBLE);
+                hideError();
             }
         });
         
@@ -1661,6 +1621,94 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 binding.notificationBadge.setVisibility(View.GONE);
             }
         });
+    }
+
+    private void createNetworkStateObserver() {
+        networkStateObserver = new InternetConnectivityChecker.NetworkStateObserver() {
+            @Override
+            public void onNetworkStateChanged(boolean isConnected) {
+                if (!isConnected) {
+                    showError(true);
+                } else {
+                    hideError();
+                    if (binding.templatesRecyclerView.getAdapter() == null || 
+                        binding.templatesRecyclerView.getAdapter().getItemCount() == 0) {
+                        loadTemplates();
+                    }
+                }
+            }
+        };
+        InternetConnectivityChecker.getInstance(requireContext()).observe(getViewLifecycleOwner(), networkStateObserver);
+    }
+
+    private void loadTemplates() {
+        if (viewModel != null) {
+            viewModel.loadTemplates();
+        }
+    }
+
+    private void showError(boolean isNetworkError) {
+        if (binding != null) {
+            binding.retryLayout.setVisibility(View.VISIBLE);
+            binding.templatesRecyclerView.setVisibility(View.GONE);
+
+            if (isNetworkError) {
+                String title = getString(R.string.no_internet_title);
+                String message = getString(R.string.no_internet_message);
+                binding.errorText.setText(title);
+                if (getView() != null) {
+                    Snackbar.make(getView(), message, Snackbar.LENGTH_LONG)
+                        .setAction("Settings", v -> {
+                            Intent intent = new Intent(Settings.ACTION_WIRELESS_SETTINGS);
+                            startActivity(intent);
+                        })
+                        .show();
+                }
+            } else {
+                binding.errorText.setText(getString(R.string.error_title));
+            }
+
+            binding.retryButton.setOnClickListener(v -> {
+                hideError();
+                loadTemplates();
+            });
+        }
+    }
+
+    @Override
+    protected void showError(String message) {
+        super.showError(message);
+        if (binding != null) {
+            binding.retryLayout.setVisibility(View.VISIBLE);
+            binding.templatesRecyclerView.setVisibility(View.GONE);
+            binding.errorText.setText(message);
+            binding.retryButton.setOnClickListener(v -> {
+                hideError();
+                loadTemplates();
+            });
+        }
+    }
+
+    protected void hideError() {
+        if (binding != null) {
+            binding.retryLayout.setVisibility(View.GONE);
+            binding.templatesRecyclerView.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void loadFestivals() {
+        if (binding == null) return;
+
+        // Hide error state
+        hideError();
+
+        // Show loading state
+        binding.swipeRefreshLayout.setRefreshing(true);
+        binding.templatesRecyclerView.setVisibility(View.GONE);
+        binding.emptyView.setVisibility(View.GONE);
+
+        // Load data
+        viewModel.loadTemplates(true);
     }
 
     private void setupBottomNavigation() {
@@ -1961,32 +2009,58 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
      * Helper method to create a Category object with proper icon handling
      */
     private Category createCategory(String id, String name, String iconUrl) {
-        // Normalize category name for consistent lookup
-        String normalizedName = normalizeCategory(name);
-        
-        // Get icon from repository if not provided
-        if (iconUrl == null && categoryIconRepository != null) {
-            // Try to get the full CategoryIcon object first
-            CategoryIcon icon = categoryIconRepository.getCategoryIconByCategory(normalizedName);
-            if (icon != null && icon.getCategoryIcon() != null && !icon.getCategoryIcon().isEmpty()) {
-                Log.d(TAG, "Found CategoryIcon object for " + normalizedName + ": " + icon.getCategoryIcon());
-                return new Category(id, name, icon);
+        try {
+            // Handle null name
+            if (name == null) {
+                Log.w(TAG, "createCategory called with null name, using empty string");
+                name = "";
             }
             
-            // Fallback to just getting the URL
-            iconUrl = categoryIconRepository.getCategoryIconUrl(normalizedName);
-            Log.d(TAG, "Fetched icon URL for " + normalizedName + ": " + (iconUrl != null ? iconUrl : "null"));
+            // Normalize category name for consistent lookup
+            String normalizedName = normalizeCategory(name);
+            
+            // Get icon from repository if not provided
+            if (iconUrl == null && categoryIconRepository != null) {
+                try {
+                    // Try to get the full CategoryIcon object first
+                    CategoryIcon icon = categoryIconRepository.getCategoryIconByCategory(normalizedName);
+                    if (icon != null && icon.getCategoryIcon() != null && !icon.getCategoryIcon().isEmpty()) {
+                        Log.d(TAG, "Found CategoryIcon object for " + normalizedName + ": " + icon.getCategoryIcon());
+                        return new Category(id, name, icon);
+                    }
+                    
+                    // Fallback to just getting the URL
+                    iconUrl = categoryIconRepository.getCategoryIconUrl(normalizedName);
+                    Log.d(TAG, "Fetched icon URL for " + normalizedName + ": " + (iconUrl != null ? iconUrl : "null"));
+                } catch (ConcurrentModificationException e) {
+                    Log.e(TAG, "ConcurrentModificationException while getting icon for " + normalizedName, e);
+                    // Use a default icon URL as fallback
+                    iconUrl = "https://raw.githubusercontent.com/google/material-design-icons/master/png/action/category/materialicons/24dp/2x/baseline_category_black_24dp.png";
+                } catch (Exception e) {
+                    Log.e(TAG, "Error getting icon for " + normalizedName, e);
+                    // Use a default icon URL as fallback
+                    iconUrl = "https://raw.githubusercontent.com/google/material-design-icons/master/png/action/category/materialicons/24dp/2x/baseline_category_black_24dp.png";
+                }
+            }
+            
+            CategoryIcon icon = null;
+            if (iconUrl != null && !iconUrl.isEmpty()) {
+                try {
+                    icon = new CategoryIcon(id, normalizedName, iconUrl);
+                    Log.d(TAG, "Created new CategoryIcon for " + normalizedName + " with URL: " + iconUrl);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error creating CategoryIcon for " + normalizedName, e);
+                }
+            } else {
+                Log.w(TAG, "No icon URL found for category: " + normalizedName);
+            }
+            
+            return new Category(id, name, icon);
+        } catch (Exception e) {
+            Log.e(TAG, "Error creating category for " + name, e);
+            // Return a basic category without an icon in case of any error
+            return new Category(id, name, (CategoryIcon)null);
         }
-        
-        CategoryIcon icon = null;
-        if (iconUrl != null && !iconUrl.isEmpty()) {
-            icon = new CategoryIcon(id, normalizedName, iconUrl);
-            Log.d(TAG, "Created new CategoryIcon for " + normalizedName + " with URL: " + iconUrl);
-        } else {
-            Log.w(TAG, "No icon URL found for category: " + normalizedName);
-        }
-        
-        return new Category(id, name, icon);
     }
 
     /**
@@ -2220,6 +2294,34 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             } catch (Exception e) {
                 Log.e(TAG, "Error handling sponsored ad in onPause: " + e.getMessage());
             }
+        }
+    }
+
+    private void showNetworkError(boolean isNetworkError) {
+        if (binding != null) {
+            binding.retryLayout.setVisibility(View.VISIBLE);
+            binding.templatesRecyclerView.setVisibility(View.GONE);
+
+            if (isNetworkError) {
+                String title = getString(R.string.no_internet_title);
+                String message = getString(R.string.no_internet_message);
+                binding.errorText.setText(title);
+                if (getView() != null) {
+                    Snackbar.make(getView(), message, Snackbar.LENGTH_LONG)
+                        .setAction("Settings", v -> {
+                            Intent intent = new Intent(Settings.ACTION_WIRELESS_SETTINGS);
+                            startActivity(intent);
+                        })
+                        .show();
+                }
+            } else {
+                binding.errorText.setText(getString(R.string.error_title));
+            }
+
+            binding.retryButton.setOnClickListener(v -> {
+                hideError();
+                loadTemplates();
+            });
         }
     }
 }

@@ -71,6 +71,7 @@ import com.ds.eventwish.services.NotificationScheduler;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 100;
+    private static final int REQUEST_CODE_UPDATE = AppUpdateChecker.getRequestCode();
 
     private ActivityMainBinding binding;
     private NavController navController;
@@ -96,7 +97,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-
 
         // Start app load trace
         Trace appStartupTrace = PerformanceTracker.startPerformanceTrace("app_startup");
@@ -142,11 +142,7 @@ public class MainActivity extends AppCompatActivity {
             // Initialize API client
             apiClient = new ApiClient();
             
-            // Setup app update checking
-            appUpdateChecker = new AppUpdateChecker(this);
-            appUpdateChecker.checkForUpdate();
-            
-            // Setup connectivity checker
+            // Setup connectivity checker first
             connectivityChecker = new InternetConnectivityChecker(this);
             connectivityChecker.observe(this, isNetworkConnected -> {
                 if (isConnected && !isNetworkConnected) {
@@ -155,21 +151,57 @@ public class MainActivity extends AppCompatActivity {
                 } else if (!isConnected && isNetworkConnected) {
                     // Just reconnected
                     showConnectivityMessage(true);
+                    // Check for updates when we get internet connection
+                    if (appUpdateChecker != null) {
+                        appUpdateChecker.checkForUpdate();
+                    }
                 }
                 isConnected = isNetworkConnected;
             });
+            
+            // Setup app update checking
+            appUpdateChecker = new AppUpdateChecker(this);
+            getLifecycle().addObserver(appUpdateChecker);
+            appUpdateChecker.setUpdateCallback(new AppUpdateChecker.UpdateCallback() {
+                @Override
+                public void onUpdateAvailable(boolean isImmediateUpdate) {
+                    Log.d(TAG, "Update available, immediate: " + isImmediateUpdate);
+                    // The native Google Play dialog will be shown automatically
+                }
+
+                @Override
+                public void onUpdateNotAvailable() {
+                    Log.d(TAG, "No update available");
+                }
+
+                @Override
+                public void onUpdateError(Exception error) {
+                    Log.e(TAG, "Update error: " + error.getMessage());
+                    if (error.getMessage() != null && error.getMessage().contains("internet")) {
+                        showConnectivityMessage(false);
+                    }
+                }
+
+                @Override
+                public void onDownloadProgress(long bytesDownloaded, long totalBytesToDownload) {
+                    if (totalBytesToDownload > 0) {
+                        int progress = (int) ((bytesDownloaded * 100) / totalBytesToDownload);
+                        Log.d(TAG, "Download progress: " + progress + "%");
+                        // You could show this in a progress bar if desired
+                    }
+                }
+            });
+
+            // Check for updates if we have internet
+            if (connectivityChecker.isNetworkAvailable()) {
+                appUpdateChecker.checkForUpdate();
+            }
 
             // Log app started
             Log.d(TAG, "MainActivity created");
 
             // Set up view model
             sharedViewModel = new ViewModelProvider(this).get(SharedViewModel.class);
-            
-            // Initialize services
-            connectivityChecker = new InternetConnectivityChecker(this);
-            
-            // Setup UI components
-            setupNavigation();
             
             // Handle intent (deep links)
             if (getIntent() != null) {
@@ -188,6 +220,8 @@ public class MainActivity extends AppCompatActivity {
             // Stop app load trace
             PerformanceTracker.stopPerformanceTrace(appStartupTrace, "app_startup");
         }
+
+        initializeUI(savedInstanceState);
     }
 
     /**
@@ -254,11 +288,7 @@ public class MainActivity extends AppCompatActivity {
             // Initialize API client
             apiClient = new ApiClient();
             
-            // Setup app update checking
-            appUpdateChecker = new AppUpdateChecker(this);
-            appUpdateChecker.checkForUpdate();
-            
-            // Setup connectivity checker
+            // Setup connectivity checker first
             connectivityChecker = new InternetConnectivityChecker(this);
             connectivityChecker.observe(this, isNetworkConnected -> {
                 if (isConnected && !isNetworkConnected) {
@@ -267,21 +297,57 @@ public class MainActivity extends AppCompatActivity {
                 } else if (!isConnected && isNetworkConnected) {
                     // Just reconnected
                     showConnectivityMessage(true);
+                    // Check for updates when we get internet connection
+                    if (appUpdateChecker != null) {
+                        appUpdateChecker.checkForUpdate();
+                    }
                 }
                 isConnected = isNetworkConnected;
             });
+            
+            // Setup app update checking
+            appUpdateChecker = new AppUpdateChecker(this);
+            getLifecycle().addObserver(appUpdateChecker);
+            appUpdateChecker.setUpdateCallback(new AppUpdateChecker.UpdateCallback() {
+                @Override
+                public void onUpdateAvailable(boolean isImmediateUpdate) {
+                    Log.d(TAG, "Update available, immediate: " + isImmediateUpdate);
+                    // The native Google Play dialog will be shown automatically
+                }
+
+                @Override
+                public void onUpdateNotAvailable() {
+                    Log.d(TAG, "No update available");
+                }
+
+                @Override
+                public void onUpdateError(Exception error) {
+                    Log.e(TAG, "Update error: " + error.getMessage());
+                    if (error.getMessage() != null && error.getMessage().contains("internet")) {
+                        showConnectivityMessage(false);
+                    }
+                }
+
+                @Override
+                public void onDownloadProgress(long bytesDownloaded, long totalBytesToDownload) {
+                    if (totalBytesToDownload > 0) {
+                        int progress = (int) ((bytesDownloaded * 100) / totalBytesToDownload);
+                        Log.d(TAG, "Download progress: " + progress + "%");
+                        // You could show this in a progress bar if desired
+                    }
+                }
+            });
+
+            // Check for updates if we have internet
+            if (connectivityChecker.isNetworkAvailable()) {
+                appUpdateChecker.checkForUpdate();
+            }
 
             // Log app started
             Log.d(TAG, "MainActivity created");
 
             // Set up view model
             sharedViewModel = new ViewModelProvider(this).get(SharedViewModel.class);
-            
-            // Initialize services
-            connectivityChecker = new InternetConnectivityChecker(this);
-            
-            // Setup UI components
-            setupNavigation();
             
             // Handle intent (deep links)
             if (getIntent() != null) {
@@ -521,9 +587,9 @@ public class MainActivity extends AppCompatActivity {
             connectivityChecker.cleanup();
         }
         
-        // Clean up AppUpdateChecker (it implements DefaultLifecycleObserver, but we'll call it manually)
         if (appUpdateChecker != null) {
             appUpdateChecker.onDestroy(this);
+            appUpdateChecker = null;
         }
         
         super.onDestroy();
@@ -535,10 +601,15 @@ public class MainActivity extends AppCompatActivity {
         
         try {
             // Only track MainActivity screen if this is first launch
-            // (fragments will track their own navigation)
             if (isFirstAnalyticsTracking) {
                 AnalyticsUtils.trackScreenView(this, "MainActivity", MainActivity.class.getName());
                 isFirstAnalyticsTracking = false;
+            }
+            
+            // Check for updates if we have internet and an update is not in progress
+            if (connectivityChecker != null && connectivityChecker.isNetworkAvailable() && 
+                appUpdateChecker != null && !appUpdateChecker.isUpdateInProgress()) {
+                appUpdateChecker.checkForUpdate();
             }
             
             // Record user session
@@ -547,11 +618,6 @@ public class MainActivity extends AppCompatActivity {
             
             // Check badge count
             showReminderBadgeIfNeeded();
-            
-            // Check for app updates
-            if (appUpdateChecker != null) {
-                appUpdateChecker.resumeUpdates();
-            }
             
             // Log activity resumed
             Log.d(TAG, "MainActivity resumed");
@@ -670,4 +736,35 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        
+        if (requestCode == REQUEST_CODE_UPDATE) {
+            if (resultCode != RESULT_OK) {
+                Log.d(TAG, "Update flow failed! Result code: " + resultCode);
+                if (appUpdateChecker != null) {
+                    appUpdateChecker.onActivityResult(requestCode, resultCode);
+                }
+            }
+        }
+    }
+
+    /**
+     * Check for app updates
+     */
+    private void checkForUpdates() {
+        if (appUpdateChecker != null) {
+            appUpdateChecker.checkForUpdate(false);
+        }
+    }
+
+    /**
+     * Force check for app updates
+     */
+    private void forceCheckForUpdates() {
+        if (appUpdateChecker != null) {
+            appUpdateChecker.checkForUpdate(true);
+        }
+    }
 }

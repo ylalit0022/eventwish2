@@ -380,6 +380,7 @@ public class AdMobManager {
     public void loadAppOpenAd(@NonNull AppOpenAdCallback callback) {
         if (isLoading || !isInitialized) {
             String errorMessage = context.getString(R.string.error_unknown);
+            Log.e(TAG, "Cannot load app open ad: " + (isLoading ? "Ad loading in progress" : "AdMob not initialized"));
             callback.onError(isLoading ? "Ad loading in progress" : errorMessage);
             return;
         }
@@ -391,6 +392,7 @@ public class AdMobManager {
         repository.fetchAdUnit("app_open", new AdMobRepository.AdUnitCallback() {
             @Override
             public void onSuccess(AdUnit adUnit) {
+                Log.d(TAG, "Successfully fetched app open ad unit: " + adUnit.getAdUnitCode());
                 processAppOpenAdUnit(adUnit, callback);
             }
 
@@ -401,6 +403,7 @@ public class AdMobManager {
                 repository.fetchAdUnit("AppOpen", new AdMobRepository.AdUnitCallback() {
                     @Override
                     public void onSuccess(AdUnit adUnit) {
+                        Log.d(TAG, "Successfully fetched AppOpen ad unit: " + adUnit.getAdUnitCode());
                         processAppOpenAdUnit(adUnit, callback);
                     }
 
@@ -411,12 +414,14 @@ public class AdMobManager {
                         repository.fetchAdUnit("App Open", new AdMobRepository.AdUnitCallback() {
                             @Override
                             public void onSuccess(AdUnit adUnit) {
+                                Log.d(TAG, "Successfully fetched App Open ad unit: " + adUnit.getAdUnitCode());
                                 processAppOpenAdUnit(adUnit, callback);
                             }
 
                             @Override
                             public void onError(String thirdError) {
                                 // All variations failed, report the original error
+                                Log.e(TAG, "All attempts to fetch app open ad unit failed. Error: " + error);
                                 handleAdUnitError(error, callback);
                             }
                         });
