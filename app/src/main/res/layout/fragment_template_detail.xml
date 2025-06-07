@@ -7,14 +7,15 @@
     android:focusable="true"
     android:clickable="true"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/background">
 
     <!-- Loading View -->
     <FrameLayout
         android:id="@+id/loadingView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#80FFFFFF"
+        android:background="@color/surface_variant_light"
         android:visibility="gone"
         android:gravity="center"
         android:focusableInTouchMode="true"
@@ -24,7 +25,8 @@
         <ProgressBar
             android:layout_gravity="center"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
+            android:layout_height="wrap_content"
+            android:indeterminateTint="?attr/colorPrimary"/>
     </FrameLayout>
 
     <!-- Content Layout -->
@@ -53,6 +55,7 @@
                 android:layout_height="wrap_content"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="4dp"
+                app:cardBackgroundColor="@color/surface"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent">
@@ -66,15 +69,10 @@
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/senderNameLayout"
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        style="@style/Widget.EventWish.TextInputLayout"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        app:boxStrokeWidth="2dp"
-                        app:boxStrokeColor="@color/design_default_color_primary"
-                        app:hintAnimationEnabled="true"
-                        app:hintTextColor="@color/design_default_color_primary"
-                        app:errorEnabled="true"
                         app:counterEnabled="true"
                         app:counterMaxLength="60">
                         <com.google.android.material.textfield.TextInputEditText
@@ -86,16 +84,11 @@
                     </com.google.android.material.textfield.TextInputLayout>
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/recipientNameLayout"
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        style="@style/Widget.EventWish.TextInputLayout"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="16dp"
                         android:layout_weight="1"
-                        app:boxStrokeWidth="2dp"
-                        app:boxStrokeColor="@color/design_default_color_primary"
-                        app:hintAnimationEnabled="true"
-                        app:hintTextColor="@color/design_default_color_primary"
-                        app:errorEnabled="true"
                         app:counterEnabled="true"
                         app:counterMaxLength="60">
                         <com.google.android.material.textfield.TextInputEditText
@@ -128,6 +121,7 @@
                     android:layout_height="match_parent"
                     app:cardCornerRadius="12dp"
                     app:cardElevation="4dp"
+                    app:cardBackgroundColor="@color/surface"
                     android:focusableInTouchMode="true"
                     android:focusable="true"
                     android:clickable="true">
@@ -146,7 +140,7 @@
                         android:id="@+id/webViewProgressContainer"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:background="#80FFFFFF"
+                        android:background="@color/surface_variant_light"
                         android:visibility="gone">
 
                         <ProgressBar
@@ -155,11 +149,10 @@
                             android:layout_height="48dp"
                             android:layout_gravity="center"
                             android:indeterminateTintMode="src_atop"
-                            android:indeterminateTint="@color/design_default_color_primary"/>
+                            android:indeterminateTint="?attr/colorPrimary"/>
                     </FrameLayout>
                 </com.google.android.material.card.MaterialCardView>
             </FrameLayout>
-
 
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.core.widget.NestedScrollView>
@@ -172,6 +165,8 @@
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="5dp"
+        app:backgroundTint="@color/share_button_enabled"
+        app:tint="@color/white"
         app:icon="@drawable/ic_share" />
 
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
@@ -182,6 +177,8 @@
         android:layout_margin="16dp"
         android:text="Customize"
         android:visibility="gone"
+        app:backgroundTint="@color/share_button_enabled"
+        app:tint="@color/white"
         app:icon="@drawable/ic_edit" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -192,12 +189,11 @@
         android:layout_marginStart="16dp"
         android:layout_marginBottom="5dp"
         android:src="@drawable/ic_back_arrow_transparent"
-        android:backgroundTint="#80000000"
+        android:backgroundTint="@color/surface_variant_light"
         app:borderWidth="0dp"
         app:elevation="2dp"
         android:layout_gravity="bottom|start"
         app:fabSize="mini"
-        app:tint="#FFFFFF" />
-
+        app:tint="@color/text_primary" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

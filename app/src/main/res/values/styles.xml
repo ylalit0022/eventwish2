@@ -1,37 +1,75 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-        <style name="Widget.EventWish" parent="Widget.MaterialComponents.CardView">
-            <!-- Customize your style here -->
-            <item name="cardBackgroundColor">@color/white</item>
-            <item name="cardCornerRadius">8dp</item>
-            <item name="cardElevation">4dp</item>
-        </style>
-
-    <!-- TextView Style -->
-    <style name="Widget.EventWish.TextView" parent="Widget.AppCompat.TextView">
-        <item name="fontFamily">@font/poppins_regular</item>
+    <!-- CardView Style -->
+    <style name="Widget.EventWish.CardView" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">?attr/colorSurface</item>
+        <item name="cardCornerRadius">8dp</item>
+        <item name="cardElevation">4dp</item>
+        <item name="contentPadding">16dp</item>
+        <item name="rippleColor">@color/ripple</item>
+        <item name="cardForegroundColor">@null</item>
+        <item name="strokeColor">@color/card_stroke</item>
     </style>
 
-    <!-- Button Styles -->
-    <style name="Widget.EventWish.Button" parent="Widget.AppCompat.Button">
-
-        <item name="android:padding">16dp</item>
-    </style>
-
-    <!-- Image View Style -->
-    <style name="Widget.EventWish.Chip">
+    <!-- Chip Style -->
+    <style name="Widget.EventWish.Chip" parent="Widget.MaterialComponents.Chip.Choice">
+        <item name="chipBackgroundColor">?attr/colorSurface</item>
+        <item name="chipStrokeColor">@color/chip_stroke</item>
+        <item name="chipStrokeWidth">1dp</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
         <item name="android:scaleType">centerCrop</item>
     </style>
 
-    <style name="Widget.EventWish.CardView" parent="Widget.MaterialComponents.CardView">
-        <item name="cardCornerRadius">8dp</item>
-        <item name="cardElevation">6dp</item>
-        <item name="cardBackgroundColor">#FFFFFF</item>
-        <item name="contentPadding">16dp</item>
-        <item name="rippleColor">#1F000000</item>
-        <item name="cardForegroundColor">@null</item>
+    <!-- TextInputLayout Style -->
+    <style name="Widget.EventWish.TextInputLayout" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="boxStrokeColor">?attr/colorPrimary</item>
+        <item name="hintTextColor">?attr/colorPrimary</item>
+        <item name="boxStrokeWidth">2dp</item>
+        <item name="hintAnimationEnabled">true</item>
+        <item name="errorEnabled">true</item>
+        <item name="errorTextColor">?attr/colorError</item>
     </style>
+
+    <!-- TextView Style -->
+    <style name="Widget.EventWish.TextView" parent="Widget.AppCompat.TextView">
+        <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
+
+    <!-- Button Style -->
+    <style name="Widget.EventWish.Button" parent="Widget.MaterialComponents.Button">
+        <item name="android:padding">16dp</item>
+        <item name="backgroundTint">?attr/colorPrimary</item>
+        <item name="android:textColor">?attr/colorOnPrimary</item>
+    </style>
+
+    <!-- Dialog Theme -->
+    <style name="DialogTheme" parent="Theme.MaterialComponents.Light.Dialog">
+        <item name="android:windowBackground">?attr/colorSurface</item>
+        <item name="android:textColorPrimary">?attr/colorOnSurface</item>
+        <item name="android:textColorSecondary">?attr/colorOnSurfaceVariant</item>
+        <item name="colorPrimary">?attr/colorPrimary</item>
+    </style>
+
+    <!-- Bottom Sheet Dialog Theme -->
+    <style name="BottomSheetDialogTheme" parent="Theme.Design.Light.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/BottomSheetStyle</item>
+        <item name="colorPrimary">?attr/colorPrimary</item>
+        <item name="colorSurface">?attr/colorSurface</item>
+    </style>
+
+    <style name="BottomSheetStyle" parent="Widget.Design.BottomSheet.Modal">
+        <item name="android:background">@android:color/transparent</item>
+    </style>
+
+    <!-- Active Indicator Style -->
+    <style name="App.ActiveIndicatorStyle" parent="">
+        <item name="android:width">64dp</item>
+        <item name="android:height">32dp</item>
+        <item name="android:color">?attr/colorPrimary</item>
+        <item name="cornerSize">32dp</item>
+    </style>
+
     <style name="AppTheme" parent="Theme.MaterialComponents.Light.NoActionBar">
         <!-- Customize your theme here -->
         <item name="colorPrimary">#E65100</item>
@@ -51,19 +89,6 @@
         <item name="colorSecondaryVariant">#E65100</item>
     </style>
 
-    <style name="App.ActiveIndicatorStyle" parent="">
-        <item name="android:width">64dp</item>
-        <item name="android:height">32dp</item>
-        <item name="android:color">@color/colorPrimary</item>
-        <item name="cornerSize">32dp</item>
-    </style>
-
-    <style name="DialogTheme" parent="Theme.MaterialComponents.Light.Dialog">
-        <item name="android:windowBackground">@color/white</item>
-        <item name="android:textColorPrimary">@color/black</item>
-        <item name="android:textColorSecondary">@color/colorGray</item>
-    </style>
-
     <!-- Dialog theme -->
     <style name="AppTheme.Dialog" parent="Theme.AppCompat.Light.Dialog.Alert">
         <item name="colorPrimary">@color/colorPrimary</item>
@@ -74,13 +99,93 @@
         <item name="android:windowBackground">@android:color/white</item>
     </style>
 
-    <!-- Add this style for BottomSheetDialog -->
-    <style name="BottomSheetDialogTheme" parent="Theme.Design.Light.BottomSheetDialog">
-        <item name="bottomSheetStyle">@style/BottomSheetStyle</item>
+    <!-- Text Appearance Styles -->
+    <style name="TextAppearance.EventWish.Headline1" parent="TextAppearance.MaterialComponents.Headline1">
+        <item name="android:textSize">24sp</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="fontFamily">sans-serif</item>
     </style>
 
-    <style name="BottomSheetStyle" parent="Widget.Design.BottomSheet.Modal">
-        <item name="android:background">@android:color/transparent</item>
+    <style name="TextAppearance.EventWish.Headline2" parent="TextAppearance.MaterialComponents.Headline2">
+        <item name="android:textSize">22sp</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="fontFamily">sans-serif</item>
+    </style>
+
+    <style name="TextAppearance.EventWish.Headline3" parent="TextAppearance.MaterialComponents.Headline3">
+        <item name="android:textSize">20sp</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="fontFamily">sans-serif</item>
+    </style>
+
+    <style name="TextAppearance.EventWish.Headline4" parent="TextAppearance.MaterialComponents.Headline4">
+        <item name="android:textSize">18sp</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="fontFamily">sans-serif</item>
+    </style>
+
+    <style name="TextAppearance.EventWish.Headline5" parent="TextAppearance.MaterialComponents.Headline5">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="fontFamily">sans-serif</item>
+    </style>
+
+    <style name="TextAppearance.EventWish.Headline6" parent="TextAppearance.MaterialComponents.Headline6">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="fontFamily">sans-serif</item>
+    </style>
+
+    <style name="TextAppearance.EventWish.Subtitle1" parent="TextAppearance.MaterialComponents.Subtitle1">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.EventWish.Subtitle2" parent="TextAppearance.MaterialComponents.Subtitle2">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.EventWish.Body1" parent="TextAppearance.MaterialComponents.Body1">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="fontFamily">sans-serif</item>
+    </style>
+
+    <style name="TextAppearance.EventWish.Body2" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="fontFamily">sans-serif</item>
+    </style>
+
+    <style name="TextAppearance.EventWish.Caption" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="fontFamily">sans-serif</item>
+    </style>
+
+    <style name="TextAppearance.EventWish.Button" parent="TextAppearance.MaterialComponents.Button">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.EventWish.Overline" parent="TextAppearance.MaterialComponents.Overline">
+        <item name="android:textSize">10sp</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="fontFamily">sans-serif</item>
     </style>
 
 </resources>
+

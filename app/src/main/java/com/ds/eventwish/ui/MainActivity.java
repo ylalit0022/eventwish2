@@ -48,6 +48,14 @@ public class MainActivity extends AppCompatActivity implements NavigationBarView
             Log.e(TAG, "Error initializing ApiClient in MainActivity", e);
         }
 
+        // Initialize AnalyticsUtils
+        try {
+            com.ds.eventwish.utils.AnalyticsUtils.init(getApplicationContext());
+            Log.d(TAG, "AnalyticsUtils initialized in MainActivity");
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing AnalyticsUtils in MainActivity", e);
+        }
+
         // Initialize views
         bottomNav = findViewById(R.id.bottomNavigation);
 
@@ -99,7 +107,7 @@ public class MainActivity extends AppCompatActivity implements NavigationBarView
         // Get or create the badge for reminder menu item
         reminderBadge = bottomNav.getOrCreateBadge(R.id.navigation_reminder);
         reminderBadge.setBackgroundColor(getResources().getColor(R.color.badge_background, null));
-        reminderBadge.setBadgeTextColor(getResources().getColor(R.color.white, null));
+        reminderBadge.setBadgeTextColor(getResources().getColor(R.color.badge_text, null));
 
         // Observe today's reminders count
         reminderViewModel.getTodayRemindersCount().observe(this, count -> {
