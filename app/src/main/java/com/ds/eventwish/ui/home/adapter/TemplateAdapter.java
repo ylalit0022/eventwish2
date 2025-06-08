@@ -3,6 +3,7 @@ package com.ds.eventwish.ui.home.adapter;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListAdapter;
@@ -10,12 +11,14 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.databinding.ItemTemplateBinding;
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.TemplateViewHolder> {
+    private static final String TAG = "TemplateAdapter";
     private final OnTemplateClickListener listener;
     private Set<String> newTemplates = new HashSet<>();
 
@@ -54,8 +57,7 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
                 holder.bind(template);
             }
         } catch (IndexOutOfBoundsException e) {
-            // Prevent crashes due to RecyclerView inconsistency
-            android.util.Log.e("TemplateAdapter", "Error binding view holder at position " + position, e);
+            Log.e(TAG, "Error binding view holder at position " + position, e);
         }
     }
 
@@ -100,35 +102,55 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
         TemplateViewHolder(ItemTemplateBinding binding) {
             super(binding.getRoot());
             this.binding = binding;
+
+            // Set click listener in constructor to avoid creating new instances
+            binding.getRoot().setOnClickListener(v -> {
+                int position = getAdapterPosition();
+                if (position != RecyclerView.NO_POSITION) {
+                    Template template = getItem(position);
+                    if (template != null && listener != null) {
+                        Log.d(TAG, "Template clicked: " + template.getId());
+                        if (newTemplates.contains(template.getId())) {
+                            markAsViewed(template.getId());
+                        }
+                        listener.onTemplateClick(template);
+                    }
+                }
+            });
         }
 
         void bind(Template template) {
-            binding.titleText.setText(template.getTitle());
-            binding.categoryText.setText(template.getCategory());
-            
-            // Show NEW badge if this template is in the newTemplates set
-            if (newTemplates.contains(template.getId())) {
-                binding.newBadge.setVisibility(View.VISIBLE);
-            } else {
-                binding.newBadge.setVisibility(View.GONE);
-            }
-            
-            if (template.getThumbnailUrl() != null && !template.getThumbnailUrl().isEmpty()) {
-                Glide.with(binding.getRoot().getContext())
-                    .load(template.getThumbnailUrl())
-                    .centerCrop()
-                    .into(binding.templateImage);
-            }
-
-            binding.getRoot().setOnClickListener(v -> {
-                if (listener != null) {
-                    // Mark as viewed when clicked
-                    if (newTemplates.contains(template.getId())) {
-                        markAsViewed(template.getId());
-                    }
-                    listener.onTemplateClick(template);
+            try {
+                // Set title
+                binding.titleText.setText(template.getTitle());
+                
+                // Set category if available
+                String category = template.getCategory();
+                if (category != null && !category.isEmpty()) {
+                    binding.categoryText.setVisibility(View.VISIBLE);
+                    binding.categoryText.setText(category);
+                } else {
+                    binding.categoryText.setVisibility(View.GONE);
                 }
-            });
+                
+                // Show NEW badge if this template is in the newTemplates set
+                binding.newBadge.setVisibility(newTemplates.contains(template.getId()) ? 
+                    View.VISIBLE : View.GONE);
+                
+                // Load image if URL is available
+                String thumbnailUrl = template.getThumbnailUrl();
+                if (thumbnailUrl != null && !thumbnailUrl.isEmpty()) {
+                    Glide.with(binding.getRoot().getContext())
+                        .load(thumbnailUrl)
+                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                        .centerCrop()
+                        .into(binding.templateImage);
+                } else {
+                    binding.templateImage.setImageResource(android.R.color.transparent);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error binding template: " + e.getMessage());
+            }
         }
     }
 }

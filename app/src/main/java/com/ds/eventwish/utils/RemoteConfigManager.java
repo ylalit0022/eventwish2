@@ -186,7 +186,7 @@ public class RemoteConfigManager {
         params.putString("latest_version_name", remoteConfig.getString(KEY_LATEST_VERSION_NAME));
         params.putBoolean("is_update_available", latestVersion > currentVersion);
         
-        AnalyticsUtils.getInstance().trackEvent("update_check", params);
+        AnalyticsUtils.getInstance().logEvent("update_check", params);
     }
     
     /**
@@ -200,7 +200,7 @@ public class RemoteConfigManager {
         params.putString("latest_version_name", latestVersionName);
         params.putBoolean("is_force_update", isForceUpdate);
         
-        AnalyticsUtils.getInstance().trackEvent("update_available_impression", params);
+        AnalyticsUtils.getInstance().logEvent("update_available_impression", params);
     }
     
     /**
@@ -213,7 +213,7 @@ public class RemoteConfigManager {
         params.putString("current_version_name", BuildConfig.VERSION_NAME);
         params.putString("latest_version_name", latestVersionName);
         
-        AnalyticsUtils.getInstance().trackEvent("update_prompt_action", params);
+        AnalyticsUtils.getInstance().logEvent("update_prompt_action", params);
     }
     
     /**

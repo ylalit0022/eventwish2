@@ -31,9 +31,9 @@ public class UpdateDialogHelper {
         
         // Track impression
         Bundle params = new Bundle();
-        params.putString("version_name", versionName);
+        params.putString("current_version", versionName);
         params.putBoolean("is_force_update", isForceUpdate);
-        AnalyticsUtils.getInstance().trackEvent("update_dialog_shown", params);
+        AnalyticsUtils.getInstance().logEvent("update_dialog_shown", params);
         
         RemoteConfigManager remoteConfigManager = RemoteConfigManager.getInstance(activity);
         

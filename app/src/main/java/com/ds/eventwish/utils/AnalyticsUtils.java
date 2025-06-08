@@ -23,6 +23,7 @@ import android.net.NetworkInfo;
 import android.content.SharedPreferences;
 import android.view.WindowManager;
 import android.content.pm.PackageInfo;
+import java.util.Map;
 
 /**
  * Utility class for tracking analytics events using Firebase Analytics
@@ -57,6 +58,15 @@ public class AnalyticsUtils {
     public static final String EVENT_UPDATE_PROMPT_SHOWN = "update_prompt_shown";
     public static final String EVENT_UPDATE_PROMPT_ACTION = "update_prompt_action";
     public static final String EVENT_UPDATE_DIALOG_SHOWN = "update_dialog_shown";
+    public static final String EVENT_TEMPLATE_FAVORITE = "template_favorite";
+    public static final String EVENT_TEMPLATE_UNFAVORITE = "template_unfavorite";
+    public static final String EVENT_TEMPLATE_LIKE = "template_like";
+    public static final String EVENT_TEMPLATE_UNLIKE = "template_unlike";
+    public static final String EVENT_NOTIFICATION_RECEIVED = "notification_received";
+    public static final String EVENT_NOTIFICATION_CLICKED = "notification_clicked";
+    public static final String EVENT_NOTIFICATION_DISMISSED = "notification_dismissed";
+    public static final String EVENT_NOTIFICATION_SETTINGS_CHANGED = "notification_settings_changed";
+    public static final String EVENT_TEMPLATE_CLICK = "template_click";
     
     // Param keys
     public static final String PARAM_TEMPLATE_ID = "template_id";
@@ -94,6 +104,13 @@ public class AnalyticsUtils {
     public static final String PARAM_UPDATE_SOURCE = "update_source";
     public static final String PARAM_VERSION_NAME = "version_name";
     public static final String PARAM_ACTION = "action";
+    public static final String PARAM_INTERACTION_TYPE = "interaction_type";
+    public static final String PARAM_INTERACTION_SOURCE = "interaction_source";
+    public static final String PARAM_NOTIFICATION_TYPE = "notification_type";
+    public static final String PARAM_NOTIFICATION_ID = "notification_id";
+    public static final String PARAM_SETTING_NAME = "setting_name";
+    public static final String PARAM_SETTING_VALUE = "setting_value";
+    public static final String PARAM_PREVIOUS_VALUE = "previous_value";
     
     // Update source values
     public static final String UPDATE_SOURCE_PLAY_STORE = "play_store";
@@ -122,7 +139,11 @@ public class AnalyticsUtils {
      */
     public static AnalyticsUtils getInstance() {
         if (instance == null) {
-            instance = new AnalyticsUtils();
+            synchronized (AnalyticsUtils.class) {
+                if (instance == null) {
+                    instance = new AnalyticsUtils();
+                }
+            }
         }
         return instance;
     }
@@ -978,21 +999,22 @@ public class AnalyticsUtils {
     }
     
     /**
-     * Track a custom event
+     * Log an analytics event with parameters
      * @param eventName Name of the event
-     * @param params Parameters for the event
+     * @param params Event parameters
      */
-    public void trackEvent(String eventName, Bundle params) {
+    public static void logEvent(String eventName, Bundle params) {
         if (!analyticsEnabled || firebaseAnalytics == null) {
-            Log.e(TAG, "Analytics not enabled or not initialized. Call init() first.");
+            logDebug("Analytics disabled or not initialized. Event not logged: " + eventName);
             return;
         }
-        
+
         try {
             firebaseAnalytics.logEvent(eventName, params);
-            logDebug("Tracked custom event: " + eventName);
+            eventCounter++;
+            logDebug("Event logged: " + eventName);
         } catch (Exception e) {
-            Log.e(TAG, "Error tracking custom event", e);
+            Log.e(TAG, "Failed to log event: " + eventName, e);
         }
     }
     
@@ -1073,5 +1095,233 @@ public class AnalyticsUtils {
         } catch (Exception e) {
             Log.e(TAG, "Error tracking ad click", e);
         }
+    }
+
+    /**
+     * Track template favorite event
+     * @param templateId ID of the template
+     * @param source Source of the favorite action (e.g., "template_detail", "search_results")
+     */
+    public static void trackTemplateFavorite(String templateId, String source) {
+        if (!analyticsEnabled || firebaseAnalytics == null) {
+            logDebug("Analytics disabled or not initialized. Skipping favorite tracking.");
+            return;
+        }
+        
+        try {
+            Bundle params = new Bundle();
+            params.putString(PARAM_TEMPLATE_ID, templateId);
+            params.putString(PARAM_INTERACTION_SOURCE, source);
+            params.putString(PARAM_SESSION_ID, sessionId);
+            params.putLong(PARAM_TIMESTAMP, System.currentTimeMillis());
+            
+            firebaseAnalytics.logEvent(EVENT_TEMPLATE_FAVORITE, params);
+            logDebug("Tracked template favorite: " + templateId + " from " + source);
+            eventCounter++;
+        } catch (Exception e) {
+            Log.e(TAG, "Error tracking template favorite", e);
+        }
+    }
+
+    /**
+     * Track template unfavorite event
+     * @param templateId ID of the template
+     * @param source Source of the unfavorite action
+     */
+    public static void trackTemplateUnfavorite(String templateId, String source) {
+        if (!analyticsEnabled || firebaseAnalytics == null) {
+            logDebug("Analytics disabled or not initialized. Skipping unfavorite tracking.");
+            return;
+        }
+        
+        try {
+            Bundle params = new Bundle();
+            params.putString(PARAM_TEMPLATE_ID, templateId);
+            params.putString(PARAM_INTERACTION_SOURCE, source);
+            params.putString(PARAM_SESSION_ID, sessionId);
+            params.putLong(PARAM_TIMESTAMP, System.currentTimeMillis());
+            
+            firebaseAnalytics.logEvent(EVENT_TEMPLATE_UNFAVORITE, params);
+            logDebug("Tracked template unfavorite: " + templateId + " from " + source);
+            eventCounter++;
+        } catch (Exception e) {
+            Log.e(TAG, "Error tracking template unfavorite", e);
+        }
+    }
+
+    /**
+     * Track template like event
+     * @param templateId ID of the template
+     * @param source Source of the like action
+     */
+    public static void trackTemplateLike(String templateId, String source) {
+        if (!analyticsEnabled || firebaseAnalytics == null) {
+            logDebug("Analytics disabled or not initialized. Skipping like tracking.");
+            return;
+        }
+        
+        try {
+            Bundle params = new Bundle();
+            params.putString(PARAM_TEMPLATE_ID, templateId);
+            params.putString(PARAM_INTERACTION_SOURCE, source);
+            params.putString(PARAM_SESSION_ID, sessionId);
+            params.putLong(PARAM_TIMESTAMP, System.currentTimeMillis());
+            
+            firebaseAnalytics.logEvent(EVENT_TEMPLATE_LIKE, params);
+            logDebug("Tracked template like: " + templateId + " from " + source);
+            eventCounter++;
+        } catch (Exception e) {
+            Log.e(TAG, "Error tracking template like", e);
+        }
+    }
+
+    /**
+     * Track template unlike event
+     * @param templateId ID of the template
+     * @param source Source of the unlike action
+     */
+    public static void trackTemplateUnlike(String templateId, String source) {
+        if (!analyticsEnabled || firebaseAnalytics == null) {
+            logDebug("Analytics disabled or not initialized. Skipping unlike tracking.");
+            return;
+        }
+        
+        try {
+            Bundle params = new Bundle();
+            params.putString(PARAM_TEMPLATE_ID, templateId);
+            params.putString(PARAM_INTERACTION_SOURCE, source);
+            params.putString(PARAM_SESSION_ID, sessionId);
+            params.putLong(PARAM_TIMESTAMP, System.currentTimeMillis());
+            
+            firebaseAnalytics.logEvent(EVENT_TEMPLATE_UNLIKE, params);
+            logDebug("Tracked template unlike: " + templateId + " from " + source);
+            eventCounter++;
+        } catch (Exception e) {
+            Log.e(TAG, "Error tracking template unlike", e);
+        }
+    }
+
+    /**
+     * Track notification received event
+     * @param notificationId ID of the notification
+     * @param notificationType Type of notification (e.g., "template_favorite", "reminder")
+     */
+    public static void trackNotificationReceived(String notificationId, String notificationType) {
+        if (!analyticsEnabled || firebaseAnalytics == null) {
+            logDebug("Analytics disabled or not initialized. Skipping notification tracking.");
+            return;
+        }
+        
+        try {
+            Bundle params = new Bundle();
+            params.putString(PARAM_NOTIFICATION_ID, notificationId);
+            params.putString(PARAM_NOTIFICATION_TYPE, notificationType);
+            params.putString(PARAM_SESSION_ID, sessionId);
+            params.putLong(PARAM_TIMESTAMP, System.currentTimeMillis());
+            
+            firebaseAnalytics.logEvent(EVENT_NOTIFICATION_RECEIVED, params);
+            logDebug("Tracked notification received: " + notificationId + " type: " + notificationType);
+            eventCounter++;
+        } catch (Exception e) {
+            Log.e(TAG, "Error tracking notification received", e);
+        }
+    }
+
+    /**
+     * Track notification clicked event
+     * @param notificationId ID of the notification
+     * @param notificationType Type of notification
+     */
+    public static void trackNotificationClicked(String notificationId, String notificationType) {
+        if (!analyticsEnabled || firebaseAnalytics == null) {
+            logDebug("Analytics disabled or not initialized. Skipping notification click tracking.");
+            return;
+        }
+        
+        try {
+            Bundle params = new Bundle();
+            params.putString(PARAM_NOTIFICATION_ID, notificationId);
+            params.putString(PARAM_NOTIFICATION_TYPE, notificationType);
+            params.putString(PARAM_SESSION_ID, sessionId);
+            params.putLong(PARAM_TIMESTAMP, System.currentTimeMillis());
+            
+            firebaseAnalytics.logEvent(EVENT_NOTIFICATION_CLICKED, params);
+            logDebug("Tracked notification clicked: " + notificationId + " type: " + notificationType);
+            eventCounter++;
+        } catch (Exception e) {
+            Log.e(TAG, "Error tracking notification click", e);
+        }
+    }
+
+    /**
+     * Track notification settings changed event
+     * @param settingName Name of the setting that was changed
+     * @param newValue New value of the setting
+     * @param previousValue Previous value of the setting
+     */
+    public static void trackNotificationSettingChanged(String settingName, String newValue, String previousValue) {
+        if (!analyticsEnabled || firebaseAnalytics == null) {
+            logDebug("Analytics disabled or not initialized. Skipping settings tracking.");
+            return;
+        }
+        
+        try {
+            Bundle params = new Bundle();
+            params.putString(PARAM_SETTING_NAME, settingName);
+            params.putString(PARAM_SETTING_VALUE, newValue);
+            params.putString(PARAM_PREVIOUS_VALUE, previousValue);
+            params.putString(PARAM_SESSION_ID, sessionId);
+            params.putLong(PARAM_TIMESTAMP, System.currentTimeMillis());
+            
+            firebaseAnalytics.logEvent(EVENT_NOTIFICATION_SETTINGS_CHANGED, params);
+            logDebug("Tracked notification setting changed: " + settingName + " from " + previousValue + " to " + newValue);
+            eventCounter++;
+        } catch (Exception e) {
+            Log.e(TAG, "Error tracking notification setting change", e);
+        }
+    }
+
+    /**
+     * Track when a template is clicked
+     * @param templateId The ID of the clicked template
+     */
+    public static void trackTemplateClick(String templateId) {
+        if (!analyticsEnabled || templateId == null) {
+            return;
+        }
+
+        try {
+            Bundle params = new Bundle();
+            params.putString(PARAM_TEMPLATE_ID, templateId);
+            params.putString(PARAM_TIMESTAMP, new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date()));
+            params.putString(PARAM_SESSION_ID, sessionId);
+
+            firebaseAnalytics.logEvent(EVENT_TEMPLATE_CLICK, params);
+            logDebug("Tracked template click: " + templateId);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to track template click", e);
+        }
+    }
+
+    /**
+     * Track a template interaction event
+     *
+     * @param templateId The ID of the template
+     * @param action The action performed (like, unlike, favorite, unfavorite)
+     */
+    public void trackTemplateInteraction(@NonNull String templateId, @NonNull String action) {
+        Log.d(TAG, "Template interaction: " + action + " - Template: " + templateId);
+        // TODO: Implement actual analytics tracking
+    }
+
+    /**
+     * Track a generic event with parameters
+     *
+     * @param eventName The name of the event
+     * @param params Map of event parameters
+     */
+    public void trackEvent(@NonNull String eventName, @NonNull Map<String, String> params) {
+        Log.d(TAG, "Event: " + eventName + " - Params: " + params);
+        // TODO: Implement actual analytics tracking
     }
 } 

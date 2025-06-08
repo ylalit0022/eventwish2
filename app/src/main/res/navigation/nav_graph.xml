@@ -349,4 +349,19 @@
         android:label="Contact"
         tools:layout="@layout/fragment_contact" />
 
+    <fragment
+        android:id="@+id/notificationPreferencesFragment"
+        android:name="com.ds.eventwish.ui.fragment.NotificationPreferencesFragment"
+        android:label="Notification Preferences">
+        <action
+            android:id="@+id/action_notificationPreferencesFragment_to_moreFragment"
+            app:destination="@id/navigation_more"
+            app:popUpTo="@id/navigation_more"
+            app:popUpToInclusive="true" />
+    </fragment>
+
+    <action
+        android:id="@+id/action_global_notificationPreferencesFragment"
+        app:destination="@id/notificationPreferencesFragment" />
+
 </navigation>

@@ -61,6 +61,8 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
      */
     public interface TemplateClickListener {
         void onTemplateClick(Template template);
+        void onTemplateLike(Template template);
+        void onTemplateFavorite(Template template);
     }
     
     /**
@@ -119,6 +121,9 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
         private final TextView newBadge;
         private final LinearLayout recommendedBadge;
         private final CardView cardView;
+        private final ImageView likeIcon;
+        private final ImageView favoriteIcon;
+        private final View interactionButtonsLayout;
         
         public TemplateViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -128,7 +133,10 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
             categoryIcon = itemView.findViewById(R.id.categoryIcon);
             newBadge = itemView.findViewById(R.id.newBadge);
             recommendedBadge = itemView.findViewById(R.id.recommendedBadge);
-            cardView = (CardView) itemView;
+            cardView = itemView.findViewById(R.id.cardView);
+            likeIcon = itemView.findViewById(R.id.likeIcon);
+            favoriteIcon = itemView.findViewById(R.id.favoriteIcon);
+            interactionButtonsLayout = itemView.findViewById(R.id.interactionButtonsLayout);
         }
         
         public void bind(Template template, Set<String> recommendedIds, Set<String> newIds, TemplateClickListener listener) {
@@ -143,6 +151,62 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
                 categoryIcon.setVisibility(View.GONE);
             }
             
+            // Update like icon state
+            likeIcon.setImageResource(template.isLiked() ? R.drawable.ic_favorite : R.drawable.ic_favorite_border);
+            likeIcon.setColorFilter(template.isLiked() ? 
+                itemView.getContext().getColor(R.color.colorAccent) : 
+                itemView.getContext().getColor(R.color.colorControlNormal));
+            likeIcon.setOnClickListener(v -> {
+                if (listener != null) {
+                    // Provide haptic feedback
+                    v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
+                    listener.onTemplateLike(template);
+                }
+            });
+            
+            // Update favorite icon state
+            favoriteIcon.setImageResource(template.isFavorited() ? R.drawable.ic_bookmark : R.drawable.ic_bookmark_border);
+            favoriteIcon.setColorFilter(template.isFavorited() ? 
+                itemView.getContext().getColor(R.color.colorAccent) : 
+                itemView.getContext().getColor(R.color.colorControlNormal));
+            favoriteIcon.setOnClickListener(v -> {
+                if (listener != null) {
+                    // Provide haptic feedback
+                    v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
+                    listener.onTemplateFavorite(template);
+                }
+            });
+            
+            // Load template image
+            String imageUrl = template.getPreviewUrl();
+            if (imageUrl != null && !imageUrl.isEmpty()) {
+                Glide.with(templateImage.getContext())
+                    .load(imageUrl)
+                    .apply(new RequestOptions()
+                        .placeholder(R.drawable.placeholder_image)
+                        .error(R.drawable.error_image)
+                        .diskCacheStrategy(DiskCacheStrategy.ALL))
+                        .listener(new RequestListener<Drawable>() {
+                            @Override
+                            public boolean onLoadFailed(@Nullable GlideException e, Object model,
+                                                      Target<Drawable> target, boolean isFirstResource) {
+                                Log.e(TAG, "Failed to load image for template: " + template.getId(), e);
+                                return false;
+                            }
+
+                            @Override
+                            public boolean onResourceReady(Drawable resource, Object model,
+                                                         Target<Drawable> target, DataSource dataSource,
+                                                         boolean isFirstResource) {
+                                Log.d(TAG, "Image loaded successfully for template: " + template.getId());
+                                return false;
+                            }
+                        })
+                        .into(templateImage);
+            } else {
+                templateImage.setImageResource(R.drawable.placeholder_image);
+            }
+            
             // Check if this template should show the NEW badge
             boolean isNew = newIds != null && template.getId() != null && newIds.contains(template.getId());
             
@@ -152,70 +216,35 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
                                     recommendedIds.contains(template.getId())) || 
                                     template.isRecommended();
             
-            // Log the badge status for debugging
-            Log.d(TAG, "Template " + template.getId() + " - isNew: " + isNew + ", isRecommended: " + isRecommended);
-            
             // Show NEW badge with higher priority than recommended
             newBadge.setVisibility(isNew ? View.VISIBLE : View.GONE);
             
             // Special styling for templates
             if (isNew) {
-                // Special styling for new templates (takes precedence)
                 recommendedBadge.setVisibility(View.GONE);
                 cardView.setCardBackgroundColor(0xFFF3E5F5); // Light purple background
-                cardView.setCardElevation(8f); // Increased elevation
+                cardView.setCardElevation(8f);
             } else if (isRecommended) {
-                // Styling for recommended templates
                 recommendedBadge.setVisibility(View.VISIBLE);
                 cardView.setCardBackgroundColor(0xFFFFF8E1); // Light amber background
-                cardView.setCardElevation(8f); // Increased elevation
+                cardView.setCardElevation(8f);
             } else {
-                // Default styling
                 recommendedBadge.setVisibility(View.GONE);
                 cardView.setCardBackgroundColor(0xFFFFFFFF); // White background
-                cardView.setCardElevation(4f); // Normal elevation
+                cardView.setCardElevation(4f);
             }
             
-            // Load image
-            String imageUrl = template.getThumbnailUrl();
-            if (imageUrl != null && !imageUrl.isEmpty()) {
-                Glide.with(templateImage.getContext())
-                    .load(imageUrl)
-                    .apply(new RequestOptions()
-                        .placeholder(R.drawable.placeholder_image)
-                        .error(R.drawable.error_image)
-                        .diskCacheStrategy(DiskCacheStrategy.ALL))
-                    .listener(new RequestListener<Drawable>() {
-                        @Override
-                        public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
-                            Log.e(TAG, "Image load failed: " + imageUrl);
-                            return false;
-                        }
-                        
-                        @Override
-                        public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
-                            return false;
-                        }
-                    })
-                    .into(templateImage);
-            } else {
-                templateImage.setImageResource(R.drawable.placeholder_image);
-            }
-            
-            // Set click listener
-            itemView.setOnClickListener(v -> {
+            // Set click listener for the card
+            cardView.setOnClickListener(v -> {
                 if (listener != null) {
-                    // Mark as viewed in the adapter - fixed to use the adapter instance method
-                    if (isNew && template.getId() != null) {
-                        // Use the adapter's markAsViewed method
-                        RecommendedTemplateAdapter adapter = (RecommendedTemplateAdapter) itemView.getTag(R.id.tag_adapter);
-                        if (adapter != null) {
-                            adapter.markAsViewed(template.getId());
-                        }
-                    }
-                    
                     listener.onTemplateClick(template);
                 }
+            });
+
+            // Prevent click propagation from interaction buttons
+            interactionButtonsLayout.setOnClickListener(v -> {
+                // Consume the click event
+                Log.d(TAG, "Interaction buttons layout clicked, preventing propagation");
             });
         }
     }

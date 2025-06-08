@@ -1,30 +1,51 @@
 package com.ds.eventwish.data.repository;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.util.Log;
+
+import androidx.annotation.NonNull;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
+
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.model.response.TemplateResponse;
 import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.data.remote.ApiService;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import android.content.Context;
-import android.content.SharedPreferences;
-import android.util.Log;
+import com.ds.eventwish.data.remote.FirestoreManager;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.firestore.QuerySnapshot;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
-import java.lang.reflect.Type;
-import java.util.Collections;
 
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
+/**
+ * Repository for managing templates
+ */
 public class TemplateRepository {
     private static final String TAG = "TemplateRepository";
-    private static TemplateRepository instance;
+    private static final String COLLECTION_TEMPLATES = "templates";
+
+    private static volatile TemplateRepository instance;
+    private static Context applicationContext;
+
+    private final FirebaseFirestore db;
     private final ApiService apiService;
     private final MutableLiveData<List<Template>> templates = new MutableLiveData<>();
     private final MutableLiveData<Map<String, Integer>> categories = new MutableLiveData<>();
@@ -35,7 +56,6 @@ public class TemplateRepository {
     private String currentCategory = null;
     private static final int PAGE_SIZE = 20;
     private Call<TemplateResponse> currentCall;
-    private Context appContext;
     
     // Add constants for SharedPreferences
     private static final String PREF_NAME = "template_repository_prefs";
@@ -60,10 +80,28 @@ public class TemplateRepository {
         void onError(String message);
     }
 
-    private TemplateRepository(Context context) {
+    public static void init(Context context) {
         if (context != null) {
-            this.appContext = context.getApplicationContext();
+            applicationContext = context.getApplicationContext();
         }
+    }
+
+    public static TemplateRepository getInstance() {
+        if (instance == null) {
+            synchronized (TemplateRepository.class) {
+                if (instance == null) {
+                    if (applicationContext == null) {
+                        throw new IllegalStateException("TemplateRepository must be initialized with init(Context) before calling getInstance()");
+                    }
+                    instance = new TemplateRepository();
+                }
+            }
+        }
+        return instance;
+    }
+
+    private TemplateRepository() {
+        this.db = FirebaseFirestore.getInstance();
         apiService = ApiClient.getClient();
         templates.postValue(new ArrayList<>());
         categories.postValue(new HashMap<>());
@@ -71,63 +109,19 @@ public class TemplateRepository {
         ensureDefaultCategories(null);
         
         // Load categories if context is available
-        if (appContext != null) {
+        if (applicationContext != null) {
             loadCategoriesFromPrefs();
         }
     }
 
-    /**
-     * Initialize the repository with a context
-     * @param context Application context
-     * @return The repository instance
-     */
-    public static synchronized TemplateRepository init(Context context) {
-        if (context == null) {
-            throw new IllegalArgumentException("Context cannot be null when initializing TemplateRepository");
-        }
-        
-        if (instance == null) {
-            instance = new TemplateRepository(context);
-        } else if (instance.appContext == null) {
-            // If instance exists but has no context, update it
-            instance.appContext = context.getApplicationContext();
-            instance.loadCategoriesFromPrefs();
-        }
-        
-        return instance;
-    }
-
-    /**
-     * Get the singleton instance of TemplateRepository
-     * @return TemplateRepository instance
-     * @throws IllegalStateException if init(Context) has not been called first
-     */
-    public static synchronized TemplateRepository getInstance() {
-        if (instance == null) {
-            Log.e(TAG, "TemplateRepository.getInstance() called before initialization");
-            // Create a default instance without context, but log a warning
-            instance = new TemplateRepository(null);
-            Log.w(TAG, "Creating TemplateRepository with no context - functionality will be limited");
-        }
-        
-        if (instance.appContext == null) {
-            Log.w(TAG, "TemplateRepository instance has no context - call init(Context) to enable full functionality");
-        }
-        
-        return instance;
-    }
-
-    /**
-     * Load categories from SharedPreferences on initialization
-     */
     private void loadCategoriesFromPrefs() {
-        if (appContext == null) {
+        if (applicationContext == null) {
             Log.e(TAG, "Cannot load categories from prefs: app context is null");
             return;
         }
         
         try {
-            SharedPreferences prefs = appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            SharedPreferences prefs = applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
             String categoriesJson = prefs.getString(PREF_CATEGORIES, null);
             
             if (categoriesJson != null && !categoriesJson.isEmpty()) {
@@ -154,12 +148,12 @@ public class TemplateRepository {
      * Save categories to SharedPreferences for persistence
      */
     private void saveCategoriesToPrefs(Map<String, Integer> categoriesToSave) {
-        if (appContext == null || categoriesToSave == null) {
+        if (applicationContext == null || categoriesToSave == null) {
             return;
         }
         
         try {
-            SharedPreferences prefs = appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            SharedPreferences prefs = applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = prefs.edit();
             
             Gson gson = new Gson();
@@ -613,8 +607,8 @@ public class TemplateRepository {
             categories.postValue(new HashMap<>(currentCategories));
         } else {
             // Add a guard to prevent infinite recursion
-            SharedPreferences prefs = appContext != null ? 
-                appContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE) : null;
+            SharedPreferences prefs = applicationContext != null ? 
+                applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE) : null;
             
             if (prefs != null && prefs.contains(PREF_CATEGORIES)) {
                 // Try to load categories from SharedPreferences if no categories are available
@@ -747,12 +741,202 @@ public class TemplateRepository {
         Log.d(TAG, "Notifying observers about " + newTemplates.size() + " new templates");
         
         // Reset the lastCheckTime in SharedPreferences to force detection of new templates
-        if (appContext != null) {
-            SharedPreferences prefs = appContext.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
+        if (applicationContext != null) {
+            SharedPreferences prefs = applicationContext.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
             // Set to a time before the new templates were created
             long timeBeforeNewTemplates = System.currentTimeMillis() - (24 * 60 * 60 * 1000); // 1 day ago
             prefs.edit().putLong("last_check_time", timeBeforeNewTemplates).apply();
             Log.d(TAG, "Reset last_check_time to force detection of new templates");
         }
+    }
+
+    /**
+     * Get templates for a specific category
+     */
+    @NonNull
+    public Task<List<Template>> getTemplatesForCategory(String categoryId) {
+        return db.collection(COLLECTION_TEMPLATES)
+            .whereEqualTo("categoryId", categoryId)
+            .get()
+            .continueWith(task -> {
+                if (!task.isSuccessful()) {
+                    throw task.getException();
+                }
+
+                QuerySnapshot snapshot = task.getResult();
+                List<Template> templates = new ArrayList<>();
+
+                for (com.google.firebase.firestore.DocumentSnapshot doc : snapshot.getDocuments()) {
+                    templates.add(new Template(
+                        doc.getId(),
+                        doc.getString("name"),
+                        doc.getString("categoryId"),
+                        doc.getString("imageUrl"),
+                        Boolean.TRUE.equals(doc.getBoolean("isLiked")),
+                        Boolean.TRUE.equals(doc.getBoolean("isFavorited")),
+                        doc.getLong("likeCount") != null ? doc.getLong("likeCount").intValue() : 0
+                    ));
+                }
+
+                return templates;
+            });
+    }
+
+    /**
+     * Get a template by ID
+     */
+    @NonNull
+    public Task<Template> getTemplateById(String templateId) {
+        return db.collection(COLLECTION_TEMPLATES)
+            .document(templateId)
+            .get()
+            .continueWith(task -> {
+                if (!task.isSuccessful()) {
+                    throw task.getException();
+                }
+
+                com.google.firebase.firestore.DocumentSnapshot doc = task.getResult();
+                if (!doc.exists()) {
+                    throw new IllegalStateException("Template not found: " + templateId);
+                }
+
+                return new Template(
+                    doc.getId(),
+                    doc.getString("name"),
+                    doc.getString("categoryId"),
+                    doc.getString("imageUrl"),
+                    Boolean.TRUE.equals(doc.getBoolean("isLiked")),
+                    Boolean.TRUE.equals(doc.getBoolean("isFavorited")),
+                    doc.getLong("likeCount") != null ? doc.getLong("likeCount").intValue() : 0
+                );
+            });
+    }
+
+    /**
+     * Update a template in the repository
+     * @param template The template to update
+     */
+    public void updateTemplate(Template template) {
+        if (template == null || template.getId() == null) {
+            Log.e(TAG, "Cannot update template: template or template ID is null");
+            return;
+        }
+
+        FirestoreManager firestoreManager = FirestoreManager.getInstance();
+        Log.d(TAG, String.format("Starting template update - ID: %s, LikeChanged: %b, FavoriteChanged: %b", 
+            template.getId(), 
+            template.isLikeChanged(),
+            template.isFavoriteChanged()));
+        
+        // Handle likes
+        if (template.isLikeChanged()) {
+            Log.d(TAG, String.format("Processing like change - TemplateID: %s, IsLiked: %b", 
+                template.getId(), 
+                template.isLiked()));
+                
+            firestoreManager.toggleLike(template.getId())
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, String.format("Successfully toggled like - TemplateID: %s", template.getId()));
+                    saveTemplateToCache(template);
+                })
+                .addOnFailureListener(e -> {
+                    if (e instanceof FirebaseFirestoreException) {
+                        FirebaseFirestoreException ffe = (FirebaseFirestoreException) e;
+                        Log.e(TAG, String.format("Firestore error updating template like - TemplateID: %s, Code: %s, Description: %s", 
+                            template.getId(),
+                            ffe.getCode(),
+                            ffe.getMessage()), e);
+                            
+                        // Log detailed permission error info
+                        if (ffe.getCode() == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+                            Log.e(TAG, String.format("Permission denied details - UserID: %s, IsAnonymous: %b, Provider: %s", 
+                                currentUser != null ? currentUser.getUid() : "null",
+                                currentUser != null ? currentUser.isAnonymous() : false,
+                                currentUser != null ? currentUser.getProviderId() : "null"));
+                        }
+                    } else {
+                        Log.e(TAG, String.format("Error updating template like - TemplateID: %s, Error: %s", 
+                            template.getId(),
+                            e.getMessage()), e);
+                    }
+                    error.postValue("Failed to update template like. Please try again.");
+                });
+        }
+        
+        // Handle favorites
+        if (template.isFavoriteChanged()) {
+            Log.d(TAG, String.format("Processing favorite change - TemplateID: %s, IsFavorited: %b", 
+                template.getId(), 
+                template.isFavorited()));
+                
+            firestoreManager.toggleFavorite(template.getId())
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, String.format("Successfully toggled favorite - TemplateID: %s", template.getId()));
+                    saveTemplateToCache(template);
+                })
+                .addOnFailureListener(e -> {
+                    if (e instanceof FirebaseFirestoreException) {
+                        FirebaseFirestoreException ffe = (FirebaseFirestoreException) e;
+                        Log.e(TAG, String.format("Firestore error updating template favorite - TemplateID: %s, Code: %s, Description: %s", 
+                            template.getId(),
+                            ffe.getCode(),
+                            ffe.getMessage()), e);
+                            
+                        // Log detailed permission error info
+                        if (ffe.getCode() == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+                            Log.e(TAG, String.format("Permission denied details - UserID: %s, IsAnonymous: %b, Provider: %s", 
+                                currentUser != null ? currentUser.getUid() : "null",
+                                currentUser != null ? currentUser.isAnonymous() : false,
+                                currentUser != null ? currentUser.getProviderId() : "null"));
+                        }
+                    } else {
+                        Log.e(TAG, String.format("Error updating template favorite - TemplateID: %s, Error: %s", 
+                            template.getId(),
+                            e.getMessage()), e);
+                    }
+                    error.postValue("Failed to update template favorite. Please try again.");
+                });
+        }
+    }
+    
+    /**
+     * Save template to local cache
+     */
+    private void saveTemplateToCache(Template template) {
+        Log.d(TAG, String.format("Saving template to cache - ID: %s", template.getId()));
+        if (applicationContext == null) return;
+        
+        try {
+            SharedPreferences prefs = applicationContext.getSharedPreferences("template_cache", Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
+            
+            Gson gson = new Gson();
+            String json = gson.toJson(template);
+            editor.putString("template_" + template.getId(), json);
+            editor.apply();
+            
+            Log.d(TAG, "Template saved to cache: " + template.getId());
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving template to cache", e);
+        }
+    }
+    
+    /**
+     * Notify observers that templates have been updated
+     * @param updatedTemplates The updated list of templates
+     */
+    public void notifyTemplatesUpdated(List<Template> updatedTemplates) {
+        if (updatedTemplates == null) return;
+        
+        // Create a new list to avoid modification issues
+        List<Template> newList = new ArrayList<>(updatedTemplates);
+        
+        // Post the update on the main thread
+        templates.postValue(newList);
+        
+        // Log the update
+        Log.d(TAG, "Templates updated, notifying observers. Count: " + newList.size());
     }
 }

@@ -74,6 +74,8 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        Log.d(TAG, "onViewCreated called");
+
         // Safely hide the action bar
         if (getActivity() instanceof AppCompatActivity) {
             androidx.appcompat.app.ActionBar actionBar = ((AppCompatActivity) requireActivity()).getSupportActionBar();
@@ -95,14 +97,20 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         adjustWebViewLayout();
         
         // Load template data
-        if (getArguments() != null) {
-            templateId = getArguments().getString("templateId");
+        Bundle args = getArguments();
+        Log.d(TAG, "Arguments bundle: " + (args != null ? "present" : "null"));
+        if (args != null) {
+            templateId = args.getString("templateId");
+            Log.d(TAG, "Template ID from arguments: " + templateId);
             if (templateId != null) {
+                Log.d(TAG, "Loading template with ID: " + templateId);
                 viewModel.loadTemplate(templateId);
             } else {
+                Log.e(TAG, "Invalid template ID: null");
                 showError("Invalid template ID");
             }
         } else {
+            Log.e(TAG, "No arguments bundle provided");
             showError("No arguments provided");
         }
         isViewCreated = true;

@@ -1,8 +1,10 @@
 package com.ds.eventwish.ui.template;
 
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
@@ -17,21 +19,25 @@ import com.bumptech.glide.Glide;
  */
 public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.TemplateViewHolder> {
     
-    private final OnTemplateClickListener listener;
+    private static final String TAG = "TemplateAdapter";
+    
+    private final OnTemplateInteractionListener listener;
     
     /**
-     * Interface for handling template clicks
+     * Interface for handling template interactions
      */
-    public interface OnTemplateClickListener {
+    public interface OnTemplateInteractionListener {
         void onTemplateClick(Template template);
+        void onTemplateLike(Template template);
+        void onTemplateFavorite(Template template);
     }
     
     /**
      * Constructor
      *
-     * @param listener Listener for template clicks
+     * @param listener Listener for template interactions
      */
-    public TemplateAdapter(OnTemplateClickListener listener) {
+    public TemplateAdapter(OnTemplateInteractionListener listener) {
         super(DIFF_CALLBACK);
         this.listener = listener;
     }
@@ -56,14 +62,18 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
     static class TemplateViewHolder extends RecyclerView.ViewHolder {
         private final ImageView templateImage;
         private final TextView templateName;
+        private final ImageView likeIcon;
+        private final ImageView favoriteIcon;
         
         public TemplateViewHolder(@NonNull View itemView) {
             super(itemView);
             templateImage = itemView.findViewById(R.id.template_image);
             templateName = itemView.findViewById(R.id.titleText);
+            likeIcon = itemView.findViewById(R.id.likeIcon);
+            favoriteIcon = itemView.findViewById(R.id.favoriteIcon);
         }
         
-        public void bind(Template template, OnTemplateClickListener listener) {
+        public void bind(Template template, OnTemplateInteractionListener listener) {
             templateName.setText(template.getName());
             
             // Load image with Glide
@@ -74,9 +84,46 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
                 .centerCrop()
                 .into(templateImage);
             
-            // Set click listener
+            // Set up like button
+            boolean isLiked = template.isLiked();
+            Log.d(TAG, "Setting up like button for template: " + template.getId() + ", current state: " + isLiked);
+            likeIcon.setImageResource(isLiked ? R.drawable.ic_heart_filled : R.drawable.ic_heart_outline);
+            likeIcon.setOnClickListener(v -> {
+                if (listener != null) {
+                    Log.d(TAG, "Like button clicked for template: " + template.getId() + 
+                              ", current state: " + isLiked + 
+                              ", will toggle to: " + !isLiked);
+                    // Update UI immediately
+                    template.setLiked(!isLiked);
+                    likeIcon.setImageResource(!isLiked ? R.drawable.ic_heart_filled : R.drawable.ic_heart_outline);
+                    // Animate the icon
+                    v.startAnimation(AnimationUtils.loadAnimation(v.getContext(), R.anim.like_button_animation));
+                    listener.onTemplateLike(template);
+                }
+            });
+            
+            // Set up favorite button
+            boolean isFavorited = template.isFavorited();
+            Log.d(TAG, "Setting up favorite button for template: " + template.getId() + ", current state: " + isFavorited);
+            favoriteIcon.setImageResource(isFavorited ? R.drawable.ic_bookmark_filled : R.drawable.ic_bookmark_outline);
+            favoriteIcon.setOnClickListener(v -> {
+                if (listener != null) {
+                    Log.d(TAG, "Favorite button clicked for template: " + template.getId() + 
+                              ", current state: " + isFavorited + 
+                              ", will toggle to: " + !isFavorited);
+                    // Update UI immediately
+                    template.setFavorited(!isFavorited);
+                    favoriteIcon.setImageResource(!isFavorited ? R.drawable.ic_bookmark_filled : R.drawable.ic_bookmark_outline);
+                    // Animate the icon
+                    v.startAnimation(AnimationUtils.loadAnimation(v.getContext(), R.anim.favorite_button_animation));
+                    listener.onTemplateFavorite(template);
+                }
+            });
+            
+            // Set click listener for the whole item
             itemView.setOnClickListener(v -> {
                 if (listener != null) {
+                    Log.d(TAG, "Template clicked: " + template.getId());
                     listener.onTemplateClick(template);
                 }
             });
@@ -97,7 +144,10 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
             public boolean areContentsTheSame(@NonNull Template oldItem, @NonNull Template newItem) {
                 return oldItem.getName().equals(newItem.getName()) &&
                     oldItem.getImageUrl().equals(newItem.getImageUrl()) &&
-                    oldItem.getCategoryId().equals(newItem.getCategoryId());
+                    oldItem.getCategoryId().equals(newItem.getCategoryId()) &&
+                    oldItem.isLiked() == newItem.isLiked() &&
+                    oldItem.isFavorited() == newItem.isFavorited() &&
+                    oldItem.getLikeCount() == newItem.getLikeCount();
             }
         };
 } 

@@ -1,137 +1,192 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    app:cardCornerRadius="8dp"
-    app:cardElevation="4dp"
-    app:cardUseCompatPadding="true"
-    android:clickable="true"
-    android:focusable="true"
-    android:foreground="@drawable/ad_ripple_effect">
+    android:layout_height="wrap_content">
 
-    <FrameLayout
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardView"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="4dp"
+        app:cardUseCompatPadding="true"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="@drawable/ad_ripple_effect"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
-        <ImageView
-            android:id="@+id/template_image"
-            android:layout_width="match_parent"
-            android:layout_height="180dp"
-            android:scaleType="centerCrop"
-            android:contentDescription="@string/template_image_description"
-            tools:src="@drawable/placeholder_image" />
-
-        <!-- Gradient overlay for better text visibility -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="180dp"
-            android:background="@drawable/gradient_overlay" />
-
-        <!-- Title and category as overlay on bottom -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="12dp"
-            android:layout_gravity="bottom">
+            android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/titleText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="?attr/colorOnPrimary"
-                android:maxLines="2"
-                android:ellipsize="end"
-                android:shadowColor="#99000000"
-                android:shadowDx="1"
-                android:shadowDy="1"
-                android:shadowRadius="2"
-                tools:text="Template Title" />
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
 
+                <ImageView
+                    android:id="@+id/template_image"
+                    android:layout_width="match_parent"
+                    android:layout_height="180dp"
+                    android:scaleType="centerCrop"
+                    android:contentDescription="@string/template_image_description"
+                    tools:src="@drawable/placeholder_image" />
+
+                <!-- Gradient overlay for better text visibility -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="180dp"
+                    android:background="@drawable/gradient_overlay" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top|end"
+                    android:orientation="vertical">
+                    
+                    <TextView
+                        android:id="@+id/newBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="NEW"
+                        android:textColor="?attr/colorOnPrimary"
+                        android:background="?attr/colorSecondary"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="4dp"
+                        android:layout_margin="8dp"
+                        android:visibility="gone"
+                        tools:visibility="visible" />
+                        
+                    <LinearLayout
+                        android:id="@+id/recommendedBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:background="@drawable/bg_recommended_badge"
+                        android:layout_margin="8dp"
+                        android:gravity="center_vertical"
+                        android:visibility="gone"
+                        tools:visibility="visible">
+                        
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:src="@drawable/ic_star"
+                            android:contentDescription="Recommended star icon"
+                            android:layout_marginEnd="4dp" />
+                            
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="RECOMMENDED"
+                            android:textColor="?attr/colorOnPrimary"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+            </FrameLayout>
+
+            <!-- Title and category -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="4dp">
-                
-                <ImageView
-                    android:id="@+id/categoryIcon"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:layout_gravity="center_vertical"
-                    android:src="@drawable/ic_category"
-                    android:contentDescription="Category icon"
-                    android:visibility="visible"
-                    android:alpha="0.9" />
-                    
+                android:orientation="vertical"
+                android:padding="12dp">
+
                 <TextView
-                    android:id="@+id/categoryText"
+                    android:id="@+id/titleText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textSize="14sp"
-                    android:textColor="?attr/colorOnPrimary"
-                    android:layout_marginStart="4dp"
-                    android:maxLines="1"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:maxLines="2"
                     android:ellipsize="end"
-                    android:shadowColor="#99000000"
-                    android:shadowDx="1"
-                    android:shadowDy="1"
-                    android:shadowRadius="1"
-                    tools:text="Category" />
+                    tools:text="Template Title" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="4dp">
+                    
+                    <ImageView
+                        android:id="@+id/categoryIcon"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:layout_gravity="center_vertical"
+                        android:src="@drawable/ic_category"
+                        android:contentDescription="Category icon"
+                        android:visibility="visible"
+                        android:alpha="0.9" />
+                        
+                    <TextView
+                        android:id="@+id/categoryText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="14sp"
+                        android:textColor="?android:attr/textColorSecondary"
+                        android:layout_marginStart="4dp"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        tools:text="Category" />
+                </LinearLayout>
             </LinearLayout>
         </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Like and Favorite buttons overlaid on the card -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/interactionButtonsCard"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="@id/cardView"
+        app:layout_constraintBottom_toBottomOf="@id/cardView"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="6dp"
+        app:cardBackgroundColor="?attr/colorSurface"
+        android:clickable="true"
+        android:focusable="true">
 
         <LinearLayout
+            android:id="@+id/interactionButtonsLayout"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="top|end"
-            android:orientation="vertical">
-            
-            <TextView
-                android:id="@+id/newBadge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="NEW"
-                android:textColor="?attr/colorOnPrimary"
-                android:background="?attr/colorSecondary"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp"
-                android:layout_margin="8dp"
-                android:visibility="gone"
-                tools:visibility="visible" />
-                
-            <LinearLayout
-                android:id="@+id/recommendedBadge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:background="@drawable/bg_recommended_badge"
-                android:layout_margin="8dp"
-                android:gravity="center_vertical"
-                android:visibility="gone"
-                tools:visibility="visible">
-                
-                <ImageView
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:src="@drawable/ic_star"
-                    android:contentDescription="Recommended star icon"
-                    android:layout_marginEnd="4dp" />
-                    
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="RECOMMENDED"
-                    android:textColor="?attr/colorOnPrimary"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
+            android:orientation="horizontal"
+            android:padding="4dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:id="@+id/likeIcon"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_heart_outline"
+                android:contentDescription="Like template"
+                android:padding="4dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <ImageView
+                android:id="@+id/favoriteIcon"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_bookmark_outline"
+                android:contentDescription="Save to favorites"
+                android:padding="4dp"
+                android:layout_marginStart="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless" />
         </LinearLayout>
-    </FrameLayout>
-</androidx.cardview.widget.CardView>
+    </com.google.android.material.card.MaterialCardView>
+</androidx.constraintlayout.widget.ConstraintLayout>

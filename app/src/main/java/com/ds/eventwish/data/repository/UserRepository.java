@@ -43,6 +43,8 @@ public class UserRepository {
     private static final String PREF_USER_REGISTERED = "user_registered";
     private static final String PREF_LAST_CATEGORY_VISIT = "last_category_visit";
     private static final String PREF_LAST_ACTIVITY_UPDATE = "last_activity_update";
+    private static final String PREF_NAME = "user_prefs";
+    private static final String KEY_USER_ID = "user_id";
     
     // Minimum time between activity updates (5 minutes)
     private static final long MIN_ACTIVITY_UPDATE_INTERVAL = 5 * 60 * 1000;
@@ -54,8 +56,7 @@ public class UserRepository {
     private final MutableLiveData<Boolean> isRegistering = new MutableLiveData<>(false);
     private final MutableLiveData<Boolean> isUpdatingActivity = new MutableLiveData<>(false);
     
-    // Singleton instance
-    private static UserRepository instance;
+    private static volatile UserRepository instance;
     
     /**
      * Get singleton instance of UserRepository
@@ -64,7 +65,11 @@ public class UserRepository {
      */
     public static synchronized UserRepository getInstance(Context context) {
         if (instance == null) {
-            instance = new UserRepository(context.getApplicationContext());
+            synchronized (UserRepository.class) {
+                if (instance == null) {
+                    instance = new UserRepository(context.getApplicationContext());
+                }
+            }
         }
         return instance;
     }
@@ -91,7 +96,7 @@ public class UserRepository {
             Log.e(TAG, "Error initializing ApiClient: " + e.getMessage());
         }
         
-        this.prefs = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        this.prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         
         // Initialize device ID if not already set
         if (!prefs.contains(PREF_DEVICE_ID)) {
@@ -575,5 +580,27 @@ public class UserRepository {
                 Log.e(TAG, "Error creating dummy user", e);
             }
         });
+    }
+
+    /**
+     * Get the current user ID, or null if not logged in
+     */
+    @Nullable
+    public String getCurrentUserId() {
+        return prefs.getString(KEY_USER_ID, null);
+    }
+
+    /**
+     * Set the current user ID
+     */
+    public void setCurrentUserId(String userId) {
+        prefs.edit().putString(KEY_USER_ID, userId).apply();
+    }
+
+    /**
+     * Clear the current user ID (logout)
+     */
+    public void clearCurrentUserId() {
+        prefs.edit().remove(KEY_USER_ID).apply();
     }
 } 

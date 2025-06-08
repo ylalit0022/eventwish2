@@ -128,6 +128,10 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        
+        // Initialize repositories
+        TemplateRepository.getInstance().init(requireContext());
+        
         viewModel.init(requireContext());
 
         Log.d(TAG, "onViewCreated called");
@@ -213,107 +217,6 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         
         // Mark fragment as resumed - consistent with lifecycle
         isResumed = true;
-    }
-
-    private void checkAndShowNotificationReminder() {
-        if (getActivity() == null || !isAdded()) {
-            return;
-        }
-
-        if (!NotificationPermissionManager.hasNotificationPermission(requireContext())) {
-            new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.notification_permission_title)
-                .setMessage(R.string.notification_permission_message)
-                .setCancelable(false)
-                .setPositiveButton(R.string.yes, (dialog, which) -> {
-                    NotificationPermissionManager.requestNotificationPermission(requireActivity());
-                })
-                .setNegativeButton(R.string.no, (dialog, which) -> {
-                    // Show a Snackbar with a link to settings
-                    View rootView = binding.getRoot();
-                    Snackbar snackbar = Snackbar.make(
-                        rootView,
-                        R.string.notification_reminder_message,
-                        Snackbar.LENGTH_LONG
-                    );
-                    
-                    // If there's a bottom navigation, adjust the margin
-                    View bottomNav = requireActivity().findViewById(R.id.bottomNavigation);
-                    if (bottomNav != null && bottomNav.getVisibility() == View.VISIBLE) {
-                        snackbar.setAnchorView(bottomNav);
-                    }
-                    
-                    snackbar.setAction(R.string.open_settings, v -> {
-                        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                        Uri uri = Uri.fromParts("package", requireContext().getPackageName(), null);
-                        intent.setData(uri);
-                        startActivity(intent);
-                    });
-                    
-                    snackbar.show();
-                })
-                .show();
-        }
-    }
-
-    @Override
-    public void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        // Initialize the CategoryIconRepository
-        try {
-            categoryIconRepository = CategoryIconRepository.getInstance(requireContext());
-            Log.d(TAG, "CategoryIconRepository initialized in onCreate");
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to initialize CategoryIconRepository", e);
-            // Use default implementation if available
-            categoryIconRepository = CategoryIconRepository.getInstance();
-        }
-        
-        // Initialize the TemplateRepository to ensure categories are loaded
-        try {
-            TemplateRepository.init(requireContext());
-            Log.d(TAG, "TemplateRepository initialized in onCreate");
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to initialize TemplateRepository", e);
-            // Fallback to getInstance()
-            TemplateRepository.getInstance();
-        }
-
-        // Initialize InterstitialAdManager
-        ApiService apiService = ApiClient.getClient();
-        interstitialAdManager = new InterstitialAdManager(requireContext());
-        Log.d(TAG, "InterstitialAdManager initialized in onCreate");
-
-        // Handle back press for exit confirmation
-        backPressedCallback = new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                if (binding != null && (binding.timeFilterScrollView.getVisibility() == View.VISIBLE ||
-                        binding.filterChipsScrollView.getVisibility() == View.VISIBLE)) {
-                    // If filter views are visible, hide them
-                    binding.timeFilterScrollView.setVisibility(View.GONE);
-                    binding.filterChipsScrollView.setVisibility(View.GONE);
-                } else if (Navigation.findNavController(requireActivity(), R.id.nav_host_fragment)
-                        .getCurrentDestination().getId() == R.id.navigation_home) {
-                    // If we're on the home fragment, handle double back press
-                    if (System.currentTimeMillis() - backPressedTime < BACK_PRESS_DELAY) {
-                        // Second back press within delay, exit app
-                        requireActivity().finish();
-                    } else {
-                        // First back press, show toast
-                        Toast.makeText(requireContext(), "Press back again to exit", Toast.LENGTH_SHORT).show();
-                        backPressedTime = System.currentTimeMillis();
-                    }
-                } else {
-                    // Not on home fragment, handle normal back press
-                    setEnabled(false);
-                    requireActivity().onBackPressed();
-                    setEnabled(true);
-                }
-            }
-        };
-        requireActivity().getOnBackPressedDispatcher().addCallback(this, backPressedCallback);
     }
 
     @Override
@@ -1121,127 +1024,37 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     }
 
     private void setupRecyclerView() {
-        adapter = new RecommendedTemplateAdapter(this);
+        // Create grid layout manager
         layoutManager = new GridLayoutManager(requireContext(), 1);
-        
-        // Configure layout manager to handle full-width section headers
-        layoutManager.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
-            @Override
-            public int getSpanSize(int position) {
-                // Section headers should span the full width
-                return adapter.getItemViewType(position) == RecommendedTemplateAdapter.VIEW_TYPE_HEADER ? 
-                    layoutManager.getSpanCount() : 1;
-            }
-        });
-        
         binding.templatesRecyclerView.setLayoutManager(layoutManager);
+        
+        // Create adapter with click listener
+        adapter = new RecommendedTemplateAdapter(this);
         binding.templatesRecyclerView.setAdapter(adapter);
         
-        // Set item animator to null to prevent animation glitches
-        binding.templatesRecyclerView.setItemAnimator(null);
-
-        // Track if we've already shown the scrolling Snackbar
-        final boolean[] hasShownScrollSnackbar = {false};
+        // Add item decoration for spacing
+        int spacing = getResources().getDimensionPixelSize(R.dimen.grid_spacing);
+        binding.templatesRecyclerView.addItemDecoration(new GridSpacingItemDecoration(2, spacing, true));
         
+        // Add scroll listener for pagination
         binding.templatesRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            private int scrollThreshold = 20;  // Increased threshold for better detection
-            private int totalDy = 0; // Track total scroll distance
-            private boolean isAppBarHidden = false;
-            private boolean endTriggered = false; // Track if we already triggered loading at the end
-
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
-
-                totalDy += dy; // Track total scroll distance
                 
-                // Show category scrolling Snackbar when user starts scrolling significantly
-                if (Math.abs(dy) > 10 && !hasShownScrollSnackbar[0] && viewModel.getSelectedCategory() != null) {
-                    showCategoryScrollingSnackbar(viewModel.getSelectedCategory());
-                    hasShownScrollSnackbar[0] = true;
-                }
+                // Get last visible item position
+                int lastVisibleItem = layoutManager.findLastVisibleItemPosition();
+                int totalItemCount = layoutManager.getItemCount();
                 
-                try {
-                    if (totalDy > scrollThreshold && !isAppBarHidden) {
-                        // Scrolling Down → Collapse AppBar
-                        isAppBarHidden = true;
-                        binding.appBarLayout.setExpanded(false, true);
-                    } else if (totalDy < -scrollThreshold && isAppBarHidden) {
-                        // Scrolling Up → Expand AppBar
-                        isAppBarHidden = false;
-                        binding.appBarLayout.setExpanded(true, true);
-                    }
-
-                    // Get current scroll position
-                    int totalItemCount = layoutManager.getItemCount();
-                    int lastVisibleItem = layoutManager.findLastCompletelyVisibleItemPosition();
-                    int firstVisibleItem = layoutManager.findFirstVisibleItemPosition();
-                    
-                    // Check if we need to load more items
-                    if (!viewModel.isPaginationInProgress() && // Not already loading more
-                        !endTriggered && // Haven't triggered loading at this position
-                        lastVisibleItem >= 0 &&
-                        totalItemCount > 0 &&
-                        lastVisibleItem >= totalItemCount - VISIBLE_THRESHOLD) {
-                        
-                        // We've reached near the end, trigger loading more
-                        Log.d(TAG, "Scroll detected near end, loading more items");
-                        endTriggered = true; // Mark that we've triggered loading
-                        loadMoreItems(); 
-                    } else if (lastVisibleItem < totalItemCount - VISIBLE_THRESHOLD - 5) {
-                        // We've scrolled away from the end, reset the trigger
-                        endTriggered = false;
-                    }
-                    
-                    // If user has scrolled significantly, save the position
-                    if (dy != 0 && firstVisibleItem >= 0) {
-                        viewModel.saveScrollPosition(firstVisibleItem);
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error in scroll listener", e);
-                }
-            }
-            
-            @Override
-            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
-                super.onScrollStateChanged(recyclerView, newState);
+                // Load more items if needed
+                viewModel.loadMoreIfNeeded(lastVisibleItem, totalItemCount);
                 
-                // Only check for more items when scrolling stops (IDLE state)
-                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-                    int lastVisibleItem = layoutManager.findLastCompletelyVisibleItemPosition();
-                    int totalItemCount = layoutManager.getItemCount();
-                    
-                    // Only trigger pagination when:
-                    // 1. We're at the very end of the list (last 2 items)
-                    // 2. Not currently loading
-                    // 3. We haven't checked for more items recently
-                    long currentTime = System.currentTimeMillis();
-                    if (lastVisibleItem >= 0 && 
-                        totalItemCount > 0 &&
-                        lastVisibleItem >= totalItemCount - 2 && // Stricter threshold (last 2 items)
-                        !viewModel.isPaginationInProgress() &&
-                        currentTime - lastPaginationCheck > PAGINATION_CHECK_INTERVAL) {
-                        
-                        // Update the timestamp
-                        lastPaginationCheck = currentTime;
-                        
-                        // Call loadMoreItems
-                        loadMoreItems();
-                    }
-                }
+                // Save scroll position
+                viewModel.saveScrollPosition(layoutManager.findFirstVisibleItemPosition());
             }
         });
-
-        // Set up impression tracking
-        setupImpressionTracking();
-
-        // Observe recommended template IDs
-        viewModel.getRecommendedTemplateIds().observe(getViewLifecycleOwner(), recommendedIds -> {
-            if (recommendedIds != null && adapter != null) {
-                Log.d(TAG, "Recommended template IDs updated: " + recommendedIds.size());
-                adapter.setRecommendedTemplateIds(recommendedIds);
-            }
-        });
+        
+        Log.d(TAG, "RecyclerView setup complete with click listener");
     }
 
     private void setupImpressionTracking() {
@@ -1728,19 +1541,10 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             return;
         }
         
-        Log.d(TAG, "Template clicked: " + template.getTitle());
+        Log.d(TAG, "Template clicked: " + template.getId());
         
-        // Track template view with enhanced method
-        AnalyticsUtils.trackTemplateView(
-            template.getId(),
-            template.getTitle(),
-            template.getCategory()
-        );
-        
-        // Track category click if template has a category
-        if (template.getCategory() != null) {
-            UserRepository.getInstance(requireContext()).trackCategoryClick(template.getCategory());
-        }
+        // Track template view
+        AnalyticsUtils.getInstance().trackTemplateClick(template.getId());
         
         // Increment template click counter
         templateClickCount++;
@@ -1756,18 +1560,81 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             navigateToTemplateDetail(template.getId());
         }
     }
-    
-    /**
-     * Navigate to template detail screen
-     * @param templateId Template ID to navigate to
-     */
-    private void navigateToTemplateDetail(String templateId) {
-        if (!isAdded()) return;
+
+    @Override
+    public void onTemplateLike(Template template) {
+        if (template == null) return;
         
-        // Navigate directly since ads are disabled
-        Bundle args = new Bundle();
-        args.putString("templateId", templateId);
-        Navigation.findNavController(requireView()).navigate(R.id.action_home_to_template_detail, args);
+        Log.d(TAG, "Template liked: " + template.getId());
+        // Track like action with source
+        AnalyticsUtils.getInstance().trackTemplateLike(template.getId(), "home_feed");
+        
+        // Update UI to show liked state
+        viewModel.handleTemplateLike(template);
+        
+        // Show feedback
+        Snackbar.make(binding.getRoot(), "Added to liked templates", Snackbar.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onTemplateFavorite(Template template) {
+        if (template == null) return;
+        
+        Log.d(TAG, "Template favorited: " + template.getId());
+        // Track favorite action with source
+        AnalyticsUtils.getInstance().trackTemplateFavorite(template.getId(), "home_feed");
+        
+        // Update UI to show favorited state
+        viewModel.handleTemplateFavorite(template);
+        
+        // Show feedback
+        Snackbar.make(binding.getRoot(), "Added to favorites", Snackbar.LENGTH_SHORT).show();
+    }
+
+    private void navigateToTemplateDetail(String templateId) {
+        if (!isAdded()) {
+            Log.e(TAG, "Fragment not added to activity, cannot navigate");
+            return;
+        }
+        
+        try {
+            // Log the current state
+            Log.d(TAG, "Attempting to navigate to template detail. Template ID: " + templateId);
+            Log.d(TAG, "Fragment attached: " + isAdded());
+            Log.d(TAG, "Activity null: " + (getActivity() == null));
+            Log.d(TAG, "View null: " + (getView() == null));
+            
+            // Create bundle with template ID
+            Bundle args = new Bundle();
+            args.putString("templateId", templateId);
+            
+            // Get NavController
+            View view = requireView();
+            if (view == null) {
+                Log.e(TAG, "View is null, cannot get NavController");
+                return;
+            }
+            
+            NavController navController = Navigation.findNavController(view);
+            if (navController == null) {
+                Log.e(TAG, "NavController is null");
+                return;
+            }
+            
+            // Log the current navigation graph
+            Log.d(TAG, "Current destination: " + 
+                (navController.getCurrentDestination() != null ? 
+                navController.getCurrentDestination().getLabel() : "null"));
+            
+            // Navigate to template detail fragment
+            navController.navigate(R.id.action_home_to_template_detail, args);
+            
+            Log.d(TAG, "Successfully navigated to template detail for ID: " + templateId);
+        } catch (Exception e) {
+            Log.e(TAG, "Error navigating to template detail: " + e.getMessage(), e);
+            Log.e(TAG, "Stack trace: ", e);
+            showError("Failed to open template. Please try again.");
+        }
     }
 
     /**
@@ -2274,27 +2141,129 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     @Override
     public void onPause() {
         super.onPause();
-        
-        // Explicitly mark that this fragment is in background
         wasInBackground = true;
         isResumed = false;
-        
+
         // Save scroll position
         lastScrollPosition = getScrollPosition();
-        if (viewModel != null) {
-            viewModel.setLastVisiblePosition(lastScrollPosition);
+
+        // Cleanup any pending snackbars
+        Snackbar currentSnackbar = viewModel.getCurrentSnackbar();
+        if (currentSnackbar != null) {
+            currentSnackbar.dismiss();
+            viewModel.setCurrentSnackbar(null);
         }
-        
-        // Pause sponsored ad rotation when the fragment is not visible
+
+        // Handle sponsored ad pause
         if (sponsoredAdView != null) {
             try {
-                // Properly handle sponsored ad pause
                 sponsoredAdView.handlePause();
                 Log.d(TAG, "Called handlePause on sponsoredAdView");
             } catch (Exception e) {
                 Log.e(TAG, "Error handling sponsored ad in onPause: " + e.getMessage());
             }
         }
+    }
+
+    private void checkAndShowNotificationReminder() {
+        if (getActivity() == null || !isAdded()) {
+            return;
+        }
+
+        if (!NotificationPermissionManager.hasNotificationPermission(requireContext())) {
+            new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.notification_permission_title)
+                .setMessage(R.string.notification_permission_message)
+                .setCancelable(false)
+                .setPositiveButton(R.string.yes, (dialog, which) -> {
+                    NotificationPermissionManager.requestNotificationPermission(requireActivity());
+                })
+                .setNegativeButton(R.string.no, (dialog, which) -> {
+                    // Show a Snackbar with a link to settings
+                    View rootView = binding.getRoot();
+                    Snackbar snackbar = Snackbar.make(
+                        rootView,
+                        R.string.notification_reminder_message,
+                        Snackbar.LENGTH_LONG
+                    );
+                    
+                    // If there's a bottom navigation, adjust the margin
+                    View bottomNav = requireActivity().findViewById(R.id.bottomNavigation);
+                    if (bottomNav != null && bottomNav.getVisibility() == View.VISIBLE) {
+                        snackbar.setAnchorView(bottomNav);
+                    }
+                    
+                    snackbar.setAction(R.string.open_settings, v -> {
+                        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                        Uri uri = Uri.fromParts("package", requireContext().getPackageName(), null);
+                        intent.setData(uri);
+                        startActivity(intent);
+                    });
+                    
+                    snackbar.show();
+                })
+                .show();
+        }
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // Initialize the CategoryIconRepository
+        try {
+            categoryIconRepository = CategoryIconRepository.getInstance(requireContext());
+            Log.d(TAG, "CategoryIconRepository initialized in onCreate");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to initialize CategoryIconRepository", e);
+            // Use default implementation if available
+            categoryIconRepository = CategoryIconRepository.getInstance();
+        }
+        
+        // Initialize the TemplateRepository to ensure categories are loaded
+        try {
+            TemplateRepository.init(requireContext());
+            Log.d(TAG, "TemplateRepository initialized in onCreate");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to initialize TemplateRepository", e);
+            // Fallback to getInstance()
+            TemplateRepository.getInstance();
+        }
+
+        // Initialize InterstitialAdManager
+        ApiService apiService = ApiClient.getClient();
+        interstitialAdManager = new InterstitialAdManager(requireContext());
+        Log.d(TAG, "InterstitialAdManager initialized in onCreate");
+
+        // Handle back press for exit confirmation
+        backPressedCallback = new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (binding != null && (binding.timeFilterScrollView.getVisibility() == View.VISIBLE ||
+                        binding.filterChipsScrollView.getVisibility() == View.VISIBLE)) {
+                    // If filter views are visible, hide them
+                    binding.timeFilterScrollView.setVisibility(View.GONE);
+                    binding.filterChipsScrollView.setVisibility(View.GONE);
+                } else if (Navigation.findNavController(requireActivity(), R.id.nav_host_fragment)
+                        .getCurrentDestination().getId() == R.id.navigation_home) {
+                    // If we're on the home fragment, handle double back press
+                    if (System.currentTimeMillis() - backPressedTime < BACK_PRESS_DELAY) {
+                        // Second back press within delay, exit app
+                        requireActivity().finish();
+                    } else {
+                        // First back press, show toast
+                        Toast.makeText(requireContext(), "Press back again to exit", Toast.LENGTH_SHORT).show();
+                        backPressedTime = System.currentTimeMillis();
+                    }
+                } else {
+                    // Not on home fragment, handle normal back press
+                    setEnabled(false);
+                    requireActivity().onBackPressed();
+                    setEnabled(true);
+                }
+            }
+        };
+        requireActivity().getOnBackPressedDispatcher().addCallback(this, backPressedCallback);
     }
 
     private void showNetworkError(boolean isNetworkError) {
@@ -2325,5 +2294,3 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         }
     }
 }
-
-

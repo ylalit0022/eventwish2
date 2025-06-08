@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "c0c91281800a7c804a43b2a0f8a9db8c",
+    "identityHash": "e755161c6f43c4363bd0f59e535f692c",
     "entities": [
       {
         "tableName": "template",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT, `description` TEXT, `content` TEXT, `category_id` TEXT, `tags` TEXT, `created_at` INTEGER, `updated_at` INTEGER, `is_featured` INTEGER NOT NULL DEFAULT 0, `is_visible` INTEGER NOT NULL DEFAULT 1, `view_count` INTEGER NOT NULL DEFAULT 0, `share_count` INTEGER NOT NULL DEFAULT 0, `like_count` INTEGER NOT NULL DEFAULT 0, `category` TEXT, `recipient_name` TEXT, `sender_name` TEXT, `short_code` TEXT, `html_content` TEXT, `css_content` TEXT, `js_content` TEXT, `preview_url` TEXT, `thumbnail_url` TEXT, `status` INTEGER NOT NULL, `category_icon` TEXT, `type` TEXT DEFAULT 'html', `recommended` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`), FOREIGN KEY(`category_id`) REFERENCES `category`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT, `description` TEXT, `content` TEXT, `category_id` TEXT, `tags` TEXT, `created_at` INTEGER, `updated_at` INTEGER, `is_featured` INTEGER NOT NULL DEFAULT 0, `is_visible` INTEGER NOT NULL DEFAULT 1, `view_count` INTEGER NOT NULL DEFAULT 0, `share_count` INTEGER NOT NULL DEFAULT 0, `like_count` INTEGER NOT NULL DEFAULT 0, `favorite_count` INTEGER NOT NULL DEFAULT 0, `category` TEXT, `recipient_name` TEXT, `sender_name` TEXT, `short_code` TEXT, `html_content` TEXT, `css_content` TEXT, `js_content` TEXT, `preview_url` TEXT, `thumbnail_url` TEXT, `status` INTEGER NOT NULL, `category_icon` TEXT, `type` TEXT DEFAULT 'html', `recommended` INTEGER NOT NULL DEFAULT 0, `is_liked` INTEGER NOT NULL DEFAULT 0, `is_favorited` INTEGER NOT NULL DEFAULT 0, `likeChanged` INTEGER NOT NULL, `favoriteChanged` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`category_id`) REFERENCES `category`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "id",
@@ -92,6 +92,13 @@
             "defaultValue": "0"
           },
           {
+            "fieldPath": "favoriteCount",
+            "columnName": "favorite_count",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
             "fieldPath": "category",
             "columnName": "category",
             "affinity": "TEXT",
@@ -170,6 +177,32 @@
             "affinity": "INTEGER",
             "notNull": true,
             "defaultValue": "0"
+          },
+          {
+            "fieldPath": "isLiked",
+            "columnName": "is_liked",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "isFavorited",
+            "columnName": "is_favorited",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "likeChanged",
+            "columnName": "likeChanged",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "favoriteChanged",
+            "columnName": "favoriteChanged",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -646,7 +679,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'c0c91281800a7c804a43b2a0f8a9db8c')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e755161c6f43c4363bd0f59e535f692c')"
     ]
   }
 }

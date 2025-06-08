@@ -19,6 +19,9 @@ import com.google.gson.annotations.SerializedName;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Data model class for a template
+ */
 @Entity(
     tableName = "template",
     foreignKeys = {
@@ -95,6 +98,10 @@ public class Template {
     @SerializedName("likeCount")
     private int likeCount;
 
+    @ColumnInfo(name = "favorite_count", defaultValue = "0")
+    @SerializedName("favoriteCount")
+    private int favoriteCount;
+
     @ColumnInfo(name = "category")
     private String category;
 
@@ -148,9 +155,37 @@ public class Template {
     @ColumnInfo(name = "recommended", defaultValue = "0")
     private boolean recommended = false;
 
-    // Required by Room
-    public Template() {}
-    
+    @ColumnInfo(name = "is_liked", defaultValue = "0")
+    private boolean isLiked;
+
+    @ColumnInfo(name = "is_favorited", defaultValue = "0")
+    private boolean isFavorited;
+
+    private boolean likeChanged = false;
+    private boolean favoriteChanged = false;
+
+    // Default constructor required by Room
+    public Template() {
+    }
+
+    @Ignore
+    public Template(@NonNull String id) {
+        this.id = id;
+    }
+
+    @Ignore
+    public Template(String id, String name, String categoryId, String imageUrl,
+                   boolean isLiked, boolean isFavorited, int likeCount) {
+        this.id = id;
+        this.title = name;
+        this.categoryId = categoryId;
+        this.previewUrl = imageUrl;
+        this.isLiked = isLiked;
+        this.isFavorited = isFavorited;
+        this.likeCount = likeCount;
+        this.favoriteCount = 0;
+    }
+
     public boolean isRecommended() {
         return recommended;
     }
@@ -176,8 +211,10 @@ public class Template {
         this.htmlContent = html;
     }
 
-    // Getters
-    public String getId() { return id; }
+    @NonNull
+    public String getId() {
+        return id;
+    }
 
     public Template getTemplate() {
         return template;
@@ -226,8 +263,10 @@ public class Template {
     public String getCreatedAtString() { return createdAt != null ? createdAt.toString() : null; }
     public String getUpdatedAtString() { return updatedAt != null ? updatedAt.toString() : null; }
     
-    // Alias for getTitle() for compatibility with some fragments
-    public String getName() { return title; }
+    @NonNull
+    public String getName() {
+        return title;
+    }
     
     // Get createdAt as timestamp for comparison
     public long getCreatedAtTimestamp() {
@@ -255,9 +294,9 @@ public class Template {
     public int getViewCount() { return viewCount; }
     public int getShareCount() { return shareCount; }
     public int getLikeCount() { return likeCount; }
+    public int getFavoriteCount() { return favoriteCount; }
 
-    // Setters
-    public void setId(String id) { this.id = id; }
+    public void setId(@NonNull String id) { this.id = id; }
     public void setTitle(String title) { this.title = title; }
     public void setCategory(String category) { this.category = category; }
     public void setHtmlContent(String htmlContent) { this.htmlContent = htmlContent; }
@@ -270,11 +309,80 @@ public class Template {
     public void setUpdatedAt(Date updatedAt) { this.updatedAt = updatedAt; }
     public void setDescription(String description) { this.description = description; }
     public void setContent(String content) { this.content = content; }
-    public void setCategoryId(String categoryId) { this.categoryId = categoryId; }
+    public void setCategoryId(@NonNull String categoryId) { this.categoryId = categoryId; }
     public void setTags(List<String> tags) { this.tags = tags; }
     public void setFeatured(boolean featured) { this.isFeatured = featured; }
     public void setVisible(boolean visible) { this.isVisible = visible; }
     public void setViewCount(int viewCount) { this.viewCount = viewCount; }
     public void setShareCount(int shareCount) { this.shareCount = shareCount; }
     public void setLikeCount(int likeCount) { this.likeCount = likeCount; }
+    public void setFavoriteCount(int favoriteCount) { this.favoriteCount = favoriteCount; }
+
+    public boolean isLikeChanged() {
+        return likeChanged;
+    }
+    
+    public void setLikeChanged(boolean likeChanged) {
+        this.likeChanged = likeChanged;
+    }
+    
+    public boolean isFavoriteChanged() {
+        return favoriteChanged;
+    }
+    
+    public void setFavoriteChanged(boolean favoriteChanged) {
+        this.favoriteChanged = favoriteChanged;
+    }
+    
+    public void setLiked(boolean liked) {
+        if (this.isLiked != liked) {
+            this.isLiked = liked;
+            this.likeChanged = true;
+        }
+    }
+    
+    public void setFavorited(boolean favorited) {
+        if (this.isFavorited != favorited) {
+            this.isFavorited = favorited;
+            this.favoriteChanged = true;
+        }
+    }
+
+    public boolean isLiked() {
+        return isLiked;
+    }
+
+    public boolean isFavorited() {
+        return isFavorited;
+    }
+
+    /**
+     * Convert to UI model
+     */
+    public com.ds.eventwish.ui.template.Template toUiModel() {
+        return new com.ds.eventwish.ui.template.Template(
+            id,
+            title,
+            categoryId,
+            previewUrl,
+            isLiked,
+            isFavorited,
+            likeCount
+        );
+    }
+
+    /**
+     * Create from UI model
+     */
+    public static Template fromUiModel(com.ds.eventwish.ui.template.Template uiTemplate) {
+        Template template = new Template();
+        template.setId(uiTemplate.getId());
+        template.setTitle(uiTemplate.getName());
+        template.setCategoryId(uiTemplate.getCategoryId());
+        template.setPreviewUrl(uiTemplate.getImageUrl());
+        template.setLiked(uiTemplate.isLiked());
+        template.setFavorited(uiTemplate.isFavorited());
+        template.setLikeCount(uiTemplate.getLikeCount());
+        return template;
+    }
 }

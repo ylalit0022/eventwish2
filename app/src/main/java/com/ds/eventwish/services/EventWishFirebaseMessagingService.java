@@ -7,6 +7,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.data.repository.TokenRepository;
 import com.ds.eventwish.utils.AnalyticsUtils;
 import com.ds.eventwish.utils.EventWishNotificationManager;
@@ -24,27 +25,23 @@ public class EventWishFirebaseMessagingService extends FirebaseMessagingService 
     
     @Override
     public void onNewToken(@NonNull String token) {
-        Log.d(TAG, "Refreshed FCM token: " + token);
+        super.onNewToken(token);
         
         try {
-            // Save token to repository
-            TokenRepository repository = TokenRepository.getInstance(
-                    getApplicationContext(), 
-                    com.ds.eventwish.data.remote.ApiClient.getClient());
-            
-            // Save the token locally
-            repository.saveToken(token);
-            
-            // Send token to server
-            repository.sendTokenToServer(token);
+            // Update token in repository
+            TokenRepository tokenRepository = TokenRepository.getInstance(
+                getApplicationContext(),
+                ApiClient.getClient()
+            );
+            tokenRepository.saveToken(token);
             
             // Track token refresh for analytics
             AnalyticsUtils analytics = AnalyticsUtils.getInstance();
-            Bundle params = null;
-            analytics.trackEvent("fcm_token_refresh", params);
+            Bundle params = new Bundle();
+            params.putString("token", token);
+            analytics.logEvent("fcm_token_refresh", params);
         } catch (Exception e) {
             Log.e(TAG, "Error handling new FCM token", e);
-            FirebaseCrashManager.logException(e);
         }
     }
     
@@ -67,8 +64,11 @@ public class EventWishFirebaseMessagingService extends FirebaseMessagingService 
             
             // Track message received for analytics
             AnalyticsUtils analytics = AnalyticsUtils.getInstance();
-            Bundle params = null;
-            analytics.trackEvent("fcm_message_received", params);
+            Bundle params = new Bundle();
+            params.putString("message_id", remoteMessage.getMessageId());
+            params.putString("message_type", remoteMessage.getMessageType());
+            params.putString("from", remoteMessage.getFrom());
+            analytics.logEvent("fcm_message_received", params);
         } catch (Exception e) {
             Log.e(TAG, "Error processing FCM message", e);
             FirebaseCrashManager.logException(e);

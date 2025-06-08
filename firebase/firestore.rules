@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isUserOwned(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidDate(date) {
+      return date is number && date <= request.time.toMillis();
+    }
+
+    function isTestMode() {
+      return request.auth.uid.matches('test_.*');
+    }
+
+    // Test environment rules
+    match /test_templates/{templateId} {
+      allow read, write: if isTestMode();
+    }
+
+    match /test_users/{userId}/{document=**} {
+      allow read, write: if isTestMode();
+    }
+
+    // User document rules
+    match /users/{userId} {
+      // Base user document
+      allow read: if isUserOwned(userId);
+      allow write: if isUserOwned(userId);
+      
+      // Likes subcollection
+      match /likes/{templateId} {
+        allow read: if isUserOwned(userId);
+        allow create: if isUserOwned(userId) 
+          && request.resource.data.keys().hasOnly(['templateId', 'timestamp'])
+          && request.resource.data.timestamp is timestamp;
+        allow delete: if isUserOwned(userId);
+      }
+      
+      // Favorites subcollection
+      match /favorites/{templateId} {
+        allow read: if isUserOwned(userId);
+        allow create: if isUserOwned(userId)
+          && request.resource.data.keys().hasOnly(['templateId', 'timestamp'])
+          && request.resource.data.timestamp is timestamp;
+        allow delete: if isUserOwned(userId);
+      }
+    }
+    
+    // Template rules
+    match /templates/{templateId} {
+      // Anyone can read templates
+      allow read: if true;
+      
+      // Allow updating only likeCount and favoriteCount
+      allow update: if isAuthenticated() 
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['likeCount', 'favoriteCount']);
+      
+      // No direct creation/deletion of templates
+      allow create, delete: if false;
+    }
+
+    // Analytics collection for tracking errors and events
+    match /analytics/{docId} {
+      allow read: if false;
+      allow create: if isAuthenticated()
+        && request.resource.data.keys().hasAll(['type', 'createdAt', 'userId'])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.createdAt is number
+        && isValidDate(request.resource.data.createdAt);
+      allow update, delete: if false;
+    }
+
+    // Debug rules - REMOVE IN PRODUCTION
+    match /{document=**} {
+      allow read: if debug.isDebugging == true;
+    }
+  }
+}

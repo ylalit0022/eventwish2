@@ -26,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.Objects;
 import java.util.Collections;
 import java.lang.StringBuilder;
+import com.ds.eventwish.utils.AnalyticsUtils;
 
 public class HomeViewModel extends ViewModel {
     private static final String TAG = "HomeViewModel";
@@ -875,5 +876,80 @@ public class HomeViewModel extends ViewModel {
     public boolean canShowEndMessage() {
         long now = System.currentTimeMillis();
         return (now - lastEndMessageTime) > END_MESSAGE_DISPLAY_INTERVAL;
+    }
+
+    // Add method to get current Snackbar
+    public Snackbar getCurrentSnackbar() {
+        return currentSnackbar;
+    }
+
+    /**
+     * Handle template like interaction
+     * @param template The template that was liked
+     */
+    public void handleTemplateLike(Template template) {
+        if (template == null || template.getId() == null) return;
+        
+        // Update the template's like status
+        template.setLiked(!template.isLiked());
+        
+        // Update like count
+        int currentLikes = template.getLikeCount();
+        template.setLikeCount(template.isLiked() ? currentLikes + 1 : Math.max(0, currentLikes - 1));
+        
+        // Update the template in repository
+        repository.updateTemplate(template);
+        
+        // Update the templates list to trigger adapter refresh
+        List<Template> currentTemplates = repository.getTemplates().getValue();
+        if (currentTemplates != null) {
+            for (int i = 0; i < currentTemplates.size(); i++) {
+                if (currentTemplates.get(i).getId().equals(template.getId())) {
+                    currentTemplates.set(i, template);
+                    break;
+                }
+            }
+            repository.notifyTemplatesUpdated(currentTemplates);
+        }
+        
+        // Track the event with appropriate action
+        if (template.isLiked()) {
+            AnalyticsUtils.getInstance().trackTemplateLike(template.getId(), "home_feed");
+        } else {
+            AnalyticsUtils.getInstance().trackTemplateUnlike(template.getId(), "home_feed");
+        }
+    }
+
+    /**
+     * Handle template favorite interaction
+     * @param template The template that was favorited
+     */
+    public void handleTemplateFavorite(Template template) {
+        if (template == null || template.getId() == null) return;
+        
+        // Update the template's favorite status
+        template.setFavorited(!template.isFavorited());
+        
+        // Update the template in repository
+        repository.updateTemplate(template);
+        
+        // Update the templates list to trigger adapter refresh
+        List<Template> currentTemplates = repository.getTemplates().getValue();
+        if (currentTemplates != null) {
+            for (int i = 0; i < currentTemplates.size(); i++) {
+                if (currentTemplates.get(i).getId().equals(template.getId())) {
+                    currentTemplates.set(i, template);
+                    break;
+                }
+            }
+            repository.notifyTemplatesUpdated(currentTemplates);
+        }
+        
+        // Track the event with appropriate action
+        if (template.isFavorited()) {
+            AnalyticsUtils.getInstance().trackTemplateFavorite(template.getId(), "home_feed");
+        } else {
+            AnalyticsUtils.getInstance().trackTemplateUnfavorite(template.getId(), "home_feed");
+        }
     }
 }

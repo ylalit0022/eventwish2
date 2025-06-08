@@ -151,6 +151,16 @@
             <nav-graph android:value="@navigation/nav_graph" />
         </activity>
 
+        <activity
+            android:name=".ui.test.LikeTestActivity"
+            android:exported="true"
+            android:label="Like Test"
+            android:icon="@drawable/ic_launcher_test">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
         <meta-data
             android:name="preloaded_fonts"

@@ -523,4 +523,37 @@ public class NetworkUtils {
                 return "OTHER";
         }
     }
+
+    /**
+     * Add a callback for network availability changes
+     * @param callback Callback to be invoked when network availability changes
+     */
+    public void addNetworkCallback(NetworkCallback callback) {
+        if (callback == null) {
+            return;
+        }
+
+        NetworkRequest.Builder builder = new NetworkRequest.Builder();
+        connectivityManager.registerNetworkCallback(
+            builder.build(),
+            new ConnectivityManager.NetworkCallback() {
+                @Override
+                public void onAvailable(@NonNull Network network) {
+                    callback.onNetworkAvailable(true);
+                }
+
+                @Override
+                public void onLost(@NonNull Network network) {
+                    callback.onNetworkAvailable(false);
+                }
+            }
+        );
+    }
+
+    /**
+     * Interface for network availability callbacks
+     */
+    public interface NetworkCallback {
+        void onNetworkAvailable(boolean available);
+    }
 }

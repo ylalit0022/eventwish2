@@ -127,4 +127,18 @@
     <color name="colorGray">@color/gray</color>
     <color name="colorBackground">@color/white</color>
     <color name="statusBarColor">@color/status_bar</color>
+    <color name="colorControlNormal">@color/gray_600</color>
+    
+    <!-- Interaction Colors -->
+    <color name="like_icon_filled">#FF0000</color>
+    <color name="like_icon_outline">#757575</color>
+    <color name="favorite_icon_filled">#000000</color>
+    <color name="favorite_icon_outline">#757575</color>
+    
+    <!-- Template item colors -->
+    <color name="template_background">#FFFFFF</color>
+    <color name="template_new_background">#F3E5F5</color>
+    <color name="template_recommended_background">#FFF8E1</color>
+    <color name="template_text_primary">#212121</color>
+    <color name="template_text_secondary">#757575</color>
 </resources>

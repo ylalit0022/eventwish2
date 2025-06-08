@@ -53,9 +53,18 @@ import com.ds.eventwish.ui.ads.SponsoredAdManagerFactory;
 import com.ds.eventwish.utils.AdSessionManager;
 import com.ds.eventwish.firebase.FirebaseInAppMessagingHandler;
 import com.ds.eventwish.ui.connectivity.InternetConnectivityChecker;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreSettings;
+import com.google.firebase.messaging.FirebaseMessaging;
+import android.content.SharedPreferences;
+import com.ds.eventwish.data.remote.FirestoreManager;
 
 public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
+    private static final String PREF_NAME = "EventWish";
+    private static final String KEY_FCM_TOKEN = "fcm_token";
 
     // Static instance of the application
     private static EventWishApplication instance;
@@ -98,9 +107,34 @@ public class EventWishApplication extends Application implements Configuration.P
     public void onCreate() {
         super.onCreate();
         
-        // Set application instance and context first, before any other initialization
+        // Set application instance and context first
         instance = this;
         context = getApplicationContext();
+        
+        try {
+            // Initialize Firebase first, before any other Firebase services
+            FirebaseApp.initializeApp(this);
+            
+            // Initialize Firebase Auth early
+            FirebaseAuth.getInstance();
+            
+            // Initialize Firestore
+            FirebaseFirestore.getInstance().setFirestoreSettings(
+                new FirebaseFirestoreSettings.Builder()
+                    .setPersistenceEnabled(true)
+                    .build()
+            );
+            
+            // Rest of your initialization code...
+            
+            // Initialize other Firebase services
+            initializeFirebaseServices();
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error during Firebase initialization", e);
+        }
+        
+        // Rest of your onCreate code...
         
         // Log app started for debugging
         Log.d(TAG, "EventWish application starting...");
@@ -141,16 +175,7 @@ public class EventWishApplication extends Application implements Configuration.P
                 // Continue without ApiClient
             }
             
-            // 5. Initialize Firebase services
-            try {
-                initializeFirebaseServices();
-                Log.d(TAG, "5. Firebase services initialized");
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing Firebase services: " + e.getMessage(), e);
-                // Continue without Firebase
-            }
-            
-            // 6. Initialize time utils
+            // 5. Initialize time utils
             timeUtils = new TimeUtils();
             Log.d(TAG, "6. TimeUtils initialized");
             
@@ -230,6 +255,37 @@ public class EventWishApplication extends Application implements Configuration.P
             
             // Initialize InternetConnectivityChecker
             InternetConnectivityChecker.getInstance(this);
+            
+            // Initialize repositories
+            TemplateRepository.getInstance().init(this);
+            
+            // Initialize FirestoreManager with saved FCM token
+            SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+            String savedToken = prefs.getString(KEY_FCM_TOKEN, null);
+            if (savedToken != null) {
+                Log.d(TAG, "Found saved FCM token, setting in FirestoreManager");
+                FirestoreManager.getInstance().setFcmToken(savedToken);
+            }
+            
+            // Get current FCM token
+            FirebaseMessaging.getInstance().getToken()
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful()) {
+                        Log.e(TAG, "Failed to get FCM token", task.getException());
+                        return;
+                    }
+                    
+                    String token = task.getResult();
+                    Log.d(TAG, "Got current FCM token: " + token);
+                    
+                    // Save token if it's different from saved one
+                    if (token != null && !token.equals(savedToken)) {
+                        Log.d(TAG, "Saving new FCM token");
+                        prefs.edit().putString(KEY_FCM_TOKEN, token).apply();
+                        FirestoreManager.getInstance().setFcmToken(token);
+                    }
+                })
+                .addOnFailureListener(e -> Log.e(TAG, "Error getting FCM token", e));
             
             Log.d(TAG, "EventWish application initialization complete");
         } catch (Exception e) {

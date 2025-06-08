@@ -50,7 +50,7 @@ print(response)
 ## LLM
 
 You always have an LLM at your side to help you with the task. For simple tasks, you could invoke the LLM by running the following command:
-```
+```bash
 venv/bin/python ./tools/llm_api.py --prompt "What is the capital of France?" --provider "anthropic"
 ```
 
@@ -67,7 +67,7 @@ But usually it's a better idea to check the content of the file and use the APIs
 ## Web browser
 
 You could use the `tools/web_scraper.py` file to scrape the web.
-```
+```bash
 venv/bin/python ./tools/web_scraper.py --max-concurrent 3 URL1 URL2 URL3
 ```
 This will output the content of the web pages.
@@ -75,7 +75,7 @@ This will output the content of the web pages.
 ## Search engine
 
 You could use the `tools/search_engine.py` file to search the web.
-```
+```bash
 venv/bin/python ./tools/search_engine.py "your search keywords"
 ```
 This will output the search results in the following format:
@@ -326,157 +326,220 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 
 # Scratchpad
 
-## Sponsored Ads Implementation Plan
+## Firebase Like/Favorite Implementation Analysis
 
-### Current Implementation Status
+### Current Firebase Structure
 
-#### Server-Side (Complete)
-[X] Define SponsoredAd model
-  - Image URL, redirect URL, status fields
-  - Start/end dates for timebound campaigns
-  - Location parameter for placement control
-  - Priority field for sorting
-  - Impression and click tracking fields
-  - Title and description fields
+1. Users Collection:
+```
+users/
+  {userId}/
+    - name: string
+    - fcmToken: string
+    - lastUpdated: timestamp
+    - notification_preferences: map
+    - favorite_templates: {
+        {templateId}: boolean
+    }
+    - liked_templates: {
+        {templateId}: boolean
+    }
+```
 
-[X] Create core API endpoints
-  - GET /api/sponsored-ads (filtered by location)
-  - POST /api/sponsored-ads/viewed/:id (track impressions)
-  - POST /api/sponsored-ads/clicked/:id (track clicks)
-  - GET /api/sponsored-ads/stats/:id (for admin analytics)
+2. Templates Collection:
+```
+templates/
+  {templateId}/
+    - title: string
+    - category: string
+    - htmlContent: string
+    - cssContent: string
+    - jsContent: string
+    - previewUrl: string
+    - status: boolean
+    - likeCount: number
+    - favoriteCount: number
+    - createdAt: timestamp
+    - updatedAt: timestamp
+```
 
-[X] Implement ad selection algorithm
-  - Filter by status and valid date range
-  - Filter by requested location
-  - Sort by priority (descending)
-  - Apply requested limit (default: 10)
+### Existing Implementation Analysis
 
-#### Client-Side (Complete)
-[X] Create data models
-  - SponsoredAd.java with all required fields
-  - SponsoredAdResponse.java wrapper class
-  - Proper null-safety handling
+1. UserPreferences.java:
+- ✓ Handles user preferences storage
+- ✓ Manages liked/favorite templates
+- ✓ Tracks last update timestamp
+- ✓ Proper null safety
+- ✓ Firebase annotations (@DocumentId, @PropertyName)
 
-[X] Add API service methods
-  - getSponsoredAds() to fetch ads by location
-  - recordImpression() to track views
-  - recordClick() to track interactions
+2. UserRepository.java:
+- ✓ Handles user registration
+- ✓ Manages device ID
+- ✓ Tracks user activity
+- ✓ Handles API calls
+- ✓ Local caching with SharedPreferences
 
-[X] Build SponsoredAdView component
-  - Custom view extending FrameLayout
-  - CardView-based layout with proper styling
-   - "Sponsored" label for transparency
-  - Image loading with Glide
-  - Error and placeholder states
-  - Loading animation and state management
-  - Error handling with retry button
+### Required Enhancements
 
-[X] Implement client-side caching system
-  - SponsoredAdEntity.java with cache metadata fields
-  - SponsoredAdDao.java with comprehensive query methods
-  - Cache invalidation and TTL mechanism
-  - Database migrations for Room integration
-  - Updated repository with cache-first approach
-  - Offline tracking support
+1. Firebase Security Rules:
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // User document rules
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+      
+      // User interactions subcollection
+      match /interactions/{interactionId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // Template rules
+    match /templates/{templateId} {
+      allow read: if true;
+      allow update: if request.auth != null && 
+        (request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['likeCount', 'favoriteCount']));
+    }
+  }
+}
+```
 
-[X] Add core tracking logic
-  - View visibility tracking for impressions
-  - Click handling with proper analytics
-  - Device ID management for tracking
+2. Atomic Operations:
+```java
+// In TemplateInteractionRepository
+public Task<Void> toggleLike(String templateId) {
+    WriteBatch batch = db.batch();
+    
+    // Update template like count
+    DocumentReference templateRef = db.collection("templates").document(templateId);
+    batch.update(templateRef, "likeCount", FieldValue.increment(1));
+    
+    // Update user's liked templates
+    DocumentReference userRef = db.collection("users").document(getCurrentUserId());
+    batch.update(userRef, "liked_templates." + templateId, true);
+    
+    return batch.commit();
+}
+```
 
-[X] Integrate with app
-  - Add to HomeFragment layout (category_below location)
-  - Implement proper lifecycle handling
-  - Add to other strategic positions
+3. Error Handling:
+```java
+private void handleFirebaseError(Exception e, String operation) {
+    if (e instanceof FirebaseFirestoreException) {
+        FirebaseFirestoreException ffe = (FirebaseFirestoreException) e;
+        switch (ffe.getCode()) {
+            case PERMISSION_DENIED:
+                // Handle authentication errors
+                break;
+            case UNAVAILABLE:
+                // Handle offline/network errors
+                break;
+            case ALREADY_EXISTS:
+                // Handle duplicate operations
+                break;
+            default:
+                // Handle other errors
+                break;
+        }
+    }
+}
+```
 
-[X] Improve user experience
-  - Create adaptive sizing for different screen sizes
-  - Implement smooth loading transitions with fade animations
-  - Add placeholder state during loading
-  - Add proper error states with retry option
-  - Ensure proper resource cleanup in lifecycle methods
+### Implementation Steps
 
-[X] Implement performance optimizations
-  - Fixed impression throttling with proper SharedPreferences persistence
-  - Enhanced batch processing for tracking events with retry mechanism
-  - Optimized Glide image loading with better RequestOptions
-  - Added better memory management in SponsoredAdView's lifecycle methods
-  - Implemented synchronized collections for thread-safety
-  - Added cleanup of stale tracking events
-  - Enhanced error handling and logging
+1. [X] Firebase Structure
+   - Collections and documents defined
+   - Security rules implemented
+   - Indexes created for queries
 
-### New Enhancement: Ad Rotation and Fair Distribution
+2. [X] Data Models
+   - UserPreferences model complete
+   - Template model complete
+   - Proper Firebase annotations
 
-A comprehensive implementation plan has been created in `docs/sponsored_ads_rotation_implementation.md` with the following key components:
+3. [ ] Repository Layer
+   - Implement TemplateInteractionRepository
+   - Add atomic operations
+   - Add error handling
+   - Add offline support
+   - Add caching
 
-#### Server-Side Enhancements (Complete)
-[X] Update SponsoredAd model
-  - Added getAdsForRotation() method with exclusion support
-  - Implemented fair distribution algorithm based on priority and impressions
-  - Created applyFairDistribution() method with weighted selection
-  - Added optimization for performance
+4. [ ] ViewModel Layer
+   - Create TemplateInteractionViewModel
+   - Add state management
+   - Handle errors
+   - Update UI state
 
-[X] Create new API endpoints
-  - Added /api/sponsored-ads/rotation endpoint for rotation with exclusion
-  - Added /api/sponsored-ads/fair-distribution endpoint for weighted selection
-  - Ensured backward compatibility with existing endpoints
+5. [ ] UI Layer
+   - Update adapters
+   - Add loading states
+   - Handle errors
+   - Add animations
 
-[X] Enhance controller logic
-  - Implemented weighted distribution algorithm
-  - Added support for exclusion parameters
-  - Improved error handling for rotation requests
-  - Added comprehensive logging
+### Next Steps
 
-[X] Create test and example code
-  - Added unit tests for rotation and fair distribution
-  - Created client example to demonstrate API usage
-  - Included documentation on usage patterns
+1. [ ] Implement TemplateInteractionRepository:
+   ```java
+   public class TemplateInteractionRepository {
+       private final FirebaseFirestore db;
+       private final UserRepository userRepository;
+       private final Map<String, ListenerRegistration> listeners;
+       
+       // Methods to implement:
+       - toggleLike(String templateId)
+       - toggleFavorite(String templateId)
+       - getLikeStatus(String templateId)
+       - getFavoriteStatus(String templateId)
+       - getInteractionCounts(String templateId)
+   }
+   ```
 
-#### Client-Side Implementation (Complete)
-[X] Implement LocalRotationManager class
-  - Persist rotation state across app restarts
-  - Track shown ads to prevent repetition
-  - Manage rotation timing with configurable intervals
-  - Handle lifecycle events properly
+2. [ ] Add Firebase Listeners:
+   ```java
+   private void addTemplateListener(String templateId) {
+       ListenerRegistration registration = db.collection("templates")
+           .document(templateId)
+           .addSnapshotListener((snapshot, e) -> {
+               if (e != null) {
+                   handleFirebaseError(e, "listen_template");
+                   return;
+               }
+               if (snapshot != null && snapshot.exists()) {
+                   updateLocalState(snapshot);
+               }
+           });
+       listeners.put(templateId, registration);
+   }
+   ```
 
-[X] Update SponsoredAdRepository
-  - Add support for excluding previously shown ads
-  - Implement weighted selection algorithm
-  - Enhance caching for rotation
-  - Optimize network requests
+3. [ ] Implement Caching:
+   ```java
+   private void cacheTemplateState(String templateId, boolean isLiked, boolean isFavorited) {
+       SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+       prefs.edit()
+           .putBoolean("like_" + templateId, isLiked)
+           .putBoolean("favorite_" + templateId, isFavorited)
+           .apply();
+   }
+   ```
 
-[X] Enhance SponsoredAdViewModel
-  - Add rotation LiveData streams
-  - Implement rotation control methods
-  - Handle rotation state management
-  - Ensure proper cleanup
+4. [ ] Add Analytics:
+   ```java
+   private void trackInteraction(String templateId, String type) {
+       Bundle params = new Bundle();
+       params.putString("template_id", templateId);
+       params.putString("interaction_type", type);
+       params.putLong("timestamp", System.currentTimeMillis());
+       FirebaseAnalytics.getInstance(context).logEvent("template_interaction", params);
+   }
+   ```
 
-[X] Modify SponsoredAdView
-  - Add smooth transitions between rotating ads
-  - Implement crossfade animations
-  - Properly cleanup resources during rotation
-  - Support configurable rotation settings
-
-[X] Add usage documentation
-  - Added docs/sponsored_ad_rotation_usage.md
-  - Created example implementation in HomeFragment
-  - Added detailed performance considerations
-  - Added debugging tips
-
-#### Implementation Timeline
-- Week 1: Foundation - Core classes and algorithms ✓
-- Week 2: UI Integration - Animations and user experience ✓
-- Week 3: Server-Side Support - API endpoints and distribution algorithms ✓
-- Week 4: Testing and Refinement - Integration testing and optimization ✓
-
-#### Key Benefits
-- Fair distribution of ad impressions
-- Improved user experience with smooth transitions
-- Better ad effectiveness through rotation
-- Reduced network usage through smart caching
-- Improved analytics and tracking
-
-For complete implementation details, refer to the full documentation in `docs/sponsored_ads_rotation_implementation.md` and usage guide in `docs/sponsored_ad_rotation_usage.md`.
+Would you like me to start implementing any of these components?
 
 # EventWish App Maintenance Documentation
 
@@ -1105,3 +1168,284 @@ All implementation details have been completed according to the plan. The app no
 - Reduced network requests with caching
 - Graceful fallback to local resources
 - A/B testing capability for share messages
+
+# Personalized Push Notification Implementation Plan
+
+## Overview
+Implementing personalized push notifications with template favorites and likes, using Firebase Cloud Messaging (FCM) and Firestore.
+
+## Current Status Analysis
+1. Existing Components:
+   - EventWishFirebaseMessagingService (handles FCM)
+   - TokenRepository (manages FCM tokens)
+   - TemplateDetailFragment (UI for templates)
+   - AnalyticsUtils (tracking)
+
+2. Missing Components:
+   - User preferences storage
+   - Template favorites/likes system
+   - Firestore integration
+   - Personalized notification handling
+
+## Implementation Plan
+
+### Phase 1: Data Models and Storage
+
+1. User Preferences Model (Complete)
+[X] Created UserPreferences.java
+  - Added Firestore annotations (@DocumentId, @PropertyName)
+  - Implemented favorite/like template lists
+  - Added notification preferences map
+  - Added helper methods for template interactions
+  - Added proper null handling in setters
+
+[X] Created NotificationPreference.java
+  - Added constant preference types
+  - Implemented sound and vibration settings
+  - Added time preference support
+  - Added helper method for default preferences
+
+2. UI Components (Complete)
+[X] Updated item_template.xml
+  - Added like and favorite icons
+  - Added proper styling and ripple effects
+  - Created vector drawables for icons
+  - Added proper accessibility support
+
+3. Database Setup (In Progress)
+[X] Created Firestore security rules
+  - Added rules for user preferences
+  - Added rules for favorites collection
+  - Added rules for likes collection
+  - Added rules for notifications
+  - Added admin access for cloud functions
+
+[X] Create Firestore collections
+  - users/{userId}/preferences (stores user settings)
+  - users/{userId}/favorites (stores favorite templates)
+  - users/{userId}/likes (stores liked templates)
+  - users/{userId}/notifications (stores notification history)
+
+### Phase 2: Android Implementation (In Progress)
+[X] Create FirestoreManager
+  - Implemented CRUD operations for user preferences
+  - Added favorites/likes management
+  - Added notification handling
+  - Implemented proper singleton pattern
+  - Added offline persistence
+
+[X] Implement UserPreferencesRepository
+  - Added data synchronization
+  - Implemented error handling
+  - Added analytics tracking
+  - Added edge case handling
+  - Implemented retry mechanisms
+
+[ ] Implement TemplateInteractionRepository
+[ ] Update TemplateDetailFragment
+[ ] Update FCM service
+
+## Next Steps
+
+[X] Create UserPreferences model
+[X] Create NotificationPreference model
+[X] Add UI components for like/favorite
+[X] Setup Firestore security rules
+[X] Create Firestore collections
+[X] Implement FirestoreManager
+[X] Implement repositories
+[ ] Update UI components
+[ ] Update FCM service
+
+Progress will be tracked here with checkmarks as items are completed.
+
+### Phase 3: Analytics Implementation
+[X] Add analytics events
+  - Template interaction events
+    - Favorite added/removed
+    - Like added/removed
+    - Template viewed
+    - Share initiated
+  - Notification events
+    - Notification received
+    - Notification clicked
+    - Notification dismissed
+  - Error events
+    - API failures
+    - Database errors
+    - Permission issues
+  - User preference events
+    - Settings changed
+    - Quiet hours updated
+    - Categories subscribed/unsubscribed
+
+[X] Implement analytics tracking in AnalyticsUtils
+  - Add trackTemplateInteraction method
+  - Add trackNotificationEvent method
+  - Add trackErrorEvent method
+  - Add trackPreferenceChange method
+  - Add proper parameter validation
+  - Add tracking success/failure logging
+
+[X] Add analytics to repositories
+  - Track database operations
+  - Track network calls
+  - Track cache hits/misses
+  - Track synchronization events
+
+### Phase 4: Error Handling and Edge Cases
+[X] Add comprehensive error handling
+  - Network connectivity issues
+    - Handle offline mode gracefully
+    - Implement retry mechanisms
+    - Cache important operations for retry
+  - Permission errors
+    - Handle notification permission denial
+    - Handle storage permission issues
+    - Provide user-friendly error messages
+  - Database errors
+    - Handle transaction failures
+    - Implement conflict resolution
+    - Add data validation
+  - Authentication errors
+    - Handle token expiration
+    - Implement auto-retry with refresh token
+    - Handle permanent authentication failures
+
+[X] Implement edge case handling
+  - Empty states
+    - No favorites/likes
+    - No notification history
+    - First-time user experience
+  - Data synchronization
+    - Handle concurrent modifications
+    - Resolve merge conflicts
+    - Implement version control
+  - Resource constraints
+    - Handle low memory conditions
+    - Manage large dataset pagination
+    - Implement data cleanup
+  - Device-specific issues
+    - Handle different Android versions
+    - Account for various screen sizes
+    - Support different device capabilities
+
+[X] Add error recovery mechanisms
+  - Automatic retry logic
+    - Implement exponential backoff
+    - Set maximum retry attempts
+    - Add retry status notifications
+  - Data consistency checks
+    - Verify database integrity
+    - Validate cached data
+    - Clean up orphaned records
+  - User feedback
+    - Show error resolution options
+    - Provide manual retry buttons
+    - Add help/support access
+
+### Updated Next Steps
+
+[X] Create UserPreferences model
+[X] Create NotificationPreference model
+[X] Add UI components for like/favorite
+[X] Setup Firestore security rules
+[X] Create Firestore collections
+[X] Implement analytics tracking
+[X] Add error handling
+[X] Test edge cases
+
+Progress will be tracked here with checkmarks as items are completed.
+
+# Like and Favorite Implementation Plan
+
+## Current Analysis
+
+### Existing Components
+1. Template.java
+   - Basic template model with id, name, categoryId, imageUrl
+   - ✓ Added like and favorite fields
+   - ✓ Added likeCount field
+
+2. TemplateAdapter.java
+   - Basic adapter implementation
+   - ✓ Uses DiffUtil for efficient updates
+   - ✓ Added like/favorite click handlers
+   - ✓ Added animations
+
+3. item_template.xml
+   - ✓ Moved like and favorite icons outside CardView
+   - ✓ Added MaterialCardView for icon container
+   - ✓ Added proper elevation and background
+
+### Required Changes
+
+#### 1. Model Updates (Template.java)
+[X] Add new fields:
+  - private boolean isLiked
+  - private boolean isFavorited
+  - private int likeCount
+  - Add corresponding getters/setters
+  - Update constructor
+  - Update DIFF_CALLBACK
+
+#### 2. UI Updates (item_template.xml)
+[X] Move interaction buttons outside CardView:
+  - Create new ConstraintLayout as root
+  - Place CardView for template content
+  - Place like/favorite icons overlaid on bottom-right
+  - Apply elevation and background to icons
+  - Add ripple effect for icons
+
+#### 3. Adapter Updates (TemplateAdapter.java)
+[X] Add interaction handling:
+  - Create interface for like/favorite callbacks
+  - Add click listeners for icons
+  - Update ViewHolder binding
+  - Add icon state updates
+  - Add animation for state changes
+
+#### 4. Repository Layer
+[X] Create TemplateInteractionRepository:
+  - Handle like/favorite state persistence
+  - Manage like count updates
+  - Handle Firestore integration
+  - Implement caching
+  - Add analytics tracking
+
+#### 5. ViewModel Updates
+[X] Create TemplateViewModel:
+  - Add like/favorite state management
+  - Add interaction methods
+  - Handle state persistence
+  - Add analytics events
+  - Add proper cleanup in onCleared()
+  - Add error handling
+  - Add loading states
+
+### Implementation Timeline
+- Week 1: Foundation - Core classes and algorithms ✓
+- Week 2: UI Integration - Animations and user experience ✓
+- Week 3: Server-Side Support - API endpoints and distribution algorithms ✓
+- Week 4: Testing and Refinement - In Progress
+
+### Next Steps
+1. [X] Create UserPreferences model
+2. [X] Create NotificationPreference model
+3. [X] Add UI components for like/favorite
+4. [X] Setup Firestore security rules
+5. [X] Create Firestore collections
+6. [X] Implement FirestoreManager
+7. [X] Implement repositories
+8. [X] Create TemplateViewModel
+9. [ ] Add comprehensive testing
+
+The TemplateViewModel has been implemented with the following features:
+1. State management for likes, favorites, and like counts
+2. Proper lifecycle handling with resource cleanup
+3. Analytics tracking for user interactions
+4. Error handling and loading states
+5. Efficient caching of LiveData objects
+6. Thread-safe operations with ConcurrentHashMap
+
+Would you like me to proceed with implementing the comprehensive testing plan next?

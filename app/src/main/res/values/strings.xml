@@ -532,4 +532,17 @@
     <string name="error_title_resource">Resource Error</string>
     <string name="error_title_permission">Permission Required</string>
     <string name="notification_permission_message">Please grant notification permission to receive event reminders</string>
+
+    <!-- Notification Preferences -->
+    <string name="notification_preferences">Notification Preferences</string>
+    <string name="template_updates">Template Updates</string>
+    <string name="festival_reminders">Festival Reminders</string>
+    <string name="favorite_templates">Favorite Templates</string>
+    <string name="liked_templates">Liked Templates</string>
+    <string name="enable_notifications">Enable notifications</string>
+    <string name="sound">Sound</string>
+    <string name="vibration">Vibration</string>
+    <string name="quiet_hours">Quiet Hours</string>
+    <string name="start_time">Start Time</string>
+    <string name="end_time">End Time</string>
 </resources>

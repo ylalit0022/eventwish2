@@ -1,22 +1,31 @@
 package com.ds.eventwish.ui.template;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import com.ds.eventwish.R;
 import com.ds.eventwish.databinding.ActivityTemplateSelectionBinding;
 import com.ds.eventwish.utils.GridSpacingItemDecoration;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
-public class TemplateSelectionActivity extends AppCompatActivity {
-    private static final String TAG = "TemplateSelection";
+public class TemplateSelectionActivity extends AppCompatActivity implements TemplateAdapter.OnTemplateInteractionListener {
+    private static final String TAG = "TemplateSelectionActivity";
+    public static final String EXTRA_SELECTED_TEMPLATE_ID = "selected_template_id";
+    public static final String EXTRA_CATEGORY_ID = "category_id";
+
     private ActivityTemplateSelectionBinding binding;
+    private RecyclerView recyclerView;
     private TemplateAdapter adapter;
+    private TemplateViewModel viewModel;
+    private List<com.ds.eventwish.ui.template.Template> templates;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,8 +40,7 @@ public class TemplateSelectionActivity extends AppCompatActivity {
             getSupportActionBar().setDisplayShowHomeEnabled(true);
         }
         
-        // Get category ID from intent if available
-        String categoryId = getIntent().getStringExtra("category_id");
+        String categoryId = getIntent().getStringExtra(EXTRA_CATEGORY_ID);
         String categoryName = getIntent().getStringExtra("category_name");
         
         // Set title
@@ -42,91 +50,63 @@ public class TemplateSelectionActivity extends AppCompatActivity {
             setTitle(R.string.all_templates);
         }
         
-        // Setup RecyclerView
         setupRecyclerView();
+        setupViewModel();
+        observeTemplates();
         
-        // Load templates
-        loadTemplates(categoryId);
+        if (categoryId != null && !categoryId.isEmpty()) {
+            viewModel.loadTemplatesForCategory(categoryId);
+        } else {
+            viewModel.loadTemplates();
+        }
     }
     
     private void setupRecyclerView() {
-        // Initialize adapter
-        adapter = new TemplateAdapter(template -> {
-            // Handle template click
-            onTemplateSelected(template);
-        });
-        
-        // Set up grid layout
-        int spanCount = 2; // Number of columns
-        GridLayoutManager layoutManager = new GridLayoutManager(this, spanCount);
-        binding.recyclerViewTemplates.setLayoutManager(layoutManager);
-        
-        // Add spacing
-        int spacing = getResources().getDimensionPixelSize(R.dimen.grid_spacing);
-        binding.recyclerViewTemplates.addItemDecoration(new GridSpacingItemDecoration(spanCount, spacing, true));
-        
-        // Set adapter
-        binding.recyclerViewTemplates.setAdapter(adapter);
+        recyclerView = binding.recyclerView;
+        adapter = new TemplateAdapter(this);
+        recyclerView.setAdapter(adapter);
+        recyclerView.setLayoutManager(new GridLayoutManager(this, 2));
     }
     
-    private void loadTemplates(String categoryId) {
-        // Show loading indicator
-        binding.progressBar.setVisibility(View.VISIBLE);
-        binding.recyclerViewTemplates.setVisibility(View.GONE);
-        binding.emptyView.setVisibility(View.GONE);
-        
-        // For now, just create some dummy templates
-        // In a real app, you would load these from a repository or API
-        List<Template> templates = createDummyTemplates();
-        
-        // Filter by category if needed
-        if (categoryId != null && !categoryId.isEmpty()) {
-            List<Template> filteredTemplates = new ArrayList<>();
-            for (Template template : templates) {
-                if (categoryId.equals(template.getCategoryId())) {
-                    filteredTemplates.add(template);
+    private void setupViewModel() {
+        viewModel = new ViewModelProvider(this).get(TemplateViewModel.class);
+    }
+    
+    private void observeTemplates() {
+        viewModel.getTemplates().observe(this, templates -> {
+            if (templates != null) {
+                this.templates = templates;
+                adapter.submitList(templates);
+                
+                // Show appropriate view based on results
+                binding.progressBar.setVisibility(View.GONE);
+                if (templates.isEmpty()) {
+                    binding.emptyView.setVisibility(View.VISIBLE);
+                    recyclerView.setVisibility(View.GONE);
+                } else {
+                    binding.emptyView.setVisibility(View.GONE);
+                    recyclerView.setVisibility(View.VISIBLE);
                 }
             }
-            templates = filteredTemplates;
-        }
-        
-        // Update adapter with templates
-        adapter.submitList(templates);
-        
-        // Show appropriate view based on results
-        binding.progressBar.setVisibility(View.GONE);
-        if (templates.isEmpty()) {
-            binding.emptyView.setVisibility(View.VISIBLE);
-            binding.recyclerViewTemplates.setVisibility(View.GONE);
-        } else {
-            binding.emptyView.setVisibility(View.GONE);
-            binding.recyclerViewTemplates.setVisibility(View.VISIBLE);
-        }
+        });
     }
     
-    private void onTemplateSelected(Template template) {
-        // Navigate to template customization screen
-        Log.d(TAG, "Template selected: " + template.getId());
-        
-        // In a real app, you would navigate to a customization screen
-        // For example:
-        // Intent intent = new Intent(this, TemplateCustomizeActivity.class);
-        // intent.putExtra("template_id", template.getId());
-        // startActivity(intent);
+    @Override
+    public void onTemplateClick(com.ds.eventwish.ui.template.Template template) {
+        Intent intent = new Intent();
+        intent.putExtra(EXTRA_SELECTED_TEMPLATE_ID, template.getId());
+        setResult(RESULT_OK, intent);
+        finish();
     }
     
-    private List<Template> createDummyTemplates() {
-        List<Template> templates = new ArrayList<>();
-        
-        // Add some dummy templates
-        templates.add(new Template("1", "Birthday Wish", "birthday", "https://example.com/image1.jpg"));
-        templates.add(new Template("2", "Anniversary", "anniversary", "https://example.com/image2.jpg"));
-        templates.add(new Template("3", "Graduation", "graduation", "https://example.com/image3.jpg"));
-        templates.add(new Template("4", "Wedding", "wedding", "https://example.com/image4.jpg"));
-        templates.add(new Template("5", "Baby Shower", "baby", "https://example.com/image5.jpg"));
-        templates.add(new Template("6", "Get Well Soon", "health", "https://example.com/image6.jpg"));
-        
-        return templates;
+    @Override
+    public void onTemplateLike(com.ds.eventwish.ui.template.Template template) {
+        viewModel.toggleLike(template);
+    }
+    
+    @Override
+    public void onTemplateFavorite(com.ds.eventwish.ui.template.Template template) {
+        viewModel.toggleFavorite(template);
     }
     
     @Override

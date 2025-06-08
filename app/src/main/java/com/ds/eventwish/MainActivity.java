@@ -69,6 +69,9 @@ import com.ds.eventwish.firebase.FirebaseInAppMessagingHandler;
 import com.ds.eventwish.services.NotificationScheduler;
 import com.ds.eventwish.ui.viewmodel.AppUpdateViewModel;
 import com.ds.eventwish.BuildConfig;
+import com.google.firebase.auth.FirebaseAuth;
+import com.ds.eventwish.data.remote.FirestoreManager;
+import com.google.firebase.auth.FirebaseUser;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -94,6 +97,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean isConnected = true;
     private SharedViewModel sharedViewModel;
     private SharedPrefsManager prefsManager;
+    private FirebaseAuth auth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -114,6 +118,17 @@ public class MainActivity extends AppCompatActivity {
 
             // Initialize shared preferences manager
             prefsManager = new SharedPrefsManager(this);
+
+            // Initialize Firebase Auth
+            auth = FirebaseAuth.getInstance();
+            
+            // Sign in anonymously if not already signed in
+            if (auth.getCurrentUser() == null) {
+                signInAnonymously();
+            } else {
+                // User already signed in, initialize components
+                initializeComponents();
+            }
 
             setupPermissionLauncher();
             checkAndRequestPermissions();
@@ -232,11 +247,12 @@ public class MainActivity extends AppCompatActivity {
             // Set custom keys for crash reports
             FirebaseCrashManager.setCustomKey("main_activity_initialized", true);
         } catch (Exception e) {
-            Log.e(TAG, "Error during onCreate", e);
+            Log.e(TAG, "Error in onCreate", e);
             FirebaseCrashManager.logException(e);
         } finally {
-            // Stop app load trace
-            PerformanceTracker.stopPerformanceTrace(appStartupTrace, "app_startup");
+            if (appStartupTrace != null) {
+                appStartupTrace.stop();
+            }
         }
 
         initializeUI(savedInstanceState);
@@ -800,5 +816,55 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "Error force checking for updates", e);
             Toast.makeText(this, "Error checking for updates: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void testFirestoreWrite() {
+        if (auth.getCurrentUser() != null) {
+            String userId = auth.getCurrentUser().getUid();
+            String templateId = "test_template_" + System.currentTimeMillis();
+            
+            // Add a test like
+            FirestoreManager.getInstance()
+                .addToLikes(templateId)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Successfully added test like to Firestore");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to add test like to Firestore", e);
+                });
+        }
+    }
+
+    private void signInAnonymously() {
+        auth.signInAnonymously()
+            .addOnSuccessListener(this, authResult -> {
+                Log.d(TAG, "Anonymous sign-in success");
+                // FirestoreManager now handles user ID internally through auth state listener
+                initializeComponents();
+            })
+            .addOnFailureListener(this, e -> {
+                Log.e(TAG, "Anonymous sign-in failed", e);
+                showError("Authentication failed: " + e.getMessage());
+            });
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser == null) {
+            signInAnonymously();
+        } else {
+            // FirestoreManager now handles user ID internally
+            initializeComponents();
+        }
+    }
+
+    private void initializeComponents() {
+        // Existing initialization code...
+    }
+
+    private void showError(String message) {
+        // Implement the logic to show an error message to the user
     }
 }

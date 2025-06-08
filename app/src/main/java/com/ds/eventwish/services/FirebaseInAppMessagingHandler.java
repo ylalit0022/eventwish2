@@ -60,8 +60,10 @@ public class FirebaseInAppMessagingHandler implements FirebaseInAppMessagingDisp
             
             // Track the message impression in analytics
             AnalyticsUtils analytics = AnalyticsUtils.getInstance();
-            Bundle params = null;
-            analytics.trackEvent("in_app_message_impression", params);
+            Bundle params = new Bundle();
+            params.putString("message_id", inAppMessage.getCampaignId());
+            params.putString("message_name", inAppMessage.getCampaignName());
+            analytics.logEvent("in_app_message_impression", params);
             
             // Handle different message types
             MessageType messageType = inAppMessage.getMessageType();
@@ -137,8 +139,11 @@ public class FirebaseInAppMessagingHandler implements FirebaseInAppMessagingDisp
         try {
             Log.d(TAG, "Triggering test event: " + eventName);
             AnalyticsUtils analytics = AnalyticsUtils.getInstance();
-            Bundle params = null;
-            analytics.trackEvent(eventName, params);
+            Bundle params = new Bundle();
+            params.putString("message_id", "test_message_id");
+            params.putString("message_name", "Test Message");
+            params.putString("button_text", "Test Button");
+            analytics.logEvent(eventName, params);
         } catch (Exception e) {
             Log.e(TAG, "Error triggering test event", e);
             FirebaseCrashManager.logException(e);
