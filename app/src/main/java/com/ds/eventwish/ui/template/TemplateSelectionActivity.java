@@ -101,12 +101,20 @@ public class TemplateSelectionActivity extends AppCompatActivity implements Temp
     
     @Override
     public void onTemplateLike(com.ds.eventwish.ui.template.Template template) {
-        viewModel.toggleLike(template);
+        handleLikeClick(template);
     }
     
     @Override
     public void onTemplateFavorite(com.ds.eventwish.ui.template.Template template) {
-        viewModel.toggleFavorite(template);
+        handleFavoriteClick(template);
+    }
+    
+    private void handleLikeClick(com.ds.eventwish.ui.template.Template template) {
+        viewModel.toggleLike(template.getId());
+    }
+
+    private void handleFavoriteClick(com.ds.eventwish.ui.template.Template template) {
+        viewModel.toggleFavorite(template.getId());
     }
     
     @Override

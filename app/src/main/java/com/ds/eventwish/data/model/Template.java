@@ -37,7 +37,9 @@ import java.util.List;
         @Index(value = {"created_at"}),
         @Index(value = {"updated_at"}),
         @Index(value = {"is_featured"}),
-        @Index(value = {"is_visible"})
+        @Index(value = {"is_visible"}),
+        @Index(value = {"is_liked"}),
+        @Index(value = {"is_favorited"})
     }
 )
 public class Template {
@@ -338,6 +340,8 @@ public class Template {
         if (this.isLiked != liked) {
             this.isLiked = liked;
             this.likeChanged = true;
+            // Reset favorite changed flag to prevent interference
+            this.favoriteChanged = false;
         }
     }
     
@@ -345,6 +349,8 @@ public class Template {
         if (this.isFavorited != favorited) {
             this.isFavorited = favorited;
             this.favoriteChanged = true;
+            // Reset like changed flag to prevent interference
+            this.likeChanged = false;
         }
     }
 
@@ -354,6 +360,11 @@ public class Template {
 
     public boolean isFavorited() {
         return isFavorited;
+    }
+
+    public void clearChangeFlags() {
+        this.likeChanged = false;
+        this.favoriteChanged = false;
     }
 
     /**

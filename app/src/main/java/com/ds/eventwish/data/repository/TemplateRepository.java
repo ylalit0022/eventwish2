@@ -837,30 +837,12 @@ public class TemplateRepository {
             firestoreManager.toggleLike(template.getId())
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, String.format("Successfully toggled like - TemplateID: %s", template.getId()));
+                    template.clearChangeFlags();
                     saveTemplateToCache(template);
                 })
                 .addOnFailureListener(e -> {
-                    if (e instanceof FirebaseFirestoreException) {
-                        FirebaseFirestoreException ffe = (FirebaseFirestoreException) e;
-                        Log.e(TAG, String.format("Firestore error updating template like - TemplateID: %s, Code: %s, Description: %s", 
-                            template.getId(),
-                            ffe.getCode(),
-                            ffe.getMessage()), e);
-                            
-                        // Log detailed permission error info
-                        if (ffe.getCode() == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-                            Log.e(TAG, String.format("Permission denied details - UserID: %s, IsAnonymous: %b, Provider: %s", 
-                                currentUser != null ? currentUser.getUid() : "null",
-                                currentUser != null ? currentUser.isAnonymous() : false,
-                                currentUser != null ? currentUser.getProviderId() : "null"));
-                        }
-                    } else {
-                        Log.e(TAG, String.format("Error updating template like - TemplateID: %s, Error: %s", 
-                            template.getId(),
-                            e.getMessage()), e);
-                    }
-                    error.postValue("Failed to update template like. Please try again.");
+                    Log.e(TAG, String.format("Failed to toggle like - TemplateID: %s", template.getId()), e);
+                    template.clearChangeFlags();
                 });
         }
         
@@ -873,30 +855,12 @@ public class TemplateRepository {
             firestoreManager.toggleFavorite(template.getId())
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, String.format("Successfully toggled favorite - TemplateID: %s", template.getId()));
+                    template.clearChangeFlags();
                     saveTemplateToCache(template);
                 })
                 .addOnFailureListener(e -> {
-                    if (e instanceof FirebaseFirestoreException) {
-                        FirebaseFirestoreException ffe = (FirebaseFirestoreException) e;
-                        Log.e(TAG, String.format("Firestore error updating template favorite - TemplateID: %s, Code: %s, Description: %s", 
-                            template.getId(),
-                            ffe.getCode(),
-                            ffe.getMessage()), e);
-                            
-                        // Log detailed permission error info
-                        if (ffe.getCode() == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-                            Log.e(TAG, String.format("Permission denied details - UserID: %s, IsAnonymous: %b, Provider: %s", 
-                                currentUser != null ? currentUser.getUid() : "null",
-                                currentUser != null ? currentUser.isAnonymous() : false,
-                                currentUser != null ? currentUser.getProviderId() : "null"));
-                        }
-                    } else {
-                        Log.e(TAG, String.format("Error updating template favorite - TemplateID: %s, Error: %s", 
-                            template.getId(),
-                            e.getMessage()), e);
-                    }
-                    error.postValue("Failed to update template favorite. Please try again.");
+                    Log.e(TAG, String.format("Failed to toggle favorite - TemplateID: %s", template.getId()), e);
+                    template.clearChangeFlags();
                 });
         }
     }
@@ -938,5 +902,113 @@ public class TemplateRepository {
         
         // Log the update
         Log.d(TAG, "Templates updated, notifying observers. Count: " + newList.size());
+    }
+
+    public LiveData<Boolean> getLikeState(String templateId) {
+        MutableLiveData<Boolean> likeState = new MutableLiveData<>();
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            likeState.setValue(false);
+            return likeState;
+        }
+
+        db.collection("users").document(user.getUid())
+            .collection("likes").document(templateId)
+            .get()
+            .addOnSuccessListener(doc -> likeState.setValue(doc.exists()))
+            .addOnFailureListener(e -> likeState.setValue(false));
+
+        return likeState;
+    }
+
+    public LiveData<Boolean> getFavoriteState(String templateId) {
+        MutableLiveData<Boolean> favoriteState = new MutableLiveData<>();
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            favoriteState.setValue(false);
+            return favoriteState;
+        }
+
+        db.collection("users").document(user.getUid())
+            .collection("favorites").document(templateId)
+            .get()
+            .addOnSuccessListener(doc -> favoriteState.setValue(doc.exists()))
+            .addOnFailureListener(e -> favoriteState.setValue(false));
+
+        return favoriteState;
+    }
+
+    public LiveData<Integer> getLikeCount(String templateId) {
+        MutableLiveData<Integer> likeCount = new MutableLiveData<>();
+        
+        db.collection("templates").document(templateId)
+            .get()
+            .addOnSuccessListener(doc -> {
+                if (doc.exists() && doc.contains("likeCount")) {
+                    Long count = doc.getLong("likeCount");
+                    likeCount.setValue(count != null ? count.intValue() : 0);
+                } else {
+                    likeCount.setValue(0);
+                }
+            })
+            .addOnFailureListener(e -> likeCount.setValue(0));
+
+        return likeCount;
+    }
+
+    public void toggleLike(String templateId, boolean newState) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            error.postValue("User must be logged in");
+            return;
+        }
+
+        String userId = user.getUid();
+        if (newState) {
+            // Add to likes collection
+            db.collection("users").document(userId)
+                .collection("likes").document(templateId)
+                .set(new HashMap<>())
+                .addOnSuccessListener(v -> {
+                    // Increment template like count
+                    db.collection("templates").document(templateId)
+                        .update("likeCount", com.google.firebase.firestore.FieldValue.increment(1));
+                })
+                .addOnFailureListener(e -> error.postValue("Failed to update like state"));
+        } else {
+            // Remove from likes collection
+            db.collection("users").document(userId)
+                .collection("likes").document(templateId)
+                .delete()
+                .addOnSuccessListener(v -> {
+                    // Decrement template like count
+                    db.collection("templates").document(templateId)
+                        .update("likeCount", com.google.firebase.firestore.FieldValue.increment(-1));
+                })
+                .addOnFailureListener(e -> error.postValue("Failed to update like state"));
+        }
+    }
+
+    public void toggleFavorite(String templateId, boolean newState) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            error.postValue("User must be logged in");
+            return;
+        }
+
+        String userId = user.getUid();
+        if (newState) {
+            // Add to favorites collection
+            db.collection("users").document(userId)
+                .collection("favorites").document(templateId)
+                .set(new HashMap<>())
+                .addOnFailureListener(e -> error.postValue("Failed to update favorite state"));
+        } else {
+            // Remove from favorites collection
+            db.collection("users").document(userId)
+                .collection("favorites").document(templateId)
+                .delete()
+                .addOnFailureListener(e -> error.postValue("Failed to update favorite state"));
+        }
     }
 }

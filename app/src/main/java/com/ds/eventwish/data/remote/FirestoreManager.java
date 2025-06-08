@@ -22,8 +22,12 @@ import com.google.firebase.firestore.WriteBatch;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.QuerySnapshot;
+import com.ds.eventwish.util.SecureTokenManager;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -404,8 +408,8 @@ public class FirestoreManager {
             if (task.isSuccessful() && !task.getResult().exists()) {
                 Log.d(TAG, String.format("Creating template document %s with initial data", templateId));
                 Map<String, Object> initialData = new HashMap<>();
-                initialData.put(FIELD_LIKE_COUNT, 0);
-                initialData.put(FIELD_FAVORITE_COUNT, 0);
+                initialData.put(FIELD_LIKE_COUNT, 0L);  // Use Long instead of int
+                initialData.put(FIELD_FAVORITE_COUNT, 0L);  // Use Long instead of int
                 initialData.put("createdAt", FieldValue.serverTimestamp());
                 initialData.put("updatedAt", FieldValue.serverTimestamp());
                 return templateRef.set(initialData);
@@ -418,81 +422,69 @@ public class FirestoreManager {
         String templateId = likeRef.getId();
         DocumentReference templateRef = db.collection(COLLECTION_TEMPLATES).document(templateId);
         
+        if (fcmToken == null) {
+            Log.e(TAG, "Cannot toggle like - FCM token is null");
+            return Tasks.forException(new IllegalStateException("FCM token is null"));
+        }
+        
         Log.d(TAG, String.format("Starting like toggle for template %s - User: %s", templateId, fcmToken));
         
-        // First ensure template exists
         return ensureTemplateExists(templateId).continueWithTask(task -> {
             if (!task.isSuccessful()) {
                 Log.e(TAG, "Failed to ensure template exists", task.getException());
                 return Tasks.forException(task.getException());
             }
             
-            return db.runTransaction((Transaction.Function<Void>) transaction -> {
-                // Get current like state
-                DocumentSnapshot likeDoc = transaction.get(likeRef);
+            return likeRef.get().continueWithTask(likeTask -> {
+                if (!likeTask.isSuccessful()) {
+                    return Tasks.forException(likeTask.getException());
+                }
+                
+                DocumentSnapshot likeDoc = likeTask.getResult();
                 boolean isLiked = likeDoc.exists();
                 
-                // Get current template state
-                DocumentSnapshot templateDoc = transaction.get(templateRef);
-                Long currentLikes = templateDoc.exists() ? templateDoc.getLong(FIELD_LIKE_COUNT) : 0;
-                if (currentLikes == null) currentLikes = 0L;
-                
-                Log.d(TAG, String.format("Current state - Template: %s, IsLiked: %b, CurrentLikes: %d", 
-                    templateId, isLiked, currentLikes));
-                
-                // Update template count
-                long newCount = currentLikes + (isLiked ? -1 : 1);
-                if (newCount < 0) newCount = 0; // Prevent negative counts
-                
-                Map<String, Object> templateUpdates = new HashMap<>();
-                templateUpdates.put(FIELD_LIKE_COUNT, newCount);
-                templateUpdates.put("updatedAt", FieldValue.serverTimestamp());
-                templateUpdates.put("userId", fcmToken); // Add userId for security rules
-                
                 if (isLiked) {
-                    // Unlike - delete the like document
-                    Log.d(TAG, String.format("Removing like - Template: %s, User: %s, New count will be: %d", 
-                        templateId, fcmToken, newCount));
-                    transaction.delete(likeRef);
+                    // Unlike - delete the like document and decrement count
+                    Log.d(TAG, String.format("Removing like - Template: %s, User: %s", templateId, fcmToken));
+                    return likeRef.delete()
+                        .continueWithTask(deleteTask -> updateLikeCount(templateRef, false));
                 } else {
-                    // Like - create the like document with proper data
-                    Log.d(TAG, String.format("Adding like - Template: %s, User: %s, New count will be: %d", 
-                        templateId, fcmToken, newCount));
+                    // Like - create the like document and increment count
+                    Log.d(TAG, String.format("Adding like - Template: %s, User: %s", templateId, fcmToken));
                     Map<String, Object> likeData = new HashMap<>();
                     likeData.put("templateId", templateId);
                     likeData.put("userId", fcmToken);
                     likeData.put("timestamp", FieldValue.serverTimestamp());
-                    likeData.put("status", true);
-                    transaction.set(likeRef, likeData);
+                    
+                    return likeRef.set(likeData)
+                        .continueWithTask(setTask -> updateLikeCount(templateRef, true));
                 }
-                
-                // Update template document
-                transaction.update(templateRef, templateUpdates);
-                
-                Log.d(TAG, String.format("Like toggle transaction completed - Template: %s, NewState: %b, NewCount: %d", 
-                    templateId, !isLiked, newCount));
-                return null;
             });
-        })
-        .addOnSuccessListener(aVoid -> {
-            Log.d(TAG, String.format("Like toggle transaction successful - Template: %s", templateId));
-            // Start observing template document for count updates
-            templateRef.get().addOnSuccessListener(snapshot -> {
-                if (snapshot.exists()) {
-                    Long likeCount = snapshot.getLong(FIELD_LIKE_COUNT);
-                    Log.d(TAG, String.format("Template %s - Updated like count: %d, Document exists: %b", 
-                        templateId, likeCount != null ? likeCount : 0, snapshot.exists()));
-                } else {
-                    Log.w(TAG, String.format("Template document does not exist after like toggle: %s", templateId));
-                }
-            }).addOnFailureListener(e -> {
-                Log.e(TAG, String.format("Failed to get template after like toggle - Template: %s, Error: %s", 
-                    templateId, e.getMessage()));
-            });
-        })
-        .addOnFailureListener(e -> {
-            Log.e(TAG, String.format("Like toggle transaction failed - Template: %s, Error: %s", 
-                templateId, e.getMessage()), e);
+        });
+    }
+    
+    private Task<Void> updateLikeCount(DocumentReference templateRef, boolean increment) {
+        return db.runTransaction((Transaction.Function<Void>) transaction -> {
+            DocumentSnapshot snapshot = transaction.get(templateRef);
+            Long currentCount = snapshot.getLong(FIELD_LIKE_COUNT);
+            if (currentCount == null) {
+                currentCount = 0L;
+            }
+            
+            long newCount = currentCount + (increment ? 1L : -1L);
+            if (newCount < 0L) newCount = 0L;
+            
+            Log.d(TAG, String.format("Updating like count - Template: %s, Current: %d, New: %d", 
+                templateRef.getId(), currentCount, newCount));
+                
+            // Only update likeCount and required fields
+            Map<String, Object> updates = new HashMap<>();
+            updates.put(FIELD_LIKE_COUNT, newCount);
+            updates.put("updatedAt", FieldValue.serverTimestamp());
+            updates.put("userId", fcmToken);
+            
+            transaction.update(templateRef, updates);
+            return null;
         });
     }
 
@@ -528,81 +520,69 @@ public class FirestoreManager {
         String templateId = favoriteRef.getId();
         DocumentReference templateRef = db.collection(COLLECTION_TEMPLATES).document(templateId);
         
+        if (fcmToken == null) {
+            Log.e(TAG, "Cannot toggle favorite - FCM token is null");
+            return Tasks.forException(new IllegalStateException("FCM token is null"));
+        }
+        
         Log.d(TAG, String.format("Starting favorite toggle for template %s - User: %s", templateId, fcmToken));
         
-        // First ensure template exists
         return ensureTemplateExists(templateId).continueWithTask(task -> {
             if (!task.isSuccessful()) {
                 Log.e(TAG, "Failed to ensure template exists", task.getException());
                 return Tasks.forException(task.getException());
             }
             
-            return db.runTransaction((Transaction.Function<Void>) transaction -> {
-                // Get current favorite state
-                DocumentSnapshot favoriteDoc = transaction.get(favoriteRef);
+            return favoriteRef.get().continueWithTask(favoriteTask -> {
+                if (!favoriteTask.isSuccessful()) {
+                    return Tasks.forException(favoriteTask.getException());
+                }
+                
+                DocumentSnapshot favoriteDoc = favoriteTask.getResult();
                 boolean isFavorited = favoriteDoc.exists();
                 
-                // Get current template state
-                DocumentSnapshot templateDoc = transaction.get(templateRef);
-                Long currentFavorites = templateDoc.exists() ? templateDoc.getLong(FIELD_FAVORITE_COUNT) : 0;
-                if (currentFavorites == null) currentFavorites = 0L;
-                
-                Log.d(TAG, String.format("Current state - Template: %s, IsFavorited: %b, CurrentFavorites: %d", 
-                    templateId, isFavorited, currentFavorites));
-                
-                // Update template count
-                long newCount = currentFavorites + (isFavorited ? -1 : 1);
-                if (newCount < 0) newCount = 0; // Prevent negative counts
-                
-                Map<String, Object> templateUpdates = new HashMap<>();
-                templateUpdates.put(FIELD_FAVORITE_COUNT, newCount);
-                templateUpdates.put("updatedAt", FieldValue.serverTimestamp());
-                templateUpdates.put("userId", fcmToken); // Add userId for security rules
-                
                 if (isFavorited) {
-                    // Unfavorite - delete the favorite document
-                    Log.d(TAG, String.format("Removing favorite - Template: %s, User: %s, New count will be: %d", 
-                        templateId, fcmToken, newCount));
-                    transaction.delete(favoriteRef);
+                    // Unfavorite - delete the favorite document and decrement count
+                    Log.d(TAG, String.format("Removing favorite - Template: %s, User: %s", templateId, fcmToken));
+                    return favoriteRef.delete()
+                        .continueWithTask(deleteTask -> updateFavoriteCount(templateRef, false));
                 } else {
-                    // Favorite - create the favorite document with proper data
-                    Log.d(TAG, String.format("Adding favorite - Template: %s, User: %s, New count will be: %d", 
-                        templateId, fcmToken, newCount));
+                    // Favorite - create the favorite document and increment count
+                    Log.d(TAG, String.format("Adding favorite - Template: %s, User: %s", templateId, fcmToken));
                     Map<String, Object> favoriteData = new HashMap<>();
                     favoriteData.put("templateId", templateId);
                     favoriteData.put("userId", fcmToken);
                     favoriteData.put("timestamp", FieldValue.serverTimestamp());
-                    favoriteData.put("status", true);
-                    transaction.set(favoriteRef, favoriteData);
+                    
+                    return favoriteRef.set(favoriteData)
+                        .continueWithTask(setTask -> updateFavoriteCount(templateRef, true));
                 }
-                
-                // Update template document
-                transaction.update(templateRef, templateUpdates);
-                
-                Log.d(TAG, String.format("Favorite toggle transaction completed - Template: %s, NewState: %b, NewCount: %d", 
-                    templateId, !isFavorited, newCount));
-                return null;
             });
-        })
-        .addOnSuccessListener(aVoid -> {
-            Log.d(TAG, String.format("Favorite toggle transaction successful - Template: %s", templateId));
-            // Start observing template document for count updates
-            templateRef.get().addOnSuccessListener(snapshot -> {
-                if (snapshot.exists()) {
-                    Long favoriteCount = snapshot.getLong(FIELD_FAVORITE_COUNT);
-                    Log.d(TAG, String.format("Template %s - Updated favorite count: %d, Document exists: %b", 
-                        templateId, favoriteCount != null ? favoriteCount : 0, snapshot.exists()));
-                } else {
-                    Log.w(TAG, String.format("Template document does not exist after favorite toggle: %s", templateId));
-                }
-            }).addOnFailureListener(e -> {
-                Log.e(TAG, String.format("Failed to get template after favorite toggle - Template: %s, Error: %s", 
-                    templateId, e.getMessage()));
-            });
-        })
-        .addOnFailureListener(e -> {
-            Log.e(TAG, String.format("Favorite toggle transaction failed - Template: %s, Error: %s", 
-                templateId, e.getMessage()), e);
+        });
+    }
+
+    private Task<Void> updateFavoriteCount(DocumentReference templateRef, boolean increment) {
+        return db.runTransaction((Transaction.Function<Void>) transaction -> {
+            DocumentSnapshot snapshot = transaction.get(templateRef);
+            Long currentCount = snapshot.getLong(FIELD_FAVORITE_COUNT);
+            if (currentCount == null) {
+                currentCount = 0L;
+            }
+            
+            long newCount = currentCount + (increment ? 1L : -1L);
+            if (newCount < 0L) newCount = 0L;
+            
+            Log.d(TAG, String.format("Updating favorite count - Template: %s, Current: %d, New: %d", 
+                templateRef.getId(), currentCount, newCount));
+                
+            // Only update favoriteCount and required fields
+            Map<String, Object> updates = new HashMap<>();
+            updates.put(FIELD_FAVORITE_COUNT, newCount);
+            updates.put("updatedAt", FieldValue.serverTimestamp());
+            updates.put("userId", fcmToken);
+            
+            transaction.update(templateRef, updates);
+            return null;
         });
     }
 
@@ -647,5 +627,18 @@ public class FirestoreManager {
         } else {
             Log.w(TAG, String.format("No active observation found for template: %s", templateId));
         }
+    }
+
+    public Task<QuerySnapshot> getUserInteractions() {
+        if (fcmToken == null) {
+            Log.e(TAG, "Cannot get user interactions - FCM token is null");
+            return Tasks.forException(new IllegalStateException("FCM token is null"));
+        }
+
+        // Just get likes since that's what the code expects
+        return db.collection(COLLECTION_USERS)
+                .document(fcmToken)
+                .collection(COLLECTION_LIKES)
+                .get();
     }
 } 

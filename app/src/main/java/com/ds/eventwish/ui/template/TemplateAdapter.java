@@ -90,14 +90,10 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
             likeIcon.setImageResource(isLiked ? R.drawable.ic_heart_filled : R.drawable.ic_heart_outline);
             likeIcon.setOnClickListener(v -> {
                 if (listener != null) {
-                    Log.d(TAG, "Like button clicked for template: " + template.getId() + 
-                              ", current state: " + isLiked + 
-                              ", will toggle to: " + !isLiked);
-                    // Update UI immediately
-                    template.setLiked(!isLiked);
-                    likeIcon.setImageResource(!isLiked ? R.drawable.ic_heart_filled : R.drawable.ic_heart_outline);
-                    // Animate the icon
-                    v.startAnimation(AnimationUtils.loadAnimation(v.getContext(), R.anim.like_button_animation));
+                    Log.d(TAG, "Like button clicked for template: " + template.getId());
+                    // Disable button temporarily
+                    likeIcon.setEnabled(false);
+                    // Call listener without updating UI
                     listener.onTemplateLike(template);
                 }
             });
@@ -108,14 +104,10 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
             favoriteIcon.setImageResource(isFavorited ? R.drawable.ic_bookmark_filled : R.drawable.ic_bookmark_outline);
             favoriteIcon.setOnClickListener(v -> {
                 if (listener != null) {
-                    Log.d(TAG, "Favorite button clicked for template: " + template.getId() + 
-                              ", current state: " + isFavorited + 
-                              ", will toggle to: " + !isFavorited);
-                    // Update UI immediately
-                    template.setFavorited(!isFavorited);
-                    favoriteIcon.setImageResource(!isFavorited ? R.drawable.ic_bookmark_filled : R.drawable.ic_bookmark_outline);
-                    // Animate the icon
-                    v.startAnimation(AnimationUtils.loadAnimation(v.getContext(), R.anim.favorite_button_animation));
+                    Log.d(TAG, "Favorite button clicked for template: " + template.getId());
+                    // Disable button temporarily
+                    favoriteIcon.setEnabled(false);
+                    // Call listener without updating UI
                     listener.onTemplateFavorite(template);
                 }
             });

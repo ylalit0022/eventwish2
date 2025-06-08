@@ -21,6 +21,12 @@ public interface TemplateDao {
     @Query("SELECT * FROM template ORDER BY created_at DESC")
     LiveData<List<Template>> getAllTemplates();
 
+    @Query("SELECT * FROM template ORDER BY created_at DESC")
+    List<Template> getAllTemplatesSync();
+
+    @Query("SELECT * FROM template WHERE category = :category ORDER BY created_at DESC")
+    List<Template> getTemplatesByCategorySync(String category);
+
     @Query("SELECT * FROM template WHERE id = :id")
     LiveData<Template> getTemplateById(String id);
 
@@ -72,4 +78,28 @@ public interface TemplateDao {
     @Transaction
     @Query("SELECT DISTINCT category FROM template")
     LiveData<List<String>> getAllCategories();
+
+    @Query("UPDATE template SET is_liked = :isLiked WHERE id = :templateId")
+    void updateLikeState(String templateId, boolean isLiked);
+
+    @Query("UPDATE template SET is_favorited = :isFavorited WHERE id = :templateId")
+    void updateFavoriteState(String templateId, boolean isFavorited);
+
+    @Query("UPDATE template SET like_count = :likeCount WHERE id = :templateId")
+    void updateLikeCount(String templateId, int likeCount);
+
+    @Query("SELECT is_liked FROM template WHERE id = :templateId")
+    LiveData<Boolean> getLikeState(String templateId);
+
+    @Query("SELECT is_favorited FROM template WHERE id = :templateId")
+    LiveData<Boolean> getFavoriteState(String templateId);
+
+    @Query("SELECT like_count FROM template WHERE id = :templateId")
+    LiveData<Integer> getLikeCount(String templateId);
+
+    @Query("SELECT * FROM template WHERE is_liked = 1")
+    LiveData<List<Template>> getLikedTemplates();
+
+    @Query("SELECT * FROM template WHERE is_favorited = 1")
+    LiveData<List<Template>> getFavoritedTemplates();
 } 

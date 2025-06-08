@@ -9,6 +9,7 @@ import androidx.room.Room;
 import androidx.room.RoomDatabase;
 import androidx.room.TypeConverters;
 import androidx.sqlite.db.SupportSQLiteDatabase;
+import androidx.room.migration.Migration;
 
 import com.ds.eventwish.data.converter.CategoryIconConverter;
 import com.ds.eventwish.data.converter.DateConverter;
@@ -29,7 +30,7 @@ import com.ds.eventwish.data.local.dao.AdUnitDao;
         Category.class,
         AdUnitEntity.class
     },
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @TypeConverters({
@@ -78,7 +79,7 @@ public abstract class AppDatabase extends RoomDatabase {
                     Log.d(TAG, "Database opened");
                 }
             })
-            .addMigrations() // Will add migrations as needed
+            .addMigrations(MIGRATION_1_2)
             .fallbackToDestructiveMigration() // Only during development
             .build();
     }
@@ -92,4 +93,13 @@ public abstract class AppDatabase extends RoomDatabase {
             instance.clearAllTables();
         }
     }
+
+    private static final Migration MIGRATION_1_2 = new Migration(1, 2) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            // Create indices for like/favorite columns
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_template_is_liked` ON `template` (`is_liked`)");
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_template_is_favorited` ON `template` (`is_favorited`)");
+        }
+    };
 } 

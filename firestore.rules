@@ -3,82 +3,60 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Helper functions
     function isValidFcmToken(token) {
-      return token is string && 
-             token.size() >= 100 && 
-             token.size() <= 300;
-    }
-    
-    function isValidUpdate(allowedFields) {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedFields);
-    }
-    
-    function isValidTemplateData() {
-      return request.resource.data.keys().hasAll(['likeCount', 'favoriteCount', 'createdAt', 'updatedAt']) &&
-             request.resource.data.likeCount is number &&
-             request.resource.data.favoriteCount is number &&
-             request.resource.data.createdAt is timestamp &&
-             request.resource.data.updatedAt is timestamp;
+      return token is string && token.size() >= 20;  // FCM tokens are typically very long
     }
 
-    function getCount(field) {
-      return resource.data[field] != null ? resource.data[field] : 0;
-    }
-    
-    function getNewCount(field) {
-      return request.resource.data[field] != null ? request.resource.data[field] : 0;
-    }
-    
-    function hasValidLikeDoc(templateId, userId) {
-      return exists(/databases/$(database)/documents/users/$(userId)/likes/$(templateId));
+    function hasValidToken(userId) {
+      return isValidFcmToken(userId);
     }
 
-    function hasValidFavoriteDoc(templateId, userId) {
-      return exists(/databases/$(database)/documents/users/$(userId)/favorites/$(templateId));
-    }
-
-    // Users collection
-    match /users/{userId} {
-      // Allow read/write if the document ID matches their FCM token
-      allow read, write: if isValidFcmToken(userId);
-      
-      // Allow subcollections for likes and favorites
-      match /likes/{templateId} {
-        allow read, write: if isValidFcmToken(userId);
-      }
-      
-      match /favorites/{templateId} {
-        allow read, write: if isValidFcmToken(userId);
-      }
-    }
-    
-    // Templates collection
+    // Template rules
     match /templates/{templateId} {
-      // Allow read access to all templates
+      // Allow read for all templates
       allow read: if true;
       
-      // Allow create with valid initial data
-      allow create: if request.resource.data.keys().hasAll(['likeCount', 'favoriteCount', 'createdAt', 'updatedAt']) &&
-                     request.resource.data.likeCount == 0 &&
-                     request.resource.data.favoriteCount == 0;
-      
-      // Allow updates to templates
-      allow update: if true;
+      // Allow create with initial data
+      allow create: if request.resource.data.keys().hasAll(['likeCount', 'favoriteCount', 'createdAt', 'updatedAt'])
+        && request.resource.data.likeCount == 0
+        && request.resource.data.favoriteCount == 0;
+
+      // Allow updates from users with valid FCM token
+      allow update: if hasValidToken(request.resource.data.userId)
+        && (
+          // Check that only allowed fields are being updated
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount', 'favoriteCount', 'updatedAt', 'userId'])
+          // Ensure counts are valid numbers
+          && (request.resource.data.likeCount is number)
+          && (request.resource.data.favoriteCount is number)
+          // Ensure counts are non-negative
+          && (request.resource.data.likeCount >= 0)
+          && (request.resource.data.favoriteCount >= 0)
+        );
     }
-    
-    // Template Interactions collection
-    match /template_interactions/{templateId} {
-      // Allow read for valid interactions
-      allow read: if exists(/databases/$(database)/documents/templates/$(templateId));
-      
-      // Allow atomic updates to like/favorite counts with validation
-      allow update: if isValidUpdate(['likeCount', 'favoriteCount', 'lastUpdated']) &&
-                     request.resource.data.likeCount is number &&
-                     request.resource.data.favoriteCount is number &&
-                     // Ensure counts only change by 1
-                     (abs(request.resource.data.likeCount - resource.data.likeCount) <= 1) &&
-                     (abs(request.resource.data.favoriteCount - resource.data.favoriteCount) <= 1) &&
-                     // Ensure lastUpdated is a valid timestamp
-                     request.resource.data.lastUpdated is timestamp;
+
+    // User rules based on FCM token
+    match /users/{userId} {
+      allow read, write: if hasValidToken(userId);
+
+      // Likes collection - separate rules
+      match /likes/{templateId} {
+        allow read: if hasValidToken(userId);
+        allow create: if hasValidToken(userId)
+          && request.resource.data.userId == userId
+          && request.resource.data.templateId == templateId
+          && request.resource.data.timestamp is timestamp;
+        allow delete: if hasValidToken(userId);
+      }
+
+      // Favorites collection - separate rules
+      match /favorites/{templateId} {
+        allow read: if hasValidToken(userId);
+        allow create: if hasValidToken(userId)
+          && request.resource.data.userId == userId
+          && request.resource.data.templateId == templateId
+          && request.resource.data.timestamp is timestamp;
+        allow delete: if hasValidToken(userId);
+      }
     }
   }
 } 
