@@ -20,6 +20,8 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
@@ -316,6 +318,28 @@ public class TemplateRepository {
         
         loading.postValue(true);
         
+        // Get current user for like/favorite status
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        if (auth.getCurrentUser() == null) {
+            // Try to sign in anonymously
+            auth.signInAnonymously()
+                .addOnSuccessListener(result -> {
+                    Log.d(TAG, "Anonymous sign in successful, user ID: " + result.getUser().getUid());
+                    // Reload templates after successful sign in
+                    loadTemplatesInternal(forceRefresh, result.getUser());
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Anonymous sign in failed", e);
+                    // Continue without user authentication
+                    loadTemplatesInternal(forceRefresh, null);
+                });
+        } else {
+            // User already signed in
+            loadTemplatesInternal(forceRefresh, auth.getCurrentUser());
+        }
+    }
+
+    private void loadTemplatesInternal(boolean forceRefresh, FirebaseUser user) {
         // If this is a forced refresh, reset pagination
         if (forceRefresh) {
             currentPage = 1;
@@ -323,13 +347,7 @@ public class TemplateRepository {
             
             // Only clear templates if we're not filtering by category or if this is the initial load
             if (currentCategory == null || templates.getValue() == null || templates.getValue().isEmpty()) {
-                if (templates.getValue() != null) {
-                    templates.getValue().clear();
-                    // Notify observers of the empty list to clear the UI
-                    templates.postValue(new ArrayList<>());
-                } else {
-                    templates.postValue(new ArrayList<>());
-                }
+                templates.postValue(new ArrayList<>());
             }
         }
         
@@ -342,7 +360,8 @@ public class TemplateRepository {
         // Log request details
         Log.d(TAG, "Loading templates - page: " + currentPage + 
                   ", category: " + (currentCategory != null ? currentCategory : "All") + 
-                  ", forceRefresh: " + forceRefresh);
+                  ", forceRefresh: " + forceRefresh +
+                  ", user: " + (user != null ? user.getUid() : "null"));
 
         Call<TemplateResponse> call;
         if (currentCategory != null) {
@@ -396,7 +415,7 @@ public class TemplateRepository {
                                   ", Timestamp: " + template.getCreatedAtTimestamp());
                         }
                     }
-                    
+
                     if (forceRefresh) {
                         // For a force refresh, use only the sorted new templates
                         currentList = new ArrayList<>(newTemplates);
@@ -415,8 +434,43 @@ public class TemplateRepository {
                         Log.d(TAG, "Re-sorted complete list of " + currentList.size() + " templates by creation date");
                     }
                     
+                    // Create final copy for lambda
+                    final List<Template> finalCurrentList = currentList;
+                    
                     // Post the sorted list to LiveData
-                    templates.postValue(currentList);
+                    templates.postValue(finalCurrentList);
+
+                    // Check like/favorite status if user is logged in
+                    if (user != null && newTemplates != null && !newTemplates.isEmpty()) {
+                        Log.d(TAG, "Starting interaction check for " + newTemplates.size() + " templates with user: " + user.getUid());
+                        
+                        // Log initial states
+                        for (Template template : newTemplates) {
+                            Log.d(TAG, String.format("Initial state - Template: %s, Liked: %b, Favorited: %b", 
+                                template.getId(), template.isLiked(), template.isFavorited()));
+                        }
+                        
+                        checkInteractionStates(newTemplates, user.getUid())
+                            .addOnSuccessListener(updatedTemplates -> {
+                                Log.d(TAG, "Successfully checked interaction states");
+                                
+                                // Log updated states
+                                for (Template template : updatedTemplates) {
+                                    Log.d(TAG, String.format("Updated state - Template: %s, Liked: %b, Favorited: %b", 
+                                        template.getId(), template.isLiked(), template.isFavorited()));
+                                }
+                                
+                                // Update like/favorite status in the already posted list
+                                templates.postValue(finalCurrentList);
+                                Log.d(TAG, "Posted updated templates to LiveData");
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Failed to check interaction states", e);
+                            });
+                    } else {
+                        Log.d(TAG, "Skipping interaction check - User: " + (user != null ? user.getUid() : "null") + 
+                              ", Templates: " + (newTemplates != null ? newTemplates.size() : "null"));
+                    }
                     
                     // Handle categories with persistence
                     Map<String, Integer> categoryMap = templateResponse.getCategories();
@@ -1010,5 +1064,89 @@ public class TemplateRepository {
                 .delete()
                 .addOnFailureListener(e -> error.postValue("Failed to update favorite state"));
         }
+    }
+
+    private Task<List<Template>> checkInteractionStates(List<Template> templates, String userId) {
+        List<Task<Void>> tasks = new ArrayList<>();
+        
+        for (Template template : templates) {
+            String templateId = template.getId();
+            if (templateId == null) {
+                Log.e(TAG, "Template ID is null, skipping interaction check");
+                continue;
+            }
+
+            // Check like status
+            DocumentReference likeRef = db.collection("users")
+                .document(userId)
+                .collection("likes")
+                .document(templateId);
+
+            Task<Void> likeTask = likeRef.get()
+                .continueWith(task -> {
+                    if (task.isSuccessful() && task.getResult() != null) {
+                        boolean isLiked = task.getResult().exists();
+                        template.setLiked(isLiked);
+                        Log.d(TAG, "Template " + templateId + " like status: " + isLiked);
+                    } else {
+                        Log.e(TAG, "Failed to get like status for template " + templateId, task.getException());
+                    }
+                    return null;
+                });
+            tasks.add(likeTask);
+            
+            // Check favorite status
+            DocumentReference favoriteRef = db.collection("users")
+                .document(userId)
+                .collection("favorites")
+                .document(templateId);
+
+            Task<Void> favoriteTask = favoriteRef.get()
+                .continueWith(task -> {
+                    if (task.isSuccessful() && task.getResult() != null) {
+                        boolean isFavorited = task.getResult().exists();
+                        template.setFavorited(isFavorited);
+                        Log.d(TAG, "Template " + templateId + " favorite status: " + isFavorited);
+                    } else {
+                        Log.e(TAG, "Failed to get favorite status for template " + templateId, task.getException());
+                    }
+                    return null;
+                });
+            tasks.add(favoriteTask);
+
+            // Also check the template document for counts
+            DocumentReference templateRef = db.collection("templates").document(templateId);
+            Task<Void> templateTask = templateRef.get()
+                .continueWith(task -> {
+                    if (task.isSuccessful() && task.getResult() != null) {
+                        DocumentSnapshot doc = task.getResult();
+                        Long likeCount = doc.getLong("likeCount");
+                        Long favoriteCount = doc.getLong("favoriteCount");
+                        
+                        if (likeCount != null) {
+                            template.setLikeCount(likeCount.intValue());
+                            Log.d(TAG, "Template " + templateId + " like count: " + likeCount);
+                        }
+                        if (favoriteCount != null) {
+                            template.setFavoriteCount(favoriteCount.intValue());
+                            Log.d(TAG, "Template " + templateId + " favorite count: " + favoriteCount);
+                        }
+                    } else {
+                        Log.e(TAG, "Failed to get counts for template " + templateId, task.getException());
+                    }
+                    return null;
+                });
+            tasks.add(templateTask);
+        }
+        
+        return Tasks.whenAll(tasks)
+            .continueWith(task -> {
+                if (task.isSuccessful()) {
+                    Log.d(TAG, "Successfully checked all interaction states");
+                } else {
+                    Log.e(TAG, "Failed to check some interaction states", task.getException());
+                }
+                return templates;
+            });
     }
 }

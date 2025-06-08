@@ -10,6 +10,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
@@ -66,64 +67,39 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.Templa
         private final ImageView thumbnailImage;
         private final TextView titleText;
         private final TextView categoryText;
+        private final CardView cardView;
 
         public TemplateViewHolder(@NonNull View itemView) {
             super(itemView);
             thumbnailImage = itemView.findViewById(R.id.template_image);
             titleText = itemView.findViewById(R.id.titleText);
             categoryText = itemView.findViewById(R.id.categoryText);
-
-            thumbnailImage.setPadding(2,2,2, 2);
+            cardView = itemView.findViewById(R.id.cardView);
         }
 
         public void bind(FestivalTemplate template, OnTemplateClickListener listener) {
             titleText.setText(template.getTitle());
             categoryText.setText(template.getCategory());
 
-            // Get the image URL
-            String imageUrl = template.getImageUrl();
-
             // Load image with Glide
+            String imageUrl = template.getImageUrl();
             if (imageUrl != null && !imageUrl.isEmpty()) {
-                Log.d(TAG, "Attempting to load image from URL: " + imageUrl);
-
-                // Create request options with cache invalidation
-                RequestOptions requestOptions = new RequestOptions()
-                        .placeholder(R.drawable.ic_launcher_background)
-                        .error(R.drawable.error_image)
-                        .diskCacheStrategy(DiskCacheStrategy.NONE)  // Don't cache on disk
-                        .skipMemoryCache(true);  // Don't cache in memory
-
+                Log.d(TAG, "Loading image for template: " + template.getTitle() + ", URL: " + imageUrl);
                 Glide.with(itemView.getContext())
                         .load(imageUrl)
-                        .apply(requestOptions)
-                        .listener(new RequestListener<Drawable>() {
-                            @Override
-                            public boolean onLoadFailed(@Nullable GlideException e, Object model,
-                                                        Target<Drawable> target, boolean isFirstResource) {
-                                Log.e(TAG, "Image load failed for URL: " + imageUrl +
-                                        ", Template: " + template.getTitle(), e);
-                                return false; // let Glide handle the error image
-                            }
-
-                            @Override
-                            public boolean onResourceReady(Drawable resource, Object model,
-                                                           Target<Drawable> target, DataSource dataSource,
-                                                           boolean isFirstResource) {
-                                Log.d(TAG, "Image loaded successfully for: " + template.getTitle());
-                                return false; // let Glide handle setting the resource
-                            }
-                        })
-                        .centerCrop()
+                        .apply(new RequestOptions()
+                                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                .error(R.drawable.error_image))
                         .into(thumbnailImage);
             } else {
                 Log.w(TAG, "No image URL available for template: " + template.getTitle());
                 thumbnailImage.setImageResource(R.drawable.error_image);
             }
 
-            // Set click listener
-            itemView.setOnClickListener(v -> {
+            // Set click listener on the CardView
+            cardView.setOnClickListener(v -> {
                 if (listener != null) {
+                    Log.d(TAG, "Template clicked: " + template.getId());
                     listener.onTemplateClick(template);
                 }
             });

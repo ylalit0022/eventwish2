@@ -419,16 +419,7 @@ public class FestivalNotificationFragment extends Fragment {
                 templatesRecyclerView.setVisibility(View.VISIBLE);
                 templatesRecyclerView.setLayoutManager(new LinearLayoutManager(
                         requireContext(), LinearLayoutManager.HORIZONTAL, false));
-
-                // Create click listener
-                TemplateAdapter.OnTemplateClickListener clickListener = template -> {
-                    Log.d(TAG, "Template clicked: " + template.getId());
-                    navigateToTemplateDetail(template);
-                };
-
-                // Create adapter with templates and click listener
-                TemplateAdapter adapter = new TemplateAdapter(festival.getTemplates(), clickListener);
-                templatesRecyclerView.setAdapter(adapter);
+                setupTemplateClickListener(templatesRecyclerView, festival.getTemplates());
             } else {
                 templatesRecyclerView.setVisibility(View.GONE);
             }
@@ -526,10 +517,32 @@ public class FestivalNotificationFragment extends Fragment {
     }
 
     private void navigateToTemplateDetail(FestivalTemplate template) {
+        if (navController == null) {
+            navController = Navigation.findNavController(requireView());
+        }
+        
         // Navigate to template detail fragment
         Bundle args = new Bundle();
         args.putString("templateId", template.getId());
+        args.putString("templateName", template.getTitle());
+        args.putString("templateContent", template.getContent());
+        args.putString("templateImage", template.getImageUrl());
+        args.putString("templateCategory", template.getCategory());
+        
+        Log.d(TAG, "Navigating to template detail with ID: " + template.getId());
         navController.navigate(R.id.action_festival_notification_to_template_detail, args);
+    }
+
+    private void setupTemplateClickListener(RecyclerView templatesRecyclerView, List<FestivalTemplate> templates) {
+        // Create click listener
+        TemplateAdapter.OnTemplateClickListener clickListener = template -> {
+            Log.d(TAG, "Template clicked: " + template.getId());
+            navigateToTemplateDetail(template);
+        };
+
+        // Create adapter with templates and click listener
+        TemplateAdapter adapter = new TemplateAdapter(templates, clickListener);
+        templatesRecyclerView.setAdapter(adapter);
     }
 
     @Override

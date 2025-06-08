@@ -317,8 +317,14 @@ public class Template {
     public void setVisible(boolean visible) { this.isVisible = visible; }
     public void setViewCount(int viewCount) { this.viewCount = viewCount; }
     public void setShareCount(int shareCount) { this.shareCount = shareCount; }
-    public void setLikeCount(int likeCount) { this.likeCount = likeCount; }
-    public void setFavoriteCount(int favoriteCount) { this.favoriteCount = favoriteCount; }
+    public void setLikeCount(int likeCount) {
+        Log.d("Template", String.format("Setting like count for template %s: %d -> %d", getId(), this.likeCount, likeCount));
+        this.likeCount = likeCount;
+    }
+    public void setFavoriteCount(int favoriteCount) {
+        Log.d("Template", String.format("Setting favorite count for template %s: %d -> %d", getId(), this.favoriteCount, favoriteCount));
+        this.favoriteCount = favoriteCount;
+    }
 
     public boolean isLikeChanged() {
         return likeChanged;
@@ -337,20 +343,18 @@ public class Template {
     }
     
     public void setLiked(boolean liked) {
+        Log.d("Template", String.format("Setting liked state for template %s: %b -> %b", getId(), this.isLiked, liked));
         if (this.isLiked != liked) {
             this.isLiked = liked;
             this.likeChanged = true;
-            // Reset favorite changed flag to prevent interference
-            this.favoriteChanged = false;
         }
     }
     
     public void setFavorited(boolean favorited) {
+        Log.d("Template", String.format("Setting favorited state for template %s: %b -> %b", getId(), this.isFavorited, favorited));
         if (this.isFavorited != favorited) {
             this.isFavorited = favorited;
             this.favoriteChanged = true;
-            // Reset like changed flag to prevent interference
-            this.likeChanged = false;
         }
     }
 
