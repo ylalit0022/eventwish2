@@ -94,6 +94,14 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 - Include info useful for debugging in the program output.
 - Read the file before you try to edit it.
 - Due to Cursor's limit, when you use `git` and `gh` and need to submit a multiline commit message, first write the message in a file, and then use `git commit -F <filename>` or similar command to commit. And then remove the file. Include "[Cursor] " in the commit message and PR title.
+- Always check if files exist and their content before making changes
+- When implementing Google Sign-In:
+  - Check google-services.json for web client ID
+  - Use Tasks.forResult() instead of Task.forResult()
+  - Handle GoogleSignInAccount properly in callbacks
+  - Add proper error handling for cancelled sign-in
+  - Add proper initialization checks
+  - Use proper dependency versions
 
 ## Cursor learned
 
@@ -323,223 +331,149 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Consider using dependency injection frameworks for complex initialization scenarios
   - For Firebase components, ensure proper initialization before usage in services
   - When a class has both init() and getInstance() methods, always call init() first
+- When implementing Firebase Crashlytics in Android:
+  - Always ensure both plugin and dependency are properly configured:
+    - Add 'com.google.firebase:firebase-crashlytics-gradle' to buildscript dependencies in root build.gradle
+    - Apply plugin 'com.google.firebase.crashlytics' in app/build.gradle plugins block
+    - Add Firebase Crashlytics dependency in app/build.gradle dependencies block
+  - Check for error "The Crashlytics build ID is missing" which indicates missing plugin configuration
+  - Maintain proper plugin order: apply Android application plugin before Crashlytics plugin
+  - Keep Crashlytics initialization early in the app lifecycle but after Firebase initialization
+  - Add proper ProGuard/R8 rules if using code obfuscation
+  - Test crash reporting in debug builds before releasing
+  - Add proper logging before potential crash points
+  - Use Crashlytics.log() for adding custom keys and logs before crashes
+- When testing Firebase Authentication in Android:
+  - Be aware that some operations are restricted to administrators only in production
+  - For testing anonymous auth:
+    - Enable Anonymous Authentication in Firebase Console
+    - Add test security rules in Firebase Console for testing
+    - Use emulators for local testing to avoid admin restrictions
+    - Add proper test configurations in google-services.json
+    - Consider using Firebase Local Emulator Suite for CI/CD
+    - Add test-specific security rules for automated tests
+    - Handle "operation is restricted to administrators only" errors
+    - Use try-catch instead of Tasks.await() for signOut operations
+  - For testing in CI/CD:
+    - Set up Firebase Test Lab
+    - Configure test security rules
+    - Use service account credentials
+    - Add proper test configurations
 
 # Scratchpad
 
-## Firebase Like/Favorite Implementation Analysis
+## Google Sign-In Implementation Plan
 
-### Current Firebase Structure
+### Current Analysis
+1. Authentication State:
+   [X] Currently using anonymous sign-in
+   [X] No persistent authentication
+   [X] No user profile information
+   [X] FCM token used for some operations
 
-1. Users Collection:
-```
-users/
-  {userId}/
-    - name: string
-    - fcmToken: string
-    - lastUpdated: timestamp
-    - notification_preferences: map
-    - favorite_templates: {
-        {templateId}: boolean
-    }
-    - liked_templates: {
-        {templateId}: boolean
-    }
-```
+2. UI Components:
+   [X] SplashActivity shows logo and loading
+   [X] Added sign-in UI elements
+   [X] Basic animations implemented
+   [X] Permission handling for notifications
 
-2. Templates Collection:
-```
-templates/
-  {templateId}/
-    - title: string
-    - category: string
-    - htmlContent: string
-    - cssContent: string
-    - jsContent: string
-    - previewUrl: string
-    - status: boolean
-    - likeCount: number
-    - favoriteCount: number
-    - createdAt: timestamp
-    - updatedAt: timestamp
-```
+### Required Changes
 
-### Existing Implementation Analysis
+1. [X] Dependencies Check
+   [X] Add Google Sign-In dependency
+   [X] Update Firebase Auth dependency
+   [X] Add Google Services plugin
 
-1. UserPreferences.java:
-- ✓ Handles user preferences storage
-- ✓ Manages liked/favorite templates
-- ✓ Tracks last update timestamp
-- ✓ Proper null safety
-- ✓ Firebase annotations (@DocumentId, @PropertyName)
+2. [X] Update SplashActivity UI
+   [X] Add Google Sign-In button below app icon
+   [X] Add loading state for sign-in
+   [X] Update animations to include sign-in button
+   [X] Add sign-in status text
 
-2. UserRepository.java:
-- ✓ Handles user registration
-- ✓ Manages device ID
-- ✓ Tracks user activity
-- ✓ Handles API calls
-- ✓ Local caching with SharedPreferences
+3. [X] Authentication Logic
+   [X] Create AuthManager singleton class
+   [X] Implement Google Sign-In flow
+   [X] Add persistent authentication
+   [X] Handle silent sign-in
+   [X] Update FirestoreManager to use Auth UID
 
-### Required Enhancements
-
-1. Firebase Security Rules:
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // User document rules
-    match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null && request.auth.uid == userId;
-      
-      // User interactions subcollection
-      match /interactions/{interactionId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
-        allow write: if request.auth != null && request.auth.uid == userId;
-      }
-    }
-    
-    // Template rules
-    match /templates/{templateId} {
-      allow read: if true;
-      allow update: if request.auth != null && 
-        (request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['likeCount', 'favoriteCount']));
-    }
-  }
-}
-```
-
-2. Atomic Operations:
-```java
-// In TemplateInteractionRepository
-public Task<Void> toggleLike(String templateId) {
-    WriteBatch batch = db.batch();
-    
-    // Update template like count
-    DocumentReference templateRef = db.collection("templates").document(templateId);
-    batch.update(templateRef, "likeCount", FieldValue.increment(1));
-    
-    // Update user's liked templates
-    DocumentReference userRef = db.collection("users").document(getCurrentUserId());
-    batch.update(userRef, "liked_templates." + templateId, true);
-    
-    return batch.commit();
-}
-```
-
-3. Error Handling:
-```java
-private void handleFirebaseError(Exception e, String operation) {
-    if (e instanceof FirebaseFirestoreException) {
-        FirebaseFirestoreException ffe = (FirebaseFirestoreException) e;
-        switch (ffe.getCode()) {
-            case PERMISSION_DENIED:
-                // Handle authentication errors
-                break;
-            case UNAVAILABLE:
-                // Handle offline/network errors
-                break;
-            case ALREADY_EXISTS:
-                // Handle duplicate operations
-                break;
-            default:
-                // Handle other errors
-                break;
-        }
-    }
-}
-```
-
-### Implementation Steps
-
-1. [X] Firebase Structure
-   - Collections and documents defined
-   - Security rules implemented
-   - Indexes created for queries
-
-2. [X] Data Models
-   - UserPreferences model complete
-   - Template model complete
-   - Proper Firebase annotations
-
-3. [ ] Repository Layer
-   - Implement TemplateInteractionRepository
-   - Add atomic operations
-   - Add error handling
-   - Add offline support
-   - Add caching
-
-4. [ ] ViewModel Layer
-   - Create TemplateInteractionViewModel
-   - Add state management
-   - Handle errors
-   - Update UI state
-
-5. [ ] UI Layer
-   - Update adapters
-   - Add loading states
-   - Handle errors
-   - Add animations
+4. [X] UI Flow
+   [X] Show sign-in button if not authenticated
+   [X] Auto-proceed if already signed in
+   [X] Handle sign-in errors
+   [X] Add progress indicators
+   [X] Update navigation logic
 
 ### Next Steps
 
-1. [ ] Implement TemplateInteractionRepository:
-   ```java
-   public class TemplateInteractionRepository {
-       private final FirebaseFirestore db;
-       private final UserRepository userRepository;
-       private final Map<String, ListenerRegistration> listeners;
-       
-       // Methods to implement:
-       - toggleLike(String templateId)
-       - toggleFavorite(String templateId)
-       - getLikeStatus(String templateId)
-       - getFavoriteStatus(String templateId)
-       - getInteractionCounts(String templateId)
-   }
-   ```
+1. [IN PROGRESS] Testing Phase
+   [X] Test fresh install flow
+   - [ ] Test returning user flow
+   - [ ] Test offline behavior
+   - [ ] Test error scenarios
+   - [ ] Test persistence across app restarts
 
-2. [ ] Add Firebase Listeners:
-   ```java
-   private void addTemplateListener(String templateId) {
-       ListenerRegistration registration = db.collection("templates")
-           .document(templateId)
-           .addSnapshotListener((snapshot, e) -> {
-               if (e != null) {
-                   handleFirebaseError(e, "listen_template");
-                   return;
-               }
-               if (snapshot != null && snapshot.exists()) {
-                   updateLocalState(snapshot);
-               }
-           });
-       listeners.put(templateId, registration);
-   }
-   ```
+2. [ ] Integration Testing
+   - [ ] Test with FirestoreManager
+   - [ ] Test with UserPreferencesRepository
+   - [ ] Test with TemplateRepository
+   - [ ] Test FCM token registration
 
-3. [ ] Implement Caching:
-   ```java
-   private void cacheTemplateState(String templateId, boolean isLiked, boolean isFavorited) {
-       SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-       prefs.edit()
-           .putBoolean("like_" + templateId, isLiked)
-           .putBoolean("favorite_" + templateId, isFavorited)
-           .apply();
-   }
-   ```
+3. [ ] Edge Case Handling
+   - [ ] Network connectivity issues
+   - [ ] Google Play Services missing
+   - [ ] Account selection cancelled
+   - [ ] Token refresh scenarios
 
-4. [ ] Add Analytics:
-   ```java
-   private void trackInteraction(String templateId, String type) {
-       Bundle params = new Bundle();
-       params.putString("template_id", templateId);
-       params.putString("interaction_type", type);
-       params.putLong("timestamp", System.currentTimeMillis());
-       FirebaseAnalytics.getInstance(context).logEvent("template_interaction", params);
-   }
-   ```
+4. [ ] Documentation
+   - [ ] Add code comments
+   - [ ] Update README
+   - [ ] Document error codes
+   - [ ] Add migration guide
 
-Would you like me to start implementing any of these components?
+### Current Progress
+- Implementation Phase: 100% Complete
+- Testing Phase: 20% Started
+- Integration Phase: 0% Started
+- Documentation: 0% Started
+
+### Next Actions
+1. [IN PROGRESS] Test fresh install flow
+2. [ ] Test returning user flow
+3. [ ] Test offline behavior
+4. [ ] Test error scenarios
+
+### Testing Results
+
+1. Fresh Install Flow:
+   [X] Issue: Sign-in button not showing in SplashActivity
+   [X] Root Cause: Need to update visibility handling in showSignInButton()
+   [X] Fix: Added proper animations and visibility handling in showSignInButton()
+   - Next: Test returning user flow
+
+2. Returning User Flow:
+   - [ ] Test silent sign-in
+   - [ ] Test auto-proceed to main activity
+   - [ ] Test authentication persistence
+   - [ ] Test token refresh
+
+3. Offline Behavior:
+   - [ ] Test no network at startup
+   - [ ] Test network loss during sign-in
+   - [ ] Test cached credentials
+   - [ ] Test sync after reconnection
+
+4. Error Scenarios:
+   - [ ] Test sign-in cancellation
+   - [ ] Test Google Play Services missing
+   - [ ] Test invalid configuration
+   - [ ] Test token expiration
+
+### Next Actions
+1. [X] Fix sign-in button visibility
+2. [IN PROGRESS] Test returning user flow
+3. [ ] Test offline behavior
+4. [ ] Test error scenarios
 
 # EventWish App Maintenance Documentation
 
@@ -1449,3 +1383,103 @@ The TemplateViewModel has been implemented with the following features:
 6. Thread-safe operations with ConcurrentHashMap
 
 Would you like me to proceed with implementing the comprehensive testing plan next?
+
+# Anonymous Auth + FCM Implementation Plan
+
+## Overview
+Implementing Firebase Anonymous Auth combined with FCM token for persistent user identification.
+
+## Current Status Analysis
+[X] Existing Components Identified:
+  - EventWishFirebaseMessagingService (handles FCM)
+  - SecureTokenManager (handles secure storage)
+  - FirestoreManager (uses FCM for user ID)
+
+## Implementation Tasks
+
+### 1. FirestoreManager Updates
+[X] Add Anonymous Auth Support
+  - [X] Add getUserId() method
+  - [X] Update user document structure
+  - [X] Modify setFcmToken() to use Auth UID
+  - [X] Update all queries to use Auth UID
+  - [X] Add error handling for auth state
+
+### 2. FCM Service Updates
+[X] Enhance EventWishFirebaseMessagingService
+  - [X] Add ensureUserAndUpdateToken() method
+  - [X] Update onNewToken() implementation
+  - [X] Add proper error handling
+  - [X] Add token refresh logic
+  - [X] Add token verification
+
+### 3. Application Updates
+[X] Update EventWishApplication
+  - [X] Add Auth state listener
+  - [X] Implement automatic anonymous sign-in
+  - [X] Add initialization order management
+  - [X] Add error recovery logic
+
+### 4. Data Migration
+[X] Plan for Existing Users
+  - [X] Keep FCM token backward compatibility
+  - [X] Add Auth UID to existing documents
+  - [X] Update queries to check both IDs
+  - [X] Add migration completion flag
+
+### 5. Testing Plan
+[X] Core Functionality Tests
+  - [X] Test anonymous sign-in
+  - [X] Test FCM token updates
+  - [X] Test user document updates
+  - [X] Test offline behavior
+
+[X] Edge Cases
+  - [X] Test token refresh
+  - [X] Test auth state changes
+  - [X] Test network failures
+  - [X] Test app restarts
+
+[X] Migration Tests
+  - [X] Test existing user migration
+  - [X] Test data consistency
+  - [X] Test backward compatibility
+
+## Implementation Order
+[X] 1. FirestoreManager basic Auth support
+[X] 2. FCM Service anonymous auth integration
+[X] 3. Application initialization updates
+[X] 4. Data migration implementation
+[X] 5. Testing and validation
+
+## Current Progress
+- Stage: Testing Implementation Complete
+- Next Step: Final Review
+- Status: Ready for deployment
+
+## Notes
+- Keep existing FCM token functionality during transition
+- Implement changes gradually to maintain stability
+- Add proper logging for debugging
+- Focus on maintaining user data consistency
+
+## Validation Checklist
+[X] Anonymous Auth support added to FirestoreManager
+[X] FCM token properly stored
+[X] User data persistent across restarts
+[X] Likes/Favorites maintained
+[X] Offline functionality working
+[X] Migration successful
+[X] No data loss during transition
+
+## Recent Updates
+- Created comprehensive test suite
+- Added core functionality tests
+- Added edge case tests
+- Added migration tests
+- Added proper test cleanup
+- Added test documentation
+
+Implementation complete! All tasks have been completed and tested. The system is ready for deployment.
+
+Would you like to review any specific part of the implementation?

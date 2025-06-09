@@ -85,6 +85,15 @@ import android.content.Intent;
 import com.ds.eventwish.utils.NetworkUtils;
 import com.ds.eventwish.ui.connectivity.InternetConnectivityChecker;
 
+import com.ds.eventwish.firebase.FirebaseInAppMessagingHandler;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import com.google.firebase.auth.FirebaseAuth;
+import android.os.Looper;
+
 public class HomeFragment extends BaseFragment implements RecommendedTemplateAdapter.TemplateClickListener {
     private static final String TAG = "HomeFragment";
     
@@ -115,6 +124,13 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
 
     private InternetConnectivityChecker.NetworkStateObserver networkStateObserver;
 
+    private View signInProgressContainer;
+    private View signInProgress;
+    private View signInSuccess;
+    private static final long NOTIFICATION_DELAY = 10000; // 10 seconds
+    private Handler handler;
+    private ActivityResultLauncher<String> permissionLauncher;
+
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentHomeBinding.inflate(inflater, container, false);
@@ -129,6 +145,14 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         
+        // Initialize handler
+        handler = new Handler(Looper.getMainLooper());
+        
+        // Initialize views
+        signInProgressContainer = binding.signInProgressContainer;
+        signInProgress = binding.signInProgress;
+        signInSuccess = binding.signInSuccess;
+        
         // Initialize repositories
         TemplateRepository.getInstance().init(requireContext());
         
@@ -136,8 +160,20 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
 
         Log.d(TAG, "onViewCreated called");
 
+        // Schedule notification after delay
+        handler.postDelayed(() -> {
+            if (isAdded() && getActivity() != null) {
+                showWelcomeNotification();
+            }
+        }, NOTIFICATION_DELAY);
+
         // Check notification permission and show reminder if needed
         checkAndShowNotificationReminder();
+
+        // Initialize Firebase In-App Messaging
+        if (!FirebaseInAppMessagingHandler.getInstance().isInitialized()) {
+            FirebaseInAppMessagingHandler.init(requireContext());
+        }
 
         // Initialize CategoryIconRepository
         if (categoryIconRepository == null) {
@@ -508,6 +544,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         }
         
         binding = null;
+        if (handler != null) {
+            handler.removeCallbacksAndMessages(null);
+        }
     }
 
     private void setupUI() {
@@ -2171,44 +2210,37 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         }
 
         if (!NotificationPermissionManager.hasNotificationPermission(requireContext())) {
-            new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.notification_permission_title)
-                .setMessage(R.string.notification_permission_message)
-                .setCancelable(false)
-                .setPositiveButton(R.string.yes, (dialog, which) -> {
-                    NotificationPermissionManager.requestNotificationPermission(requireActivity());
-                })
-                .setNegativeButton(R.string.no, (dialog, which) -> {
-                    // Show a Snackbar with a link to settings
-                    View rootView = binding.getRoot();
-                    Snackbar snackbar = Snackbar.make(
-                        rootView,
-                        R.string.notification_reminder_message,
-                        Snackbar.LENGTH_LONG
-                    );
-                    
-                    // If there's a bottom navigation, adjust the margin
-                    View bottomNav = requireActivity().findViewById(R.id.bottomNavigation);
-                    if (bottomNav != null && bottomNav.getVisibility() == View.VISIBLE) {
-                        snackbar.setAnchorView(bottomNav);
-                    }
-                    
-                    snackbar.setAction(R.string.open_settings, v -> {
-                        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                        Uri uri = Uri.fromParts("package", requireContext().getPackageName(), null);
-                        intent.setData(uri);
-                        startActivity(intent);
-                    });
-                    
-                    snackbar.show();
-                })
-                .show();
+            // Request permission using the system dialog
+            NotificationPermissionManager.requestNotificationPermission(this, permissionLauncher);
         }
     }
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // Initialize permission launcher
+        permissionLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(),
+            isGranted -> {
+                if (!isGranted) {
+                    // Show custom dialog only if permission is denied
+                    new MaterialAlertDialogBuilder(requireContext())
+                        .setTitle(R.string.notification_permission_title)
+                        .setMessage(R.string.notification_disabled_message)
+                        .setIcon(R.drawable.ic_notifications)
+                        .setCancelable(true)
+                        .setPositiveButton(R.string.open_settings, (dialog, which) -> {
+                            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                            Uri uri = Uri.fromParts("package", requireContext().getPackageName(), null);
+                            intent.setData(uri);
+                            startActivity(intent);
+                        })
+                        .setNegativeButton(R.string.not_now, null)
+                        .show();
+                }
+            }
+        );
 
         // Initialize the CategoryIconRepository
         try {
@@ -2292,5 +2324,59 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 loadTemplates();
             });
         }
+    }
+
+    private void showSignInProgress() {
+        signInProgressContainer.setVisibility(View.VISIBLE);
+        signInProgress.setVisibility(View.VISIBLE);
+        signInSuccess.setVisibility(View.GONE);
+    }
+
+    private void showSignInSuccess() {
+        signInProgress.animate()
+                .alpha(0f)
+                .setDuration(150)
+                .withEndAction(() -> {
+                    signInProgress.setVisibility(View.GONE);
+                    signInSuccess.setAlpha(0f);
+                    signInSuccess.setVisibility(View.VISIBLE);
+                    signInSuccess.animate()
+                            .alpha(1f)
+                            .setDuration(150)
+                            .withEndAction(() -> {
+                                // Hide the container after 2 seconds
+                                handler.postDelayed(() -> {
+                                    if (signInProgressContainer != null) {
+                                        signInProgressContainer.animate()
+                                                .alpha(0f)
+                                                .setDuration(300)
+                                                .withEndAction(() -> {
+                                                    if (signInProgressContainer != null) {
+                                                        signInProgressContainer.setVisibility(View.GONE);
+                                                    }
+                                                })
+                                                .start();
+                                    }
+                                }, 2000);
+                            })
+                            .start();
+                })
+                .start();
+    }
+
+    private void showWelcomeNotification() {
+        if (!NotificationPermissionManager.hasNotificationPermission(requireContext())) {
+            return;
+        }
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(requireContext(), "default")
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(getString(R.string.welcome_notification_title))
+                .setContentText(getString(R.string.welcome_notification_message))
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true);
+
+        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(requireContext());
+        notificationManager.notify(1001, builder.build());
     }
 }

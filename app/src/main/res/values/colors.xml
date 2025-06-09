@@ -122,7 +122,7 @@
     <color name="colorErrorDark">@color/error_dark</color>
     <color name="colorWarning">@color/warning</color>
     <color name="colorInfo">@color/info</color>
-    <color name="colorSuccess">@color/success</color>
+    <color name="colorSuccess">#4CAF50</color>
     <color name="color_success_light">@color/success_light</color>
     <color name="colorGray">@color/gray</color>
     <color name="colorBackground">@color/white</color>

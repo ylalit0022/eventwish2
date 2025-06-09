@@ -348,39 +348,43 @@ public class UserPreferencesRepository {
     }
 
     /**
-     * Add an operation to the write batch
+     * Add operation to batch
      */
     private void addOperationToBatch(WriteBatch batch, String operationId) {
         String[] parts = operationId.split(":");
-        if (parts.length != 2) {
-            return;
-        }
-
         String operation = parts[0];
         String templateId = parts[1];
 
-        switch (operation) {
-            case "favorite_add":
-                batch.set(firestoreManager.getFavoriteRef(templateId), 
-                    new HashMap<String, Object>() {{
-                        put("templateId", templateId);
-                        put("timestamp", FieldValue.serverTimestamp());
-                    }});
-                break;
-            case "favorite_remove":
-                batch.delete(firestoreManager.getFavoriteRef(templateId));
-                break;
-            case "like_add":
-                batch.set(firestoreManager.getLikeRef(templateId),
-                    new HashMap<String, Object>() {{
-                        put("templateId", templateId);
-                        put("timestamp", FieldValue.serverTimestamp());
-                    }});
-                break;
-            case "like_remove":
-                batch.delete(firestoreManager.getLikeRef(templateId));
-                break;
-        }
+        Tasks.whenAll(
+            firestoreManager.getFavoriteRef(templateId),
+            firestoreManager.getLikeRef(templateId)
+        ).addOnSuccessListener(voids -> {
+            switch (operation) {
+                case "favorite_add":
+                    batch.set(firestoreManager.getFavoriteRef(templateId).getResult(), 
+                        new HashMap<String, Object>() {{
+                            put("templateId", templateId);
+                            put("timestamp", FieldValue.serverTimestamp());
+                        }});
+                    break;
+                case "favorite_remove":
+                    batch.delete(firestoreManager.getFavoriteRef(templateId).getResult());
+                    break;
+                case "like_add":
+                    batch.set(firestoreManager.getLikeRef(templateId).getResult(),
+                        new HashMap<String, Object>() {{
+                            put("templateId", templateId);
+                            put("timestamp", FieldValue.serverTimestamp());
+                        }});
+                    break;
+                case "like_remove":
+                    batch.delete(firestoreManager.getLikeRef(templateId).getResult());
+                    break;
+            }
+        }).addOnFailureListener(e -> {
+            Log.e(TAG, "Error getting document references for batch operation", e);
+            error.setValue("Failed to get document references: " + e.getMessage());
+        });
     }
 
     /**
@@ -624,33 +628,38 @@ public class UserPreferencesRepository {
         data.put("templateId", templateId);
         data.put("timestamp", firestoreManager.getServerTimestamp());
 
-        DocumentReference ref = null;
+        Task<DocumentReference> refTask;
         if (isFavorite) {
-            ref = firestoreManager.getFavoriteRef(templateId);
+            refTask = firestoreManager.getFavoriteRef(templateId);
         } else if (isLike) {
-            ref = firestoreManager.getLikeRef(templateId);
+            refTask = firestoreManager.getLikeRef(templateId);
+        } else {
+            return Tasks.forException(new IllegalArgumentException("Must specify either favorite or like"));
         }
 
-        if (ref != null) {
+        return refTask.continueWithTask(task -> {
+            if (!task.isSuccessful() || task.getResult() == null) {
+                return Tasks.forException(new IllegalStateException("Failed to get document reference"));
+            }
+
+            DocumentReference ref = task.getResult();
             if (value) {
                 batch.set(ref, data);
             } else {
                 batch.delete(ref);
             }
-        }
 
-        return batch.commit()
-                .addOnSuccessListener(aVoid -> {
-                    // Track interaction
-                    Bundle params = new Bundle();
-                    params.putString("template_id", templateId);
-                    params.putString("interaction_type", isFavorite ? "favorite" : "like");
-                    params.putBoolean("value", value);
-                    AnalyticsUtils.getInstance().logEvent("template_interaction", params);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error updating template interaction", e);
-                    error.setValue("Failed to update template interaction: " + e.getMessage());
-                });
+            return batch.commit();
+        }).addOnSuccessListener(aVoid -> {
+            // Track interaction
+            Bundle params = new Bundle();
+            params.putString("template_id", templateId);
+            params.putString("interaction_type", isFavorite ? "favorite" : "like");
+            params.putBoolean("value", value);
+            AnalyticsUtils.getInstance().logEvent("template_interaction", params);
+        }).addOnFailureListener(e -> {
+            Log.e(TAG, "Error updating template interaction", e);
+            error.setValue("Failed to update template interaction: " + e.getMessage());
+        });
     }
 } 

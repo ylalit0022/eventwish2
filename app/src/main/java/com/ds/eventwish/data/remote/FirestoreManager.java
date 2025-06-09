@@ -84,73 +84,121 @@ public class FirestoreManager {
     }
 
     /**
+     * Configure emulator usage for testing
+     */
+    public void useEmulator(String host, int port) {
+        db.useEmulator(host, port);
+        Log.d(TAG, String.format("Configured Firestore emulator at %s:%d", host, port));
+    }
+
+    /**
+     * Get current user ID from Firebase Auth
+     */
+    private Task<String> getUserId() {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user != null) {
+            return Tasks.forResult(user.getUid());
+        }
+        
+        // No user, try to find existing user document by FCM token
+        if (fcmToken != null && !fcmToken.isEmpty()) {
+            return db.collection(COLLECTION_USERS)
+                .whereEqualTo("fcmToken", fcmToken)
+                .get()
+                .continueWith(task -> {
+                    if (task.isSuccessful() && !task.getResult().isEmpty()) {
+                        // Found existing user document
+                        return task.getResult().getDocuments().get(0).getId();
+                    }
+                    // Create new user document with random ID
+                    DocumentReference newUserRef = db.collection(COLLECTION_USERS).document();
+                    Map<String, Object> userData = new HashMap<>();
+                    userData.put("fcmToken", fcmToken);
+                    userData.put("createdAt", FieldValue.serverTimestamp());
+                    userData.put("lastUpdated", FieldValue.serverTimestamp());
+                    
+                    // Use set() with merge to handle race conditions
+                    newUserRef.set(userData, SetOptions.merge());
+                    return newUserRef.getId();
+                });
+        }
+        
+        Log.e(TAG, "No user ID available (neither auth nor FCM token)");
+        return Tasks.forException(new IllegalStateException("No user ID available"));
+    }
+
+    /**
      * Set FCM token for user identification
      */
-    public void setFcmToken(String token) {
+    public Task<Void> setFcmToken(String token) {
         Log.d(TAG, "Setting FCM token: " + token);
         this.fcmToken = token;
         
-        // Create or update user document
-        if (token != null) {
-            DocumentReference userRef = db.collection(COLLECTION_USERS).document(token);
+        return getUserId().continueWithTask(task -> {
+            if (!task.isSuccessful() || task.getResult() == null) {
+                return Tasks.forException(new IllegalStateException("No user ID available"));
+            }
+            
+            String userId = task.getResult();
+            if (token == null) {
+                Log.e(TAG, "Attempted to set null FCM token");
+                return Tasks.forException(new IllegalArgumentException("FCM token cannot be null"));
+            }
+            
+            // Update user document
+            DocumentReference userRef = db.collection(COLLECTION_USERS).document(userId);
             Map<String, Object> userData = new HashMap<>();
             userData.put("fcmToken", token);
             userData.put("lastUpdated", FieldValue.serverTimestamp());
             
-            userRef.set(userData)
-                .addOnSuccessListener(aVoid -> Log.d(TAG, "User document created/updated successfully"))
-                .addOnFailureListener(e -> Log.e(TAG, "Error creating/updating user document", e));
-        } else {
-            Log.e(TAG, "Attempted to set null FCM token");
-        }
+            return userRef.set(userData, SetOptions.merge())
+                .addOnSuccessListener(aVoid -> Log.d(TAG, "User document updated successfully"))
+                .addOnFailureListener(e -> Log.e(TAG, "Error updating user document", e));
+        });
     }
 
     /**
-     * Check if FCM token is set
+     * Get user document reference
      */
-    private Task<Void> ensureTokenSet() {
-        if (fcmToken == null || fcmToken.isEmpty()) {
-            Log.e(TAG, "FCM token not set. Please set token before performing operations.");
-            return Tasks.forException(new IllegalStateException("FCM token not set"));
-        }
-        return Tasks.forResult(null);
+    private Task<DocumentReference> getUserRef() {
+        return getUserId().continueWith(task -> {
+            if (!task.isSuccessful() || task.getResult() == null) {
+                throw new IllegalStateException("No user ID available");
+            }
+            return db.collection(COLLECTION_USERS).document(task.getResult());
+        });
     }
 
     /**
      * Get user preferences document reference
      */
-    private DocumentReference getUserPreferencesRef() {
-        if (fcmToken == null) {
-            throw new IllegalStateException("FCM token not set");
-        }
-        return db.collection(COLLECTION_USERS)
-                .document(fcmToken)
-                .collection(COLLECTION_PREFERENCES)
-                .document("settings");
+    private Task<DocumentReference> getUserPreferencesRef() {
+        return getUserRef().continueWith(task -> 
+            task.getResult().collection(COLLECTION_PREFERENCES).document("settings")
+        );
     }
 
     /**
      * Get user preferences
      */
     public Task<DocumentSnapshot> getUserPreferences() {
-        return ensureTokenSet()
-            .continueWithTask(task -> {
-                if (!task.isSuccessful()) {
-                    return Tasks.forException(task.getException());
-                }
-                return getUserPreferencesRef().get();
-            });
+        return getUserPreferencesRef().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                return Tasks.forException(task.getException());
+            }
+            return task.getResult().get();
+        });
     }
 
     /**
      * Update user preferences
      */
     public Task<Void> updateUserPreferences(Map<String, Object> data) {
-        return ensureTokenSet().continueWithTask(task -> {
+        return getUserPreferencesRef().continueWithTask(task -> {
             if (!task.isSuccessful()) {
                 return Tasks.forException(task.getException());
             }
-            return getUserPreferencesRef().set(data, SetOptions.merge());
+            return task.getResult().set(data, SetOptions.merge());
         });
     }
 
@@ -158,169 +206,187 @@ public class FirestoreManager {
      * Add template to favorites
      */
     public Task<Void> addToFavorites(String templateId) {
-        return ensureTokenSet()
-            .continueWithTask(task -> {
-                if (!task.isSuccessful()) {
-                    return Tasks.forException(task.getException());
-                }
-                
-                DocumentReference favoriteRef = db.collection(COLLECTION_USERS)
-                        .document(fcmToken)
-                        .collection(COLLECTION_FAVORITES)
-                        .document(templateId);
+        return getUserId().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                return Tasks.forException(task.getException());
+            }
+            
+            String userId = task.getResult();
+            DocumentReference favoriteRef = db.collection(COLLECTION_USERS)
+                    .document(userId)
+                    .collection(COLLECTION_FAVORITES)
+                    .document(templateId);
 
-                Map<String, Object> data = new HashMap<>();
-                data.put("templateId", templateId);
-                data.put("timestamp", com.google.firebase.Timestamp.now());
+            Map<String, Object> data = new HashMap<>();
+            data.put("templateId", templateId);
+            data.put("timestamp", com.google.firebase.Timestamp.now());
 
-                return favoriteRef.set(data);
-            });
+            return favoriteRef.set(data);
+        });
     }
 
     /**
      * Remove template from favorites
      */
     public Task<Void> removeFromFavorites(String templateId) {
-        return ensureTokenSet()
-            .continueWithTask(task -> {
-                if (!task.isSuccessful()) {
-                    return Tasks.forException(task.getException());
-                }
-                
-                return db.collection(COLLECTION_USERS)
-                        .document(fcmToken)
-                        .collection(COLLECTION_FAVORITES)
-                        .document(templateId)
-                        .delete();
-            });
+        return getUserId().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                return Tasks.forException(task.getException());
+            }
+            
+            String userId = task.getResult();
+            return db.collection(COLLECTION_USERS)
+                    .document(userId)
+                    .collection(COLLECTION_FAVORITES)
+                    .document(templateId)
+                    .delete();
+        });
     }
 
     /**
      * Add template to likes
      */
     public Task<Void> addToLikes(String templateId) {
-        return ensureTokenSet()
-            .continueWithTask(task -> {
-                if (!task.isSuccessful()) {
-                    return Tasks.forException(task.getException());
-                }
-                
-                DocumentReference likeRef = db.collection(COLLECTION_USERS)
-                        .document(fcmToken)
-                        .collection(COLLECTION_LIKES)
-                        .document(templateId);
+        return getUserId().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                return Tasks.forException(task.getException());
+            }
+            
+            String userId = task.getResult();
+            DocumentReference likeRef = db.collection(COLLECTION_USERS)
+                    .document(userId)
+                    .collection(COLLECTION_LIKES)
+                    .document(templateId);
 
-                Map<String, Object> data = new HashMap<>();
-                data.put("templateId", templateId);
-                data.put("timestamp", com.google.firebase.Timestamp.now());
+            Map<String, Object> data = new HashMap<>();
+            data.put("templateId", templateId);
+            data.put("timestamp", com.google.firebase.Timestamp.now());
 
-                return likeRef.set(data);
-            });
+            return likeRef.set(data);
+        });
     }
 
     /**
      * Remove template from likes
      */
     public Task<Void> removeFromLikes(String templateId) {
-        return ensureTokenSet()
-            .continueWithTask(task -> {
-                if (!task.isSuccessful()) {
-                    return Tasks.forException(task.getException());
-                }
-                
-                return db.collection(COLLECTION_USERS)
-                        .document(fcmToken)
-                        .collection(COLLECTION_LIKES)
-                        .document(templateId)
-                        .delete();
-            });
+        return getUserId().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                return Tasks.forException(task.getException());
+            }
+            
+            String userId = task.getResult();
+            return db.collection(COLLECTION_USERS)
+                    .document(userId)
+                    .collection(COLLECTION_LIKES)
+                    .document(templateId)
+                    .delete();
+        });
     }
 
     /**
      * Check if template is favorited
      */
     public Task<Boolean> isTemplateFavorited(@NonNull String templateId) {
-        if (fcmToken == null) {
-            Log.e(TAG, "Cannot check favorite status - FCM token is null");
-            return Tasks.forException(new IllegalStateException("FCM token is null"));
-        }
-        
-        return db.collection(COLLECTION_USERS)
-            .document(fcmToken)
-            .get()
-            .continueWith(task -> {
-                if (!task.isSuccessful()) {
-                    Log.e(TAG, "Error checking favorite status", task.getException());
-                    throw task.getException();
-                }
-                
-                DocumentSnapshot document = task.getResult();
-                if (document == null || !document.exists()) {
-                    Log.d(TAG, "User document does not exist");
-                    return false;
-                }
-                
-                Map<String, Boolean> favoriteTemplates = 
-                    (Map<String, Boolean>) document.get(FIELD_FAVORITE_TEMPLATES);
-                boolean isFavorited = favoriteTemplates != null && 
-                    Boolean.TRUE.equals(favoriteTemplates.get(templateId));
+        return getUserId().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                Log.e(TAG, "Error checking favorite status", task.getException());
+                throw task.getException();
+            }
+            
+            String userId = task.getResult();
+            return db.collection(COLLECTION_USERS)
+                .document(userId)
+                .get()
+                .continueWith(task1 -> {
+                    if (!task1.isSuccessful()) {
+                        Log.e(TAG, "Error checking favorite status", task1.getException());
+                        throw task1.getException();
+                    }
                     
-                Log.d(TAG, String.format("Template %s favorite status: %b", templateId, isFavorited));
-                return isFavorited;
-            });
+                    DocumentSnapshot document = task1.getResult();
+                    if (document == null || !document.exists()) {
+                        Log.d(TAG, "User document does not exist");
+                        return false;
+                    }
+                    
+                    Map<String, Boolean> favoriteTemplates = 
+                        (Map<String, Boolean>) document.get(FIELD_FAVORITE_TEMPLATES);
+                    boolean isFavorited = favoriteTemplates != null && 
+                        Boolean.TRUE.equals(favoriteTemplates.get(templateId));
+                        
+                    Log.d(TAG, String.format("Template %s favorite status: %b", templateId, isFavorited));
+                    return isFavorited;
+                });
+        });
     }
 
     /**
      * Check if template is liked
      */
     public Task<Boolean> isTemplateLiked(@NonNull String templateId) {
-        if (fcmToken == null) {
-            Log.e(TAG, "Cannot check like status - FCM token is null");
-            return Tasks.forException(new IllegalStateException("FCM token is null"));
-        }
-        
-        return db.collection(COLLECTION_USERS)
-            .document(fcmToken)
-            .get()
-            .continueWith(task -> {
-                if (!task.isSuccessful()) {
-                    Log.e(TAG, "Error checking like status", task.getException());
-                    throw task.getException();
-                }
-                
-                DocumentSnapshot document = task.getResult();
-                if (document == null || !document.exists()) {
-                    Log.d(TAG, "User document does not exist");
-                    return false;
-                }
-                
-                Map<String, Boolean> likedTemplates = (Map<String, Boolean>) document.get(FIELD_LIKED_TEMPLATES);
-                boolean isLiked = likedTemplates != null && 
-                    Boolean.TRUE.equals(likedTemplates.get(templateId));
+        return getUserId().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                Log.e(TAG, "Error checking like status", task.getException());
+                throw task.getException();
+            }
+            
+            String userId = task.getResult();
+            return db.collection(COLLECTION_USERS)
+                .document(userId)
+                .get()
+                .continueWith(task1 -> {
+                    if (!task1.isSuccessful()) {
+                        Log.e(TAG, "Error checking like status", task1.getException());
+                        throw task1.getException();
+                    }
                     
-                Log.d(TAG, String.format("Template %s like status: %b", templateId, isLiked));
-                return isLiked;
-            });
+                    DocumentSnapshot document = task1.getResult();
+                    if (document == null || !document.exists()) {
+                        Log.d(TAG, "User document does not exist");
+                        return false;
+                    }
+                    
+                    Map<String, Boolean> likedTemplates = (Map<String, Boolean>) document.get(FIELD_LIKED_TEMPLATES);
+                    boolean isLiked = likedTemplates != null && 
+                        Boolean.TRUE.equals(likedTemplates.get(templateId));
+                        
+                    Log.d(TAG, String.format("Template %s like status: %b", templateId, isLiked));
+                    return isLiked;
+                });
+        });
     }
 
     /**
      * Update notification preferences
      */
     public Task<Void> updateNotificationPreferences(NotificationPreference preferences) {
-        DocumentReference prefsRef = getUserPreferencesRef();
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("notificationPreferences." + preferences.getType(), preferences);
-        return prefsRef.set(updates, SetOptions.merge());
+        return getUserPreferencesRef().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                return Tasks.forException(task.getException());
+            }
+            DocumentReference prefsRef = task.getResult();
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("notificationPreferences." + preferences.getType(), preferences);
+            return prefsRef.set(updates, SetOptions.merge());
+        });
     }
 
     /**
      * Add notification record
      */
     public Task<DocumentReference> addNotification(Map<String, Object> notification) {
-        return db.collection(COLLECTION_USERS)
-                .document(fcmToken)
-                .collection(COLLECTION_NOTIFICATIONS)
-                .add(notification);
+        return getUserId().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                return Tasks.forException(task.getException());
+            }
+            
+            String userId = task.getResult();
+            return db.collection(COLLECTION_USERS)
+                    .document(userId)
+                    .collection(COLLECTION_NOTIFICATIONS)
+                    .add(notification);
+        });
     }
 
     /**
@@ -340,65 +406,88 @@ public class FirestoreManager {
     /**
      * Get favorite document reference
      */
-    public DocumentReference getFavoriteRef(String templateId) {
-        return db.collection(COLLECTION_USERS)
-                .document(fcmToken)
-                .collection(COLLECTION_FAVORITES)
-                .document(templateId);
+    public Task<DocumentReference> getFavoriteRef(String templateId) {
+        return getUserId().continueWith(task -> {
+            if (!task.isSuccessful() || task.getResult() == null) {
+                throw new IllegalStateException("No user ID available");
+            }
+            String userId = task.getResult();
+            return db.collection(COLLECTION_USERS)
+                    .document(userId)
+                    .collection(COLLECTION_FAVORITES)
+                    .document(templateId);
+        });
     }
 
     /**
      * Get like document reference
      */
-    public DocumentReference getLikeRef(String templateId) {
-        return db.collection(COLLECTION_USERS)
-                .document(fcmToken)
-                .collection(COLLECTION_LIKES)
-                .document(templateId);
+    public Task<DocumentReference> getLikeRef(String templateId) {
+        return getUserId().continueWith(task -> {
+            if (!task.isSuccessful() || task.getResult() == null) {
+                throw new IllegalStateException("No user ID available");
+            }
+            String userId = task.getResult();
+            return db.collection(COLLECTION_USERS)
+                    .document(userId)
+                    .collection(COLLECTION_LIKES)
+                    .document(templateId);
+        });
     }
 
     /**
      * Get current user ID
      */
     public String getCurrentUserId() {
-        if (fcmToken == null) {
-            Log.e(TAG, "FCM token is null");
-        }
-        return fcmToken;
+        return getUserId().continueWith(task -> {
+            if (!task.isSuccessful() || task.getResult() == null) {
+                Log.e(TAG, "No authenticated user");
+                return null;
+            }
+            return task.getResult();
+        }).getResult(null);
     }
 
     /**
      * Check if user is signed in
      */
     public boolean isUserSignedIn() {
-        return fcmToken != null && !fcmToken.isEmpty();
+        try {
+            return getUserId().isSuccessful() && getUserId().getResult() != null;
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking user sign in status", e);
+            return false;
+        }
     }
 
     /**
      * Toggle like status for a template with atomic transaction
      */
     public Task<Void> toggleLike(@NonNull String templateId) {
-        Log.d(TAG, String.format("Toggling like for template %s with token %s", templateId, fcmToken));
-        
-        if (fcmToken == null) {
-            Log.e(TAG, "Cannot toggle like - FCM token is null");
-            return Tasks.forException(new IllegalStateException("FCM token is null"));
-        }
-        
-        DocumentReference templateRef = db.collection(COLLECTION_TEMPLATES).document(templateId);
-        DocumentReference likeRef = db.collection(COLLECTION_USERS)
-            .document(fcmToken)
-            .collection(COLLECTION_LIKES)
-            .document(templateId);
-        
-        // First ensure template exists
-        return ensureTemplateExists(templateId).continueWithTask(task -> {
+        return getUserId().continueWithTask(task -> {
             if (!task.isSuccessful()) {
-                Log.e(TAG, "Failed to ensure template exists", task.getException());
-                return Tasks.forException(task.getException());
+                Log.e(TAG, "Cannot toggle like - No authenticated user", task.getException());
+                throw task.getException();
             }
             
-            return performLikeToggle(likeRef);
+            String userId = task.getResult();
+            Log.d(TAG, String.format("Toggling like for template %s with user %s", templateId, userId));
+            
+            DocumentReference templateRef = db.collection(COLLECTION_TEMPLATES).document(templateId);
+            DocumentReference likeRef = db.collection(COLLECTION_USERS)
+                .document(userId)
+                .collection(COLLECTION_LIKES)
+                .document(templateId);
+            
+            // First ensure template exists
+            return ensureTemplateExists(templateId).continueWithTask(task1 -> {
+                if (!task1.isSuccessful()) {
+                    Log.e(TAG, "Failed to ensure template exists", task1.getException());
+                    return Tasks.forException(task1.getException());
+                }
+                
+                return performLikeToggle(likeRef);
+            });
         });
     }
     
@@ -422,18 +511,14 @@ public class FirestoreManager {
         String templateId = likeRef.getId();
         DocumentReference templateRef = db.collection(COLLECTION_TEMPLATES).document(templateId);
         
-        if (fcmToken == null) {
-            Log.e(TAG, "Cannot toggle like - FCM token is null");
-            return Tasks.forException(new IllegalStateException("FCM token is null"));
-        }
-        
-        Log.d(TAG, String.format("Starting like toggle for template %s - User: %s", templateId, fcmToken));
-        
-        return ensureTemplateExists(templateId).continueWithTask(task -> {
+        return getUserId().continueWithTask(task -> {
             if (!task.isSuccessful()) {
-                Log.e(TAG, "Failed to ensure template exists", task.getException());
-                return Tasks.forException(task.getException());
+                Log.e(TAG, "Failed to get user ID", task.getException());
+                throw task.getException();
             }
+            
+            String userId = task.getResult();
+            Log.d(TAG, String.format("Starting like toggle for template %s - User: %s", templateId, userId));
             
             return likeRef.get().continueWithTask(likeTask -> {
                 if (!likeTask.isSuccessful()) {
@@ -445,15 +530,15 @@ public class FirestoreManager {
                 
                 if (isLiked) {
                     // Unlike - delete the like document and decrement count
-                    Log.d(TAG, String.format("Removing like - Template: %s, User: %s", templateId, fcmToken));
+                    Log.d(TAG, String.format("Removing like - Template: %s, User: %s", templateId, userId));
                     return likeRef.delete()
                         .continueWithTask(deleteTask -> updateLikeCount(templateRef, false));
                 } else {
                     // Like - create the like document and increment count
-                    Log.d(TAG, String.format("Adding like - Template: %s, User: %s", templateId, fcmToken));
+                    Log.d(TAG, String.format("Adding like - Template: %s, User: %s", templateId, userId));
                     Map<String, Object> likeData = new HashMap<>();
                     likeData.put("templateId", templateId);
-                    likeData.put("userId", fcmToken);
+                    likeData.put("userId", userId);
                     likeData.put("timestamp", FieldValue.serverTimestamp());
                     
                     return likeRef.set(likeData)
@@ -492,27 +577,30 @@ public class FirestoreManager {
      * Toggle favorite status for a template with atomic transaction
      */
     public Task<Void> toggleFavorite(@NonNull String templateId) {
-        Log.d(TAG, String.format("Toggling favorite for template %s with token %s", templateId, fcmToken));
-        
-        if (fcmToken == null) {
-            Log.e(TAG, "Cannot toggle favorite - FCM token is null");
-            return Tasks.forException(new IllegalStateException("FCM token is null"));
-        }
-        
-        DocumentReference templateRef = db.collection(COLLECTION_TEMPLATES).document(templateId);
-        DocumentReference favoriteRef = db.collection(COLLECTION_USERS)
-            .document(fcmToken)
-            .collection(COLLECTION_FAVORITES)
-            .document(templateId);
-        
-        // First ensure template exists
-        return ensureTemplateExists(templateId).continueWithTask(task -> {
+        return getUserId().continueWithTask(task -> {
             if (!task.isSuccessful()) {
-                Log.e(TAG, "Failed to ensure template exists", task.getException());
-                return Tasks.forException(task.getException());
+                Log.e(TAG, "Cannot toggle favorite - No authenticated user", task.getException());
+                throw task.getException();
             }
             
-            return performFavoriteToggle(favoriteRef);
+            String userId = task.getResult();
+            Log.d(TAG, String.format("Toggling favorite for template %s with user %s", templateId, userId));
+            
+            DocumentReference templateRef = db.collection(COLLECTION_TEMPLATES).document(templateId);
+            DocumentReference favoriteRef = db.collection(COLLECTION_USERS)
+                .document(userId)
+                .collection(COLLECTION_FAVORITES)
+                .document(templateId);
+            
+            // First ensure template exists
+            return ensureTemplateExists(templateId).continueWithTask(task1 -> {
+                if (!task1.isSuccessful()) {
+                    Log.e(TAG, "Failed to ensure template exists", task1.getException());
+                    return Tasks.forException(task1.getException());
+                }
+                
+                return performFavoriteToggle(favoriteRef);
+            });
         });
     }
     
@@ -520,18 +608,14 @@ public class FirestoreManager {
         String templateId = favoriteRef.getId();
         DocumentReference templateRef = db.collection(COLLECTION_TEMPLATES).document(templateId);
         
-        if (fcmToken == null) {
-            Log.e(TAG, "Cannot toggle favorite - FCM token is null");
-            return Tasks.forException(new IllegalStateException("FCM token is null"));
-        }
-        
-        Log.d(TAG, String.format("Starting favorite toggle for template %s - User: %s", templateId, fcmToken));
-        
-        return ensureTemplateExists(templateId).continueWithTask(task -> {
+        return getUserId().continueWithTask(task -> {
             if (!task.isSuccessful()) {
-                Log.e(TAG, "Failed to ensure template exists", task.getException());
-                return Tasks.forException(task.getException());
+                Log.e(TAG, "Failed to get user ID", task.getException());
+                throw task.getException();
             }
+            
+            String userId = task.getResult();
+            Log.d(TAG, String.format("Starting favorite toggle for template %s - User: %s", templateId, userId));
             
             return favoriteRef.get().continueWithTask(favoriteTask -> {
                 if (!favoriteTask.isSuccessful()) {
@@ -543,15 +627,15 @@ public class FirestoreManager {
                 
                 if (isFavorited) {
                     // Unfavorite - delete the favorite document and decrement count
-                    Log.d(TAG, String.format("Removing favorite - Template: %s, User: %s", templateId, fcmToken));
+                    Log.d(TAG, String.format("Removing favorite - Template: %s, User: %s", templateId, userId));
                     return favoriteRef.delete()
                         .continueWithTask(deleteTask -> updateFavoriteCount(templateRef, false));
                 } else {
                     // Favorite - create the favorite document and increment count
-                    Log.d(TAG, String.format("Adding favorite - Template: %s, User: %s", templateId, fcmToken));
+                    Log.d(TAG, String.format("Adding favorite - Template: %s, User: %s", templateId, userId));
                     Map<String, Object> favoriteData = new HashMap<>();
                     favoriteData.put("templateId", templateId);
-                    favoriteData.put("userId", fcmToken);
+                    favoriteData.put("userId", userId);
                     favoriteData.put("timestamp", FieldValue.serverTimestamp());
                     
                     return favoriteRef.set(favoriteData)
@@ -630,15 +714,17 @@ public class FirestoreManager {
     }
 
     public Task<QuerySnapshot> getUserInteractions() {
-        if (fcmToken == null) {
-            Log.e(TAG, "Cannot get user interactions - FCM token is null");
-            return Tasks.forException(new IllegalStateException("FCM token is null"));
-        }
-
-        // Just get likes since that's what the code expects
-        return db.collection(COLLECTION_USERS)
-                .document(fcmToken)
-                .collection(COLLECTION_LIKES)
-                .get();
+        return getUserId().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                Log.e(TAG, "Cannot get user interactions - No authenticated user", task.getException());
+                throw task.getException();
+            }
+            
+            String userId = task.getResult();
+            return db.collection(COLLECTION_USERS)
+                    .document(userId)
+                    .collection(COLLECTION_LIKES)
+                    .get();
+        });
     }
 } 

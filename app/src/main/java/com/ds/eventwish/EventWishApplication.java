@@ -55,11 +55,13 @@ import com.ds.eventwish.firebase.FirebaseInAppMessagingHandler;
 import com.ds.eventwish.ui.connectivity.InternetConnectivityChecker;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import com.google.firebase.messaging.FirebaseMessaging;
 import android.content.SharedPreferences;
 import com.ds.eventwish.data.remote.FirestoreManager;
+import com.ds.eventwish.data.migration.AuthMigrationHelper;
 
 public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
@@ -112,23 +114,31 @@ public class EventWishApplication extends Application implements Configuration.P
         context = getApplicationContext();
         
         try {
-            // Initialize Firebase first, before any other Firebase services
+            // Initialize Firebase first
             FirebaseApp.initializeApp(this);
             
-            // Initialize Firebase Auth early
-            FirebaseAuth.getInstance();
-            
-            // Initialize Firestore
+            // Initialize Firestore with offline persistence
             FirebaseFirestore.getInstance().setFirestoreSettings(
                 new FirebaseFirestoreSettings.Builder()
                     .setPersistenceEnabled(true)
                     .build()
             );
             
-            // Rest of your initialization code...
-            
-            // Initialize other Firebase services
+            // Initialize Firebase services before auth
             initializeFirebaseServices();
+            
+            // Initialize FCM token first
+            initializeFcmToken();
+            
+            // Initialize auth last since it depends on FCM token
+            FirebaseAuth.getInstance().addAuthStateListener(firebaseAuth -> {
+                FirebaseUser user = firebaseAuth.getCurrentUser();
+                if (user != null) {
+                    Log.d(TAG, "Auth state: User signed in: " + user.getUid());
+                } else {
+                    Log.d(TAG, "Auth state: User signed out");
+                }
+            });
             
         } catch (Exception e) {
             Log.e(TAG, "Error during Firebase initialization", e);
@@ -1013,6 +1023,46 @@ public class EventWishApplication extends Application implements Configuration.P
         } catch (Exception e) {
             Log.e(TAG, "Error initializing Firebase services: " + e.getMessage(), e);
             Log.e(TAG, "Error initializing Firebase services", e);
+        }
+    }
+
+    /**
+     * Initialize FCM token
+     */
+    private void initializeFcmToken() {
+        FirebaseMessaging.getInstance().getToken()
+            .addOnCompleteListener(task -> {
+                if (!task.isSuccessful()) {
+                    Log.w(TAG, "Fetching FCM registration token failed", task.getException());
+                    return;
+                }
+
+                // Get new FCM registration token
+                String token = task.getResult();
+                
+                // Save token to SharedPreferences for backward compatibility
+                SharedPreferences prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+                prefs.edit().putString(KEY_FCM_TOKEN, token).apply();
+                
+                // Update token in Firestore
+                FirestoreManager.getInstance().setFcmToken(token)
+                    .addOnSuccessListener(aVoid -> Log.d(TAG, "FCM token updated in Firestore"))
+                    .addOnFailureListener(e -> Log.e(TAG, "Failed to update FCM token in Firestore", e));
+            });
+    }
+
+    /**
+     * Migrate user data if needed
+     */
+    private void migrateUserData() {
+        AuthMigrationHelper migrationHelper = new AuthMigrationHelper(this);
+        if (migrationHelper.isMigrationNeeded()) {
+            Log.d(TAG, "Starting user data migration");
+            migrationHelper.migrateUserData()
+                .addOnSuccessListener(aVoid -> Log.d(TAG, "User data migration completed"))
+                .addOnFailureListener(e -> Log.e(TAG, "User data migration failed", e));
+        } else {
+            Log.d(TAG, "No migration needed");
         }
     }
 }

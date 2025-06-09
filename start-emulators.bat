@@ -1,0 +1,3 @@
+@echo off
+echo Starting Firebase emulators...
+firebase emulators:start --only auth,firestore 

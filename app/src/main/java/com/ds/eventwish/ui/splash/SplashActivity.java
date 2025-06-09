@@ -13,13 +13,22 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import android.util.Log;
 
 import com.ds.eventwish.R;
 import com.ds.eventwish.ui.MainActivity;
-import com.ds.eventwish.utils.NotificationPermissionManager;
+import com.ds.eventwish.data.auth.AuthManager;
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes;
+import com.google.android.gms.common.SignInButton;
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
+import com.google.firebase.auth.FirebaseUser;
 
 public class SplashActivity extends AppCompatActivity {
     private static final String TAG = "SplashActivity";
@@ -28,8 +37,14 @@ public class SplashActivity extends AppCompatActivity {
     private TextView appNameTextView;
     private ProgressBar loadingProgressBar;
     private ImageView backArrow;
-    private ActivityResultLauncher<String> requestPermissionLauncher;
-    private boolean permissionRequested = false;
+    private SignInButton signInButton;
+    private TextView signInStatus;
+    private View signInProgressContainer;
+    private View signInProgressIndicator;
+    private View signInSuccessIcon;
+    private AuthManager authManager;
+    private ActivityResultLauncher<Intent> signInLauncher;
+    private boolean isSigningIn = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,62 +58,64 @@ public class SplashActivity extends AppCompatActivity {
         
         setContentView(R.layout.activity_splash);
 
-        // Initialize permission launcher
-        requestPermissionLauncher = registerForActivityResult(
-            new ActivityResultContracts.RequestPermission(),
-            isGranted -> {
-                Log.d(TAG, "Notification permission result: " + isGranted);
-                // Continue with app flow after permission result
-                if (!isFinishing()) {
-                    startSplashFlow();
-                }
-            }
-        );
+        // Initialize AuthManager
+        authManager = AuthManager.getInstance();
+        authManager.initialize(this);
 
         // Initialize views
         logoImageView = findViewById(R.id.logoImageView);
         appNameTextView = findViewById(R.id.appNameTextView);
         loadingProgressBar = findViewById(R.id.loadingProgressBar);
         backArrow = findViewById(R.id.backArrow);
+        signInButton = findViewById(R.id.signInButton);
+        signInStatus = findViewById(R.id.signInStatus);
+        signInProgressContainer = findViewById(R.id.signInProgressContainer);
+        signInProgressIndicator = findViewById(R.id.signInProgressIndicator);
+        signInSuccessIcon = findViewById(R.id.signInSuccessIcon);
+
+        // Initialize sign-in launcher
+        signInLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            this::handleSignInResult
+        );
+
+        // Set up sign-in button
+        signInButton.setOnClickListener(v -> startGoogleSignIn());
 
         // Set up back arrow
         backArrow.setOnClickListener(v -> navigateToMain());
 
-        // Check notification permission first
-        checkNotificationPermission();
-    }
-
-    private void checkNotificationPermission() {
-        if (!NotificationPermissionManager.hasNotificationPermission(this)) {
-            // Request permission using the manager
-            NotificationPermissionManager.requestNotificationPermission(this);
-            permissionRequested = true;
-            // Start splash flow after a short delay to let the permission dialog show
-            new Handler().postDelayed(this::startSplashFlow, 500);
-        } else {
-            // Permission already granted, continue with splash flow
-            startSplashFlow();
-        }
+        // Start splash flow
+        startSplashFlow();
     }
 
     private void startSplashFlow() {
         // Start animations
         startSplashAnimations();
 
-        // Navigate to main activity after delay
-        new Handler().postDelayed(this::navigateToMain, SPLASH_DURATION);
+        // Try silent sign-in first
+        trySilentSignIn();
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        NotificationPermissionManager.handlePermissionResult(this, permissions, grantResults);
-        
-        // Continue with app flow if we haven't already
-        if (!isFinishing() && permissionRequested) {
-            permissionRequested = false;
-            startSplashFlow();
-        }
+    private void trySilentSignIn() {
+        Log.d(TAG, "trySilentSignIn: attempting silent sign-in");
+        authManager.silentSignIn()
+            .addOnSuccessListener(account -> {
+                Log.d(TAG, "Silent sign-in successful");
+                handleGoogleSignInAccount(Tasks.forResult(account));
+            })
+            .addOnFailureListener(e -> {
+                Log.d(TAG, "Silent sign-in failed, showing sign-in button", e);
+                showSignInButton();
+            });
+    }
+
+    private void showSignInButton() {
+        signInButton.setVisibility(View.VISIBLE);
+        signInButton.setEnabled(true);
+        signInStatus.setVisibility(View.VISIBLE);
+        signInStatus.setText(R.string.sign_in_required);
+        loadingProgressBar.setVisibility(View.GONE);
     }
 
     private void startSplashAnimations() {
@@ -167,5 +184,135 @@ public class SplashActivity extends AppCompatActivity {
         
         // Close splash activity
         finish();
+    }
+
+    private void startGoogleSignIn() {
+        if (isSigningIn) {
+            Log.d(TAG, "startGoogleSignIn: already in progress, ignoring request");
+            return;
+        }
+
+        Log.d(TAG, "startGoogleSignIn: initiating sign-in flow");
+        isSigningIn = true;
+        signInButton.setEnabled(false);
+        signInStatus.setText(R.string.signing_in);
+        showSignInProgress();
+
+        try {
+            Intent signInIntent = authManager.getGoogleSignInClient().getSignInIntent();
+            Log.d(TAG, "startGoogleSignIn: created sign-in intent, launching activity");
+            signInLauncher.launch(signInIntent);
+        } catch (Exception e) {
+            Log.e(TAG, "startGoogleSignIn: failed to start sign-in", e);
+            onSignInFailure(e);
+        }
+    }
+
+    private void showSignInProgress() {
+        signInProgressContainer.setVisibility(View.VISIBLE);
+        signInProgressIndicator.setVisibility(View.VISIBLE);
+        signInSuccessIcon.setVisibility(View.GONE);
+        loadingProgressBar.setVisibility(View.GONE);
+    }
+
+    private void showSignInSuccess() {
+        signInProgressIndicator.animate()
+                .alpha(0f)
+                .setDuration(150)
+                .withEndAction(() -> {
+                    signInProgressIndicator.setVisibility(View.GONE);
+                    signInSuccessIcon.setAlpha(0f);
+                    signInSuccessIcon.setVisibility(View.VISIBLE);
+                    signInSuccessIcon.animate()
+                            .alpha(1f)
+                            .setDuration(150)
+                            .start();
+                })
+                .start();
+    }
+
+    private void handleSignInResult(ActivityResult result) {
+        Log.d(TAG, "handleSignInResult: received result with code: " + result.getResultCode() + 
+                  ", data present: " + (result.getData() != null));
+        
+        if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+            try {
+                Log.d(TAG, "handleSignInResult: attempting to get account from intent");
+                Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(result.getData());
+                handleGoogleSignInAccount(task);
+            } catch (Exception e) {
+                Log.e(TAG, "handleSignInResult: error getting sign in account", e);
+                onSignInFailure(new Exception(getString(R.string.sign_in_failed)));
+            }
+        } else if (result.getResultCode() == RESULT_CANCELED) {
+            Log.d(TAG, "handleSignInResult: sign-in was cancelled by user");
+            onSignInFailure(new Exception(getString(R.string.sign_in_cancelled)));
+        } else {
+            Log.e(TAG, "handleSignInResult: sign-in failed with result code: " + result.getResultCode());
+            onSignInFailure(new Exception(getString(R.string.sign_in_failed)));
+        }
+    }
+
+    private void handleGoogleSignInAccount(Task<GoogleSignInAccount> task) {
+        Log.d(TAG, "handleGoogleSignInAccount: processing sign-in account task");
+        try {
+            authManager.handleSignInResult(task)
+                .addOnSuccessListener(user -> {
+                    Log.d(TAG, "handleGoogleSignInAccount: successfully signed in with Firebase, uid: " + user.getUid());
+                    onSignInSuccess(user);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "handleGoogleSignInAccount: Firebase auth failed", e);
+                    if (e instanceof ApiException) {
+                        ApiException apiException = (ApiException) e;
+                        int statusCode = apiException.getStatusCode();
+                        Log.e(TAG, "handleGoogleSignInAccount: API exception status code: " + statusCode);
+                        if (statusCode == GoogleSignInStatusCodes.SIGN_IN_CANCELLED) {
+                            onSignInFailure(new Exception(getString(R.string.sign_in_cancelled)));
+                        } else if (statusCode == GoogleSignInStatusCodes.NETWORK_ERROR) {
+                            onSignInFailure(new Exception(getString(R.string.sign_in_network_error)));
+                        } else {
+                            onSignInFailure(new Exception(getString(R.string.sign_in_failed) + " (code: " + statusCode + ")"));
+                        }
+                    } else {
+                        onSignInFailure(e);
+                    }
+                });
+        } catch (Exception e) {
+            Log.e(TAG, "handleGoogleSignInAccount: unexpected error", e);
+            onSignInFailure(e);
+        }
+    }
+
+    private void onSignInSuccess(FirebaseUser user) {
+        Log.d(TAG, "onSignInSuccess: sign-in completed successfully for user: " + user.getUid() + 
+                  ", email: " + user.getEmail() + ", display name: " + user.getDisplayName());
+        isSigningIn = false;
+        signInStatus.setText(R.string.sign_in_success);
+        showSignInSuccess();
+        
+        // Navigate to main activity after a short delay
+        new Handler().postDelayed(() -> {
+            Log.d(TAG, "onSignInSuccess: navigating to main activity");
+            startMainActivity();
+        }, 1500); // Increased delay to show success animation
+    }
+
+    private void onSignInFailure(Exception e) {
+        Log.e(TAG, "onSignInFailure: sign-in failed", e);
+        isSigningIn = false;
+        signInButton.setEnabled(true);
+        signInStatus.setText(e.getMessage());
+        signInProgressContainer.setVisibility(View.GONE);
+        loadingProgressBar.setVisibility(View.GONE);
+        
+        // Log additional details about the error
+        if (e instanceof ApiException) {
+            ApiException apiException = (ApiException) e;
+            Log.e(TAG, "onSignInFailure: API exception details - " +
+                      "Status code: " + apiException.getStatusCode() + 
+                      ", Status message: " + apiException.getStatusMessage() + 
+                      ", Message: " + apiException.getMessage());
+        }
     }
 } 

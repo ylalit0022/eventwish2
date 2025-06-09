@@ -2,61 +2,99 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Helper functions
-    function isValidFcmToken(token) {
-      return token is string && token.size() >= 20;  // FCM tokens are typically very long
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function hasValidFcmToken() {
+      return request.auth.token.fcm != null;
+    }
+    
+    function isOwnerByFcmToken(userId) {
+      return hasValidFcmToken() && (
+        exists(/databases/$(database)/documents/users/$(userId)) && 
+        get(/databases/$(database)/documents/users/$(userId)).data.fcmToken == request.auth.token.fcm
+      );
+    }
+    
+    function isOwnerByAuth(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function isOwner(userId) {
+      return isOwnerByAuth(userId) || isOwnerByFcmToken(userId);
     }
 
-    function hasValidToken(userId) {
-      return isValidFcmToken(userId);
+    // User document rules
+    match /users/{userId} {
+      // Allow read/write for FCM token queries
+      allow read: if isSignedIn() || hasValidFcmToken();
+      
+      // Allow create with FCM token
+      allow create: if hasValidFcmToken() && 
+        request.resource.data.fcmToken == request.auth.token.fcm;
+      
+      // Allow update if owner or has matching FCM token
+      allow update: if isOwner(userId) || (
+        hasValidFcmToken() && 
+        (resource.data.fcmToken == request.auth.token.fcm || 
+         request.resource.data.fcmToken == request.auth.token.fcm)
+      );
+      
+      // Allow delete only by owner
+      allow delete: if isOwner(userId);
+
+      // User preferences subcollection
+      match /preferences/{prefId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Favorites subcollection
+      match /favorites/{templateId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && hasValidFields(['templateId', 'timestamp']);
+        allow delete: if isOwner(userId);
+      }
+
+      // Likes subcollection
+      match /likes/{templateId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && hasValidFields(['templateId', 'timestamp']);
+        allow delete: if isOwner(userId);
+      }
+
+      // Notifications subcollection
+      match /notifications/{notificationId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && hasValidFields(['title', 'body', 'timestamp', 'read']);
+        allow update: if isOwner(userId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'lastUpdated']);
+        allow delete: if isOwner(userId);
+      }
     }
 
     // Template rules
     match /templates/{templateId} {
-      // Allow read for all templates
+      // Allow read for all users
       allow read: if true;
       
-      // Allow create with initial data
-      allow create: if request.resource.data.keys().hasAll(['likeCount', 'favoriteCount', 'createdAt', 'updatedAt'])
-        && request.resource.data.likeCount == 0
-        && request.resource.data.favoriteCount == 0;
-
-      // Allow updates from users with valid FCM token
-      allow update: if hasValidToken(request.resource.data.userId)
-        && (
-          // Check that only allowed fields are being updated
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount', 'favoriteCount', 'updatedAt', 'userId'])
-          // Ensure counts are valid numbers
-          && (request.resource.data.likeCount is number)
-          && (request.resource.data.favoriteCount is number)
-          // Ensure counts are non-negative
-          && (request.resource.data.likeCount >= 0)
-          && (request.resource.data.favoriteCount >= 0)
-        );
+      // Allow update for like/favorite counts
+      allow update: if isSignedIn() || hasValidFcmToken();
+      
+      // Prevent deletion by regular users
+      allow delete: if false;
     }
 
-    // User rules based on FCM token
-    match /users/{userId} {
-      allow read, write: if hasValidToken(userId);
-
-      // Likes collection - separate rules
-      match /likes/{templateId} {
-        allow read: if hasValidToken(userId);
-        allow create: if hasValidToken(userId)
-          && request.resource.data.userId == userId
-          && request.resource.data.templateId == templateId
-          && request.resource.data.timestamp is timestamp;
-        allow delete: if hasValidToken(userId);
-      }
-
-      // Favorites collection - separate rules
-      match /favorites/{templateId} {
-        allow read: if hasValidToken(userId);
-        allow create: if hasValidToken(userId)
-          && request.resource.data.userId == userId
-          && request.resource.data.templateId == templateId
-          && request.resource.data.timestamp is timestamp;
-        allow delete: if hasValidToken(userId);
-      }
+    // Migration rules (temporary, remove after migration)
+    match /users/{oldToken} {
+      allow read: if isSignedIn() 
+        && (resource.data.fcmToken == request.auth.token.fcm 
+            || resource.data.fcmToken == null);
+      allow delete: if isSignedIn() 
+        && resource.data.fcmToken == request.auth.token.fcm;
     }
   }
 } 
