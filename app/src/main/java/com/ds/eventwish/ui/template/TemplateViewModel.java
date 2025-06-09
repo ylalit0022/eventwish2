@@ -23,7 +23,7 @@ public class TemplateViewModel extends AndroidViewModel {
     private final TemplateInteractionRepository interactionRepository;
     private final Map<String, LiveData<Boolean>> likeStates;
     private final Map<String, LiveData<Boolean>> favoriteStates;
-    private final Map<String, LiveData<Integer>> likeCounts;
+    private final Map<String, LiveData<Long>> likeCounts;
     private final MutableLiveData<List<com.ds.eventwish.ui.template.Template>> templates;
     private final MutableLiveData<Boolean> isLoading;
     private final MutableLiveData<String> error;
@@ -79,9 +79,12 @@ public class TemplateViewModel extends AndroidViewModel {
         return favoriteStates.get(templateId);
     }
 
-    public LiveData<Integer> getLikeCount(String templateId) {
+    public LiveData<Long> getLikeCount(String templateId) {
         if (!likeCounts.containsKey(templateId)) {
-            likeCounts.put(templateId, templateRepository.getLikeCount(templateId));
+            likeCounts.put(templateId, Transformations.map(
+                templateRepository.getLikeCount(templateId),
+                count -> count != null ? count.longValue() : 0L
+            ));
         }
         return likeCounts.get(templateId);
     }

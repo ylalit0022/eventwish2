@@ -97,16 +97,72 @@ public class TemplateDetailViewModel extends ViewModel {
             public void onResponse(Call<Template> call, Response<Template> response) {
                 isLoading.setValue(false);
                 if (response.isSuccessful() && response.body() != null) {
-                    template.setValue(response.body());
+                    Template loadedTemplate = response.body();
+                    Log.d(TAG, "Template loaded successfully: " + loadedTemplate.getId());
+                    Log.d(TAG, "HTML content length: " + (loadedTemplate.getHtmlContent() != null ? loadedTemplate.getHtmlContent().length() : "null"));
+                    Log.d(TAG, "CSS content length: " + (loadedTemplate.getCssContent() != null ? loadedTemplate.getCssContent().length() : "null"));
+                    Log.d(TAG, "JS content length: " + (loadedTemplate.getJsContent() != null ? loadedTemplate.getJsContent().length() : "null"));
+                    template.setValue(loadedTemplate);
                 } else {
-                    error.setValue("Failed to load template");
+                    String errorMsg = "Failed to load template: " + (response.errorBody() != null ? response.errorBody().toString() : "unknown error");
+                    Log.e(TAG, errorMsg);
+                    error.setValue(errorMsg);
                 }
             }
 
             @Override
             public void onFailure(Call<Template> call, Throwable t) {
                 isLoading.setValue(false);
-                error.setValue("Network error: " + t.getMessage());
+                String errorMsg = "Network error: " + t.getMessage();
+                Log.e(TAG, errorMsg, t);
+                error.setValue(errorMsg);
+            }
+        });
+    }
+
+    private void loadTemplateContent(Template template) {
+        if (template == null || template.getId() == null) {
+            error.setValue("Invalid template");
+            return;
+        }
+
+        // Create a map for headers
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json");
+
+        apiService.getTemplate(template.getId(), headers).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    JsonObject data = response.body();
+                    Log.d(TAG, "Template content loaded: " + data.toString());
+                    
+                    // Update template with content
+                    if (data.has("html")) {
+                        template.setHtmlContent(data.get("html").getAsString());
+                    }
+                    if (data.has("css")) {
+                        template.setCssContent(data.get("css").getAsString());
+                    }
+                    if (data.has("js")) {
+                        template.setJsContent(data.get("js").getAsString());
+                    }
+                    
+                    // Update the template
+                    TemplateDetailViewModel.this.template.setValue(template);
+                } else {
+                    String errorMsg = "Failed to load template content: " + 
+                        (response.errorBody() != null ? response.errorBody().toString() : "unknown error");
+                    Log.e(TAG, errorMsg);
+                    error.setValue(errorMsg);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<JsonObject> call, Throwable t) {
+                String errorMsg = "Network error loading template content: " + t.getMessage();
+                Log.e(TAG, errorMsg, t);
+                error.setValue(errorMsg);
             }
         });
     }

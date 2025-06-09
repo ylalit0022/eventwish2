@@ -140,27 +140,20 @@ public class TemplateInteractionRepository {
     /**
      * Toggle like state for a template
      */
-    public Task<Void> toggleLike(Template template) {
-        if (template == null || template.getId() == null) {
-            Log.e(TAG, "Cannot toggle like: template or template ID is null");
-            return Tasks.forException(new IllegalArgumentException("Template or template ID is null"));
+    public void toggleLike(String templateId) {
+        if (templateId == null || templateId.isEmpty()) {
+            Log.e(TAG, "Cannot toggle like - Invalid template ID");
+            return;
         }
 
-        String templateId = template.getId();
-        Log.d(TAG, String.format("Starting like toggle operation - TemplateID: %s, Current state: %b", 
-            templateId, template.isLiked()));
-        logInteractionEvent(templateId, "LIKE_TOGGLE", "Started");
-
-        return firestoreManager.toggleLike(templateId)
-            .addOnSuccessListener(aVoid -> {
-                Log.d(TAG, String.format("Like toggle successful - TemplateID: %s", templateId));
-                logInteractionEvent(templateId, "LIKE_TOGGLE", "Success");
+        firestoreManager.toggleLike(templateId)
+            .addOnSuccessListener(isLiked -> {
+                Log.d(TAG, "Like toggled successfully. New state: " + isLiked);
+                // Update local state if needed
             })
             .addOnFailureListener(e -> {
-                Log.e(TAG, String.format("Like toggle failed - TemplateID: %s, Error: %s", 
-                    templateId, e.getMessage()), e);
-                logInteractionEvent(templateId, "LIKE_TOGGLE", "Failed: " + e.getMessage());
-                handleLikeError(templateId, e);
+                Log.e(TAG, "Failed to toggle like", e);
+                // Handle error if needed
             });
     }
 
@@ -207,27 +200,20 @@ public class TemplateInteractionRepository {
     /**
      * Toggle favorite state for a template
      */
-    public Task<Void> toggleFavorite(Template template) {
-        if (template == null || template.getId() == null) {
-            Log.e(TAG, "Cannot toggle favorite: template or template ID is null");
-            return Tasks.forException(new IllegalArgumentException("Template or template ID is null"));
+    public void toggleFavorite(String templateId) {
+        if (templateId == null || templateId.isEmpty()) {
+            Log.e(TAG, "Cannot toggle favorite - Invalid template ID");
+            return;
         }
 
-        String templateId = template.getId();
-        Log.d(TAG, String.format("Starting favorite toggle operation - TemplateID: %s, Current state: %b", 
-            templateId, template.isFavorited()));
-        logInteractionEvent(templateId, "FAVORITE_TOGGLE", "Started");
-
-        return firestoreManager.toggleFavorite(templateId)
-            .addOnSuccessListener(aVoid -> {
-                Log.d(TAG, String.format("Favorite toggle successful - TemplateID: %s", templateId));
-                logInteractionEvent(templateId, "FAVORITE_TOGGLE", "Success");
+        firestoreManager.toggleFavorite(templateId)
+            .addOnSuccessListener(isFavorited -> {
+                Log.d(TAG, "Favorite toggled successfully. New state: " + isFavorited);
+                // Update local state if needed
             })
             .addOnFailureListener(e -> {
-                Log.e(TAG, String.format("Favorite toggle failed - TemplateID: %s, Error: %s", 
-                    templateId, e.getMessage()), e);
-                logInteractionEvent(templateId, "FAVORITE_TOGGLE", "Failed: " + e.getMessage());
-                handleFavoriteError(templateId, e);
+                Log.e(TAG, "Failed to toggle favorite", e);
+                // Handle error if needed
             });
     }
 
@@ -341,7 +327,7 @@ public class TemplateInteractionRepository {
             
             while (!retrySuccessful.get() && retryCount < maxRetries) {
                 try {
-                    toggleFavorite(template);
+                    toggleFavorite(template.getId());
                     retrySuccessful.set(true);
                 } catch (Exception e) {
                     Log.e(TAG, "Retry attempt " + (retryCount + 1) + " failed", e);
@@ -483,9 +469,9 @@ public class TemplateInteractionRepository {
                     
                     try {
                         if ("like".equals(type)) {
-                            repo.toggleLike(new Template(templateId, "", "", "", false, false, 0));
+                            repo.toggleLike(templateId);
                         } else if ("favorite".equals(type)) {
-                            repo.toggleFavorite(new Template(templateId, "", "", "", false, false, 0));
+                            repo.toggleFavorite(templateId);
                         }
                     } catch (Exception e) {
                         Log.e(TAG, "Failed to retry operation: " + operation.toString(), e);

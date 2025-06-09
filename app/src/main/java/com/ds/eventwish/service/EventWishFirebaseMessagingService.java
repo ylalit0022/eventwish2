@@ -8,6 +8,7 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 import com.ds.eventwish.data.remote.FirestoreManager;
+import com.ds.eventwish.data.auth.AuthManager;
 import com.google.firebase.auth.FirebaseAuth;
 
 public class EventWishFirebaseMessagingService extends FirebaseMessagingService {
@@ -28,70 +29,39 @@ public class EventWishFirebaseMessagingService extends FirebaseMessagingService 
             token));
 
         // Check if user is already signed in
-        if (FirebaseAuth.getInstance().getCurrentUser() != null) {
+        if (AuthManager.getInstance().isSignedIn()) {
             updateToken(token);
-            return;
+        } else {
+            Log.d(TAG, "User not signed in, token will be updated after sign-in");
         }
-
-        // Sign in anonymously if needed
-        FirebaseAuth.getInstance().signInAnonymously()
-            .addOnSuccessListener(result -> {
-                Log.d(TAG, "Anonymous sign in successful: " + result.getUser().getUid());
-                updateToken(token);
-            })
-            .addOnFailureListener(e -> {
-                Log.e(TAG, "Anonymous sign in failed", e);
-                // Still try to update token for backward compatibility
-                updateToken(token);
-            });
     }
 
     private void updateToken(String token) {
-        FirestoreManager.getInstance().setFcmToken(token)
-            .addOnSuccessListener(aVoid -> Log.d(TAG, "Token successfully updated in Firestore"))
-            .addOnFailureListener(e -> Log.e(TAG, "Failed to update token in Firestore", e));
+        Log.d(TAG, "Updating FCM token in Firestore");
+        FirestoreManager.getInstance(this).setFcmToken(token)
+            .addOnSuccessListener(aVoid -> Log.d(TAG, "FCM token updated successfully"))
+            .addOnFailureListener(e -> Log.e(TAG, "Failed to update FCM token", e));
     }
 
     @Override
     public void onNewToken(@NonNull String token) {
         super.onNewToken(token);
-        Log.d(TAG, "New FCM token received: " + token);
+        Log.d(TAG, "Received new FCM token");
         ensureUserAndUpdateToken(token);
     }
 
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
         super.onMessageReceived(remoteMessage);
-        Log.d(TAG, "Message received from: " + remoteMessage.getFrom());
+        Log.d(TAG, "Received FCM message from: " + remoteMessage.getFrom());
         
-        // Verify auth and token are still valid
-        if (FirebaseAuth.getInstance().getCurrentUser() == null) {
-            Log.w(TAG, "No authenticated user found, requesting token refresh");
-            requestNewToken();
-            return;
+        // Handle message here
+        if (remoteMessage.getData().size() > 0) {
+            Log.d(TAG, "Message data payload: " + remoteMessage.getData());
         }
-        
-        SharedPreferences prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-        String savedToken = prefs.getString(KEY_FCM_TOKEN, null);
-        
-        if (savedToken == null) {
-            Log.w(TAG, "No saved token found, requesting new token");
-            requestNewToken();
-        }
-    }
-    
-    private void requestNewToken() {
-        try {
-            FirebaseMessaging.getInstance().deleteToken()
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        Log.d(TAG, "Old token deleted successfully");
-                    } else {
-                        Log.e(TAG, "Failed to delete old token", task.getException());
-                    }
-                });
-        } catch (Exception e) {
-            Log.e(TAG, "Error requesting new token", e);
+
+        if (remoteMessage.getNotification() != null) {
+            Log.d(TAG, "Message notification body: " + remoteMessage.getNotification().getBody());
         }
     }
 } 

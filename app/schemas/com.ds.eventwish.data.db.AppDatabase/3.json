@@ -1,12 +1,12 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 2,
-    "identityHash": "491ad52b1c3bd0ae4cb658839b7ba778",
+    "version": 3,
+    "identityHash": "0f621e9f54262678118fd11b230439ef",
     "entities": [
       {
         "tableName": "templates",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT, `categoryId` TEXT, `previewUrl` TEXT, `likeCount` INTEGER NOT NULL, `favoriteCount` INTEGER NOT NULL, `isLiked` INTEGER NOT NULL, `isFavorited` INTEGER NOT NULL, `lastUpdated` INTEGER, `likeChanged` INTEGER NOT NULL, `favoriteChanged` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT, `categoryId` TEXT, `previewUrl` TEXT, `likeCount` INTEGER NOT NULL, `favoriteCount` INTEGER NOT NULL, `isLiked` INTEGER NOT NULL, `isFavorited` INTEGER NOT NULL, `lastUpdated` INTEGER, `likeChanged` INTEGER NOT NULL, `favoriteChanged` INTEGER NOT NULL, `htmlContent` TEXT, `cssContent` TEXT, `jsContent` TEXT, `recommended` INTEGER NOT NULL, `createdAt` INTEGER, PRIMARY KEY(`id`), FOREIGN KEY(`categoryId`) REFERENCES `category`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "id",
@@ -73,6 +73,36 @@
             "columnName": "favoriteChanged",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "htmlContent",
+            "columnName": "htmlContent",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "cssContent",
+            "columnName": "cssContent",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "jsContent",
+            "columnName": "jsContent",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "recommended",
+            "columnName": "recommended",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": false
           }
         ],
         "primaryKey": {
@@ -81,8 +111,57 @@
             "id"
           ]
         },
-        "indices": [],
-        "foreignKeys": []
+        "indices": [
+          {
+            "name": "index_templates_categoryId",
+            "unique": false,
+            "columnNames": [
+              "categoryId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_templates_categoryId` ON `${TABLE_NAME}` (`categoryId`)"
+          },
+          {
+            "name": "index_templates_lastUpdated",
+            "unique": false,
+            "columnNames": [
+              "lastUpdated"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_templates_lastUpdated` ON `${TABLE_NAME}` (`lastUpdated`)"
+          },
+          {
+            "name": "index_templates_isLiked",
+            "unique": false,
+            "columnNames": [
+              "isLiked"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_templates_isLiked` ON `${TABLE_NAME}` (`isLiked`)"
+          },
+          {
+            "name": "index_templates_isFavorited",
+            "unique": false,
+            "columnNames": [
+              "isFavorited"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_templates_isFavorited` ON `${TABLE_NAME}` (`isFavorited`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "category",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "categoryId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
       },
       {
         "tableName": "shared_wish",
@@ -491,7 +570,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '491ad52b1c3bd0ae4cb658839b7ba778')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0f621e9f54262678118fd11b230439ef')"
     ]
   }
 }

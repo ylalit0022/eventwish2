@@ -15,14 +15,18 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 /**
  * Worker class to retry failed template operations
  */
 public class RetryOperationsWorker extends Worker {
     private static final String TAG = "RetryOperationsWorker";
+    private final TemplateInteractionRepository repo;
     
     public RetryOperationsWorker(@NonNull Context context, @NonNull WorkerParameters params) {
         super(context, params);
+        repo = TemplateInteractionRepository.getInstance(context);
     }
     
     @NonNull
@@ -38,8 +42,6 @@ public class RetryOperationsWorker extends Worker {
         
         try {
             JSONArray pendingOps = new JSONArray(operations);
-            TemplateInteractionRepository repo = TemplateInteractionRepository.getInstance(context);
-            
             boolean allSuccess = true;
             JSONArray remainingOps = new JSONArray();
             
@@ -49,13 +51,7 @@ public class RetryOperationsWorker extends Worker {
                 String type = operation.getString("type");
                 
                 try {
-                    if ("like".equals(type)) {
-                        Template template = new Template(templateId, "", "", "", false, false, 0);
-                        repo.toggleLike(template);
-                    } else if ("favorite".equals(type)) {
-                        Template template = new Template(templateId, "", "", "", false, false, 0);
-                        repo.toggleFavorite(template);
-                    }
+                    processFailedOperation(templateId, type);
                 } catch (Exception e) {
                     Log.e(TAG, "Failed to retry operation: " + operation.toString(), e);
                     allSuccess = false;
@@ -75,6 +71,46 @@ public class RetryOperationsWorker extends Worker {
         } catch (JSONException e) {
             Log.e(TAG, "Error processing pending operations", e);
             return Result.failure();
+        }
+    }
+
+    private void processFailedOperation(String templateId, String type) {
+        Log.d(TAG, "Processing failed operation - Template: " + templateId + ", Type: " + type);
+        Template template = new Template(templateId, "", "", "");
+        retryOperation(template, type);
+    }
+
+    private void retryOperation(Template template, String type) {
+        AtomicBoolean retrySuccessful = new AtomicBoolean(false);
+        int retryCount = 0;
+        final int maxRetries = 3;
+
+        while (!retrySuccessful.get() && retryCount < maxRetries) {
+            try {
+                if ("like".equals(type)) {
+                    repo.toggleLike(template.getId());
+                } else if ("favorite".equals(type)) {
+                    repo.toggleFavorite(template.getId());
+                }
+                retrySuccessful.set(true);
+            } catch (Exception e) {
+                Log.e(TAG, String.format("Retry attempt %d failed for %s operation on template %s", 
+                    retryCount + 1, type, template.getId()), e);
+                retryCount++;
+                if (retryCount < maxRetries) {
+                    try {
+                        Thread.sleep(1000 * retryCount); // Exponential backoff
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!retrySuccessful.get()) {
+            Log.e(TAG, String.format("All retry attempts failed for %s operation on template %s", 
+                type, template.getId()));
         }
     }
 } 

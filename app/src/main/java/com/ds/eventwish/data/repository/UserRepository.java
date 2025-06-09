@@ -11,8 +11,13 @@ import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
+import com.ds.eventwish.data.auth.AuthManager;
 import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.data.remote.ApiService;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.gson.JsonObject;
 
 import java.security.MessageDigest;
@@ -52,6 +57,7 @@ public class UserRepository {
     private ApiService apiService;
     private final Context context;
     private final SharedPreferences prefs;
+    private final AuthManager authManager;
     
     private final MutableLiveData<Boolean> isRegistering = new MutableLiveData<>(false);
     private final MutableLiveData<Boolean> isUpdatingActivity = new MutableLiveData<>(false);
@@ -80,6 +86,7 @@ public class UserRepository {
      */
     private UserRepository(Context context) {
         this.context = context;
+        this.authManager = AuthManager.getInstance();
         
         // Initialize apiService as null initially to avoid compiler error
         this.apiService = null;
@@ -105,6 +112,24 @@ public class UserRepository {
         
         // Create a dummy user if needed
         createDummyUserIfNeeded();
+    }
+    
+    /**
+     * Get current Firebase user ID
+     * @return String user ID or null if not signed in
+     */
+    @Nullable
+    public String getCurrentUserId() {
+        FirebaseUser user = authManager.getCurrentUser();
+        return user != null ? user.getUid() : null;
+    }
+    
+    /**
+     * Check if user is signed in
+     * @return boolean indicating if user is signed in
+     */
+    public boolean isSignedIn() {
+        return authManager.isSignedIn();
     }
     
     /**
@@ -580,14 +605,6 @@ public class UserRepository {
                 Log.e(TAG, "Error creating dummy user", e);
             }
         });
-    }
-
-    /**
-     * Get the current user ID, or null if not logged in
-     */
-    @Nullable
-    public String getCurrentUserId() {
-        return prefs.getString(KEY_USER_ID, null);
     }
 
     /**

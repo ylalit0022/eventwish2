@@ -198,28 +198,21 @@ dependencies {
     implementation 'com.google.firebase:firebase-crashlytics'
     implementation 'com.google.firebase:firebase-crashlytics-ktx'
     
-    // Firebase In-App Messaging
-    implementation 'com.google.firebase:firebase-inappmessaging-display'
-    implementation 'com.google.firebase:firebase-inappmessaging-display-ktx'
-    
-    // Firebase Auth and Google Sign-In
+    // Firebase Auth and Firestore
     implementation 'com.google.firebase:firebase-auth'
-    implementation 'com.google.android.gms:play-services-auth:21.0.0'
+    implementation 'com.google.firebase:firebase-firestore'
     
+    // Firebase Cloud Messaging
+    implementation 'com.google.firebase:firebase-messaging'
+    implementation 'com.google.firebase:firebase-messaging-ktx'
     
-
     // Firebase Performance Monitoring
     implementation 'com.google.firebase:firebase-perf'
     implementation 'com.google.firebase:firebase-perf-ktx'
     
-    // Firebase Firestore
-    implementation 'com.google.firebase:firebase-firestore'
-    implementation 'com.google.firebase:firebase-firestore-ktx'
-    
-    // Firebase Messaging (FCM)
-    implementation 'com.google.firebase:firebase-messaging'
-    implementation 'com.google.firebase:firebase-messaging-ktx'
-    
+    // Google Sign-In
+    implementation 'com.google.android.gms:play-services-auth:21.0.0'
+
     // Firebase In-App Messaging
     implementation 'com.google.firebase:firebase-inappmessaging-display'
     implementation 'com.google.firebase:firebase-inappmessaging-display-ktx'

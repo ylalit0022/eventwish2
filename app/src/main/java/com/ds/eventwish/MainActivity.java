@@ -579,6 +579,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        // Update online status
+        FirestoreManager.getInstance().updateOnlineStatus(true)
+            .addOnFailureListener(e -> Log.e(TAG, "Failed to update online status", e));
         
         try {
             // Only track MainActivity screen if this is first launch
@@ -637,6 +640,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
+        // Update online status
+        FirestoreManager.getInstance().updateOnlineStatus(false)
+            .addOnFailureListener(e -> Log.e(TAG, "Failed to update online status", e));
+        
         try {
             // Update analytics when app goes to background
             AnalyticsUtils.setUserProperty("app_foreground", "false");

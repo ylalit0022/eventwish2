@@ -199,19 +199,12 @@ public class ApiClient {
                     .header("Content-Type", "application/json")
                     .method(original.method(), original.body());
 
-                // Add API key and device ID if available
+                // Add API key if available
                 if (apiKey != null && !apiKey.isEmpty()) {
                     requestBuilder.header("x-api-key", apiKey);
                 }
                 
-                // Add device ID for tracking and authentication
-                String deviceId = DeviceUtils.getDeviceId(context);
-                if (deviceId != null && !deviceId.isEmpty()) {
-                    requestBuilder.header("x-device-id", deviceId);
-                }
-                
                 // Add authentication token if available
-                // Safely check if SecureTokenManager is initialized
                 String authToken = null;
                 try {
                     SecureTokenManager tokenManager = SecureTokenManager.getInstance();
@@ -542,16 +535,10 @@ public class ApiClient {
                     .header("Content-Type", "application/json")
                     .method(original.method(), original.body());
 
-                // Add API key and device ID if available
+                // Add API key if available
                 String apiKey = getApiKey();
                 if (apiKey != null && !apiKey.isEmpty()) {
                     requestBuilder.header("x-api-key", apiKey);
-                }
-                
-                // Add device ID for tracking and authentication
-                String deviceId = DeviceUtils.getDeviceId(context);
-                if (deviceId != null && !deviceId.isEmpty()) {
-                    requestBuilder.header("x-device-id", deviceId);
                 }
                 
                 // Add authentication token if available

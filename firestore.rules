@@ -3,43 +3,44 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Helper functions
     function isSignedIn() {
-      return request.auth != null;
-    }
-    
-    function hasValidFcmToken() {
-      return request.auth.token.fcm != null;
-    }
-    
-    function isOwnerByFcmToken(userId) {
-      return hasValidFcmToken() && (
-        exists(/databases/$(database)/documents/users/$(userId)) && 
-        get(/databases/$(database)/documents/users/$(userId)).data.fcmToken == request.auth.token.fcm
-      );
-    }
-    
-    function isOwnerByAuth(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+      return request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
     
     function isOwner(userId) {
-      return isOwnerByAuth(userId) || isOwnerByFcmToken(userId);
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidUserData() {
+      let validFields = [
+        'email', 'name', 'isOnline', 'lastLogin', 'lastUpdated',
+        'notificationPreferences', 'favoriteTemplates', 'likedTemplates'
+      ];
+      return request.resource.data.keys().hasOnly(validFields);
+    }
+
+    function isValidTemplateData() {
+      let allowedFields = ['likeCount', 'favoriteCount', 'lastUpdated'];
+      return request.resource.data.keys().hasAll(['likeCount', 'favoriteCount', 'lastUpdated'])
+        && request.resource.data.keys().hasOnly(allowedFields);
+    }
+
+    function isValidTemplateUpdate() {
+      let allowedFields = ['likeCount', 'favoriteCount', 'lastUpdated'];
+      let diff = request.resource.data.diff(resource.data);
+      return diff.changedKeys().hasOnly(allowedFields);
     }
 
     // User document rules
     match /users/{userId} {
-      // Allow read/write for FCM token queries
-      allow read: if isSignedIn() || hasValidFcmToken();
+      // Allow read/write for authenticated users
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId);
       
-      // Allow create with FCM token
-      allow create: if hasValidFcmToken() && 
-        request.resource.data.fcmToken == request.auth.token.fcm;
+      // Allow create with Google Sign-In
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUserData();
       
-      // Allow update if owner or has matching FCM token
-      allow update: if isOwner(userId) || (
-        hasValidFcmToken() && 
-        (resource.data.fcmToken == request.auth.token.fcm || 
-         request.resource.data.fcmToken == request.auth.token.fcm)
-      );
+      // Allow update if owner and valid data
+      allow update: if isOwner(userId) && isValidUserData();
       
       // Allow delete only by owner
       allow delete: if isOwner(userId);
@@ -49,52 +50,63 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
 
-      // Favorites subcollection
-      match /favorites/{templateId} {
-        allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId)
-          && hasValidFields(['templateId', 'timestamp']);
-        allow delete: if isOwner(userId);
-      }
-
       // Likes subcollection
       match /likes/{templateId} {
-        allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId)
-          && hasValidFields(['templateId', 'timestamp']);
-        allow delete: if isOwner(userId);
+        allow read: if isSignedIn();
+        allow write: if isOwner(userId);
+      }
+      
+      // Favorites subcollection
+      match /favorites/{templateId} {
+        allow read: if isSignedIn();
+        allow write: if isOwner(userId);
       }
 
       // Notifications subcollection
       match /notifications/{notificationId} {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId)
-          && hasValidFields(['title', 'body', 'timestamp', 'read']);
+          && request.resource.data.keys().hasOnly(['title', 'body', 'timestamp', 'read'])
+          && request.resource.data.timestamp is timestamp;
         allow update: if isOwner(userId)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'lastUpdated']);
         allow delete: if isOwner(userId);
       }
     }
 
-    // Template rules
+    // Templates collection
     match /templates/{templateId} {
-      // Allow read for all users
-      allow read: if true;
+      allow read: if isSignedIn();
       
-      // Allow update for like/favorite counts
-      allow update: if isSignedIn() || hasValidFcmToken();
+      // Allow create with initial stats
+      allow create: if isSignedIn() 
+        && request.resource.data.keys().hasAll(['id', 'likeCount', 'favoriteCount', 'lastUpdated'])
+        && request.resource.data.id is string
+        && request.resource.data.likeCount == 0
+        && request.resource.data.favoriteCount == 0
+        && request.resource.data.lastUpdated is timestamp;
       
-      // Prevent deletion by regular users
-      allow delete: if false;
+      // Allow updates to like/favorite counts
+      allow update: if isSignedIn()
+        && request.resource.data.keys().hasAll(['id', 'likeCount', 'favoriteCount', 'lastUpdated'])
+        && request.resource.data.id == resource.data.id
+        && abs(request.resource.data.likeCount - resource.data.likeCount) <= 1
+        && abs(request.resource.data.favoriteCount - resource.data.favoriteCount) <= 1
+        && request.resource.data.lastUpdated is timestamp;
     }
 
-    // Migration rules (temporary, remove after migration)
-    match /users/{oldToken} {
-      allow read: if isSignedIn() 
-        && (resource.data.fcmToken == request.auth.token.fcm 
-            || resource.data.fcmToken == null);
-      allow delete: if isSignedIn() 
-        && resource.data.fcmToken == request.auth.token.fcm;
+    // User likes collection
+    match /user_likes/{likeId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isSignedIn() && 
+        request.auth.uid == likeId.split('_')[0];
+    }
+
+    // User favorites collection
+    match /user_favorites/{favoriteId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isSignedIn() && 
+        request.auth.uid == favoriteId.split('_')[0];
     }
   }
 } 

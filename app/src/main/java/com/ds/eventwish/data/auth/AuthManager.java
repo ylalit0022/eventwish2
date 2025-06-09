@@ -194,6 +194,7 @@ public class AuthManager {
             return Tasks.forException(new IllegalStateException("ID token is null"));
         }
 
+        // Sign in with Google credential
         AuthCredential credential = GoogleAuthProvider.getCredential(idToken, null);
         Log.d(TAG, "firebaseAuthWithGoogle: created AuthCredential, starting Firebase signIn");
 

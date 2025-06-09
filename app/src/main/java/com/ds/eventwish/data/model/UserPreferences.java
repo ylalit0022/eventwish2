@@ -22,8 +22,17 @@ public class UserPreferences {
     @PropertyName("name")
     private String name;
     
+    @PropertyName("email")
+    private String email;
+    
     @PropertyName("fcm_token")
     private String fcmToken;
+    
+    @PropertyName("is_online")
+    private boolean isOnline;
+    
+    @PropertyName("last_login")
+    private Timestamp lastLogin;
     
     @PropertyName("notification_preferences")
     private Map<String, NotificationPreference> notificationPreferences;
@@ -43,12 +52,15 @@ public class UserPreferences {
         favoriteTemplates = new HashMap<>();
         likedTemplates = new HashMap<>();
         this.lastUpdated = Timestamp.now();
+        this.lastLogin = Timestamp.now();
+        this.isOnline = false;
     }
 
-    public UserPreferences(String userId, String name) {
+    public UserPreferences(String userId, String name, String email) {
         this();
         this.userId = userId;
         this.name = name;
+        this.email = email;
     }
 
     @NonNull
@@ -68,6 +80,14 @@ public class UserPreferences {
         this.name = name;
     }
 
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
     @Nullable
     @PropertyName("fcm_token")
     public String getFcmToken() {
@@ -75,41 +95,68 @@ public class UserPreferences {
     }
 
     @PropertyName("fcm_token")
-    public void setFcmToken(@Nullable String fcmToken) {
+    public void setFcmToken(String fcmToken) {
         this.fcmToken = fcmToken;
     }
 
-    @NonNull
+    @PropertyName("is_online")
+    public boolean isOnline() {
+        return isOnline;
+    }
+
+    @PropertyName("is_online")
+    public void setOnline(boolean online) {
+        isOnline = online;
+    }
+
+    @PropertyName("last_login")
+    public Timestamp getLastLogin() {
+        return lastLogin;
+    }
+
+    @PropertyName("last_login")
+    public void setLastLogin(Timestamp lastLogin) {
+        this.lastLogin = lastLogin;
+    }
+
     @PropertyName("notification_preferences")
     public Map<String, NotificationPreference> getNotificationPreferences() {
-        return notificationPreferences != null ? notificationPreferences : new HashMap<>();
+        return notificationPreferences;
     }
 
     @PropertyName("notification_preferences")
-    public void setNotificationPreferences(@Nullable Map<String, NotificationPreference> preferences) {
-        this.notificationPreferences = preferences != null ? preferences : new HashMap<>();
+    public void setNotificationPreferences(Map<String, NotificationPreference> notificationPreferences) {
+        this.notificationPreferences = notificationPreferences != null ? notificationPreferences : new HashMap<>();
     }
 
-    @NonNull
     @PropertyName("favorite_templates")
     public Map<String, Boolean> getFavoriteTemplates() {
-        return favoriteTemplates != null ? favoriteTemplates : new HashMap<>();
+        return favoriteTemplates;
     }
 
     @PropertyName("favorite_templates")
-    public void setFavoriteTemplates(@Nullable Map<String, Boolean> favorites) {
-        this.favoriteTemplates = favorites != null ? favorites : new HashMap<>();
+    public void setFavoriteTemplates(Map<String, Boolean> favoriteTemplates) {
+        this.favoriteTemplates = favoriteTemplates != null ? favoriteTemplates : new HashMap<>();
     }
 
-    @NonNull
     @PropertyName("liked_templates")
     public Map<String, Boolean> getLikedTemplates() {
-        return likedTemplates != null ? likedTemplates : new HashMap<>();
+        return likedTemplates;
     }
 
     @PropertyName("liked_templates")
-    public void setLikedTemplates(@Nullable Map<String, Boolean> likes) {
-        this.likedTemplates = likes != null ? likes : new HashMap<>();
+    public void setLikedTemplates(Map<String, Boolean> likedTemplates) {
+        this.likedTemplates = likedTemplates != null ? likedTemplates : new HashMap<>();
+    }
+
+    @PropertyName("last_updated")
+    public Timestamp getLastUpdated() {
+        return lastUpdated;
+    }
+
+    @PropertyName("last_updated")
+    public void setLastUpdated(Timestamp lastUpdated) {
+        this.lastUpdated = lastUpdated;
     }
 
     public void addFavoriteTemplate(String templateId) {
@@ -161,13 +208,5 @@ public class UserPreferences {
     @Nullable
     public NotificationPreference getNotificationPreference(String type) {
         return notificationPreferences != null ? notificationPreferences.get(type) : null;
-    }
-
-    public Timestamp getLastUpdated() {
-        return lastUpdated;
-    }
-
-    public void setLastUpdated(Timestamp lastUpdated) {
-        this.lastUpdated = lastUpdated;
     }
 } 

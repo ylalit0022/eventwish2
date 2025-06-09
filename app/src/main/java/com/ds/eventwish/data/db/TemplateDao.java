@@ -18,29 +18,23 @@ import java.util.List;
  */
 @Dao
 public interface TemplateDao {
-    @Query("SELECT * FROM template ORDER BY created_at DESC")
+    @Query("SELECT * FROM templates ORDER BY lastUpdated DESC")
     LiveData<List<Template>> getAllTemplates();
 
-    @Query("SELECT * FROM template ORDER BY created_at DESC")
+    @Query("SELECT * FROM templates ORDER BY lastUpdated DESC")
     List<Template> getAllTemplatesSync();
 
-    @Query("SELECT * FROM template WHERE category = :category ORDER BY created_at DESC")
+    @Query("SELECT * FROM templates WHERE categoryId = :category ORDER BY lastUpdated DESC")
     List<Template> getTemplatesByCategorySync(String category);
 
-    @Query("SELECT * FROM template WHERE id = :id")
+    @Query("SELECT * FROM templates WHERE id = :id")
     LiveData<Template> getTemplateById(String id);
 
-    @Query("SELECT * FROM template ORDER BY created_at DESC LIMIT :limit OFFSET :offset")
+    @Query("SELECT * FROM templates ORDER BY lastUpdated DESC LIMIT :limit OFFSET :offset")
     LiveData<List<Template>> getTemplatesPaged(int limit, int offset);
 
-    @Query("SELECT * FROM template WHERE category_id = :category ORDER BY created_at DESC LIMIT :limit OFFSET :offset")
+    @Query("SELECT * FROM templates WHERE categoryId = :category ORDER BY lastUpdated DESC LIMIT :limit OFFSET :offset")
     LiveData<List<Template>> getTemplatesByCategoryPaged(String category, int limit, int offset);
-
-    @Query("SELECT * FROM template WHERE is_featured = 1 ORDER BY created_at DESC LIMIT :limit")
-    LiveData<List<Template>> getFeaturedTemplates(int limit);
-
-    @Query("SELECT * FROM template WHERE is_visible = 1 ORDER BY created_at DESC LIMIT :limit")
-    LiveData<List<Template>> getVisibleTemplates(int limit);
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insert(Template template);
@@ -54,52 +48,46 @@ public interface TemplateDao {
     @Delete
     void delete(Template template);
 
-    @Query("DELETE FROM template")
+    @Query("DELETE FROM templates")
     void deleteAll();
 
-    @Query("UPDATE template SET view_count = view_count + 1 WHERE id = :id")
-    void incrementViewCount(String id);
-
-    @Query("UPDATE template SET share_count = share_count + 1 WHERE id = :id")
-    void incrementShareCount(String id);
-
-    @Query("UPDATE template SET like_count = like_count + 1 WHERE id = :id")
+    @Query("UPDATE templates SET likeCount = likeCount + 1 WHERE id = :id")
     void incrementLikeCount(String id);
 
-    @Query("SELECT * FROM template WHERE category = :category")
+    @Query("SELECT * FROM templates WHERE categoryId = :category")
     LiveData<List<Template>> getTemplatesByCategory(String category);
 
-    @Query("SELECT COUNT(*) FROM template")
+    @Query("SELECT COUNT(*) FROM templates")
     int getTemplateCount();
 
-    @Query("SELECT COUNT(*) FROM template WHERE category = :category")
+    @Query("SELECT COUNT(*) FROM templates WHERE categoryId = :category")
     int getTemplateCountByCategory(String category);
 
     @Transaction
-    @Query("SELECT DISTINCT category FROM template")
+    @Query("SELECT DISTINCT categoryId FROM templates")
     LiveData<List<String>> getAllCategories();
 
-    @Query("UPDATE template SET is_liked = :isLiked WHERE id = :templateId")
+    @Query("UPDATE templates SET isLiked = :isLiked WHERE id = :templateId")
     void updateLikeState(String templateId, boolean isLiked);
 
-    @Query("UPDATE template SET is_favorited = :isFavorited WHERE id = :templateId")
+    @Query("UPDATE templates SET isFavorited = :isFavorited WHERE id = :templateId")
     void updateFavoriteState(String templateId, boolean isFavorited);
 
-    @Query("UPDATE template SET like_count = :likeCount WHERE id = :templateId")
+    @Query("UPDATE templates SET likeCount = :likeCount WHERE id = :templateId")
     void updateLikeCount(String templateId, int likeCount);
 
-    @Query("SELECT is_liked FROM template WHERE id = :templateId")
+    @Query("SELECT isLiked FROM templates WHERE id = :templateId")
     LiveData<Boolean> getLikeState(String templateId);
 
-    @Query("SELECT is_favorited FROM template WHERE id = :templateId")
+    @Query("SELECT isFavorited FROM templates WHERE id = :templateId")
     LiveData<Boolean> getFavoriteState(String templateId);
 
-    @Query("SELECT like_count FROM template WHERE id = :templateId")
+    @Query("SELECT likeCount FROM templates WHERE id = :templateId")
     LiveData<Integer> getLikeCount(String templateId);
 
-    @Query("SELECT * FROM template WHERE is_liked = 1")
+    @Query("SELECT * FROM templates WHERE isLiked = 1")
     LiveData<List<Template>> getLikedTemplates();
 
-    @Query("SELECT * FROM template WHERE is_favorited = 1")
+    @Query("SELECT * FROM templates WHERE isFavorited = 1")
     LiveData<List<Template>> getFavoritedTemplates();
 } 

@@ -61,7 +61,6 @@ import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import com.google.firebase.messaging.FirebaseMessaging;
 import android.content.SharedPreferences;
 import com.ds.eventwish.data.remote.FirestoreManager;
-import com.ds.eventwish.data.migration.AuthMigrationHelper;
 
 public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
@@ -123,6 +122,9 @@ public class EventWishApplication extends Application implements Configuration.P
                     .setPersistenceEnabled(true)
                     .build()
             );
+            
+            // Initialize FirestoreManager with context
+            FirestoreManager.getInstance(this);
             
             // Initialize Firebase services before auth
             initializeFirebaseServices();
@@ -1049,20 +1051,5 @@ public class EventWishApplication extends Application implements Configuration.P
                     .addOnSuccessListener(aVoid -> Log.d(TAG, "FCM token updated in Firestore"))
                     .addOnFailureListener(e -> Log.e(TAG, "Failed to update FCM token in Firestore", e));
             });
-    }
-
-    /**
-     * Migrate user data if needed
-     */
-    private void migrateUserData() {
-        AuthMigrationHelper migrationHelper = new AuthMigrationHelper(this);
-        if (migrationHelper.isMigrationNeeded()) {
-            Log.d(TAG, "Starting user data migration");
-            migrationHelper.migrateUserData()
-                .addOnSuccessListener(aVoid -> Log.d(TAG, "User data migration completed"))
-                .addOnFailureListener(e -> Log.e(TAG, "User data migration failed", e));
-        } else {
-            Log.d(TAG, "No migration needed");
-        }
     }
 }

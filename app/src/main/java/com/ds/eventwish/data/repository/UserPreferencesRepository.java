@@ -662,4 +662,34 @@ public class UserPreferencesRepository {
             error.setValue("Failed to update template interaction: " + e.getMessage());
         });
     }
+
+    /**
+     * Update user preferences after Google Sign-In migration
+     */
+    public Task<Void> updatePreferencesAfterMigration(UserPreferences preferences) {
+        if (preferences == null) {
+            return Tasks.forException(new IllegalArgumentException("Preferences cannot be null"));
+        }
+
+        Map<String, Object> data = UserPreferencesConverter.toDocument(preferences);
+        data.put("updated_at", firestoreManager.getServerTimestamp());
+        data.put("migrated_from", "anonymous");
+        data.put("migration_timestamp", firestoreManager.getServerTimestamp());
+
+        return firestoreManager.updateUserPreferences(data)
+            .addOnSuccessListener(aVoid -> {
+                Log.d(TAG, "User preferences updated after migration");
+                Bundle params = new Bundle();
+                params.putString("user_id", preferences.getUserId());
+                params.putString("migration_type", "google_sign_in");
+                AnalyticsUtils.logEvent("user_preferences_migrated", params);
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Error updating user preferences after migration", e);
+                Bundle params = new Bundle();
+                params.putString("error", e.getMessage());
+                params.putString("migration_type", "google_sign_in");
+                AnalyticsUtils.logEvent("user_preferences_migration_failed", params);
+            });
+    }
 } 

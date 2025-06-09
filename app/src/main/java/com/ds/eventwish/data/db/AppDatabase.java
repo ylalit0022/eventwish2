@@ -30,7 +30,7 @@ import com.ds.eventwish.data.local.dao.AdUnitDao;
         Category.class,
         AdUnitEntity.class
     },
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters({
@@ -79,7 +79,7 @@ public abstract class AppDatabase extends RoomDatabase {
                     Log.d(TAG, "Database opened");
                 }
             })
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .fallbackToDestructiveMigration() // Only during development
             .build();
     }
@@ -98,8 +98,47 @@ public abstract class AppDatabase extends RoomDatabase {
         @Override
         public void migrate(@NonNull SupportSQLiteDatabase database) {
             // Create indices for like/favorite columns
-            database.execSQL("CREATE INDEX IF NOT EXISTS `index_template_is_liked` ON `template` (`is_liked`)");
-            database.execSQL("CREATE INDEX IF NOT EXISTS `index_template_is_favorited` ON `template` (`is_favorited`)");
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_templates_isLiked` ON `templates` (`isLiked`)");
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_templates_isFavorited` ON `templates` (`isFavorited`)");
+        }
+    };
+
+    private static final Migration MIGRATION_2_3 = new Migration(2, 3) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            // Create new templates table with updated schema
+            database.execSQL("CREATE TABLE IF NOT EXISTS `templates_new` " +
+                           "(`id` TEXT NOT NULL, " +
+                           "`title` TEXT, " +
+                           "`categoryId` TEXT, " +
+                           "`previewUrl` TEXT, " +
+                           "`likeCount` INTEGER NOT NULL DEFAULT 0, " +
+                           "`favoriteCount` INTEGER NOT NULL DEFAULT 0, " +
+                           "`isLiked` INTEGER NOT NULL DEFAULT 0, " +
+                           "`isFavorited` INTEGER NOT NULL DEFAULT 0, " +
+                           "`lastUpdated` INTEGER, " +
+                           "`likeChanged` INTEGER NOT NULL DEFAULT 0, " +
+                           "`favoriteChanged` INTEGER NOT NULL DEFAULT 0, " +
+                           "PRIMARY KEY(`id`), " +
+                           "FOREIGN KEY(`categoryId`) REFERENCES `categories`(`id`) ON DELETE SET NULL)");
+
+            // Copy data from old table
+            database.execSQL("INSERT OR REPLACE INTO `templates_new` " +
+                           "(id, title, categoryId, previewUrl, likeCount, favoriteCount, isLiked, isFavorited, lastUpdated) " +
+                           "SELECT id, title, category_id, preview_url, like_count, favorite_count, is_liked, is_favorited, updated_at " +
+                           "FROM `templates`");
+
+            // Drop old table
+            database.execSQL("DROP TABLE IF EXISTS `templates`");
+
+            // Rename new table
+            database.execSQL("ALTER TABLE `templates_new` RENAME TO `templates`");
+
+            // Create indices
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_templates_categoryId` ON `templates` (`categoryId`)");
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_templates_lastUpdated` ON `templates` (`lastUpdated`)");
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_templates_isLiked` ON `templates` (`isLiked`)");
+            database.execSQL("CREATE INDEX IF NOT EXISTS `index_templates_isFavorited` ON `templates` (`isFavorited`)");
         }
     };
 } 

@@ -13,13 +13,13 @@ public class Template {
     private final String imageUrl;
     private boolean isLiked;
     private boolean isFavorited;
-    private int likeCount;
+    private long likeCount;
     
     /**
      * Constructor for a template
      */
     public Template(String id, String name, String categoryId, String imageUrl) {
-        this(id, name, categoryId, imageUrl, false, false, 0);
+        this(id, name, categoryId, imageUrl, false, false, 0L);
     }
     
     /**
@@ -34,7 +34,7 @@ public class Template {
      * @param likeCount The number of likes for this template
      */
     public Template(String id, String name, String categoryId, String imageUrl, 
-                   boolean isLiked, boolean isFavorited, int likeCount) {
+                   boolean isLiked, boolean isFavorited, long likeCount) {
         this.id = id;
         this.name = name;
         this.categoryId = categoryId;
@@ -125,7 +125,7 @@ public class Template {
      *
      * @return The like count
      */
-    public int getLikeCount() {
+    public long getLikeCount() {
         return likeCount;
     }
     
@@ -134,7 +134,7 @@ public class Template {
      *
      * @param count The new like count
      */
-    public void setLikeCount(int count) {
+    public void setLikeCount(long count) {
         this.likeCount = count;
     }
 

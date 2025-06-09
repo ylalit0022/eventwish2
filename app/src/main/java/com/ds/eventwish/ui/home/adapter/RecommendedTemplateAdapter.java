@@ -160,6 +160,7 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
                 if (listener != null) {
                     // Provide haptic feedback
                     v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
+                    // Only trigger like action
                     listener.onTemplateLike(template);
                 }
             });
@@ -173,6 +174,7 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
                 if (listener != null) {
                     // Provide haptic feedback
                     v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
+                    // Only trigger favorite action
                     listener.onTemplateFavorite(template);
                 }
             });
