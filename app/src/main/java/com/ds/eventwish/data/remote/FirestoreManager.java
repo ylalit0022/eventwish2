@@ -30,6 +30,14 @@ import com.google.firebase.firestore.QuerySnapshot;
 import com.ds.eventwish.utils.StringUtils;
 import com.ds.eventwish.util.SecureTokenManager;
 import com.google.firebase.firestore.FieldPath;
+import androidx.work.Constraints;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.NetworkType;
+import androidx.work.WorkManager;
+import androidx.work.Worker;
+import androidx.work.WorkerParameters;
+import androidx.work.BackoffPolicy;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -40,6 +48,7 @@ import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Manager class for handling Firestore operations related to user preferences and interactions
@@ -515,16 +524,38 @@ public class FirestoreManager {
             
             boolean isCurrentlyLiked = likeTask.getResult().exists();
             
-            // Use the safe counter increment method instead of direct update
-            long increment = isCurrentlyLiked ? -1 : 1;
-            return safeIncrementTemplateCounter(templateId, FIELD_LIKE_COUNT, increment)
-                .continueWithTask(updateTask -> {
-                    if (!updateTask.isSuccessful()) {
-                        throw updateTask.getException();
-                    }
-                    
-                    return updateLikeStatus(likeRef, isCurrentlyLiked, templateId, userId);
-                });
+            // Use a transaction to ensure atomicity
+            return db.runTransaction(transaction -> {
+                // Get the current template document
+                DocumentReference templateRef = db.collection(COLLECTION_TEMPLATES).document(templateId);
+                DocumentSnapshot templateSnapshot = transaction.get(templateRef);
+                
+                // Get current like count or default to 0
+                Long currentLikeCount = templateSnapshot.getLong(FIELD_LIKE_COUNT);
+                long likeCount = currentLikeCount != null ? currentLikeCount : 0;
+                
+                // Update like count based on current state
+                long newLikeCount = isCurrentlyLiked ? Math.max(0, likeCount - 1) : likeCount + 1;
+                
+                // Update the template document with new count
+                transaction.update(templateRef, FIELD_LIKE_COUNT, newLikeCount);
+                
+                // Update user's like status
+                if (isCurrentlyLiked) {
+                    // Unlike: Delete like document
+                    transaction.delete(likeRef);
+                } else {
+                    // Like: Create like document
+                    Map<String, Object> likeData = new HashMap<>();
+                    likeData.put("templateId", templateId);
+                    likeData.put("userId", userId);
+                    likeData.put("timestamp", FieldValue.serverTimestamp());
+                    transaction.set(likeRef, likeData);
+                }
+                
+                // Return the new like state
+                return !isCurrentlyLiked;
+            });
         })
         .addOnSuccessListener(isLiked -> {
             Log.d(TAG, String.format("Successfully %s template %s", isLiked ? "liked" : "unliked", templateId));
@@ -543,26 +574,74 @@ public class FirestoreManager {
             params.putString("user_id", userId);
             params.putString("error", e.getMessage());
             AnalyticsUtils.getInstance().logEvent("template_like_error", params);
+            
+            // Schedule a retry for failed operations
+            scheduleRetry("like", templateId, userId);
         });
     }
     
     /**
-     * Helper method to update the like status
+     * Schedule a retry for failed operations
      */
-    private Task<Boolean> updateLikeStatus(DocumentReference likeRef, boolean isCurrentlyLiked, 
-                                           String templateId, String userId) {
-        if (isCurrentlyLiked) {
-            // Unlike: Delete like document
-            Log.d(TAG, "Removing like for template: " + templateId);
-            return likeRef.delete().continueWith(task -> false);
-        } else {
-            // Like: Create like document
-            Log.d(TAG, "Adding like for template: " + templateId);
-            Map<String, Object> likeData = new HashMap<>();
-            likeData.put("templateId", templateId);
-            likeData.put("userId", userId);
-            likeData.put("timestamp", FieldValue.serverTimestamp());
-            return likeRef.set(likeData).continueWith(task -> true);
+    private void scheduleRetry(String operationType, String templateId, String userId) {
+        // Create a work request for retry
+        OneTimeWorkRequest retryWork = new OneTimeWorkRequest.Builder(RetryWorker.class)
+            .setInputData(new androidx.work.Data.Builder()
+                .putString("operation", operationType)
+                .putString("template_id", templateId)
+                .putString("user_id", userId)
+                .build())
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .setConstraints(new Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build())
+            .build();
+        
+        // Enqueue the work
+        WorkManager.getInstance(context)
+            .enqueueUniqueWork(
+                "retry_" + operationType + "_" + templateId,
+                ExistingWorkPolicy.REPLACE,
+                retryWork);
+    }
+    
+    /**
+     * Worker class for retrying failed operations
+     */
+    public static class RetryWorker extends Worker {
+        public RetryWorker(@NonNull Context context, @NonNull WorkerParameters params) {
+            super(context, params);
+        }
+        
+        @NonNull
+        @Override
+        public Result doWork() {
+            String operation = getInputData().getString("operation");
+            String templateId = getInputData().getString("template_id");
+            String userId = getInputData().getString("user_id");
+            
+            if (operation == null || templateId == null || userId == null) {
+                return Result.failure();
+            }
+            
+            FirestoreManager manager = FirestoreManager.getInstance();
+            
+            try {
+                if ("like".equals(operation)) {
+                    // Retry the like operation
+                    Tasks.await(manager.toggleLike(templateId));
+                    return Result.success();
+                } else if ("favorite".equals(operation)) {
+                    // Retry the favorite operation
+                    Tasks.await(manager.toggleFavorite(templateId));
+                    return Result.success();
+                }
+            } catch (Exception e) {
+                Log.e("RetryWorker", "Failed to retry operation: " + operation, e);
+                return Result.retry();
+            }
+            
+            return Result.failure();
         }
     }
 

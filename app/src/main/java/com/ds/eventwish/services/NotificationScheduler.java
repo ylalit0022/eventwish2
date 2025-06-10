@@ -8,108 +8,101 @@ import android.os.Build;
 import android.util.Log;
 
 import com.ds.eventwish.utils.EventWishNotificationManager;
-import com.ds.eventwish.receivers.NotificationReceiver;
 
 /**
  * Handles scheduling and sending notifications
  */
 public class NotificationScheduler {
     private static final String TAG = "NotificationScheduler";
-    private static final int TEST_NOTIFICATION_REQUEST_CODE = 1001;
     
     /**
-     * Send an immediate test notification
+     * Schedule a notification for a specific time
      * @param context Application context
+     * @param title Notification title
+     * @param message Notification message
+     * @param timeInMillis Time to show notification in milliseconds
+     * @param requestCode Unique request code for the notification
+     * @return true if scheduled successfully, false otherwise
      */
-    public static void sendTestNotification(Context context) {
+    public static boolean scheduleNotification(Context context, String title, String message, long timeInMillis, int requestCode) {
         try {
-            // Directly show a test notification
-            EventWishNotificationManager.showUpdateNotification(
-                    context,
-                    "Local Notification Test",
-                    "This is a test of the local notification system."
-            );
+            Intent intent = new Intent(context, com.ds.eventwish.receivers.ReminderAlarmReceiver.class);
+            intent.putExtra("title", title);
+            intent.putExtra("message", message);
+            intent.putExtra("notification_id", requestCode);
+            intent.setAction("com.ds.eventwish.SHOW_REMINDER");
             
-            // Schedule a delayed notification (5 seconds later)
-            scheduleDelayedTestNotification(context);
-            
-            Log.d(TAG, "Test notification sent and delayed notification scheduled");
-        } catch (Exception e) {
-            Log.e(TAG, "Error sending test notification: " + e.getMessage(), e);
-        }
-    }
-    
-    /**
-     * Schedule a delayed test notification (5 seconds later)
-     * @param context Application context
-     */
-    private static void scheduleDelayedTestNotification(Context context) {
-        try {
-            AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-            if (alarmManager == null) {
-                Log.e(TAG, "AlarmManager is null");
-                return;
-            }
-            
-            // Create intent for the notification receiver
-            Intent intent = new Intent(context, NotificationReceiver.class);
-            intent.setAction("TEST_NOTIFICATION");
-            intent.putExtra("title", "Delayed Test Notification");
-            intent.putExtra("message", "This is a delayed test notification (5 seconds)");
-            
-            // Create pending intent
             PendingIntent pendingIntent = PendingIntent.getBroadcast(
                     context,
-                    TEST_NOTIFICATION_REQUEST_CODE,
+                    requestCode,
                     intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+                    PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
             );
             
-            // Calculate trigger time (5 seconds from now)
-            long triggerTime = System.currentTimeMillis() + 5000;
-            
-            // Schedule notification based on Android version
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        triggerTime,
-                        pendingIntent
-                );
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                alarmManager.setExact(
-                        AlarmManager.RTC_WAKEUP,
-                        triggerTime,
-                        pendingIntent
-                );
+            AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+            if (alarmManager != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent);
+                } else {
+                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent);
+                }
+                Log.d(TAG, "Notification scheduled for " + timeInMillis + " with ID " + requestCode);
+                return true;
             } else {
-                alarmManager.set(
-                        AlarmManager.RTC_WAKEUP,
-                        triggerTime,
-                        pendingIntent
-                );
+                Log.e(TAG, "AlarmManager is null");
+                return false;
             }
-            
-            Log.d(TAG, "Delayed test notification scheduled for " + triggerTime);
         } catch (Exception e) {
-            Log.e(TAG, "Error scheduling delayed test notification: " + e.getMessage(), e);
+            Log.e(TAG, "Error scheduling notification: " + e.getMessage(), e);
+            return false;
         }
     }
-
+    
     /**
-     * Schedule all notifications for the app
+     * Cancel a scheduled notification
+     * @param context Application context
+     * @param requestCode Request code of the notification to cancel
+     */
+    public static void cancelNotification(Context context, int requestCode) {
+        try {
+            Intent intent = new Intent(context, com.ds.eventwish.receivers.ReminderAlarmReceiver.class);
+            intent.setAction("com.ds.eventwish.SHOW_REMINDER");
+            
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    requestCode,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
+            );
+            
+            AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+            if (alarmManager != null) {
+                alarmManager.cancel(pendingIntent);
+                pendingIntent.cancel();
+                Log.d(TAG, "Notification canceled with ID " + requestCode);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error canceling notification: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Run the festival notification worker immediately
      * @param context Application context
      */
-    public static void scheduleAllNotifications(Context context) {
+    public static void runFestivalNotificationsNow(Context context) {
         try {
-            Log.d(TAG, "Scheduling all app notifications");
+            // Create and enqueue a one-time work request
+            androidx.work.OneTimeWorkRequest workRequest = 
+                    new androidx.work.OneTimeWorkRequest.Builder(com.ds.eventwish.workers.FestivalNotificationWorker.class)
+                    .build();
             
-            // This is a placeholder for scheduling app notifications
-            // In a real implementation, you would load notification settings from preferences
-            // and schedule appropriate notifications based on those settings
+            // Enqueue the work
+            androidx.work.WorkManager.getInstance(context).enqueue(workRequest);
             
-            Log.d(TAG, "All notifications scheduled successfully");
+            Log.d(TAG, "Festival notification worker enqueued");
         } catch (Exception e) {
-            Log.e(TAG, "Error scheduling all notifications: " + e.getMessage(), e);
+            Log.e(TAG, "Error running festival notification worker: " + e.getMessage(), e);
         }
     }
 }

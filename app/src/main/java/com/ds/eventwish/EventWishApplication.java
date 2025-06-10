@@ -61,6 +61,8 @@ import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import com.google.firebase.messaging.FirebaseMessaging;
 import android.content.SharedPreferences;
 import com.ds.eventwish.data.remote.FirestoreManager;
+import com.ds.eventwish.utils.EventNotificationManager;
+import com.ds.eventwish.data.auth.AuthManager;
 
 public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
@@ -246,9 +248,12 @@ public class EventWishApplication extends Application implements Configuration.P
             try {
                 FirebaseInAppMessagingHandler.init(this);
                 Log.d(TAG, "11. Firebase In-App Messaging initialized");
+                
+                // Initialize RemoteConfigManager for app updates
+                com.ds.eventwish.utils.RemoteConfigManager.getInstance(this);
+                Log.d(TAG, "RemoteConfigManager initialized");
             } catch (Exception e) {
-                Log.e(TAG, "Error initializing Firebase In-App Messaging: " + e.getMessage(), e);
-                // Continue without In-App Messaging
+                Log.e(TAG, "Error initializing Firebase In-App Messaging or RemoteConfigManager: " + e.getMessage(), e);
             }
             
             // Create notification channels
@@ -280,7 +285,12 @@ public class EventWishApplication extends Application implements Configuration.P
             }
             
             // Initialize InternetConnectivityChecker
-            InternetConnectivityChecker.getInstance(this);
+            try {
+                InternetConnectivityChecker.getInstance(this);
+                Log.d(TAG, "Internet Connectivity Checker initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing Internet Connectivity Checker: " + e.getMessage(), e);
+            }
             
             // Initialize repositories
             TemplateRepository.getInstance().init(this);
@@ -312,6 +322,14 @@ public class EventWishApplication extends Application implements Configuration.P
                     }
                 })
                 .addOnFailureListener(e -> Log.e(TAG, "Error getting FCM token", e));
+            
+            // Initialize Event Notification Manager
+            try {
+                EventNotificationManager.getInstance(this).initialize();
+                Log.d(TAG, "Event Notification Manager initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing Event Notification Manager: " + e.getMessage(), e);
+            }
             
             Log.d(TAG, "EventWish application initialization complete");
         } catch (Exception e) {
@@ -508,6 +526,34 @@ public class EventWishApplication extends Application implements Configuration.P
             
             // Restore pending reminders
             restorePendingReminders();
+
+            // Initialize notification channels
+            createNotificationChannels();
+            Log.d(TAG, "Notification channels created");
+
+            // Initialize ad session manager
+            adSessionManager = AdSessionManager.getInstance(this);
+            Log.d(TAG, "Ad session manager initialized");
+
+            // Initialize Internet Connectivity Checker
+            InternetConnectivityChecker.getInstance(this);
+            Log.d(TAG, "Internet connectivity checker initialized");
+            
+            // Initialize Event Notification Manager
+            try {
+                EventNotificationManager.getInstance(this).initialize();
+                Log.d(TAG, "Event Notification Manager initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing Event Notification Manager: " + e.getMessage(), e);
+            }
+
+            // Register activity lifecycle callbacks
+            registerActivityLifecycleCallbacks(this);
+            Log.d(TAG, "Activity lifecycle callbacks registered");
+
+            // Register fragment lifecycle callbacks
+            registerFragmentLifecycleCallbacks();
+            Log.d(TAG, "Fragment lifecycle callbacks registered");
         } catch (Exception e) {
             Log.e(TAG, "Error initializing components", e);
         }
@@ -669,13 +715,16 @@ public class EventWishApplication extends Application implements Configuration.P
                 // Continue without analytics - tracking will be limited
             }
             
-            // 13. Initialize Firebase In-App Messaging Handler - should be last Firebase component
+            // 13. Initialize Firebase In-App Messaging
             try {
                 FirebaseInAppMessagingHandler.init(this);
                 Log.d(TAG, "✅ Firebase In-App Messaging Handler initialized");
+                
+                // Initialize RemoteConfigManager for app updates
+                com.ds.eventwish.utils.RemoteConfigManager.getInstance(this);
+                Log.d(TAG, "RemoteConfigManager initialized");
             } catch (Exception e) {
-                Log.e(TAG, "❌ Error initializing Firebase In-App Messaging Handler: " + e.getMessage(), e);
-                // Continue without In-App Messaging - no in-app messages will be shown
+                Log.e(TAG, "❌ Error initializing Firebase In-App Messaging or RemoteConfigManager: " + e.getMessage(), e);
             }
             
             Log.d(TAG, "✅ All services initialized successfully");
@@ -1001,38 +1050,52 @@ public class EventWishApplication extends Application implements Configuration.P
     private void initializeFirebaseServices() {
         Log.d(TAG, "Initializing Firebase services");
         
-        // Initialize FirestoreManager early but on a background thread
-        AppExecutors.getInstance().diskIO().execute(() -> {
-            // Initialize FirestoreManager
-            FirestoreManager firestoreManager = FirestoreManager.getInstance();
-            
-            // Ensure templates collection exists - this is potentially a slow operation
-            Log.d(TAG, "Starting template collection initialization (background thread)");
-            firestoreManager.ensureTemplatesCollectionExists()
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Templates collection initialized successfully");
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to initialize templates collection", e);
-                });
-        });
-            
         try {
-            // Initialize Firebase Analytics
-            FirebaseAnalytics.getInstance(this);
-            Log.d(TAG, "Firebase Analytics initialized");
+            // Initialize FirestoreManager early but on a background thread
+            AppExecutors.getInstance().diskIO().execute(() -> {
+                // Initialize FirestoreManager
+                FirestoreManager firestoreManager = FirestoreManager.getInstance();
+                
+                // Ensure templates collection exists - this is potentially a slow operation
+                Log.d(TAG, "Starting template collection initialization (background thread)");
+                firestoreManager.ensureTemplatesCollectionExists()
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d(TAG, "Templates collection initialized successfully");
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "Failed to initialize templates collection", e);
+                    });
+            });
             
             // Initialize Firebase Crashlytics
             FirebaseCrashManager.init(this);
             Log.d(TAG, "Firebase Crashlytics initialized");
             
+            // Initialize Firebase Analytics
+            FirebaseAnalytics.getInstance(this);
+            Log.d(TAG, "Firebase Analytics initialized");
+            
             // Initialize Firebase Performance
             PerformanceTracker.init(this);
             Log.d(TAG, "Firebase Performance initialized");
             
+            // Initialize Firebase Remote Config and Event Notifications
+            EventNotificationManager.init(this);
+            Log.d(TAG, "Firebase Remote Config and Event Notifications initialized");
+            
+            // Schedule a check for event notifications
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                try {
+                    EventNotificationManager.getInstance(this).checkAndShowNotification();
+                    Log.d(TAG, "Event notifications checked");
+                } catch (Exception e) {
+                    Log.e(TAG, "Error checking event notifications", e);
+                }
+            }, 10000); // Check after 10 seconds to allow app to initialize fully
+            
             // Initialize AuthManager early to ensure proper authentication state
             try {
-                com.ds.eventwish.data.auth.AuthManager.getInstance().initialize(this);
+                AuthManager.getInstance().initialize(this);
                 Log.d(TAG, "AuthManager initialized");
                 
                 // Check for existing user and refresh token if needed
@@ -1052,28 +1115,62 @@ public class EventWishApplication extends Application implements Configuration.P
                 Log.e(TAG, "Error initializing AuthManager", e);
             }
             
-            // Initialize Firebase Remote Config and In-App Messaging
+            // Initialize Firebase In-App Messaging
             try {
                 FirebaseInAppMessagingHandler.init(this);
                 Log.d(TAG, "Firebase In-App Messaging initialized");
+                
+                // Initialize RemoteConfigManager for app updates
                 com.ds.eventwish.utils.RemoteConfigManager.getInstance(this);
-                Log.d(TAG, "Firebase Remote Config initialized");
+                Log.d(TAG, "RemoteConfigManager initialized");
             } catch (Exception e) {
-                Log.e(TAG, "Error initializing Firebase Remote Config or In-App Messaging", e);
+                Log.e(TAG, "Error initializing Firebase In-App Messaging or RemoteConfigManager: " + e.getMessage(), e);
             }
             
-            // Initialize ShareMessageManager for dynamic share messages
+            // Check if we're running in debug mode
+            boolean isDebuggable = (0 != (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE));
+            
+            // Initialize AdMob if not in debug mode or if explicitly enabled in debug
+            try {
+                // Initialize AdMob
+                AdMobManager.init(this);
+                Log.d(TAG, "AdMob initialized");
+                
+                // Initialize App Open Ads
+                appOpenManager = new AppOpenManager(this);
+                Log.d(TAG, "App Open Ads initialized");
+                
+                // Initialize the sponsored ad manager factory
+                SponsoredAdManagerFactory.init(this);
+                Log.d(TAG, "Sponsored Ad Manager initialized");
+                
+                // Initialize AdSessionManager
+                adSessionManager = AdSessionManager.getInstance(this);
+                Log.d(TAG, "AdSessionManager initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing AdMob: " + e.getMessage(), e);
+            }
+            
+            // Initialize Internet Connectivity Checker
+            try {
+                InternetConnectivityChecker.getInstance(this);
+                Log.d(TAG, "Internet Connectivity Checker initialized");
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing Internet Connectivity Checker: " + e.getMessage(), e);
+            }
+            
+            // Initialize ShareMessageManager
             try {
                 com.ds.eventwish.utils.ShareMessageManager.getInstance(this);
                 Log.d(TAG, "ShareMessageManager initialized");
             } catch (Exception e) {
-                Log.e(TAG, "Error initializing ShareMessageManager", e);
+                Log.e(TAG, "Error initializing ShareMessageManager: " + e.getMessage(), e);
             }
             
             // Verify Firebase project configuration
             verifyFirebaseProject();
         } catch (Exception e) {
-            Log.e(TAG, "Error initializing Firebase services", e);
+            Log.e(TAG, "Error initializing Firebase services: " + e.getMessage(), e);
         }
     }
 

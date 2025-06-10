@@ -463,6 +463,7 @@
                 android:clipToPadding="false"
                 android:paddingBottom="80dp"
                 android:scrollbars="vertical"
+                android:animateLayoutChanges="false"
                 app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
             <TextView

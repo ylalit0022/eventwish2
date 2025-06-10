@@ -1072,6 +1072,24 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         
         // Create adapter with click listener
         adapter = new RecommendedTemplateAdapter(this);
+        
+        // Set stable IDs to prevent blinking during updates
+        adapter.setHasStableIds(true);
+        
+        // Disable all animations to prevent flickering and jumping
+        binding.templatesRecyclerView.setItemAnimator(null);
+        binding.templatesRecyclerView.setHasFixedSize(true);
+        
+        // Prevent layout shifts during updates
+        binding.templatesRecyclerView.getRecycledViewPool().setMaxRecycledViews(
+            RecommendedTemplateAdapter.VIEW_TYPE_TEMPLATE, 20);
+        
+        // Improve scrolling performance
+        binding.templatesRecyclerView.setItemViewCacheSize(10);
+        binding.templatesRecyclerView.setDrawingCacheEnabled(true);
+        binding.templatesRecyclerView.setDrawingCacheQuality(View.DRAWING_CACHE_QUALITY_HIGH);
+        
+        // Set the adapter
         binding.templatesRecyclerView.setAdapter(adapter);
         
         // Add item decoration for spacing
@@ -1608,14 +1626,57 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         if (template == null) return;
         
         Log.d(TAG, "Template liked: " + template.getId());
+        
+        // Check if user is authenticated
+        if (!isUserAuthenticated()) {
+            // Show login prompt
+            Snackbar.make(binding.getRoot(), "Please sign in to like templates", Snackbar.LENGTH_SHORT)
+                .setAction("Sign In", v -> {
+                    // Navigate to login screen
+                    navigateToAuthScreen();
+                }).show();
+            
+            // Reset the template state since the action failed
+            template.setLiked(false);
+            
+            // Force update the specific item to reflect the correct state
+            updateTemplateItemInAdapter(template);
+            return;
+        }
+        
+        // Note: UI is already updated optimistically in the adapter
+        // Just need to handle the backend update and potential errors
+        
         // Track like action with source
         AnalyticsUtils.getInstance().trackTemplateLike(template.getId(), "home_feed");
         
-        // Update UI to show liked state
-        viewModel.handleTemplateLike(template);
+        // Keep the original state in case we need to revert
+        final boolean originalLikeState = !template.isLiked();
+        final long originalLikeCount = template.isLiked() ? 
+            template.getLikeCount() - 1 : template.getLikeCount() + 1;
         
-        // Show feedback
-        Snackbar.make(binding.getRoot(), "Added to liked templates", Snackbar.LENGTH_SHORT).show();
+        // Update backend
+        viewModel.handleTemplateLike(template)
+            .addOnSuccessListener(isLiked -> {
+                // Success - show feedback only if the state changed to liked
+                if (isLiked && template.isLiked()) {
+                    Snackbar.make(binding.getRoot(), "Added to liked templates", Snackbar.LENGTH_SHORT).show();
+                }
+            })
+            .addOnFailureListener(e -> {
+                // Failure - revert UI and show error
+                Log.e(TAG, "Failed to like template: " + template.getId(), e);
+                
+                // Revert to original state
+                template.setLiked(originalLikeState);
+                template.setLikeCount(originalLikeCount);
+                
+                // Update UI
+                updateTemplateItemInAdapter(template);
+                
+                // Show error
+                Snackbar.make(binding.getRoot(), "Failed to update like status", Snackbar.LENGTH_SHORT).show();
+            });
     }
 
     @Override
@@ -1623,14 +1684,74 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         if (template == null) return;
         
         Log.d(TAG, "Template favorited: " + template.getId());
+        
+        // Check if user is authenticated
+        if (!isUserAuthenticated()) {
+            // Show login prompt
+            Snackbar.make(binding.getRoot(), "Please sign in to favorite templates", Snackbar.LENGTH_SHORT)
+                .setAction("Sign In", v -> {
+                    // Navigate to login screen
+                    navigateToAuthScreen();
+                }).show();
+            
+            // Reset the template state since the action failed
+            template.setFavorited(false);
+            
+            // Force update the specific item to reflect the correct state
+            updateTemplateItemInAdapter(template);
+            return;
+        }
+        
+        // Note: UI is already updated optimistically in the adapter
+        // Just need to handle the backend update and potential errors
+        
         // Track favorite action with source
         AnalyticsUtils.getInstance().trackTemplateFavorite(template.getId(), "home_feed");
         
-        // Update UI to show favorited state
-        viewModel.handleTemplateFavorite(template);
+        // Keep the original state in case we need to revert
+        final boolean originalFavoriteState = !template.isFavorited();
+        final long originalFavoriteCount = template.isFavorited() ? 
+            template.getFavoriteCount() - 1 : template.getFavoriteCount() + 1;
         
-        // Show feedback
-        Snackbar.make(binding.getRoot(), "Added to favorites", Snackbar.LENGTH_SHORT).show();
+        // Update backend
+        viewModel.handleTemplateFavorite(template)
+            .addOnSuccessListener(isFavorited -> {
+                // Success - show feedback only if the state changed to favorited
+                if (isFavorited) {
+                    Snackbar.make(binding.getRoot(), "Added to favorites", Snackbar.LENGTH_SHORT).show();
+                }
+            })
+            .addOnFailureListener(e -> {
+                // Failure - revert UI and show error
+                Log.e(TAG, "Failed to favorite template: " + template.getId(), e);
+                template.setFavorited(false);
+                updateTemplateItemInAdapter(template);
+                Snackbar.make(binding.getRoot(), "Failed to update favorite status", Snackbar.LENGTH_SHORT).show();
+            });
+    }
+    
+    /**
+     * Update a specific template item in the adapter without refreshing the entire list
+     */
+    private void updateTemplateItemInAdapter(Template template) {
+        if (adapter == null || template == null || template.getId() == null) return;
+        
+        try {
+            // Find the position of the template in the adapter
+            for (int i = 0; i < adapter.getItemCount(); i++) {
+                Object item = adapter.getItem(i);
+                if (item instanceof Template) {
+                    Template adapterTemplate = (Template) item;
+                    if (adapterTemplate.getId() != null && adapterTemplate.getId().equals(template.getId())) {
+                        // Update the template object in the adapter's data
+                        adapter.updateTemplateAtPosition(i, template);
+                        return;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error updating template in adapter", e);
+        }
     }
 
     private void navigateToTemplateDetail(String templateId) {
@@ -2425,5 +2546,25 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
 
         NotificationManagerCompat notificationManager = NotificationManagerCompat.from(requireContext());
         notificationManager.notify(1001, builder.build());
+    }
+
+    @Override
+    protected boolean isUserAuthenticated() {
+        // Use the implementation from BaseFragment
+        return super.isUserAuthenticated();
+    }
+    
+    // Update MainActivity reference to use a method that exists
+    private void navigateToAuthScreen() {
+        try {
+            // Show a simple toast instead of navigation since we don't have a login fragment
+            Toast.makeText(requireContext(), "Please sign in to continue", Toast.LENGTH_SHORT).show();
+            
+            // For a real implementation, we would navigate to an auth screen
+            // NavController navController = Navigation.findNavController(requireView());
+            // navController.navigate(R.id.action_to_login);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to show auth message", e);
+        }
     }
 }

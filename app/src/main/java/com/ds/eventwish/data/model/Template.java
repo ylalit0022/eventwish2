@@ -14,6 +14,7 @@ import androidx.room.TypeConverters;
 import com.ds.eventwish.data.converter.CategoryIconConverter;
 import com.ds.eventwish.data.converter.DateConverter;
 import com.ds.eventwish.data.converter.StringListConverter;
+import com.ds.eventwish.utils.NumberFormatter;
 import com.google.gson.annotations.SerializedName;
 
 import java.util.Date;
@@ -146,11 +147,27 @@ public class Template {
         // Ensure count is never negative
         this.likeCount = Math.max(0L, likeCount); 
     }
+    
+    /**
+     * Get formatted like count (e.g., 1K, 1.2K, 1M)
+     * @return Formatted like count as a string
+     */
+    public String getFormattedLikeCount() {
+        return NumberFormatter.formatCount(likeCount);
+    }
 
     public long getFavoriteCount() { return favoriteCount; }
     public void setFavoriteCount(long favoriteCount) { 
         // Ensure count is never negative
         this.favoriteCount = Math.max(0L, favoriteCount); 
+    }
+    
+    /**
+     * Get formatted favorite count (e.g., 1K, 1.2K, 1M)
+     * @return Formatted favorite count as a string
+     */
+    public String getFormattedFavoriteCount() {
+        return NumberFormatter.formatCount(favoriteCount);
     }
 
     public boolean isLiked() { return isLiked; }

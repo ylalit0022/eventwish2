@@ -1,0 +1,34 @@
+{
+  "event_push": {
+    "id": "single_event",
+    "title": "Festival Notifications",
+    "body": "Don't miss upcoming festivals! Check the app for details.",
+    "status": true,
+    "startdate": "2024-06-01T00:00:00Z",
+    "enddate": "2024-06-30T23:59:59Z",
+    "deeplinksupport": "eventwish://open/festival_notification",
+    "showTime": "21:05"
+  },
+  "events": [
+    {
+      "id": "diwali_2024",
+      "title": "Diwali Festival 2024",
+      "body": "Diwali celebration is coming soon! Only {{countdown}} left!",
+      "status": true,
+      "startdate": "2024-06-01T00:00:00Z",
+      "enddate": "2024-06-30T23:59:59Z",
+      "deeplinksupport": "eventwish://open/festival_notification",
+      "showTime": "21:10"
+    },
+    {
+      "id": "christmas_2024",
+      "title": "Christmas 2024",
+      "body": "Christmas is almost here! Only {{countdown}} left!",
+      "status": true,
+      "startdate": "2024-06-01T00:00:00Z",
+      "enddate": "2024-06-30T23:59:59Z",
+      "deeplinksupport": "eventwish://open/festival_notification",
+      "showTime": "21:15"
+    }
+  ]
+} 

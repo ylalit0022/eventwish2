@@ -2,6 +2,8 @@ package com.ds.eventwish.data.repository;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -13,7 +15,9 @@ import com.ds.eventwish.data.model.response.TemplateResponse;
 import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.data.remote.ApiService;
 import com.ds.eventwish.data.remote.FirestoreManager;
+import com.ds.eventwish.utils.AnalyticsUtils;
 import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.TaskCompletionSource;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -1031,15 +1035,18 @@ public class TemplateRepository {
         return likeCount;
     }
 
-    public void toggleLike(String templateId, boolean newState) {
+    public Task<Boolean> toggleLike(String templateId, boolean newState) {
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user == null) {
             error.postValue("User must be logged in");
-            return;
+            return Tasks.forException(new IllegalStateException("User must be logged in"));
         }
 
         String userId = user.getUid();
         FirestoreManager firestoreManager = FirestoreManager.getInstance();
+        
+        // Create a TaskCompletionSource to return a Task
+        TaskCompletionSource<Boolean> tcs = new TaskCompletionSource<>();
         
         // First check the current state to avoid unnecessary operations
         DocumentReference likeRef = db.collection("users").document(userId)
@@ -1049,6 +1056,7 @@ public class TemplateRepository {
             if (!task.isSuccessful()) {
                 Log.e(TAG, "Failed to check current like state", task.getException());
                 error.postValue("Failed to check current like state");
+                tcs.setException(task.getException());
                 return;
             }
             
@@ -1057,11 +1065,15 @@ public class TemplateRepository {
             // Only proceed if the current state is different from the requested state
             if (currentLikeState == newState) {
                 Log.d(TAG, "Like state already matches requested state: " + newState);
+                tcs.setResult(newState);
                 return;
             }
             
-            // Update UI immediately for better user experience
-            updateTemplateStateLocally(templateId, newState, null);
+            // Update UI immediately for better user experience - ensure it runs on main thread
+            Handler mainHandler = new Handler(Looper.getMainLooper());
+            mainHandler.post(() -> {
+                updateTemplateStateLocally(templateId, newState, null);
+            });
             
             if (newState) {
                 // Add to likes collection
@@ -1071,16 +1083,22 @@ public class TemplateRepository {
                         firestoreManager.safeIncrementTemplateCounter(templateId, "likeCount", 1)
                             .addOnSuccessListener(voidResult -> {
                                 Log.d(TAG, "Successfully added template " + templateId + " to likes and incremented count");
+                                tcs.setResult(true);
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "Failed to increment like count for template " + templateId, e);
+                                // Still consider it a success if only the counter update failed
+                                tcs.setResult(true);
                             });
                     })
                     .addOnFailureListener(e -> {
                         error.postValue("Failed to update like state");
                         Log.e(TAG, "Failed to add template " + templateId + " to likes", e);
-                        // Revert UI state on failure
-                        updateTemplateStateLocally(templateId, !newState, null);
+                        // Revert UI state on failure - ensure it runs on main thread
+                        mainHandler.post(() -> {
+                            updateTemplateStateLocally(templateId, !newState, null);
+                        });
+                        tcs.setException(e);
                     });
             } else {
                 // Remove from likes collection
@@ -1090,30 +1108,41 @@ public class TemplateRepository {
                         firestoreManager.safeIncrementTemplateCounter(templateId, "likeCount", -1)
                             .addOnSuccessListener(voidResult -> {
                                 Log.d(TAG, "Successfully removed template " + templateId + " from likes and decremented count");
+                                tcs.setResult(false);
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "Failed to decrement like count for template " + templateId, e);
+                                // Still consider it a success if only the counter update failed
+                                tcs.setResult(false);
                             });
                     })
                     .addOnFailureListener(e -> {
                         error.postValue("Failed to update like state");
                         Log.e(TAG, "Failed to remove template " + templateId + " from likes", e);
-                        // Revert UI state on failure
-                        updateTemplateStateLocally(templateId, !newState, null);
+                        // Revert UI state on failure - ensure it runs on main thread
+                        mainHandler.post(() -> {
+                            updateTemplateStateLocally(templateId, !newState, null);
+                        });
+                        tcs.setException(e);
                     });
             }
         });
+        
+        return tcs.getTask();
     }
 
-    public void toggleFavorite(String templateId, boolean newState) {
+    public Task<Boolean> toggleFavorite(String templateId, boolean newState) {
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user == null) {
             error.postValue("User must be logged in");
-            return;
+            return Tasks.forException(new IllegalStateException("User must be logged in"));
         }
 
         String userId = user.getUid();
         FirestoreManager firestoreManager = FirestoreManager.getInstance();
+        
+        // Create a TaskCompletionSource to return a Task
+        TaskCompletionSource<Boolean> tcs = new TaskCompletionSource<>();
         
         // First check the current state to avoid unnecessary operations
         DocumentReference favoriteRef = db.collection("users").document(userId)
@@ -1123,6 +1152,7 @@ public class TemplateRepository {
             if (!task.isSuccessful()) {
                 Log.e(TAG, "Failed to check current favorite state", task.getException());
                 error.postValue("Failed to check current favorite state");
+                tcs.setException(task.getException());
                 return;
             }
             
@@ -1131,11 +1161,15 @@ public class TemplateRepository {
             // Only proceed if the current state is different from the requested state
             if (currentFavoriteState == newState) {
                 Log.d(TAG, "Favorite state already matches requested state: " + newState);
+                tcs.setResult(newState);
                 return;
             }
             
-            // Update UI immediately for better user experience
-            updateTemplateStateLocally(templateId, null, newState);
+            // Update UI immediately for better user experience - ensure it runs on main thread
+            Handler mainHandler = new Handler(Looper.getMainLooper());
+            mainHandler.post(() -> {
+                updateTemplateStateLocally(templateId, null, newState);
+            });
             
             if (newState) {
                 // Add to favorites collection
@@ -1145,16 +1179,22 @@ public class TemplateRepository {
                         firestoreManager.safeIncrementTemplateCounter(templateId, "favoriteCount", 1)
                             .addOnSuccessListener(voidResult -> {
                                 Log.d(TAG, "Successfully added template " + templateId + " to favorites and incremented count");
+                                tcs.setResult(true);
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "Failed to increment favorite count for template " + templateId, e);
+                                // Still consider it a success if only the counter update failed
+                                tcs.setResult(true);
                             });
                     })
                     .addOnFailureListener(e -> {
                         error.postValue("Failed to update favorite state");
                         Log.e(TAG, "Failed to add template " + templateId + " to favorites", e);
-                        // Revert UI state on failure
-                        updateTemplateStateLocally(templateId, null, !newState);
+                        // Revert UI state on failure - ensure it runs on main thread
+                        mainHandler.post(() -> {
+                            updateTemplateStateLocally(templateId, null, !newState);
+                        });
+                        tcs.setException(e);
                     });
             } else {
                 // Remove from favorites collection
@@ -1164,19 +1204,27 @@ public class TemplateRepository {
                         firestoreManager.safeIncrementTemplateCounter(templateId, "favoriteCount", -1)
                             .addOnSuccessListener(voidResult -> {
                                 Log.d(TAG, "Successfully removed template " + templateId + " from favorites and decremented count");
+                                tcs.setResult(false);
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "Failed to decrement favorite count for template " + templateId, e);
+                                // Still consider it a success if only the counter update failed
+                                tcs.setResult(false);
                             });
                     })
                     .addOnFailureListener(e -> {
                         error.postValue("Failed to update favorite state");
                         Log.e(TAG, "Failed to remove template " + templateId + " from favorites", e);
-                        // Revert UI state on failure
-                        updateTemplateStateLocally(templateId, null, !newState);
+                        // Revert UI state on failure - ensure it runs on main thread
+                        mainHandler.post(() -> {
+                            updateTemplateStateLocally(templateId, null, !newState);
+                        });
+                        tcs.setException(e);
                     });
             }
         });
+        
+        return tcs.getTask();
     }
 
     /**
@@ -1184,7 +1232,10 @@ public class TemplateRepository {
      */
     private void updateTemplateStateLocally(String templateId, Boolean isLiked, Boolean isFavorited) {
         List<Template> currentTemplates = templates.getValue();
-        if (currentTemplates == null) return;
+        if (currentTemplates == null) {
+            Log.w(TAG, "Cannot update template state locally: current templates list is null");
+            return;
+        }
         
         // Create a copy of the list to avoid modification issues
         List<Template> updatedTemplates = new ArrayList<>();
@@ -1256,14 +1307,11 @@ public class TemplateRepository {
         
         // Only update LiveData if we actually found and modified the template
         if (found) {
-            // Use setValue to update immediately on the main thread if possible
-            if (Thread.currentThread() == android.os.Looper.getMainLooper().getThread()) {
-                templates.setValue(updatedTemplates);
-                Log.d(TAG, "Updated template state on main thread");
-            } else {
-                templates.postValue(updatedTemplates);
-                Log.d(TAG, "Posted template state update from background thread");
-            }
+            // Always use postValue for thread safety
+            templates.postValue(updatedTemplates);
+            Log.d(TAG, "Posted template state update for template " + templateId + 
+                  (isLiked != null ? ", liked: " + isLiked : "") + 
+                  (isFavorited != null ? ", favorited: " + isFavorited : ""));
         } else {
             Log.w(TAG, "Template " + templateId + " not found in current list, state not updated locally");
         }

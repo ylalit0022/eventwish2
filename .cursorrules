@@ -110,13 +110,35 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 - When using seaborn styles in matplotlib, use 'seaborn-v0_8' instead of 'seaborn' as the style name due to recent seaborn version changes
 - Use 'gpt-4o' as the model name for OpenAI's GPT-4 with vision capabilities
 - When searching for recent news, use the current year (2025) instead of previous years, or simply use the "recent" keyword to get the latest information
+- When implementing Firebase Remote Config for Android:
+  - Create wrapper classes for complex JSON structures
+  - Use proper Gson annotations (@SerializedName) to map JSON keys to class fields
+  - Implement fallback parsing for different JSON structures (direct vs nested)
+  - Add proper error handling for JSON parsing with detailed logging
+  - Save raw JSON to SharedPreferences for debugging and offline access
+  - Add methods to display raw JSON for debugging purposes
+  - Implement custom JSON input for testing without Firebase Console changes
+  - Add validation for JSON format before saving
+  - Use AlertDialog with multiline EditText for custom JSON input
+  - Implement proper permission handling for notifications on Android 13+
+  - Add test buttons for immediate notification testing
+  - Use pretty printing for JSON display in UI
+  - Implement proper date handling for event start/end dates
+  - Add countdown calculation based on current date
+  - Implement notification scheduling with AlarmManager
+  - Add BroadcastReceiver for handling scheduled notifications
+  - Use PendingIntent.FLAG_IMMUTABLE for Android 12+
+  - Create proper notification channels for Android 8+
+  - Add deep link support in notifications
 - When implementing singleton classes in Android, ensure proper initialization before use:
   - Add an explicit init() method that takes a Context parameter
   - Check for null context and use applicationContext to prevent memory leaks
   - Add proper error handling with clear error messages
   - Implement thread-safe getInstance() method with synchronized keyword
   - Add initialization checks before returning instances
-  - Use proper logging for debugging initialization issues
+  - Add proper logging for debugging initialization issues
+  - Always use getInstance() method to obtain singleton instances, never use direct instantiation with new
+  - For classes that only provide getInstance(Context) without separate init(), ensure you're using the correct method
 - When managing dependencies between singleton classes in Android:
   - Be aware of initialization order between singletons that depend on each other
   - Always initialize security/authentication managers before network/API clients
@@ -359,121 +381,103 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
     - Configure test security rules
     - Use service account credentials
     - Add proper test configurations
+- When implementing like/favorite functionality in Android apps:
+  - Always ensure UI updates happen on the main thread by using Handler(Looper.getMainLooper())
+  - Use postValue() instead of setValue() for LiveData updates from background threads
+  - Implement proper debounce mechanisms to prevent multiple rapid clicks (800-1000ms)
+  - Add optimistic UI updates with proper error handling and state reversion
+  - Use thread-safe collections like ConcurrentHashMap for tracking state
+  - Ensure proper synchronization between UI and backend operations
+  - Add detailed logging for state changes and errors
+  - Implement proper error handling with UI feedback for failed operations
+  - Use transactions for atomic database operations to ensure data consistency
+  - Add retry mechanisms for failed network operations
+  - Consider using a dedicated worker for background retry operations
+  - Implement proper cleanup to prevent memory leaks
+- When implementing Firebase Remote Config for local push notifications in Android:
+  - Create a dedicated model class for the notification config
+  - Use SimpleDateFormat with synchronized blocks for thread-safe date parsing
+  - Set TimeZone.getTimeZone("UTC") for ISO 8601 date formats
+  - Use a singleton manager class for handling remote config fetching and notification display
+  - Implement caching with SharedPreferences to reduce network requests
+  - Use AlarmManager.setExactAndAllowWhileIdle() for reliable scheduling on newer Android versions
+  - Create a proper notification channel for Android O and above
+  - Use PendingIntent.FLAG_IMMUTABLE for Android S and above
+  - Add proper error handling for malformed config data
+  - Implement a daily check mechanism with proper rescheduling
+  - Add a BroadcastReceiver to handle boot completed events
+  - Use deep links with Intent.ACTION_VIEW for notification actions
+  - Add proper debug logging throughout the implementation
+  - Create a test activity for manual testing and debugging
 
 # Scratchpad
 
-## Google Sign-In Implementation Plan
+## Firebase Remote Config for Local Push Notifications Implementation
 
-### Current Analysis
-1. Authentication State:
-   [X] Currently using anonymous sign-in
-   [X] No persistent authentication
-   [X] No user profile information
-   [X] FCM token used for some operations
-
-2. UI Components:
-   [X] SplashActivity shows logo and loading
-   [X] Added sign-in UI elements
-   [X] Basic animations implemented
-   [X] Permission handling for notifications
-
-### Required Changes
-
-1. [X] Dependencies Check
-   [X] Add Google Sign-In dependency
-   [X] Update Firebase Auth dependency
-   [X] Add Google Services plugin
-
-2. [X] Update SplashActivity UI
-   [X] Add Google Sign-In button below app icon
-   [X] Add loading state for sign-in
-   [X] Update animations to include sign-in button
-   [X] Add sign-in status text
-
-3. [X] Authentication Logic
-   [X] Create AuthManager singleton class
-   [X] Implement Google Sign-In flow
-   [X] Add persistent authentication
-   [X] Handle silent sign-in
-   [X] Update FirestoreManager to use Auth UID
-
-4. [X] UI Flow
-   [X] Show sign-in button if not authenticated
-   [X] Auto-proceed if already signed in
-   [X] Handle sign-in errors
-   [X] Add progress indicators
-   [X] Update navigation logic
+### Current Status
+[X] Basic implementation of EventNotificationManager
+[X] Created EventNotificationConfig model
+[X] Created RemoteConfigWrapper for JSON structure
+[X] Implemented notification scheduling with AlarmManager
+[X] Added BroadcastReceiver for handling notifications
+[X] Created test activity for debugging
+[X] Added permission handling for Android 13+
+[X] Added custom JSON configuration for testing
+[X] Implemented proper JSON parsing with fallback options
 
 ### Next Steps
+[ ] Update Firebase Console with proper configuration
+[ ] Test with real Firebase Remote Config values
+[ ] Add analytics tracking for notification interactions
+[ ] Implement notification history tracking
+[ ] Add multiple notification support
+[ ] Add user preference settings for notifications
 
-1. [IN PROGRESS] Testing Phase
-   [X] Test fresh install flow
-   - [ ] Test returning user flow
-   - [ ] Test offline behavior
-   - [ ] Test error scenarios
-   - [ ] Test persistence across app restarts
+### Implementation Details
 
-2. [ ] Integration Testing
-   - [ ] Test with FirestoreManager
-   - [ ] Test with UserPreferencesRepository
-   - [ ] Test with TemplateRepository
-   - [ ] Test FCM token registration
+The implementation includes:
 
-3. [ ] Edge Case Handling
-   - [ ] Network connectivity issues
-   - [ ] Google Play Services missing
-   - [ ] Account selection cancelled
-   - [ ] Token refresh scenarios
+1. Data Models:
+   - EventNotificationConfig: Contains event details (title, body, dates, status)
+   - RemoteConfigWrapper: Wrapper for nested JSON structure
 
-4. [ ] Documentation
-   - [ ] Add code comments
-   - [ ] Update README
-   - [ ] Document error codes
-   - [ ] Add migration guide
+2. Manager Class:
+   - EventNotificationManager: Handles fetching config, scheduling notifications
+   - Implements singleton pattern with proper initialization
+   - Provides methods for testing and debugging
 
-### Current Progress
-- Implementation Phase: 100% Complete
-- Testing Phase: 20% Started
-- Integration Phase: 0% Started
-- Documentation: 0% Started
+3. Notification Components:
+   - EventNotificationReceiver: BroadcastReceiver for scheduled notifications
+   - Proper notification channel creation for Android 8+
+   - Deep link support for notification actions
 
-### Next Actions
-1. [IN PROGRESS] Test fresh install flow
-2. [ ] Test returning user flow
-3. [ ] Test offline behavior
-4. [ ] Test error scenarios
+4. Testing Tools:
+   - EventNotificationTestActivity: UI for testing notifications
+   - Custom JSON input for testing without Firebase Console
+   - Immediate notification testing
+   - Config display with pretty printing
 
-### Testing Results
+### Testing Plan
+1. [X] Test with default configuration
+2. [X] Test with custom JSON configuration
+3. [ ] Test with Firebase Console configuration
+4. [ ] Test notification scheduling
+5. [ ] Test deep links
+6. [ ] Test different countdown scenarios
 
-1. Fresh Install Flow:
-   [X] Issue: Sign-in button not showing in SplashActivity
-   [X] Root Cause: Need to update visibility handling in showSignInButton()
-   [X] Fix: Added proper animations and visibility handling in showSignInButton()
-   - Next: Test returning user flow
-
-2. Returning User Flow:
-   - [ ] Test silent sign-in
-   - [ ] Test auto-proceed to main activity
-   - [ ] Test authentication persistence
-   - [ ] Test token refresh
-
-3. Offline Behavior:
-   - [ ] Test no network at startup
-   - [ ] Test network loss during sign-in
-   - [ ] Test cached credentials
-   - [ ] Test sync after reconnection
-
-4. Error Scenarios:
-   - [ ] Test sign-in cancellation
-   - [ ] Test Google Play Services missing
-   - [ ] Test invalid configuration
-   - [ ] Test token expiration
-
-### Next Actions
-1. [X] Fix sign-in button visibility
-2. [IN PROGRESS] Test returning user flow
-3. [ ] Test offline behavior
-4. [ ] Test error scenarios
+### Firebase Remote Config Structure
+```json
+{
+  "event_push": {
+    "title": "Special Event Coming Soon!",
+    "body": "Don't miss our special event. Only {{countdown}} left!",
+    "status": true,
+    "startdate": "2023-06-01T00:00:00Z",
+    "enddate": "2023-12-31T23:59:59Z",
+    "deeplinksupport": "eventwish://open/event"
+  }
+}
+```
 
 # EventWish App Maintenance Documentation
 

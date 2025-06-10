@@ -15,6 +15,14 @@ public class DeepLinkHandler {
     public static boolean handleDeepLink(Context context, Intent intent) {
         if (intent == null || intent.getData() == null) {
             Log.d(TAG, "No deep link data in intent");
+            
+            // Check if intent has extras for festival notification
+            if (intent.hasExtra("open_fragment") && 
+                "festival_notification".equals(intent.getStringExtra("open_fragment"))) {
+                Log.d(TAG, "Found festival_notification extra in intent");
+                return processDeepLink(context, Uri.parse("eventwish://open/festival_notification"), null);
+            }
+            
             return false;
         }
         
@@ -47,6 +55,13 @@ public class DeepLinkHandler {
         
         // Handle different paths
         if (navController != null) {
+            // Handle festival notification deep link
+            if (host.equals("open") && path.equals("/festival_notification")) {
+                Log.d(TAG, "Navigating to FestivalNotificationFragment");
+                navController.navigate(R.id.navigation_festival_notification);
+                return true;
+            }
+            
             // Handle wish links - route to ResourceFragment
             if (host.equals("wish") || path.startsWith("/wish/")) {
                 String shortCode;
@@ -98,6 +113,7 @@ public class DeepLinkHandler {
         }
         
         // Return true if we handled the deep link, false otherwise
-        return path.startsWith("/template/") || path.startsWith("/event/") || path.startsWith("/wish/") || host.equals("wish");
+        return path.startsWith("/template/") || path.startsWith("/event/") || path.startsWith("/wish/") || 
+               host.equals("wish") || (host.equals("open") && path.equals("/festival_notification"));
     }
 }

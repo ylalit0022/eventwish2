@@ -560,4 +560,8 @@
     <!-- App Update -->
     <string name="welcome_notification_title">Welcome to EventWish</string>
     <string name="welcome_notification_message">Thank you for joining! Start exploring templates and creating beautiful wishes.</string>
+
+    <!-- Notification Channels -->
+    <string name="notification_channel_events">Event Notifications</string>
+    <string name="notification_channel_events_desc">Notifications for upcoming events and festivals</string>
 </resources>

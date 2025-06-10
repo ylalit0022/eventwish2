@@ -34,7 +34,7 @@ import com.ds.eventwish.data.model.Result;
 import com.ds.eventwish.ui.festival.adapter.TemplateAdapter;
 import com.ds.eventwish.ui.views.OfflineIndicatorView;
 import com.ds.eventwish.ui.views.StaleDataIndicatorView;
-import com.ds.eventwish.utils.EventWishNotificationManager;
+import com.ds.eventwish.utils.EventNotificationManager;
 import com.ds.eventwish.utils.NetworkUtils;
 import com.ds.eventwish.utils.NotificationPermissionManager;
 import com.ds.eventwish.utils.NotificationScheduler;
@@ -78,7 +78,6 @@ public class FestivalNotificationFragment extends BaseFragment {
     private NetworkUtils networkUtils;
     private OfflineIndicatorView offlineIndicator;
     private StaleDataIndicatorView staleDataIndicator;
-    private Button testNotificationButton;
     
     // Map to store countdown timers to prevent memory leaks
     private Map<String, CountDownTimer> countdownTimers = new HashMap<>();
@@ -570,68 +569,6 @@ public class FestivalNotificationFragment extends BaseFragment {
         viewModel.clearMemoryCache();
     }
 
-    /**
-     * Add a test button for notifications
-     */
-    private void addTestNotificationButton() {
-        // Create a button
-        testNotificationButton = new Button(requireContext());
-        testNotificationButton.setText("Test Notifications");
-        testNotificationButton.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT));
-        
-        // Add button to the container
-        festivalsContainer.addView(testNotificationButton, 0);
-        
-        // Set click listener
-        testNotificationButton.setOnClickListener(v -> {
-            // Check notification permission
-            if (NotificationPermissionManager.hasNotificationPermission(requireContext())) {
-                // Show test notification
-                showTestNotification();
-            } else {
-                // Request notification permission
-                NotificationPermissionManager.requestNotificationPermission(requireActivity());
-            }
-        });
-    }
-    
-    /**
-     * Show a test notification
-     */
-    private void showTestNotification() {
-        // Get the first festival from the list
-        List<Festival> festivals = viewModel.getFestivals().getValue().getData();
-        
-        if (festivals != null && !festivals.isEmpty()) {
-            Festival festival = festivals.get(0);
-            
-            // Show a notification for this festival
-            int notificationId = EventWishNotificationManager.showFestivalNotification(
-                    requireContext(),
-                    festival,
-                    0); // 0 days until (today)
-            
-            if (notificationId != -1) {
-                Toast.makeText(requireContext(), 
-                        "Test notification sent for " + festival.getName(), 
-                        Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(requireContext(), 
-                        "Failed to send test notification", 
-                        Toast.LENGTH_SHORT).show();
-            }
-        } else {
-            // No festivals available, run the worker instead
-            NotificationScheduler.runFestivalNotificationsNow(requireContext());
-            
-            Toast.makeText(requireContext(), 
-                    "Running notification worker...", 
-                    Toast.LENGTH_SHORT).show();
-        }
-    }
-
     private void refreshFestivals() {
         if (!swipeRefreshLayout.isRefreshing()) {
             swipeRefreshLayout.setRefreshing(true);
@@ -643,5 +580,18 @@ public class FestivalNotificationFragment extends BaseFragment {
         hideAllStateViews();
         showLoading();
         viewModel.loadFestivals();
+    }
+
+    /**
+     * Get time string for the next few minutes (HH:mm format)
+     * @param minutesToAdd Minutes to add to current time
+     * @return Time string in HH:mm format
+     */
+    private String getNextMinuteTime(int minutesToAdd) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.MINUTE, minutesToAdd);
+        int hour = calendar.get(Calendar.HOUR_OF_DAY);
+        int minute = calendar.get(Calendar.MINUTE);
+        return String.format(Locale.US, "%02d:%02d", hour, minute);
     }
 }

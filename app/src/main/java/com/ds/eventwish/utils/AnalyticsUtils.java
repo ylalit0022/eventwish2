@@ -899,10 +899,23 @@ public class AnalyticsUtils {
         }
         
         try {
-            // Use reflection to access internal method as Firebase doesn't expose this directly
-            Method dispatchMethod = firebaseAnalytics.getClass().getDeclaredMethod("dispatchEvent");
-            dispatchMethod.setAccessible(true);
-            dispatchMethod.invoke(firebaseAnalytics);
+            // Firebase no longer exposes dispatchEvent directly
+            // Instead, we can use the public API to flush events
+            firebaseAnalytics.logEvent("flush_trigger", null);
+            
+            // Try to use reflection to access the flush method if available
+            try {
+                Method flushMethod = firebaseAnalytics.getClass().getDeclaredMethod("flush");
+                if (flushMethod != null) {
+                    flushMethod.setAccessible(true);
+                    flushMethod.invoke(firebaseAnalytics);
+                    Log.d(TAG, "Successfully flushed analytics events via reflection");
+                }
+            } catch (NoSuchMethodException e) {
+                // Flush method not available, this is expected in newer Firebase versions
+                Log.d(TAG, "Firebase Analytics flush method not available, using logEvent fallback");
+            }
+            
             Log.d(TAG, "Forced dispatch of pending analytics events");
             return true;
         } catch (Exception e) {

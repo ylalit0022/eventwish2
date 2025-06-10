@@ -319,6 +319,9 @@
             android:name="festivalId"
             app:argType="string"
             app:nullable="true" />
+        <deepLink
+            android:id="@+id/deepLink_festival_notification"
+            app:uri="eventwish://open/festival_notification" />
     </fragment>
 
     <fragment

@@ -21,6 +21,7 @@ import java.util.List;
 public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.TemplateViewHolder> {
     
     private static final String TAG = "TemplateAdapter";
+    private static final long CLICK_DEBOUNCE_TIME = 800; // ms - longer debounce time for network operations
     
     private final OnTemplateInteractionListener listener;
     
@@ -91,6 +92,8 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
         private final ImageView favoriteIcon;
         private final TextView likeCountText;
         private final TextView favoriteCountText;
+        private long lastLikeClickTime = 0;
+        private long lastFavoriteClickTime = 0;
         
         public TemplateViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -121,10 +124,18 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
                   ", current state: " + isLiked + ", count: " + likeCount);
             
             likeIcon.setImageResource(isLiked ? R.drawable.ic_heart_filled : R.drawable.ic_heart_outline);
-            likeCountText.setText(String.valueOf(Math.max(0, likeCount)));
+            likeCountText.setText(template.getFormattedLikeCount());
             
             likeIcon.setOnClickListener(v -> {
                 if (listener != null) {
+                    // Implement debounce to prevent rapid multiple clicks
+                    long currentTime = System.currentTimeMillis();
+                    if (currentTime - lastLikeClickTime < CLICK_DEBOUNCE_TIME) {
+                        Log.d(TAG, "Like click debounced for template: " + template.getId());
+                        return;
+                    }
+                    lastLikeClickTime = currentTime;
+                    
                     Log.d(TAG, "Like button clicked for template: " + template.getId());
                     // Disable button temporarily to prevent double-clicks
                     likeIcon.setEnabled(false);
@@ -138,7 +149,7 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
                     long currentCount = Math.max(0, template.getLikeCount());
                     long newCount = newLikeState ? Math.max(1, currentCount + 1) : Math.max(0, currentCount - 1);
                     template.setLikeCount(newCount);
-                    likeCountText.setText(String.valueOf(newCount));
+                    likeCountText.setText(template.getFormattedLikeCount());
                     
                     // Add animation for visual feedback
                     likeIcon.startAnimation(AnimationUtils.loadAnimation(likeIcon.getContext(), 
@@ -162,10 +173,18 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
                   ", current state: " + isFavorited + ", count: " + favoriteCount);
             
             favoriteIcon.setImageResource(isFavorited ? R.drawable.ic_bookmark_filled : R.drawable.ic_bookmark_outline);
-            favoriteCountText.setText(String.valueOf(Math.max(0, favoriteCount)));
+            favoriteCountText.setText(template.getFormattedFavoriteCount());
             
             favoriteIcon.setOnClickListener(v -> {
                 if (listener != null) {
+                    // Implement debounce to prevent rapid multiple clicks
+                    long currentTime = System.currentTimeMillis();
+                    if (currentTime - lastFavoriteClickTime < CLICK_DEBOUNCE_TIME) {
+                        Log.d(TAG, "Favorite click debounced for template: " + template.getId());
+                        return;
+                    }
+                    lastFavoriteClickTime = currentTime;
+                    
                     Log.d(TAG, "Favorite button clicked for template: " + template.getId());
                     // Disable button temporarily to prevent double-clicks
                     favoriteIcon.setEnabled(false);
@@ -220,7 +239,7 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
             }
             
             // Always update the count as it might have changed even if the state didn't
-            likeCountText.setText(String.valueOf(likeCount));
+            likeCountText.setText(template.getFormattedLikeCount());
             
             // Update favorite button and count
             boolean isFavorited = template.isFavorited();
@@ -237,7 +256,7 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
             }
             
             // Always update the count as it might have changed even if the state didn't
-            favoriteCountText.setText(String.valueOf(favoriteCount));
+            favoriteCountText.setText(template.getFormattedFavoriteCount());
             
             Log.d(TAG, "Partially updated template " + template.getId() + 
                 " interaction state - Liked: " + isLiked + " (" + likeCount + "), " +

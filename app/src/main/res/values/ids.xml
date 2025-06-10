@@ -15,4 +15,5 @@
     
     <!-- View tags -->
     <item name="tag_adapter" type="id" />
+    <item name="tag_last_click_time" type="id" />
 </resources> 

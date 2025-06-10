@@ -1,6 +1,7 @@
 package com.ds.eventwish.ui.template;
 
 import androidx.annotation.NonNull;
+import com.ds.eventwish.utils.NumberFormatter;
 import java.util.Objects;
 
 /**
@@ -149,6 +150,15 @@ public class Template {
     }
     
     /**
+     * Get the formatted like count (e.g., 1K, 10K, 1M)
+     *
+     * @return The formatted like count as a string
+     */
+    public String getFormattedLikeCount() {
+        return NumberFormatter.formatCount(likeCount);
+    }
+    
+    /**
      * Set the number of likes for this template
      *
      * @param count The new like count
@@ -164,6 +174,15 @@ public class Template {
      */
     public long getFavoriteCount() {
         return favoriteCount;
+    }
+    
+    /**
+     * Get the formatted favorite count (e.g., 1K, 10K, 1M)
+     *
+     * @return The formatted favorite count as a string
+     */
+    public String getFormattedFavoriteCount() {
+        return NumberFormatter.formatCount(favoriteCount);
     }
     
     /**

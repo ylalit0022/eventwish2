@@ -27,6 +27,8 @@ import java.util.Objects;
 import java.util.Collections;
 import java.lang.StringBuilder;
 import com.ds.eventwish.utils.AnalyticsUtils;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
 
 public class HomeViewModel extends ViewModel {
     private static final String TAG = "HomeViewModel";
@@ -886,36 +888,48 @@ public class HomeViewModel extends ViewModel {
     /**
      * Handle template like interaction
      * @param template The template that was liked
+     * @return Task that completes when the operation is done
      */
-    public void handleTemplateLike(Template template) {
-        if (template == null || template.getId() == null) return;
+    public Task<Boolean> handleTemplateLike(Template template) {
+        if (template == null || template.getId() == null) {
+            return Tasks.forException(new IllegalArgumentException("Template or template ID is null"));
+        }
+        
+        // Get the new state (opposite of current)
+        boolean newLikeState = !template.isLiked();
         
         // Track the event with appropriate action
-        if (!template.isLiked()) {
+        if (newLikeState) {
             AnalyticsUtils.getInstance().trackTemplateLike(template.getId(), "home_feed");
         } else {
             AnalyticsUtils.getInstance().trackTemplateUnlike(template.getId(), "home_feed");
         }
         
-        // Update the template in repository first
-        repository.toggleLike(template.getId(), !template.isLiked());
+        // Update the template in repository and return the task
+        return repository.toggleLike(template.getId(), newLikeState);
     }
 
     /**
      * Handle template favorite interaction
      * @param template The template that was favorited
+     * @return Task that completes when the operation is done
      */
-    public void handleTemplateFavorite(Template template) {
-        if (template == null || template.getId() == null) return;
+    public Task<Boolean> handleTemplateFavorite(Template template) {
+        if (template == null || template.getId() == null) {
+            return Tasks.forException(new IllegalArgumentException("Template or template ID is null"));
+        }
+        
+        // Get the new state (opposite of current)
+        boolean newFavoriteState = !template.isFavorited();
         
         // Track the event with appropriate action
-        if (!template.isFavorited()) {
+        if (newFavoriteState) {
             AnalyticsUtils.getInstance().trackTemplateFavorite(template.getId(), "home_feed");
         } else {
             AnalyticsUtils.getInstance().trackTemplateUnfavorite(template.getId(), "home_feed");
         }
         
-        // Update the template in repository first
-        repository.toggleFavorite(template.getId(), !template.isFavorited());
+        // Update the template in repository and return the task
+        return repository.toggleFavorite(template.getId(), newFavoriteState);
     }
 }

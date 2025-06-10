@@ -8,6 +8,8 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.LinearLayout;
 import android.widget.ImageView;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -25,6 +27,7 @@ import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.repository.CategoryIconRepository;
 import com.ds.eventwish.data.repository.EngagementRepository;
+import com.ds.eventwish.utils.NumberFormatter;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -125,8 +128,7 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
         private final ImageView favoriteIcon;
         private final TextView likeCountText;
         private final TextView favoriteCountText;
-        private final View interactionButtonsLayout;
-        
+
         public TemplateViewHolder(@NonNull View itemView) {
             super(itemView);
             templateImage = itemView.findViewById(R.id.template_image);
@@ -140,7 +142,6 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
             favoriteIcon = itemView.findViewById(R.id.favoriteIcon);
             likeCountText = itemView.findViewById(R.id.likeCountText);
             favoriteCountText = itemView.findViewById(R.id.favoriteCountText);
-            interactionButtonsLayout = itemView.findViewById(R.id.interactionButtonsLayout);
         }
         
         public void bind(Template template, Set<String> recommendedIds, Set<String> newIds, TemplateClickListener listener) {
@@ -155,85 +156,101 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
                 categoryIcon.setVisibility(View.GONE);
             }
             
+            // Set badges
+            if (newIds != null && newIds.contains(template.getId())) {
+                newBadge.setVisibility(View.VISIBLE);
+            } else {
+                newBadge.setVisibility(View.GONE);
+            }
+            
+            if (recommendedIds != null && recommendedIds.contains(template.getId())) {
+                recommendedBadge.setVisibility(View.VISIBLE);
+            } else {
+                recommendedBadge.setVisibility(View.GONE);
+            }
+            
             // Update like icon state and count
-            likeIcon.setImageResource(template.isLiked() ? R.drawable.ic_favorite : R.drawable.ic_favorite_border);
-            likeIcon.setColorFilter(template.isLiked() ? 
-                itemView.getContext().getColor(R.color.colorAccent) : 
-                itemView.getContext().getColor(R.color.colorControlNormal));
+            updateLikeState(template.isLiked(), template.getLikeCount());
             
-            // Set like count, ensuring it's never negative
-            long likeCount = Math.max(0, template.getLikeCount());
-            likeCountText.setText(String.valueOf(likeCount));
-            Log.d(TAG, "Setting like count for template " + template.getId() + ": " + likeCount);
-            
+            // Set up like click listener with debounce
+            likeIcon.setTag(R.id.tag_last_click_time, 0L);
             likeIcon.setOnClickListener(v -> {
-                if (listener != null && v.isEnabled()) {
-                    // Prevent multiple rapid clicks
-                    v.setEnabled(false);
-                    
-                    // Provide haptic feedback
-                    v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
-                    
-                    // Immediately update UI for better user feedback
-                    boolean newLikeState = !template.isLiked();
-                    template.setLiked(newLikeState);
-                    likeIcon.setImageResource(newLikeState ? R.drawable.ic_favorite : R.drawable.ic_favorite_border);
-                    likeIcon.setColorFilter(newLikeState ? 
-                        itemView.getContext().getColor(R.color.colorAccent) : 
-                        itemView.getContext().getColor(R.color.colorControlNormal));
-                    
-                    // Update count immediately
-                    long newCount = newLikeState ? 
-                        Math.max(1, likeCount + 1) : 
-                        Math.max(0, likeCount - 1);
-                    likeCountText.setText(String.valueOf(newCount));
-                    
-                    // Only trigger like action
+                // Implement debounce to prevent rapid clicks
+                long lastClickTime = (long) v.getTag(R.id.tag_last_click_time);
+                long currentTime = System.currentTimeMillis();
+                if (currentTime - lastClickTime < 1000) { // 1 second debounce
+                    return;
+                }
+                v.setTag(R.id.tag_last_click_time, currentTime);
+                
+                // Provide haptic feedback
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
+                
+                // Optimistic UI update
+                boolean newLikeState = !template.isLiked();
+                long newCount = newLikeState ? 
+                    Math.max(1, template.getLikeCount() + 1) : 
+                    Math.max(0, template.getLikeCount() - 1);
+                
+                // Update UI immediately
+                updateLikeState(newLikeState, newCount);
+                
+                // Animate the like button
+                animateLikeButton(newLikeState);
+                
+                // Update model
+                template.setLiked(newLikeState);
+                template.setLikeCount(newCount);
+                
+                // Notify listener
+                if (listener != null) {
                     listener.onTemplateLike(template);
-                    
-                    // Re-enable after a delay to prevent rapid clicks
-                    v.postDelayed(() -> v.setEnabled(true), 1000);
                 }
             });
             
             // Update favorite icon state and count
-            favoriteIcon.setImageResource(template.isFavorited() ? R.drawable.ic_bookmark : R.drawable.ic_bookmark_border);
-            favoriteIcon.setColorFilter(template.isFavorited() ? 
-                itemView.getContext().getColor(R.color.colorAccent) : 
-                itemView.getContext().getColor(R.color.colorControlNormal));
+            updateFavoriteState(template.isFavorited(), template.getFavoriteCount());
             
-            // Set favorite count, ensuring it's never negative
-            long favoriteCount = Math.max(0, template.getFavoriteCount());
-            favoriteCountText.setText(String.valueOf(favoriteCount));
-            Log.d(TAG, "Setting favorite count for template " + template.getId() + ": " + favoriteCount);
-            
+            // Set up favorite click listener with debounce
+            favoriteIcon.setTag(R.id.tag_last_click_time, 0L);
             favoriteIcon.setOnClickListener(v -> {
-                if (listener != null && v.isEnabled()) {
-                    // Prevent multiple rapid clicks
-                    v.setEnabled(false);
-                    
-                    // Provide haptic feedback
-                    v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
-                    
-                    // Immediately update UI for better user feedback
-                    boolean newFavoriteState = !template.isFavorited();
-                    template.setFavorited(newFavoriteState);
-                    favoriteIcon.setImageResource(newFavoriteState ? R.drawable.ic_bookmark : R.drawable.ic_bookmark_border);
-                    favoriteIcon.setColorFilter(newFavoriteState ? 
-                        itemView.getContext().getColor(R.color.colorAccent) : 
-                        itemView.getContext().getColor(R.color.colorControlNormal));
-                    
-                    // Update count immediately
-                    long newCount = newFavoriteState ? 
-                        Math.max(1, favoriteCount + 1) : 
-                        Math.max(0, favoriteCount - 1);
-                    favoriteCountText.setText(String.valueOf(newCount));
-                    
-                    // Only trigger favorite action
+                // Implement debounce to prevent rapid clicks
+                long lastClickTime = (long) v.getTag(R.id.tag_last_click_time);
+                long currentTime = System.currentTimeMillis();
+                if (currentTime - lastClickTime < 1000) { // 1 second debounce
+                    return;
+                }
+                v.setTag(R.id.tag_last_click_time, currentTime);
+                
+                // Provide haptic feedback
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
+                
+                // Optimistic UI update
+                boolean newFavoriteState = !template.isFavorited();
+                long newCount = newFavoriteState ? 
+                    Math.max(1, template.getFavoriteCount() + 1) : 
+                    Math.max(0, template.getFavoriteCount() - 1);
+                
+                // Update UI immediately
+                updateFavoriteState(newFavoriteState, newCount);
+                
+                // Animate the favorite button
+                animateFavoriteButton(newFavoriteState);
+                
+                // Update model
+                template.setFavorited(newFavoriteState);
+                template.setFavoriteCount(newCount);
+                
+                // Notify listener
+                if (listener != null) {
                     listener.onTemplateFavorite(template);
-                    
-                    // Re-enable after a delay to prevent rapid clicks
-                    v.postDelayed(() -> v.setEnabled(true), 1000);
+                }
+            });
+            
+            // Set up card click listener
+            cardView.setOnClickListener(v -> {
+                if (listener != null) {
+                    listener.onTemplateClick(template);
                 }
             });
             
@@ -246,11 +263,12 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
                         .placeholder(R.drawable.placeholder_image)
                         .error(R.drawable.error_image)
                         .diskCacheStrategy(DiskCacheStrategy.ALL))
+                        .centerCrop()
                         .listener(new RequestListener<Drawable>() {
                             @Override
-                            public boolean onLoadFailed(@Nullable GlideException e, Object model,
+                            public boolean onLoadFailed(@Nullable GlideException e, Object model, 
                                                       Target<Drawable> target, boolean isFirstResource) {
-                                Log.e(TAG, "Failed to load image for template: " + template.getId(), e);
+                                Log.e(TAG, "Image load failed for template: " + template.getId(), e);
                                 return false;
                             }
 
@@ -258,54 +276,80 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
                             public boolean onResourceReady(Drawable resource, Object model,
                                                          Target<Drawable> target, DataSource dataSource,
                                                          boolean isFirstResource) {
-                                Log.d(TAG, "Image loaded successfully for template: " + template.getId());
                                 return false;
                             }
                         })
-                        .into(templateImage);
+                    .into(templateImage);
             } else {
+                // Set placeholder if no image URL
                 templateImage.setImageResource(R.drawable.placeholder_image);
             }
-            
-            // Check if this template should show the NEW badge
-            boolean isNew = newIds != null && template.getId() != null && newIds.contains(template.getId());
-            
-            // Check if this template is recommended
-            boolean isRecommended = (recommendedIds != null && 
-                                    template.getId() != null && 
-                                    recommendedIds.contains(template.getId())) || 
-                                    template.isRecommended();
-            
-            // Show NEW badge with higher priority than recommended
-            newBadge.setVisibility(isNew ? View.VISIBLE : View.GONE);
-            
-            // Special styling for templates
-            if (isNew) {
-                recommendedBadge.setVisibility(View.GONE);
-                cardView.setCardBackgroundColor(0xFFF3E5F5); // Light purple background
-                cardView.setCardElevation(8f);
-            } else if (isRecommended) {
-                recommendedBadge.setVisibility(View.VISIBLE);
-                cardView.setCardBackgroundColor(0xFFFFF8E1); // Light amber background
-                cardView.setCardElevation(8f);
+        }
+        
+        // Helper method to update like state
+        private void updateLikeState(boolean isLiked, long likeCount) {
+            if (isLiked) {
+                likeIcon.setImageResource(R.drawable.ic_heart_filled);
+                likeIcon.setColorFilter(android.graphics.Color.RED);
             } else {
-                recommendedBadge.setVisibility(View.GONE);
-                cardView.setCardBackgroundColor(0xFFFFFFFF); // White background
-                cardView.setCardElevation(4f);
+                likeIcon.setImageResource(R.drawable.ic_heart_outline);
+                likeIcon.setColorFilter(null);
             }
             
-            // Set click listener for the card
-            cardView.setOnClickListener(v -> {
-                if (listener != null) {
-                    listener.onTemplateClick(template);
-                }
-            });
-
-            // Prevent click propagation from interaction buttons
-            interactionButtonsLayout.setOnClickListener(v -> {
-                // Consume the click event
-                Log.d(TAG, "Interaction buttons layout clicked, preventing propagation");
-            });
+            // Update count text
+            if (likeCount > 0) {
+                likeCountText.setVisibility(View.VISIBLE);
+                likeCountText.setText(NumberFormatter.formatCount(likeCount));
+            } else {
+                likeCountText.setVisibility(View.GONE);
+            }
+        }
+        
+        // Helper method to update favorite state
+        private void updateFavoriteState(boolean isFavorited, long favoriteCount) {
+            if (isFavorited) {
+                favoriteIcon.setImageResource(R.drawable.ic_bookmark_filled);
+            } else {
+                favoriteIcon.setImageResource(R.drawable.ic_bookmark_outline);
+            }
+            
+            // Update count text
+            if (favoriteCount > 0) {
+                favoriteCountText.setVisibility(View.VISIBLE);
+                favoriteCountText.setText(NumberFormatter.formatCount(favoriteCount));
+            } else {
+                favoriteCountText.setVisibility(View.GONE);
+            }
+        }
+        
+        private void animateLikeButton(boolean liked) {
+            // Scale animation
+            likeIcon.animate()
+                    .scaleX(1.2f)
+                    .scaleY(1.2f)
+                    .setDuration(100)
+                    .withEndAction(() -> 
+                        likeIcon.animate()
+                                .scaleX(1.0f)
+                                .scaleY(1.0f)
+                                .setDuration(100)
+                                .start())
+                    .start();
+        }
+        
+        private void animateFavoriteButton(boolean favorited) {
+            // Scale animation
+            favoriteIcon.animate()
+                    .scaleX(1.2f)
+                    .scaleY(1.2f)
+                    .setDuration(100)
+                    .withEndAction(() -> 
+                        favoriteIcon.animate()
+                                .scaleX(1.0f)
+                                .scaleY(1.0f)
+                                .setDuration(100)
+                                .start())
+                    .start();
         }
     }
     
@@ -314,6 +358,27 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
      */
     public RecommendedTemplateAdapter(TemplateClickListener listener) {
         this.clickListener = listener;
+        // Enable stable IDs to prevent blinking during updates
+        setHasStableIds(true);
+    }
+    
+    /**
+     * Provide stable item IDs to prevent unnecessary rebinding
+     */
+    @Override
+    public long getItemId(int position) {
+        Object item = getItem(position);
+        if (item instanceof Template) {
+            Template template = (Template) item;
+            // Use the template ID's hashCode as the stable ID
+            return template.getId().hashCode();
+        } else if (item instanceof SectionHeader) {
+            // For headers, use a negative hash of the title to avoid conflicts with templates
+            SectionHeader header = (SectionHeader) item;
+            return -1 * (header.getTitle().hashCode());
+        }
+        // Fallback to position for other types
+        return position;
     }
     
     @Override
@@ -543,5 +608,22 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
             return items.get(position);
         }
         return null;
+    }
+    
+    /**
+     * Update a template at a specific position
+     * @param position Position in the adapter
+     * @param template Updated template
+     */
+    public void updateTemplateAtPosition(int position, Template template) {
+        if (position < 0 || position >= items.size()) return;
+        
+        Object item = items.get(position);
+        if (item instanceof Template) {
+            // Replace the template at this position
+            items.set(position, template);
+            // Notify just this item changed
+            notifyItemChanged(position);
+        }
     }
 } 
