@@ -18,11 +18,11 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.graphics.ColorUtils;
-import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.NavDirections;
 import androidx.navigation.Navigation;
+import com.ds.eventwish.ui.base.BaseFragment;
 import com.ds.eventwish.MainActivity;
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.Template;
@@ -96,7 +96,7 @@ class Palette {
     }
 }
 
-public class ResourceFragment extends Fragment {
+public class ResourceFragment extends BaseFragment {
     private static final String TAG = "ResourceFragment";
     private FragmentResourceBinding binding;
     private ResourceViewModel viewModel;
@@ -115,6 +115,11 @@ public class ResourceFragment extends Fragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // Disable authentication requirement for ResourceFragment
+        setRequiresAuthentication(false);
+        Log.d(TAG, "Authentication requirement disabled for ResourceFragment");
+        
         Log.d(TAG, "onCreate: ResourceFragment created");
         viewModel = new ViewModelProvider(this).get(ResourceViewModel.class);
         
@@ -649,7 +654,8 @@ public class ResourceFragment extends Fragment {
         }
     }
 
-    private void showError(String message) {
+    @Override
+    protected void showError(String message) {
         if (isAdded() && binding != null) {
             Snackbar.make(binding.getRoot(), message, Snackbar.LENGTH_LONG).show();
         }

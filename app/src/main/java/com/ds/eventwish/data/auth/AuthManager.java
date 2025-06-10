@@ -178,6 +178,18 @@ public class AuthManager {
             })
         ).addOnCompleteListener(task -> {
             Log.d(TAG, "signOut: completed, success=" + task.isSuccessful());
+            
+            // Clear authentication state in AuthStateManager
+            if (applicationContext != null) {
+                com.ds.eventwish.utils.AuthStateManager.getInstance(applicationContext).clearAuthentication();
+                
+                // Also clear old SharedPreferences for backward compatibility
+                applicationContext.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("user_authenticated", false)
+                    .remove("user_id")
+                    .apply();
+            }
         });
     }
 
@@ -216,5 +228,28 @@ public class AuthManager {
         if (!isInitialized) {
             throw new IllegalStateException("AuthManager must be initialized before use");
         }
+    }
+    
+    /**
+     * Force refresh of ID token
+     * @return Task with token string result
+     */
+    public Task<String> refreshIdToken() {
+        Log.d(TAG, "refreshIdToken: attempting to refresh ID token");
+        FirebaseUser user = auth.getCurrentUser();
+        if (user == null) {
+            Log.e(TAG, "refreshIdToken: no user logged in");
+            return Tasks.forException(new Exception("No user logged in"));
+        }
+        
+        return user.getIdToken(true)
+            .continueWith(task -> {
+                if (task.isSuccessful() && task.getResult() != null) {
+                    Log.d(TAG, "refreshIdToken: token refresh successful");
+                    return task.getResult().getToken();
+                }
+                Log.e(TAG, "refreshIdToken: failed to refresh token", task.getException());
+                throw new Exception("Failed to refresh token");
+            });
     }
 } 

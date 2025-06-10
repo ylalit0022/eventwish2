@@ -28,12 +28,15 @@ import com.google.android.gms.common.SignInButton;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.ds.eventwish.utils.NetworkUtils;
+import com.google.firebase.inappmessaging.FirebaseInAppMessaging;
 
 public class SplashActivity extends AppCompatActivity {
     private static final String TAG = "SplashActivity";
     private static final long SPLASH_DURATION = 2000; // 2 seconds
-    private static final long SIGN_IN_TIMEOUT = 15000; // 15 seconds max for sign-in operations
+    private static final long SIGN_IN_TIMEOUT = 30000; // 30 seconds max for sign-in operations
     private ImageView logoImageView;
     private TextView appNameTextView;
     private ProgressBar loadingProgressBar;
@@ -48,6 +51,7 @@ public class SplashActivity extends AppCompatActivity {
     private boolean isSigningIn = false;
     private Handler timeoutHandler = new Handler();
     private boolean forceNavigated = false;
+    private FirebaseAuth.AuthStateListener authStateListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,6 +64,9 @@ public class SplashActivity extends AppCompatActivity {
         );
         
         setContentView(R.layout.activity_splash);
+
+        // Pause Firebase In-App Messaging until user is authenticated
+        pauseInAppMessaging();
 
         // Initialize AuthManager
         authManager = AuthManager.getInstance();
@@ -87,6 +94,20 @@ public class SplashActivity extends AppCompatActivity {
 
         // Set up back arrow
         backArrow.setOnClickListener(v -> navigateToMain());
+        
+        // Initialize AuthStateListener
+        authStateListener = firebaseAuth -> {
+            FirebaseUser user = firebaseAuth.getCurrentUser();
+            if (user != null) {
+                Log.d(TAG, "AuthStateListener: User is signed in");
+            } else {
+                Log.d(TAG, "AuthStateListener: User is signed out");
+                // Only show sign-in button if we're not already trying to sign in
+                if (!isSigningIn && !forceNavigated) {
+                    showSignInButton();
+                }
+            }
+        };
 
         // Start splash flow
         startSplashFlow();
@@ -115,6 +136,22 @@ public class SplashActivity extends AppCompatActivity {
     }
     
     @Override
+    protected void onStart() {
+        super.onStart();
+        // Add AuthStateListener
+        FirebaseAuth.getInstance().addAuthStateListener(authStateListener);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // Remove AuthStateListener
+        if (authStateListener != null) {
+            FirebaseAuth.getInstance().removeAuthStateListener(authStateListener);
+        }
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         // Remove any pending timeout callbacks
@@ -131,15 +168,60 @@ public class SplashActivity extends AppCompatActivity {
 
     private void trySilentSignIn() {
         Log.d(TAG, "trySilentSignIn: attempting silent sign-in");
-        authManager.silentSignIn()
-            .addOnSuccessListener(account -> {
-                Log.d(TAG, "Silent sign-in successful");
-                handleGoogleSignInAccount(Tasks.forResult(account));
-            })
-            .addOnFailureListener(e -> {
-                Log.d(TAG, "Silent sign-in failed, showing sign-in button", e);
+        
+        // First check network connectivity
+        if (!NetworkUtils.isNetworkAvailable(this)) {
+            Log.d(TAG, "No network connection, checking for cached user");
+            // Check if we have a cached Firebase user
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            if (currentUser != null) {
+                Log.d(TAG, "Using cached Firebase user in offline mode");
+                // Allow proceeding in offline mode with cached user
+                resumeInAppMessaging();
+                navigateToMain();
+                return;
+            } else {
+                // No cached user and no network
+                Log.d(TAG, "No cached user and no network, showing sign-in button");
                 showSignInButton();
-            });
+                return;
+            }
+        }
+        
+        // Check if we have a current user
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser != null) {
+            // User exists, force refresh token to ensure it's valid
+            Log.d(TAG, "Current user exists, refreshing token");
+            currentUser.getIdToken(true)
+                .addOnSuccessListener(result -> {
+                    Log.d(TAG, "Token refresh successful, proceeding to main activity");
+                    // Store authentication state
+                    getSharedPreferences("auth_prefs", MODE_PRIVATE)
+                        .edit()
+                        .putBoolean("user_authenticated", true)
+                        .apply();
+                    resumeInAppMessaging();
+                    navigateToMain();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Token refresh failed, user may need to re-authenticate", e);
+                    // Token refresh failed, user needs to sign in again
+                    authManager.signOut();
+                    showSignInButton();
+                });
+        } else {
+            // No current user, try silent sign-in
+            authManager.silentSignIn()
+                .addOnSuccessListener(account -> {
+                    Log.d(TAG, "Silent sign-in successful");
+                    handleGoogleSignInAccount(Tasks.forResult(account));
+                })
+                .addOnFailureListener(e -> {
+                    Log.d(TAG, "Silent sign-in failed, showing sign-in button", e);
+                    showSignInButton();
+                });
+        }
     }
 
     private void showSignInButton() {
@@ -211,6 +293,9 @@ public class SplashActivity extends AppCompatActivity {
     }
 
     private void startMainActivity() {
+        // Ensure in-app messaging is enabled before leaving
+        resumeInAppMessaging();
+        
         // Start MainActivity
         Intent intent = new Intent(SplashActivity.this, MainActivity.class);
         startActivity(intent);
@@ -295,10 +380,30 @@ public class SplashActivity extends AppCompatActivity {
             authManager.handleSignInResult(task)
                 .addOnSuccessListener(user -> {
                     Log.d(TAG, "handleGoogleSignInAccount: successfully signed in with Firebase, uid: " + user.getUid());
-                    onSignInSuccess(user);
+                    
+                    // Store a flag in SharedPreferences that the user has logged in
+                    getSharedPreferences("auth_prefs", MODE_PRIVATE)
+                        .edit()
+                        .putBoolean("user_authenticated", true)
+                        .apply();
+                    
+                    // Force token refresh to ensure we have a valid token
+                    user.getIdToken(true)
+                        .addOnSuccessListener(token -> {
+                            Log.d(TAG, "ID token refreshed successfully after sign-in");
+                            onSignInSuccess(user);
+                        })
+                        .addOnFailureListener(tokenError -> {
+                            Log.e(TAG, "Failed to refresh ID token after sign-in", tokenError);
+                            // Proceed anyway since this is a fresh sign-in
+                            onSignInSuccess(user);
+                        });
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "handleGoogleSignInAccount: Firebase auth failed", e);
+                    // Clear any cached credentials that might be causing issues
+                    authManager.signOut();
+                    
                     if (e instanceof ApiException) {
                         ApiException apiException = (ApiException) e;
                         int statusCode = apiException.getStatusCode();
@@ -327,6 +432,24 @@ public class SplashActivity extends AppCompatActivity {
         signInStatus.setText(R.string.sign_in_success);
         showSignInSuccess();
         
+        // Store authentication state in AuthStateManager
+        com.ds.eventwish.utils.AuthStateManager.getInstance(this).setAuthenticated(
+            user.getUid(),
+            user.getEmail(),
+            user.getDisplayName()
+        );
+        
+        // Store authentication state in SharedPreferences for backward compatibility
+        getSharedPreferences("auth_prefs", MODE_PRIVATE)
+            .edit()
+            .putBoolean("user_authenticated", true)
+            .putString("user_id", user.getUid())
+            .putLong("auth_timestamp", System.currentTimeMillis())
+            .apply();
+        
+        // Resume Firebase In-App Messaging now that the user is authenticated
+        resumeInAppMessaging();
+        
         // Navigate to main activity after a short delay
         new Handler().postDelayed(() -> {
             Log.d(TAG, "onSignInSuccess: navigating to main activity");
@@ -349,6 +472,24 @@ public class SplashActivity extends AppCompatActivity {
                       "Status code: " + apiException.getStatusCode() + 
                       ", Status message: " + apiException.getStatusMessage() + 
                       ", Message: " + apiException.getMessage());
+        }
+    }
+
+    private void pauseInAppMessaging() {
+        try {
+            FirebaseInAppMessaging.getInstance().setMessagesSuppressed(true);
+            Log.d(TAG, "Firebase In-App Messaging suppressed during sign-in");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to suppress In-App Messaging", e);
+        }
+    }
+    
+    private void resumeInAppMessaging() {
+        try {
+            FirebaseInAppMessaging.getInstance().setMessagesSuppressed(false);
+            Log.d(TAG, "Firebase In-App Messaging resumed after authentication");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to resume In-App Messaging", e);
         }
     }
 } 

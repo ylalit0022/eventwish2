@@ -14,7 +14,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
+import com.ds.eventwish.ui.base.BaseFragment;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
@@ -52,8 +52,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-public class FestivalNotificationFragment extends Fragment {
+public class FestivalNotificationFragment extends BaseFragment {
     private static final String TAG = "FestivalNotification";
+    
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        
+        // This fragment requires authentication (enforced by BaseFragment)
+    }
 
     private FestivalViewModel viewModel;
     private LinearLayout festivalsContainer;
@@ -205,7 +212,7 @@ public class FestivalNotificationFragment extends Fragment {
         festivalsContainer.setVisibility(View.VISIBLE);
     }
 
-    private void showError(boolean isNetworkError) {
+    private void showNetworkError(boolean isNetworkError) {
         hideAllStateViews();
         errorLayout.setVisibility(View.VISIBLE);
         
@@ -268,7 +275,7 @@ public class FestivalNotificationFragment extends Fragment {
                     showContent();
                 } else {
                     // Show error state for initial load
-                    showError(isNetworkError);
+                    showNetworkError(isNetworkError);
                     
                     if (isNetworkError) {
                         errorText.setText("No Internet Connection");

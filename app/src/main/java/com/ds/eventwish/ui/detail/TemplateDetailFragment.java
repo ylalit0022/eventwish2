@@ -23,7 +23,7 @@ import android.view.WindowInsets;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.fragment.app.Fragment;
+import com.ds.eventwish.ui.base.BaseFragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
@@ -40,7 +40,7 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
-public class TemplateDetailFragment extends Fragment implements TemplateRenderer.TemplateRenderListener {
+public class TemplateDetailFragment extends BaseFragment implements TemplateRenderer.TemplateRenderListener {
     private static final String TAG = "TemplateDetailFragment";
     private static final long TEXT_CHANGE_DELAY = 100; // Debounce delay in milliseconds
     private static final long ANALYTICS_HEARTBEAT_INTERVAL = 30000; // 30 seconds
@@ -61,6 +61,8 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // This fragment requires authentication (enforced by BaseFragment)
         viewModel = new ViewModelProvider(this).get(TemplateDetailViewModel.class);
     }
 
@@ -695,7 +697,8 @@ public class TemplateDetailFragment extends Fragment implements TemplateRenderer
         }
     }
 
-    private void showError(String message) {
+    @Override
+    protected void showError(String message) {
         if (binding != null && isAdded()) {
             mainHandler.post(() -> {
                 try {

@@ -20,7 +20,7 @@ import android.widget.RadioButton;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
-import androidx.fragment.app.Fragment;
+import com.ds.eventwish.ui.base.BaseFragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -55,7 +55,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-public class ReminderFragment extends Fragment {
+public class ReminderFragment extends BaseFragment {
     private static final int MENU_CLEAR_ALL = 1;
     private FragmentReminderBinding binding;
     private ReminderViewModel viewModel;
@@ -69,6 +69,8 @@ public class ReminderFragment extends Fragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // This fragment requires authentication (enforced by BaseFragment)
         setHasOptionsMenu(true);
         
         // Initialize permission launcher

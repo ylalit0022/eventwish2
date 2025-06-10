@@ -260,8 +260,11 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         super.onResume();
         isResumed = true;
         
-        // Show notification dialog only once when first entering the fragment
-        if (!wasInBackground) {
+        // Show notification dialog only once when first entering the fragment and not in a session where it's been shown
+        boolean hasShownPermissionDialog = getSharedPreferences()
+            .getBoolean("has_shown_notification_permission_dialog", false);
+            
+        if (!wasInBackground && !hasShownPermissionDialog) {
             checkAndShowNotificationReminder();
         }
         
@@ -1480,7 +1483,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             @Override
             public void onNetworkStateChanged(boolean isConnected) {
                 if (!isConnected) {
-                    showError(true);
+                    showNetworkError(true);
                 } else {
                     hideError();
                     if (binding.templatesRecyclerView.getAdapter() == null || 
@@ -1499,7 +1502,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         }
     }
 
-    private void showError(boolean isNetworkError) {
+    private void showNetworkError(boolean isNetworkError) {
         if (binding != null) {
             binding.retryLayout.setVisibility(View.VISIBLE);
             binding.templatesRecyclerView.setVisibility(View.GONE);
@@ -2209,10 +2212,94 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             return;
         }
 
-        if (!NotificationPermissionManager.hasNotificationPermission(requireContext())) {
-            // Request permission using the system dialog
-            NotificationPermissionManager.requestNotificationPermission(this, permissionLauncher);
+        // Check if we've already shown the permission dialog in this session
+        boolean hasShownPermissionDialog = getSharedPreferences()
+            .getBoolean("has_shown_notification_permission_dialog", false);
+
+        // Only proceed if we haven't shown the dialog yet
+        if (!hasShownPermissionDialog) {
+            if (!NotificationPermissionManager.hasNotificationPermission(requireContext())) {
+                // Check if permission is permanently denied
+                if (isNotificationPermissionPermanentlyDenied()) {
+                    // Show rationale dialog that directs to settings
+                    showNotificationPermissionRationale();
+                } else {
+                    // Mark that we've shown the dialog
+                    getSharedPreferences()
+                        .edit()
+                        .putBoolean("has_shown_notification_permission_dialog", true)
+                        .apply();
+                    
+                    // Request permission using the system dialog
+                    NotificationPermissionManager.requestNotificationPermission(this, permissionLauncher);
+                }
+            }
         }
+    }
+    
+    /**
+     * Check if notification permission has been permanently denied
+     * by checking if rationale can be shown and if permission was previously requested
+     */
+    private boolean isNotificationPermissionPermanentlyDenied() {
+        boolean wasPermissionRequested = getSharedPreferences()
+            .getBoolean("notification_permission_requested", false);
+            
+        // If this is the first time asking, it's not permanently denied
+        if (!wasPermissionRequested) {
+            getSharedPreferences()
+                .edit()
+                .putBoolean("notification_permission_requested", true)
+                .apply();
+            return false;
+        }
+        
+        // On Android 13+, we can use shouldShowRequestPermissionRationale
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            return !shouldShowRequestPermissionRationale(android.Manifest.permission.POST_NOTIFICATIONS);
+        }
+        
+        // For older Android versions, notification permissions were always granted
+        return false;
+    }
+    
+    private void showNotificationPermissionRationale() {
+        // Check if we've already shown the custom rationale dialog
+        boolean hasShownRationaleDialog = getSharedPreferences()
+            .getBoolean("has_shown_notification_rationale_dialog", false);
+            
+        // Only show the dialog if we haven't shown it before
+        if (!hasShownRationaleDialog) {
+            new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.notification_permission_title)
+                .setMessage(R.string.notification_disabled_message)
+                .setIcon(R.drawable.ic_notifications)
+                .setCancelable(true)
+                .setPositiveButton(R.string.open_settings, (dialog, which) -> {
+                    // Mark that we've shown the rationale dialog
+                    getSharedPreferences()
+                        .edit()
+                        .putBoolean("has_shown_notification_rationale_dialog", true)
+                        .apply();
+                        
+                    Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                    Uri uri = Uri.fromParts("package", requireContext().getPackageName(), null);
+                    intent.setData(uri);
+                    startActivity(intent);
+                })
+                .setNegativeButton(R.string.not_now, (dialog, which) -> {
+                    // Mark that we've shown the rationale dialog even if they choose "not now"
+                    getSharedPreferences()
+                        .edit()
+                        .putBoolean("has_shown_notification_rationale_dialog", true)
+                        .apply();
+                })
+                .show();
+        }
+    }
+    
+    private android.content.SharedPreferences getSharedPreferences() {
+        return requireContext().getSharedPreferences("notification_prefs", android.content.Context.MODE_PRIVATE);
     }
 
     @Override
@@ -2225,19 +2312,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             isGranted -> {
                 if (!isGranted) {
                     // Show custom dialog only if permission is denied
-                    new MaterialAlertDialogBuilder(requireContext())
-                        .setTitle(R.string.notification_permission_title)
-                        .setMessage(R.string.notification_disabled_message)
-                        .setIcon(R.drawable.ic_notifications)
-                        .setCancelable(true)
-                        .setPositiveButton(R.string.open_settings, (dialog, which) -> {
-                            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                            Uri uri = Uri.fromParts("package", requireContext().getPackageName(), null);
-                            intent.setData(uri);
-                            startActivity(intent);
-                        })
-                        .setNegativeButton(R.string.not_now, null)
-                        .show();
+                    showNotificationPermissionRationale();
                 }
             }
         );
@@ -2296,34 +2371,6 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             }
         };
         requireActivity().getOnBackPressedDispatcher().addCallback(this, backPressedCallback);
-    }
-
-    private void showNetworkError(boolean isNetworkError) {
-        if (binding != null) {
-            binding.retryLayout.setVisibility(View.VISIBLE);
-            binding.templatesRecyclerView.setVisibility(View.GONE);
-
-            if (isNetworkError) {
-                String title = getString(R.string.no_internet_title);
-                String message = getString(R.string.no_internet_message);
-                binding.errorText.setText(title);
-                if (getView() != null) {
-                    Snackbar.make(getView(), message, Snackbar.LENGTH_LONG)
-                        .setAction("Settings", v -> {
-                            Intent intent = new Intent(Settings.ACTION_WIRELESS_SETTINGS);
-                            startActivity(intent);
-                        })
-                        .show();
-                }
-            } else {
-                binding.errorText.setText(getString(R.string.error_title));
-            }
-
-            binding.retryButton.setOnClickListener(v -> {
-                hideError();
-                loadTemplates();
-            });
-        }
     }
 
     private void showSignInProgress() {

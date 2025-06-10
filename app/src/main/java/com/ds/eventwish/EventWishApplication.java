@@ -1030,6 +1030,28 @@ public class EventWishApplication extends Application implements Configuration.P
             PerformanceTracker.init(this);
             Log.d(TAG, "Firebase Performance initialized");
             
+            // Initialize AuthManager early to ensure proper authentication state
+            try {
+                com.ds.eventwish.data.auth.AuthManager.getInstance().initialize(this);
+                Log.d(TAG, "AuthManager initialized");
+                
+                // Check for existing user and refresh token if needed
+                FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+                if (currentUser != null) {
+                    Log.d(TAG, "Existing user found on app start: " + currentUser.getUid());
+                    // Force token refresh in background to ensure validity
+                    currentUser.getIdToken(true)
+                        .addOnSuccessListener(result -> 
+                            Log.d(TAG, "Token refreshed successfully on app start"))
+                        .addOnFailureListener(e -> 
+                            Log.e(TAG, "Failed to refresh token on app start", e));
+                } else {
+                    Log.d(TAG, "No existing user found on app start");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing AuthManager", e);
+            }
+            
             // Initialize Firebase Remote Config and In-App Messaging
             try {
                 FirebaseInAppMessagingHandler.init(this);
