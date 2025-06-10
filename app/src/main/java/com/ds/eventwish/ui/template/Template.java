@@ -14,12 +14,13 @@ public class Template {
     private boolean isLiked;
     private boolean isFavorited;
     private long likeCount;
+    private long favoriteCount;
     
     /**
      * Constructor for a template
      */
     public Template(String id, String name, String categoryId, String imageUrl) {
-        this(id, name, categoryId, imageUrl, false, false, 0L);
+        this(id, name, categoryId, imageUrl, false, false, 0L, 0L);
     }
     
     /**
@@ -35,13 +36,31 @@ public class Template {
      */
     public Template(String id, String name, String categoryId, String imageUrl, 
                    boolean isLiked, boolean isFavorited, long likeCount) {
+        this(id, name, categoryId, imageUrl, isLiked, isFavorited, likeCount, 0L);
+    }
+    
+    /**
+     * Constructor for a template with interaction state and favorite count
+     *
+     * @param id The template ID
+     * @param name The template name
+     * @param categoryId The category ID this template belongs to
+     * @param imageUrl The URL of the template image
+     * @param isLiked Whether the template is liked by the user
+     * @param isFavorited Whether the template is favorited by the user
+     * @param likeCount The number of likes for this template
+     * @param favoriteCount The number of favorites for this template
+     */
+    public Template(String id, String name, String categoryId, String imageUrl, 
+                   boolean isLiked, boolean isFavorited, long likeCount, long favoriteCount) {
         this.id = id;
         this.name = name;
         this.categoryId = categoryId;
         this.imageUrl = imageUrl;
         this.isLiked = isLiked;
         this.isFavorited = isFavorited;
-        this.likeCount = likeCount;
+        this.likeCount = Math.max(0, likeCount);
+        this.favoriteCount = Math.max(0, favoriteCount);
     }
     
     /**
@@ -135,7 +154,25 @@ public class Template {
      * @param count The new like count
      */
     public void setLikeCount(long count) {
-        this.likeCount = count;
+        this.likeCount = Math.max(0, count);
+    }
+    
+    /**
+     * Get the number of favorites for this template
+     *
+     * @return The favorite count
+     */
+    public long getFavoriteCount() {
+        return favoriteCount;
+    }
+    
+    /**
+     * Set the number of favorites for this template
+     *
+     * @param count The new favorite count
+     */
+    public void setFavoriteCount(long count) {
+        this.favoriteCount = Math.max(0, count);
     }
 
     @Override

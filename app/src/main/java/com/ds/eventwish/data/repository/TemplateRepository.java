@@ -406,70 +406,82 @@ public class TemplateRepository {
                         });
                         
                         Log.d(TAG, "Sorted " + newTemplates.size() + " templates by creation date (newest first)");
-                        
-                        // Log all template IDs for debugging with their timestamps
-                        for (Template template : newTemplates) {
-                            Log.d(TAG, "Template: " + template.getTitle() + 
-                                  ", ID: " + template.getId() + 
-                                  ", Created: " + template.getCreatedAt() +
-                                  ", Timestamp: " + template.getCreatedAtTimestamp());
-                        }
                     }
 
+                    final List<Template> finalList;
                     if (forceRefresh) {
                         // For a force refresh, use only the sorted new templates
-                        currentList = new ArrayList<>(newTemplates);
+                        finalList = new ArrayList<>(newTemplates);
                     } else {
-                        // For pagination, we need to merge and re-sort all templates
-                        currentList.addAll(newTemplates);
+                        // For pagination, we need to merge and maintain the current order
+                        // Add new templates at the end
+                        finalList = new ArrayList<>(currentList);
                         
+                        // Add new templates that don't already exist in the list
+                        for (Template newTemplate : newTemplates) {
+                            boolean exists = false;
+                            for (Template existingTemplate : finalList) {
+                                if (existingTemplate.getId().equals(newTemplate.getId())) {
+                                    exists = true;
+                                    break;
+                                }
+                            }
+                            if (!exists) {
+                                finalList.add(newTemplate);
+                            }
+                        }
+                        
+                        // Only sort if this is not a user interaction update
+                        if (forceRefresh) {
                         // Re-sort the entire list to ensure newest templates are always at the top
-                        Collections.sort(currentList, (t1, t2) -> {
+                            Collections.sort(finalList, (t1, t2) -> {
                             long time1 = t1.getCreatedAtTimestamp();
                             long time2 = t2.getCreatedAtTimestamp();
                             // Sort in descending order (newest first)
                             return Long.compare(time2, time1);
                         });
                         
-                        Log.d(TAG, "Re-sorted complete list of " + currentList.size() + " templates by creation date");
+                            Log.d(TAG, "Re-sorted complete list of " + finalList.size() + " templates by creation date");
+                        }
                     }
                     
-                    // Create final copy for lambda
-                    final List<Template> finalCurrentList = currentList;
-                    
-                    // Post the sorted list to LiveData
-                    templates.postValue(finalCurrentList);
+                    // Post the list to LiveData
+                    templates.postValue(finalList);
 
                     // Check like/favorite status if user is logged in
                     if (user != null && newTemplates != null && !newTemplates.isEmpty()) {
                         Log.d(TAG, "Starting interaction check for " + newTemplates.size() + " templates with user: " + user.getUid());
                         
-                        // Log initial states
-                        for (Template template : newTemplates) {
-                            Log.d(TAG, String.format("Initial state - Template: %s, Liked: %b, Favorited: %b", 
-                                template.getId(), template.isLiked(), template.isFavorited()));
-                        }
-                        
                         checkInteractionStates(newTemplates, user.getUid())
                             .addOnSuccessListener(updatedTemplates -> {
                                 Log.d(TAG, "Successfully checked interaction states");
                                 
-                                // Log updated states
-                                for (Template template : updatedTemplates) {
-                                    Log.d(TAG, String.format("Updated state - Template: %s, Liked: %b, Favorited: %b", 
-                                        template.getId(), template.isLiked(), template.isFavorited()));
+                                // Create a new list with the same order as finalList
+                                List<Template> updatedFinalList = new ArrayList<>(finalList);
+                                
+                                // Update states without changing positions
+                                for (int i = 0; i < updatedFinalList.size(); i++) {
+                                    Template template = updatedFinalList.get(i);
+                                    
+                                    // Find updated template with same ID
+                                    for (Template updatedTemplate : updatedTemplates) {
+                                        if (template.getId().equals(updatedTemplate.getId())) {
+                                            // Update like/favorite status without changing position
+                                            template.setLiked(updatedTemplate.isLiked());
+                                            template.setFavorited(updatedTemplate.isFavorited());
+                                            template.setLikeCount(updatedTemplate.getLikeCount());
+                                            break;
+                                        }
+                                    }
                                 }
                                 
-                                // Update like/favorite status in the already posted list
-                                templates.postValue(finalCurrentList);
+                                // Post updated list without changing order
+                                templates.postValue(updatedFinalList);
                                 Log.d(TAG, "Posted updated templates to LiveData");
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "Failed to check interaction states", e);
                             });
-                    } else {
-                        Log.d(TAG, "Skipping interaction check - User: " + (user != null ? user.getUid() : "null") + 
-                              ", Templates: " + (newTemplates != null ? newTemplates.size() : "null"));
                     }
                     
                     // Handle categories with persistence
@@ -1000,12 +1012,21 @@ public class TemplateRepository {
             .addOnSuccessListener(doc -> {
                 if (doc.exists() && doc.contains("likeCount")) {
                     Long count = doc.getLong("likeCount");
-                    likeCount.setValue(count != null ? count.intValue() : 0);
+                    // Ensure count is non-negative and convert to Integer
+                    int safeCount = count != null ? Math.max(0, count.intValue()) : 0;
+                    likeCount.setValue(safeCount);
+                    Log.d(TAG, "Got like count for template " + templateId + ": " + safeCount);
                 } else {
+                    // Default to 0 if no count exists
                     likeCount.setValue(0);
+                    Log.d(TAG, "No like count found for template " + templateId + ", defaulting to 0");
                 }
             })
-            .addOnFailureListener(e -> likeCount.setValue(0));
+            .addOnFailureListener(e -> {
+                // Default to 0 on error
+                likeCount.setValue(0);
+                Log.e(TAG, "Error getting like count for template " + templateId, e);
+            });
 
         return likeCount;
     }
@@ -1018,29 +1039,70 @@ public class TemplateRepository {
         }
 
         String userId = user.getUid();
-        if (newState) {
-            // Add to likes collection
-            db.collection("users").document(userId)
-                .collection("likes").document(templateId)
-                .set(new HashMap<>())
-                .addOnSuccessListener(v -> {
-                    // Increment template like count
-                    db.collection("templates").document(templateId)
-                        .update("likeCount", com.google.firebase.firestore.FieldValue.increment(1));
-                })
-                .addOnFailureListener(e -> error.postValue("Failed to update like state"));
-        } else {
-            // Remove from likes collection
-            db.collection("users").document(userId)
-                .collection("likes").document(templateId)
-                .delete()
-                .addOnSuccessListener(v -> {
-                    // Decrement template like count
-                    db.collection("templates").document(templateId)
-                        .update("likeCount", com.google.firebase.firestore.FieldValue.increment(-1));
-                })
-                .addOnFailureListener(e -> error.postValue("Failed to update like state"));
-        }
+        FirestoreManager firestoreManager = FirestoreManager.getInstance();
+        
+        // First check the current state to avoid unnecessary operations
+        DocumentReference likeRef = db.collection("users").document(userId)
+            .collection("likes").document(templateId);
+            
+        likeRef.get().addOnCompleteListener(task -> {
+            if (!task.isSuccessful()) {
+                Log.e(TAG, "Failed to check current like state", task.getException());
+                error.postValue("Failed to check current like state");
+                return;
+            }
+            
+            boolean currentLikeState = task.getResult().exists();
+            
+            // Only proceed if the current state is different from the requested state
+            if (currentLikeState == newState) {
+                Log.d(TAG, "Like state already matches requested state: " + newState);
+                return;
+            }
+            
+            // Update UI immediately for better user experience
+            updateTemplateStateLocally(templateId, newState, null);
+            
+            if (newState) {
+                // Add to likes collection
+                likeRef.set(new HashMap<>())
+                    .addOnSuccessListener(v -> {
+                        // Increment template like count using safe method
+                        firestoreManager.safeIncrementTemplateCounter(templateId, "likeCount", 1)
+                            .addOnSuccessListener(voidResult -> {
+                                Log.d(TAG, "Successfully added template " + templateId + " to likes and incremented count");
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Failed to increment like count for template " + templateId, e);
+                            });
+                    })
+                    .addOnFailureListener(e -> {
+                        error.postValue("Failed to update like state");
+                        Log.e(TAG, "Failed to add template " + templateId + " to likes", e);
+                        // Revert UI state on failure
+                        updateTemplateStateLocally(templateId, !newState, null);
+                    });
+            } else {
+                // Remove from likes collection
+                likeRef.delete()
+                    .addOnSuccessListener(v -> {
+                        // Decrement template like count using safe method
+                        firestoreManager.safeIncrementTemplateCounter(templateId, "likeCount", -1)
+                            .addOnSuccessListener(voidResult -> {
+                                Log.d(TAG, "Successfully removed template " + templateId + " from likes and decremented count");
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Failed to decrement like count for template " + templateId, e);
+                            });
+                    })
+                    .addOnFailureListener(e -> {
+                        error.postValue("Failed to update like state");
+                        Log.e(TAG, "Failed to remove template " + templateId + " from likes", e);
+                        // Revert UI state on failure
+                        updateTemplateStateLocally(templateId, !newState, null);
+                    });
+            }
+        });
     }
 
     public void toggleFavorite(String templateId, boolean newState) {
@@ -1051,18 +1113,159 @@ public class TemplateRepository {
         }
 
         String userId = user.getUid();
-        if (newState) {
-            // Add to favorites collection
-            db.collection("users").document(userId)
-                .collection("favorites").document(templateId)
-                .set(new HashMap<>())
-                .addOnFailureListener(e -> error.postValue("Failed to update favorite state"));
+        FirestoreManager firestoreManager = FirestoreManager.getInstance();
+        
+        // First check the current state to avoid unnecessary operations
+        DocumentReference favoriteRef = db.collection("users").document(userId)
+            .collection("favorites").document(templateId);
+            
+        favoriteRef.get().addOnCompleteListener(task -> {
+            if (!task.isSuccessful()) {
+                Log.e(TAG, "Failed to check current favorite state", task.getException());
+                error.postValue("Failed to check current favorite state");
+                return;
+            }
+            
+            boolean currentFavoriteState = task.getResult().exists();
+            
+            // Only proceed if the current state is different from the requested state
+            if (currentFavoriteState == newState) {
+                Log.d(TAG, "Favorite state already matches requested state: " + newState);
+                return;
+            }
+            
+            // Update UI immediately for better user experience
+            updateTemplateStateLocally(templateId, null, newState);
+            
+            if (newState) {
+                // Add to favorites collection
+                favoriteRef.set(new HashMap<>())
+                    .addOnSuccessListener(v -> {
+                        // Increment favorite count using safe method
+                        firestoreManager.safeIncrementTemplateCounter(templateId, "favoriteCount", 1)
+                            .addOnSuccessListener(voidResult -> {
+                                Log.d(TAG, "Successfully added template " + templateId + " to favorites and incremented count");
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Failed to increment favorite count for template " + templateId, e);
+                            });
+                    })
+                    .addOnFailureListener(e -> {
+                        error.postValue("Failed to update favorite state");
+                        Log.e(TAG, "Failed to add template " + templateId + " to favorites", e);
+                        // Revert UI state on failure
+                        updateTemplateStateLocally(templateId, null, !newState);
+                    });
+            } else {
+                // Remove from favorites collection
+                favoriteRef.delete()
+                    .addOnSuccessListener(v -> {
+                        // Decrement favorite count using safe method
+                        firestoreManager.safeIncrementTemplateCounter(templateId, "favoriteCount", -1)
+                            .addOnSuccessListener(voidResult -> {
+                                Log.d(TAG, "Successfully removed template " + templateId + " from favorites and decremented count");
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Failed to decrement favorite count for template " + templateId, e);
+                            });
+                    })
+                    .addOnFailureListener(e -> {
+                        error.postValue("Failed to update favorite state");
+                        Log.e(TAG, "Failed to remove template " + templateId + " from favorites", e);
+                        // Revert UI state on failure
+                        updateTemplateStateLocally(templateId, null, !newState);
+                    });
+            }
+        });
+    }
+
+    /**
+     * Update a template's state locally for immediate UI feedback
+     */
+    private void updateTemplateStateLocally(String templateId, Boolean isLiked, Boolean isFavorited) {
+        List<Template> currentTemplates = templates.getValue();
+        if (currentTemplates == null) return;
+        
+        // Create a copy of the list to avoid modification issues
+        List<Template> updatedTemplates = new ArrayList<>();
+        
+        // Flag to track if we found and updated the template
+        boolean found = false;
+        
+        // Preserve exact order while updating the specific template
+        for (Template template : currentTemplates) {
+            // Check if this is the template we need to update
+            if (templateId.equals(template.getId())) {
+                // Only update the specific fields that changed
+                if (isLiked != null) {
+                    // Save previous state to determine if this is a change
+                    boolean previousState = template.isLiked();
+                    
+                    // Update liked state
+                    template.setLiked(isLiked);
+                    
+                    // Only update count if state actually changed
+                    if (previousState != isLiked) {
+                        // Get current count, ensuring it's at least 0
+                        long currentCount = Math.max(0L, template.getLikeCount());
+                        
+                        // Calculate new count based on the new state, not the delta
+                        // If liked, ensure at least 1; if unliked, ensure at least 0
+                        long newCount = isLiked ? 
+                            Math.max(1L, currentCount + 1L) : 
+                            Math.max(0L, currentCount - 1L);
+                        
+                        template.setLikeCount(newCount);
+                        Log.d(TAG, "Locally updated template " + templateId + 
+                              " like state to " + isLiked + 
+                              " with count: " + newCount);
+                    }
+                }
+                
+                if (isFavorited != null) {
+                    // Save previous state to determine if this is a change
+                    boolean previousState = template.isFavorited();
+                    
+                    // Update favorited state
+                    template.setFavorited(isFavorited);
+                    
+                    // Only update count if state actually changed
+                    if (previousState != isFavorited) {
+                        // Get current count, ensuring it's at least 0
+                        long currentCount = Math.max(0L, template.getFavoriteCount());
+                        
+                        // Calculate new count based on the new state, not the delta
+                        // If favorited, ensure at least 1; if unfavorited, ensure at least 0
+                        long newCount = isFavorited ? 
+                            Math.max(1L, currentCount + 1L) : 
+                            Math.max(0L, currentCount - 1L);
+                        
+                        template.setFavoriteCount(newCount);
+                        Log.d(TAG, "Locally updated template " + templateId + 
+                              " favorite state to " + isFavorited + 
+                              " with count: " + newCount);
+                    }
+                }
+                
+                found = true;
+            }
+            
+            // Add to our updated list (either original or modified)
+            updatedTemplates.add(template);
+        }
+        
+        // Only update LiveData if we actually found and modified the template
+        if (found) {
+            // Use setValue to update immediately on the main thread if possible
+            if (Thread.currentThread() == android.os.Looper.getMainLooper().getThread()) {
+                templates.setValue(updatedTemplates);
+                Log.d(TAG, "Updated template state on main thread");
+            } else {
+                templates.postValue(updatedTemplates);
+                Log.d(TAG, "Posted template state update from background thread");
+            }
         } else {
-            // Remove from favorites collection
-            db.collection("users").document(userId)
-                .collection("favorites").document(templateId)
-                .delete()
-                .addOnFailureListener(e -> error.postValue("Failed to update favorite state"));
+            Log.w(TAG, "Template " + templateId + " not found in current list, state not updated locally");
         }
     }
 
@@ -1124,12 +1327,21 @@ public class TemplateRepository {
                         Long favoriteCount = doc.getLong("favoriteCount");
                         
                         if (likeCount != null) {
-                            template.setLikeCount(likeCount.intValue());
+                            // Ensure value is positive and directly assign to avoid int conversion issues
+                            template.setLikeCount(Math.max(0L, likeCount));
                             Log.d(TAG, "Template " + templateId + " like count: " + likeCount);
+                        } else {
+                            // Set default value of 0 if count is missing
+                            template.setLikeCount(0L);
                         }
+                        
                         if (favoriteCount != null) {
-                            template.setFavoriteCount(favoriteCount.intValue());
+                            // Ensure value is positive and directly assign to avoid int conversion issues
+                            template.setFavoriteCount(Math.max(0L, favoriteCount));
                             Log.d(TAG, "Template " + templateId + " favorite count: " + favoriteCount);
+                        } else {
+                            // Set default value of 0 if count is missing
+                            template.setFavoriteCount(0L);
                         }
                     } else {
                         Log.e(TAG, "Failed to get counts for template " + templateId, task.getException());
@@ -1150,3 +1362,4 @@ public class TemplateRepository {
             });
     }
 }
+

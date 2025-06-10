@@ -548,13 +548,14 @@
     <string name="end_time">End Time</string>
 
     <!-- Sign In -->
-    <string name="sign_in_required">Sign in is required</string>
+    <string name="sign_in_required">Sign in required</string>
+    <string name="sign_in_with_google">Sign in with Google</string>
     <string name="signing_in">Signing in…</string>
-    <string name="sign_in_success">Sign in successful</string>
+    <string name="sign_in_success">Sign in successful!</string>
     <string name="sign_in_failed">Sign in failed</string>
     <string name="sign_in_cancelled">Sign in was cancelled</string>
     <string name="sign_in_network_error">Network error during sign in</string>
-    <string name="sign_in_google_play_error">Google Play Services required</string>
+    <string name="sign_in_timeout">Sign in timed out, continuing…</string>
 
     <!-- App Update -->
     <string name="welcome_notification_title">Welcome to EventWish</string>

@@ -1,6 +1,7 @@
 package com.ds.eventwish.ui.adapter;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -74,17 +75,20 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             template.setLiked(newLikeState);
             holder.likeIcon.setSelected(newLikeState);
             
+            // Use the fixed version of toggleLike
             interactionManager.toggleLike(template.getId())
                 .addOnSuccessListener(aVoid -> {
                     // Re-enable the button on success
                     holder.likeIcon.setEnabled(true);
+                    Log.d("TemplateAdapter", "Successfully toggled like for template: " + template.getId());
                 })
                 .addOnFailureListener(e -> {
                     // Revert on failure
                     template.setLiked(!newLikeState);
                     holder.likeIcon.setSelected(!newLikeState);
                     holder.likeIcon.setEnabled(true);
-                    Toast.makeText(context, "Failed to update like status", Toast.LENGTH_SHORT).show();
+                    Log.e("TemplateAdapter", "Failed to toggle like for template: " + template.getId(), e);
+                    Toast.makeText(context, "Failed to update like status: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
         });
         
@@ -102,13 +106,15 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
                 .addOnSuccessListener(aVoid -> {
                     // Re-enable the button on success
                     holder.favoriteIcon.setEnabled(true);
+                    Log.d("TemplateAdapter", "Successfully toggled favorite for template: " + template.getId());
                 })
                 .addOnFailureListener(e -> {
                     // Revert on failure
                     template.setFavorited(!newFavoriteState);
                     holder.favoriteIcon.setSelected(!newFavoriteState);
                     holder.favoriteIcon.setEnabled(true);
-                    Toast.makeText(context, "Failed to update favorite status", Toast.LENGTH_SHORT).show();
+                    Log.e("TemplateAdapter", "Failed to toggle favorite for template: " + template.getId(), e);
+                    Toast.makeText(context, "Failed to update favorite status: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
         });
         

@@ -165,28 +165,66 @@
             android:clickable="true"
             android:focusable="true">
 
-            <ImageView
-                android:id="@+id/likeIcon"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:src="@drawable/ic_heart_outline"
-                android:contentDescription="Like template"
-                android:padding="4dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackgroundBorderless" />
+            <LinearLayout
+                android:id="@+id/likeContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                
+                <ImageView
+                    android:id="@+id/likeIcon"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@drawable/ic_heart_outline"
+                    android:contentDescription="Like template"
+                    android:padding="4dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackgroundBorderless" />
+                    
+                <TextView
+                    android:id="@+id/likeCountText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:layout_marginStart="2dp"
+                    android:minWidth="16dp"
+                    tools:text="12" />
+            </LinearLayout>
 
-            <ImageView
-                android:id="@+id/favoriteIcon"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:src="@drawable/ic_bookmark_outline"
-                android:contentDescription="Save to favorites"
-                android:padding="4dp"
-                android:layout_marginStart="8dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackgroundBorderless" />
+            <LinearLayout
+                android:id="@+id/favoriteContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginStart="8dp">
+                
+                <ImageView
+                    android:id="@+id/favoriteIcon"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@drawable/ic_bookmark_outline"
+                    android:contentDescription="Save to favorites"
+                    android:padding="4dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackgroundBorderless" />
+                    
+                <TextView
+                    android:id="@+id/favoriteCountText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:layout_marginStart="2dp"
+                    android:minWidth="16dp"
+                    tools:text="8" />
+            </LinearLayout>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 </androidx.constraintlayout.widget.ConstraintLayout>

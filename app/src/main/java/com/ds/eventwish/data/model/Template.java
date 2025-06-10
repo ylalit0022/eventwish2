@@ -112,7 +112,19 @@ public class Template {
         this(id, title, categoryId, previewUrl);
         this.isLiked = isLiked;
         this.isFavorited = isFavorited;
-        this.likeCount = likeCount;
+        // Ensure count is never negative
+        this.likeCount = Math.max(0L, likeCount);
+    }
+
+    @Ignore
+    public Template(String id, String title, String categoryId, String previewUrl, 
+                   boolean isLiked, boolean isFavorited, long likeCount, long favoriteCount) {
+        this(id, title, categoryId, previewUrl);
+        this.isLiked = isLiked;
+        this.isFavorited = isFavorited;
+        // Ensure counts are never negative
+        this.likeCount = Math.max(0L, likeCount);
+        this.favoriteCount = Math.max(0L, favoriteCount);
     }
 
     // Getters and setters
@@ -130,10 +142,16 @@ public class Template {
     public void setPreviewUrl(String previewUrl) { this.previewUrl = previewUrl; }
 
     public long getLikeCount() { return likeCount; }
-    public void setLikeCount(long likeCount) { this.likeCount = likeCount; }
+    public void setLikeCount(long likeCount) { 
+        // Ensure count is never negative
+        this.likeCount = Math.max(0L, likeCount); 
+    }
 
     public long getFavoriteCount() { return favoriteCount; }
-    public void setFavoriteCount(long favoriteCount) { this.favoriteCount = favoriteCount; }
+    public void setFavoriteCount(long favoriteCount) { 
+        // Ensure count is never negative
+        this.favoriteCount = Math.max(0L, favoriteCount); 
+    }
 
     public boolean isLiked() { return isLiked; }
     public void setLiked(boolean liked) { 

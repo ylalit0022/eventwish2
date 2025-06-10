@@ -38,6 +38,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Manager class for handling Firestore operations related to user preferences and interactions
@@ -504,44 +506,25 @@ public class FirestoreManager {
         String userId = user.getUid();
         DocumentReference userRef = db.collection(COLLECTION_USERS).document(userId);
         DocumentReference likeRef = userRef.collection(COLLECTION_LIKES).document(templateId);
-        DocumentReference templateRef = db.collection(COLLECTION_TEMPLATES).document(templateId);
         
-        return db.runTransaction(transaction -> {
-            // First check if template exists, if not create it
-            DocumentSnapshot templateSnapshot = transaction.get(templateRef);
-            if (!templateSnapshot.exists()) {
-                // Create template document with initial stats
-                Map<String, Object> templateData = new HashMap<>();
-                templateData.put("id", templateId);
-                templateData.put("likeCount", 0);
-                templateData.put("favoriteCount", 0);
-                templateData.put("lastUpdated", FieldValue.serverTimestamp());
-                transaction.set(templateRef, templateData);
+        // First check if user has already liked this template
+        return likeRef.get().continueWithTask(likeTask -> {
+            if (!likeTask.isSuccessful()) {
+                throw likeTask.getException();
             }
             
-            // Check if user has liked this template
-            DocumentSnapshot likeSnapshot = transaction.get(likeRef);
-            boolean isLiked = likeSnapshot.exists();
+            boolean isCurrentlyLiked = likeTask.getResult().exists();
             
-            if (isLiked) {
-                // Unlike: Delete like document and decrement count
-                transaction.delete(likeRef);
-                transaction.update(templateRef, "likeCount", FieldValue.increment(-1));
-                transaction.update(templateRef, "lastUpdated", FieldValue.serverTimestamp());
-                Log.d(TAG, "Removed like for template: " + templateId);
-            } else {
-                // Like: Create like document and increment count
-                Map<String, Object> likeData = new HashMap<>();
-                likeData.put("templateId", templateId);
-                likeData.put("userId", userId);
-                likeData.put("timestamp", FieldValue.serverTimestamp());
-                transaction.set(likeRef, likeData);
-                transaction.update(templateRef, "likeCount", FieldValue.increment(1));
-                transaction.update(templateRef, "lastUpdated", FieldValue.serverTimestamp());
-                Log.d(TAG, "Added like for template: " + templateId);
-            }
-            
-            return !isLiked; // Return new like state
+            // Use the safe counter increment method instead of direct update
+            long increment = isCurrentlyLiked ? -1 : 1;
+            return safeIncrementTemplateCounter(templateId, FIELD_LIKE_COUNT, increment)
+                .continueWithTask(updateTask -> {
+                    if (!updateTask.isSuccessful()) {
+                        throw updateTask.getException();
+                    }
+                    
+                    return updateLikeStatus(likeRef, isCurrentlyLiked, templateId, userId);
+                });
         })
         .addOnSuccessListener(isLiked -> {
             Log.d(TAG, String.format("Successfully %s template %s", isLiked ? "liked" : "unliked", templateId));
@@ -552,31 +535,39 @@ public class FirestoreManager {
             AnalyticsUtils.getInstance().logEvent("template_like_toggled", params);
         })
         .addOnFailureListener(e -> {
-            Log.e(TAG, "Error toggling template like", e);
+            Log.e(TAG, "Error toggling template like - Template: " + templateId + 
+                  ", User: " + userId, e);
             // Track error event
             Bundle params = new Bundle();
             params.putString("template_id", templateId);
+            params.putString("user_id", userId);
             params.putString("error", e.getMessage());
             AnalyticsUtils.getInstance().logEvent("template_like_error", params);
         });
     }
     
     /**
-     * Update template like count
+     * Helper method to update the like status
      */
-    private Task<Void> updateTemplateLikeCount(String templateId, int increment) {
-        DocumentReference templateRef = db.collection(COLLECTION_TEMPLATES).document(templateId);
-        Map<String, Object> updates = new HashMap<>();
-        updates.put(FIELD_LIKE_COUNT, FieldValue.increment(increment));
-        updates.put("lastUpdated", FieldValue.serverTimestamp());
-        
-        return templateRef.update(updates)
-            .addOnSuccessListener(aVoid -> Log.d(TAG, "Template like count updated successfully"))
-            .addOnFailureListener(e -> Log.e(TAG, "Failed to update template like count", e));
+    private Task<Boolean> updateLikeStatus(DocumentReference likeRef, boolean isCurrentlyLiked, 
+                                           String templateId, String userId) {
+        if (isCurrentlyLiked) {
+            // Unlike: Delete like document
+            Log.d(TAG, "Removing like for template: " + templateId);
+            return likeRef.delete().continueWith(task -> false);
+        } else {
+            // Like: Create like document
+            Log.d(TAG, "Adding like for template: " + templateId);
+            Map<String, Object> likeData = new HashMap<>();
+            likeData.put("templateId", templateId);
+            likeData.put("userId", userId);
+            likeData.put("timestamp", FieldValue.serverTimestamp());
+            return likeRef.set(likeData).continueWith(task -> true);
+        }
     }
 
     /**
-     * Toggle favorite status for a template with atomic transaction
+     * Toggle favorite status for a template
      */
     public Task<Boolean> toggleFavorite(String templateId) {
         Log.d(TAG, "Toggling favorite for template: " + templateId);
@@ -588,31 +579,70 @@ public class FirestoreManager {
             return Tasks.forException(new IllegalStateException("User not signed in"));
         }
         
-        return isTemplateFavorited(templateId).continueWithTask(task -> {
-            if (!task.isSuccessful()) {
-                return Tasks.forException(task.getException());
+        String userId = user.getUid();
+        DocumentReference favoriteRef = db.collection(COLLECTION_USERS)
+                .document(userId)
+                .collection(COLLECTION_FAVORITES)
+                .document(templateId);
+        
+        // First check if user has already favorited this template
+        return favoriteRef.get().continueWithTask(favoriteTask -> {
+            if (!favoriteTask.isSuccessful()) {
+                throw favoriteTask.getException();
             }
             
-            boolean isCurrentlyFavorited = task.getResult();
-            DocumentReference favoriteRef = db.collection(COLLECTION_USERS)
-                    .document(user.getUid())
-                    .collection(COLLECTION_FAVORITES)
-                    .document(templateId);
+            boolean isCurrentlyFavorited = favoriteTask.getResult().exists();
             
+            // Use the safe counter increment method instead of direct update
+            long increment = isCurrentlyFavorited ? -1 : 1;
+            return safeIncrementTemplateCounter(templateId, FIELD_FAVORITE_COUNT, increment)
+                .continueWithTask(updateTask -> {
+                    if (!updateTask.isSuccessful()) {
+                        throw updateTask.getException();
+                    }
+                    
+                    return updateFavoriteStatus(favoriteRef, isCurrentlyFavorited, templateId, userId);
+                });
+        })
+        .addOnSuccessListener(isFavorited -> {
+            Log.d(TAG, String.format("Successfully %s template %s", 
+                  isFavorited ? "favorited" : "unfavorited", templateId));
+            // Track analytics event
+            Bundle params = new Bundle();
+            params.putString("template_id", templateId);
+            params.putString("action", isFavorited ? "favorite" : "unfavorite");
+            AnalyticsUtils.getInstance().logEvent("template_favorite_toggled", params);
+        })
+        .addOnFailureListener(e -> {
+            Log.e(TAG, "Error toggling template favorite - Template: " + templateId + 
+                  ", User: " + userId, e);
+            // Track error event
+            Bundle params = new Bundle();
+            params.putString("template_id", templateId);
+            params.putString("user_id", userId);
+            params.putString("error", e.getMessage());
+            AnalyticsUtils.getInstance().logEvent("template_favorite_error", params);
+        });
+    }
+    
+    /**
+     * Helper method to update the favorite status
+     */
+    private Task<Boolean> updateFavoriteStatus(DocumentReference favoriteRef, boolean isCurrentlyFavorited, 
+                                              String templateId, String userId) {
+        if (isCurrentlyFavorited) {
+            // Unfavorite: Delete favorite document
+            Log.d(TAG, "Removing favorite for template: " + templateId);
+            return favoriteRef.delete().continueWith(task -> false);
+        } else {
+            // Favorite: Create favorite document
+            Log.d(TAG, "Adding favorite for template: " + templateId);
             Map<String, Object> favoriteData = new HashMap<>();
             favoriteData.put("templateId", templateId);
+            favoriteData.put("userId", userId);
             favoriteData.put("timestamp", FieldValue.serverTimestamp());
-            
-            if (isCurrentlyFavorited) {
-                Log.d(TAG, "Removing favorite for template: " + templateId);
-                return favoriteRef.delete()
-                        .continueWith(deleteTask -> !isCurrentlyFavorited);
-            } else {
-                Log.d(TAG, "Adding favorite for template: " + templateId);
-                return favoriteRef.set(favoriteData)
-                        .continueWith(setTask -> !isCurrentlyFavorited);
-            }
-        });
+            return favoriteRef.set(favoriteData).continueWith(task -> true);
+        }
     }
 
     public Task<Void> ensureTemplateExists(String templateId) {
@@ -821,6 +851,335 @@ public class FirestoreManager {
                             return templates;
                         });
                 });
+        });
+    }
+
+    /**
+     * Update template like and favorite counts
+     * This updates the counts directly in the templates collection
+     */
+    public Task<Void> updateTemplateCounts(String templateId, int likeCount, int favoriteCount) {
+        Log.d(TAG, "Updating template counts - Template: " + templateId + 
+              ", Likes: " + likeCount + ", Favorites: " + favoriteCount);
+        
+        DocumentReference templateRef = db.collection(COLLECTION_TEMPLATES).document(templateId);
+        
+        Map<String, Object> updates = new HashMap<>();
+        updates.put(FIELD_LIKE_COUNT, likeCount);
+        updates.put(FIELD_FAVORITE_COUNT, favoriteCount);
+        updates.put("lastUpdated", FieldValue.serverTimestamp());
+        
+        return templateRef.set(updates, SetOptions.merge())
+            .addOnSuccessListener(aVoid -> 
+                Log.d(TAG, "Successfully updated template counts for " + templateId))
+            .addOnFailureListener(e -> 
+                Log.e(TAG, "Failed to update template counts for " + templateId, e));
+    }
+    
+    /**
+     * Get current template counts directly from templates collection
+     */
+    public Task<Map<String, Long>> getTemplateCounts(String templateId) {
+        Log.d(TAG, "Getting counts for template: " + templateId);
+        
+        DocumentReference templateRef = db.collection(COLLECTION_TEMPLATES).document(templateId);
+        
+        return templateRef.get().continueWith(task -> {
+            Map<String, Long> counts = new HashMap<>();
+            
+            if (!task.isSuccessful()) {
+                Log.e(TAG, "Error getting template counts", task.getException());
+                counts.put("likeCount", 0L);
+                counts.put("favoriteCount", 0L);
+                return counts;
+            }
+            
+            DocumentSnapshot snapshot = task.getResult();
+            if (snapshot == null || !snapshot.exists()) {
+                Log.d(TAG, "Template document does not exist: " + templateId);
+                counts.put("likeCount", 0L);
+                counts.put("favoriteCount", 0L);
+                return counts;
+            }
+            
+            Long likeCount = snapshot.getLong(FIELD_LIKE_COUNT);
+            Long favoriteCount = snapshot.getLong(FIELD_FAVORITE_COUNT);
+            
+            counts.put("likeCount", likeCount != null ? likeCount : 0L);
+            counts.put("favoriteCount", favoriteCount != null ? favoriteCount : 0L);
+            
+            Log.d(TAG, "Template " + templateId + " counts - Likes: " + counts.get("likeCount") + 
+                  ", Favorites: " + counts.get("favoriteCount"));
+            
+            return counts;
+        });
+    }
+    
+    /**
+     * Count users who have liked/favorited a template and update counts
+     */
+    public Task<Void> syncTemplateCounts(String templateId) {
+        Log.d(TAG, "Syncing counts for template: " + templateId);
+        
+        // Count users who liked this template
+        Task<QuerySnapshot> likesTask = db.collectionGroup(COLLECTION_LIKES)
+            .whereEqualTo("templateId", templateId)
+            .get();
+        
+        // Count users who favorited this template
+        Task<QuerySnapshot> favoritesTask = db.collectionGroup(COLLECTION_FAVORITES)
+            .whereEqualTo("templateId", templateId)
+            .get();
+        
+        // Wait for both counts and then update the template document
+        return Tasks.whenAllSuccess(likesTask, favoritesTask)
+            .continueWithTask(task -> {
+                if (!task.isSuccessful()) {
+                    return Tasks.forException(task.getException());
+                }
+                
+                List<Object> results = task.getResult();
+                QuerySnapshot likeSnapshots = (QuerySnapshot) results.get(0);
+                QuerySnapshot favoriteSnapshots = (QuerySnapshot) results.get(1);
+                
+                int likeCount = likeSnapshots.size();
+                int favoriteCount = favoriteSnapshots.size();
+                
+                Log.d(TAG, "Actual counts for template " + templateId + 
+                      " - Likes: " + likeCount + ", Favorites: " + favoriteCount);
+                
+                // Update template document with accurate counts
+                return updateTemplateCounts(templateId, likeCount, favoriteCount);
+            });
+    }
+
+    /**
+     * Ensure the templates collection exists and has at least one document
+     * This should be called during app initialization
+     */
+    public Task<Void> ensureTemplatesCollectionExists() {
+        Log.d(TAG, "Ensuring templates collection exists");
+        
+        // Check if the collection exists with any documents
+        return db.collection(COLLECTION_TEMPLATES).limit(1).get()
+            .continueWithTask(task -> {
+                if (task.isSuccessful() && !task.getResult().isEmpty()) {
+                    Log.d(TAG, "Templates collection exists with documents");
+                    return Tasks.forResult(null);
+                }
+                
+                // If we reach here, we need to create a placeholder document
+                Log.d(TAG, "Creating placeholder document in templates collection");
+                DocumentReference placeholderRef = db.collection(COLLECTION_TEMPLATES).document("placeholder");
+                
+                Map<String, Object> placeholderData = new HashMap<>();
+                placeholderData.put("id", "placeholder");
+                placeholderData.put("likeCount", 0);
+                placeholderData.put("favoriteCount", 0);
+                placeholderData.put("isPlaceholder", true);
+                placeholderData.put("created", FieldValue.serverTimestamp());
+                
+                return placeholderRef.set(placeholderData);
+            })
+            .addOnSuccessListener(aVoid -> {
+                Log.d(TAG, "Templates collection initialization complete");
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Failed to initialize templates collection", e);
+            });
+    }
+    
+    /**
+     * Create template document if it doesn't exist
+     * This ensures we have a place to store like/favorite counts
+     */
+    public Task<Void> createTemplateDocument(String templateId, String templateName, String imageUrl) {
+        Log.d(TAG, "Creating/updating template document: " + templateId);
+        
+        DocumentReference templateRef = db.collection(COLLECTION_TEMPLATES).document(templateId);
+        
+        return templateRef.get().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                Log.e(TAG, "Error checking template document", task.getException());
+                throw task.getException();
+            }
+            
+            Map<String, Object> templateData = new HashMap<>();
+            
+            if (!task.getResult().exists()) {
+                // Template doesn't exist, create it with initial data
+                templateData.put("id", templateId);
+                templateData.put("name", templateName != null ? templateName : "Template " + templateId);
+                templateData.put("likeCount", 0);
+                templateData.put("favoriteCount", 0);
+                
+                if (imageUrl != null && !imageUrl.isEmpty()) {
+                    templateData.put("imageUrl", imageUrl);
+                }
+            } else {
+                // Template exists, only update certain fields if provided
+                if (templateName != null && !templateName.isEmpty()) {
+                    templateData.put("name", templateName);
+                }
+                
+                if (imageUrl != null && !imageUrl.isEmpty()) {
+                    templateData.put("imageUrl", imageUrl);
+                }
+            }
+            
+            templateData.put("lastUpdated", FieldValue.serverTimestamp());
+            
+            // Use set with merge to avoid overwriting existing fields
+            return templateRef.set(templateData, SetOptions.merge());
+        });
+    }
+    
+    /**
+     * Initialize the templates collection with template counts
+     * This method will scan all users' likes and favorites and create template documents with accurate counts
+     */
+    public Task<Void> initializeTemplateCountsFromUserData() {
+        Log.d(TAG, "Initializing template counts from user data");
+        
+        // First ensure the templates collection exists
+        return ensureTemplatesCollectionExists().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                Log.e(TAG, "Failed to ensure templates collection exists", task.getException());
+                throw task.getException();
+            }
+            
+            // Get all unique template IDs from user likes
+            return db.collectionGroup(COLLECTION_LIKES).get();
+        }).continueWithTask(likesTask -> {
+            if (!likesTask.isSuccessful()) {
+                Log.e(TAG, "Failed to query user likes", likesTask.getException());
+                throw likesTask.getException();
+            }
+            
+            // Get all unique template IDs from user favorites
+            return db.collectionGroup(COLLECTION_FAVORITES).get().continueWithTask(favoritesTask -> {
+                if (!favoritesTask.isSuccessful()) {
+                    Log.e(TAG, "Failed to query user favorites", favoritesTask.getException());
+                    throw favoritesTask.getException();
+                }
+                
+                // Collect all unique template IDs
+                Set<String> templateIds = new HashSet<>();
+                
+                for (DocumentSnapshot doc : likesTask.getResult()) {
+                    String templateId = doc.getString("templateId");
+                    if (templateId != null && !templateId.isEmpty()) {
+                        templateIds.add(templateId);
+                    }
+                }
+                
+                for (DocumentSnapshot doc : favoritesTask.getResult()) {
+                    String templateId = doc.getString("templateId");
+                    if (templateId != null && !templateId.isEmpty()) {
+                        templateIds.add(templateId);
+                    }
+                }
+                
+                Log.d(TAG, "Found " + templateIds.size() + " unique templates with likes/favorites");
+                
+                // Process each template to calculate and store counts
+                List<Task<Void>> updateTasks = new ArrayList<>();
+                
+                for (String templateId : templateIds) {
+                    Task<Void> updateTask = syncTemplateCounts(templateId);
+                    updateTasks.add(updateTask);
+                }
+                
+                // Wait for all template updates to complete
+                return Tasks.whenAll(updateTasks);
+            });
+        });
+    }
+
+    /**
+     * Utility method to safely update a template document
+     * This ensures the document exists before updating it
+     * 
+     * @param templateId The template ID
+     * @param updates The fields to update
+     * @return A task that completes when the update is done
+     */
+    public Task<Void> safeUpdateTemplate(String templateId, Map<String, Object> updates) {
+        Log.d(TAG, "Safe updating template: " + templateId);
+        DocumentReference templateRef = db.collection(COLLECTION_TEMPLATES).document(templateId);
+        
+        // Always use set with merge to handle non-existent documents
+        return templateRef.set(updates, SetOptions.merge())
+            .addOnSuccessListener(aVoid -> 
+                Log.d(TAG, "Successfully updated template: " + templateId))
+            .addOnFailureListener(e -> 
+                Log.e(TAG, "Failed to update template: " + templateId, e));
+    }
+    
+    /**
+     * Utility method to safely increment a counter in a template document
+     * 
+     * @param templateId The template ID
+     * @param field The counter field name
+     * @param increment The amount to increment
+     * @return A task that completes when the update is done
+     */
+    public Task<Void> safeIncrementTemplateCounter(String templateId, String field, long increment) {
+        Log.d(TAG, "Safe incrementing " + field + " by " + increment + " for template: " + templateId);
+        
+        DocumentReference templateRef = db.collection(COLLECTION_TEMPLATES).document(templateId);
+        
+        // Use a transaction for atomicity and thread safety
+        return db.runTransaction(transaction -> {
+            DocumentSnapshot snapshot = transaction.get(templateRef);
+            
+            Map<String, Object> updates = new HashMap<>();
+            
+            if (snapshot.exists()) {
+                // Document exists, get current value and calculate new value
+                Long currentValue = snapshot.getLong(field);
+                long current = currentValue != null ? currentValue : 0L;
+                
+                // Calculate new value, ensuring it's never negative
+                long newValue = Math.max(0L, current + increment);
+                
+                // Instead of using increment, set the exact value to ensure it's never negative
+                updates.put(field, newValue);
+                Log.d(TAG, "Setting " + field + " to exact value: " + newValue + " for template: " + templateId);
+            } else {
+                // Document doesn't exist, create it with initial values
+                updates.put("id", templateId);
+                
+                // For new documents, always set positive counts for the requested field
+                // and 0 for other fields
+                if (field.equals(FIELD_LIKE_COUNT)) {
+                    // If we're trying to add a like, set to 1, otherwise 0
+                    updates.put(FIELD_LIKE_COUNT, increment > 0 ? 1L : 0L);
+                    updates.put(FIELD_FAVORITE_COUNT, 0L);
+                } else if (field.equals(FIELD_FAVORITE_COUNT)) {
+                    // If we're trying to add a favorite, set to 1, otherwise 0
+                    updates.put(FIELD_FAVORITE_COUNT, increment > 0 ? 1L : 0L);
+                    updates.put(FIELD_LIKE_COUNT, 0L);
+                }
+                
+                Log.d(TAG, "Creating new template document: " + templateId);
+            }
+            
+            updates.put("lastUpdated", FieldValue.serverTimestamp());
+            
+            // Use set with merge to handle both cases
+            transaction.set(templateRef, updates, SetOptions.merge());
+            
+            // Return null to indicate success for the transaction
+            return null;
+        })
+        .continueWith(task -> {
+            if (task.isSuccessful()) {
+                Log.d(TAG, "Successfully set " + field + " for template: " + templateId);
+            } else {
+                Log.e(TAG, "Failed to set " + field + " for template: " + templateId, task.getException());
+            }
+            return null; // This ensures the return type is Task<Void>
         });
     }
 } 

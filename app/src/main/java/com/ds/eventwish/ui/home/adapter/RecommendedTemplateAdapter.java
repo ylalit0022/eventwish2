@@ -123,6 +123,8 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
         private final CardView cardView;
         private final ImageView likeIcon;
         private final ImageView favoriteIcon;
+        private final TextView likeCountText;
+        private final TextView favoriteCountText;
         private final View interactionButtonsLayout;
         
         public TemplateViewHolder(@NonNull View itemView) {
@@ -136,6 +138,8 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
             cardView = itemView.findViewById(R.id.cardView);
             likeIcon = itemView.findViewById(R.id.likeIcon);
             favoriteIcon = itemView.findViewById(R.id.favoriteIcon);
+            likeCountText = itemView.findViewById(R.id.likeCountText);
+            favoriteCountText = itemView.findViewById(R.id.favoriteCountText);
             interactionButtonsLayout = itemView.findViewById(R.id.interactionButtonsLayout);
         }
         
@@ -151,31 +155,85 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
                 categoryIcon.setVisibility(View.GONE);
             }
             
-            // Update like icon state
+            // Update like icon state and count
             likeIcon.setImageResource(template.isLiked() ? R.drawable.ic_favorite : R.drawable.ic_favorite_border);
             likeIcon.setColorFilter(template.isLiked() ? 
                 itemView.getContext().getColor(R.color.colorAccent) : 
                 itemView.getContext().getColor(R.color.colorControlNormal));
+            
+            // Set like count, ensuring it's never negative
+            long likeCount = Math.max(0, template.getLikeCount());
+            likeCountText.setText(String.valueOf(likeCount));
+            Log.d(TAG, "Setting like count for template " + template.getId() + ": " + likeCount);
+            
             likeIcon.setOnClickListener(v -> {
-                if (listener != null) {
+                if (listener != null && v.isEnabled()) {
+                    // Prevent multiple rapid clicks
+                    v.setEnabled(false);
+                    
                     // Provide haptic feedback
                     v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
+                    
+                    // Immediately update UI for better user feedback
+                    boolean newLikeState = !template.isLiked();
+                    template.setLiked(newLikeState);
+                    likeIcon.setImageResource(newLikeState ? R.drawable.ic_favorite : R.drawable.ic_favorite_border);
+                    likeIcon.setColorFilter(newLikeState ? 
+                        itemView.getContext().getColor(R.color.colorAccent) : 
+                        itemView.getContext().getColor(R.color.colorControlNormal));
+                    
+                    // Update count immediately
+                    long newCount = newLikeState ? 
+                        Math.max(1, likeCount + 1) : 
+                        Math.max(0, likeCount - 1);
+                    likeCountText.setText(String.valueOf(newCount));
+                    
                     // Only trigger like action
                     listener.onTemplateLike(template);
+                    
+                    // Re-enable after a delay to prevent rapid clicks
+                    v.postDelayed(() -> v.setEnabled(true), 1000);
                 }
             });
             
-            // Update favorite icon state
+            // Update favorite icon state and count
             favoriteIcon.setImageResource(template.isFavorited() ? R.drawable.ic_bookmark : R.drawable.ic_bookmark_border);
             favoriteIcon.setColorFilter(template.isFavorited() ? 
                 itemView.getContext().getColor(R.color.colorAccent) : 
                 itemView.getContext().getColor(R.color.colorControlNormal));
+            
+            // Set favorite count, ensuring it's never negative
+            long favoriteCount = Math.max(0, template.getFavoriteCount());
+            favoriteCountText.setText(String.valueOf(favoriteCount));
+            Log.d(TAG, "Setting favorite count for template " + template.getId() + ": " + favoriteCount);
+            
             favoriteIcon.setOnClickListener(v -> {
-                if (listener != null) {
+                if (listener != null && v.isEnabled()) {
+                    // Prevent multiple rapid clicks
+                    v.setEnabled(false);
+                    
                     // Provide haptic feedback
                     v.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
+                    
+                    // Immediately update UI for better user feedback
+                    boolean newFavoriteState = !template.isFavorited();
+                    template.setFavorited(newFavoriteState);
+                    favoriteIcon.setImageResource(newFavoriteState ? R.drawable.ic_bookmark : R.drawable.ic_bookmark_border);
+                    favoriteIcon.setColorFilter(newFavoriteState ? 
+                        itemView.getContext().getColor(R.color.colorAccent) : 
+                        itemView.getContext().getColor(R.color.colorControlNormal));
+                    
+                    // Update count immediately
+                    long newCount = newFavoriteState ? 
+                        Math.max(1, favoriteCount + 1) : 
+                        Math.max(0, favoriteCount - 1);
+                    favoriteCountText.setText(String.valueOf(newCount));
+                    
                     // Only trigger favorite action
                     listener.onTemplateFavorite(template);
+                    
+                    // Re-enable after a delay to prevent rapid clicks
+                    v.postDelayed(() -> v.setEnabled(true), 1000);
                 }
             });
             

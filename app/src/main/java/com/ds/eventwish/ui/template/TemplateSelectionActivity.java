@@ -10,6 +10,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.SimpleItemAnimator;
+import androidx.core.view.ViewCompat;
 import com.ds.eventwish.R;
 import com.ds.eventwish.databinding.ActivityTemplateSelectionBinding;
 import com.ds.eventwish.utils.GridSpacingItemDecoration;
@@ -64,8 +66,30 @@ public class TemplateSelectionActivity extends AppCompatActivity implements Temp
     private void setupRecyclerView() {
         recyclerView = binding.recyclerView;
         adapter = new TemplateAdapter(this);
+        
+        // Configure RecyclerView for maximum stability
+        // Disable all animations to prevent flickering
+        if (recyclerView.getItemAnimator() instanceof SimpleItemAnimator) {
+            ((SimpleItemAnimator) recyclerView.getItemAnimator()).setSupportsChangeAnimations(false);
+        }
+        recyclerView.setItemAnimator(null);
+        
+        // Optimize RecyclerView performance
+        recyclerView.setHasFixedSize(true);
+        recyclerView.setNestedScrollingEnabled(false);
+        ViewCompat.setNestedScrollingEnabled(recyclerView, false);
+        
+        // Create an optimized layout manager
+        GridLayoutManager layoutManager = new GridLayoutManager(this, 2);
+        layoutManager.setItemPrefetchEnabled(true);
+        layoutManager.setInitialPrefetchItemCount(6);
+        
+        // Set spacing between grid items
+        int spacingInPixels = getResources().getDimensionPixelSize(R.dimen.grid_spacing);
+        recyclerView.addItemDecoration(new GridSpacingItemDecoration(2, spacingInPixels, true));
+        
+        recyclerView.setLayoutManager(layoutManager);
         recyclerView.setAdapter(adapter);
-        recyclerView.setLayoutManager(new GridLayoutManager(this, 2));
     }
     
     private void setupViewModel() {

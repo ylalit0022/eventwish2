@@ -23,6 +23,8 @@ import com.ds.eventwish.ui.reminder.viewmodel.ReminderViewModel;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationBarView;
 import com.google.android.material.badge.BadgeDrawable;
+import com.ds.eventwish.databinding.ActivityMainBinding;
+import com.ds.eventwish.data.remote.TemplateInteractionManager;
 
 public class MainActivity extends AppCompatActivity implements NavigationBarView.OnItemSelectedListener {
     private static final String TAG = "MainActivity";
@@ -34,11 +36,13 @@ public class MainActivity extends AppCompatActivity implements NavigationBarView
     private BottomNavigationView bottomNav;
     private ReminderViewModel reminderViewModel;
     private BadgeDrawable reminderBadge;
+    private ActivityMainBinding binding;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
 
         // Initialize API client early to prevent initialization issues
         try {
@@ -57,7 +61,7 @@ public class MainActivity extends AppCompatActivity implements NavigationBarView
         }
 
         // Initialize views
-        bottomNav = findViewById(R.id.bottomNavigation);
+        bottomNav = binding.bottomNavigation;
 
         // Set up navigation - FIXED ORDER
         NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
@@ -80,8 +84,8 @@ public class MainActivity extends AppCompatActivity implements NavigationBarView
     }
 
     private void initializeNativeAd() {
-        nativeAdContainer = findViewById(R.id.native_ad_container);
-        nativeAdLoading = findViewById(R.id.native_ad_loading);
+        nativeAdContainer = binding.nativeAdContainer;
+        nativeAdLoading = binding.nativeAdLoading;
 
         // Initialize AdMobManager if not already initialized
         try {

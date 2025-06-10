@@ -33,6 +33,7 @@ import com.google.firebase.auth.FirebaseUser;
 public class SplashActivity extends AppCompatActivity {
     private static final String TAG = "SplashActivity";
     private static final long SPLASH_DURATION = 2000; // 2 seconds
+    private static final long SIGN_IN_TIMEOUT = 15000; // 15 seconds max for sign-in operations
     private ImageView logoImageView;
     private TextView appNameTextView;
     private ProgressBar loadingProgressBar;
@@ -45,6 +46,8 @@ public class SplashActivity extends AppCompatActivity {
     private AuthManager authManager;
     private ActivityResultLauncher<Intent> signInLauncher;
     private boolean isSigningIn = false;
+    private Handler timeoutHandler = new Handler();
+    private boolean forceNavigated = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -87,6 +90,35 @@ public class SplashActivity extends AppCompatActivity {
 
         // Start splash flow
         startSplashFlow();
+        
+        // Set up timeout for splash screen
+        setupTimeout();
+    }
+    
+    private void setupTimeout() {
+        // Set a maximum timeout for the splash screen
+        timeoutHandler.postDelayed(() -> {
+            if (!isFinishing() && !forceNavigated) {
+                Log.w(TAG, "Splash screen timeout reached, forcing navigation to main");
+                forceNavigated = true;
+                
+                // Cancel any pending operations
+                if (isSigningIn) {
+                    signInStatus.setText(R.string.sign_in_timeout);
+                    isSigningIn = false;
+                }
+                
+                // Force navigation to main activity
+                navigateToMain();
+            }
+        }, SIGN_IN_TIMEOUT);
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Remove any pending timeout callbacks
+        timeoutHandler.removeCallbacksAndMessages(null);
     }
 
     private void startSplashFlow() {
@@ -152,7 +184,11 @@ public class SplashActivity extends AppCompatActivity {
 
     private void navigateToMain() {
         // Check if already navigating to avoid multiple calls
-        if (isFinishing()) return;
+        if (isFinishing() || forceNavigated) return;
+        forceNavigated = true;
+        
+        // Cancel any pending timeouts
+        timeoutHandler.removeCallbacksAndMessages(null);
 
         try {
             // Fade out animations

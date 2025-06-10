@@ -14,4 +14,9 @@
         android:title="Test Ads"
         app:showAsAction="never" />
         
+    <item
+        android:id="@+id/action_test"
+        android:title="Test Template Update"
+        app:showAsAction="never" />
+        
 </menu> 

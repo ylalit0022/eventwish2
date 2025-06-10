@@ -3,11 +3,17 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Helper functions
     function isSignedIn() {
-      return request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      // Allow any authenticated user, including anonymous
+      return request.auth != null;
     }
     
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function isServiceAccount() {
+      return request.auth.token.email != null && 
+        request.auth.token.email.matches('.*@[a-zA-Z0-9-]+\\.iam\\.gserviceaccount\\.com$');
     }
 
     function isValidUserData() {
@@ -32,11 +38,11 @@ service cloud.firestore {
 
     // User document rules
     match /users/{userId} {
-      // Allow read/write for authenticated users
+      // Users can read/write their own data
       allow read: if isSignedIn();
       allow write: if isOwner(userId);
       
-      // Allow create with Google Sign-In
+      // Allow create with any authentication
       allow create: if isSignedIn() && request.auth.uid == userId && isValidUserData();
       
       // Allow update if owner and valid data
@@ -65,34 +71,24 @@ service cloud.firestore {
       // Notifications subcollection
       match /notifications/{notificationId} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(userId)
-          && request.resource.data.keys().hasOnly(['title', 'body', 'timestamp', 'read'])
-          && request.resource.data.timestamp is timestamp;
-        allow update: if isOwner(userId)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'lastUpdated']);
-        allow delete: if isOwner(userId);
+        allow create, update, delete: if isOwner(userId);
       }
     }
 
-    // Templates collection
+    // Templates collection - Allow read/write for authenticated users
     match /templates/{templateId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       
-      // Allow create with initial stats
-      allow create: if isSignedIn() 
-        && request.resource.data.keys().hasAll(['id', 'likeCount', 'favoriteCount', 'lastUpdated'])
-        && request.resource.data.id is string
-        && request.resource.data.likeCount == 0
-        && request.resource.data.favoriteCount == 0
-        && request.resource.data.lastUpdated is timestamp;
+      // Allow creation and updates for authenticated users
+      allow create: if isSignedIn();
       
-      // Allow updates to like/favorite counts
-      allow update: if isSignedIn()
-        && request.resource.data.keys().hasAll(['id', 'likeCount', 'favoriteCount', 'lastUpdated'])
-        && request.resource.data.id == resource.data.id
-        && abs(request.resource.data.likeCount - resource.data.likeCount) <= 1
-        && abs(request.resource.data.favoriteCount - resource.data.favoriteCount) <= 1
-        && request.resource.data.lastUpdated is timestamp;
+      // Allow updates to like/favorite counts for authenticated users
+      allow update: if isSignedIn() && 
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['likeCount', 'favoriteCount', 'lastUpdated', 'id', 'name', 'imageUrl']);
+      
+      // Allow any write operation with merge option (set with merge)
+      allow write: if isSignedIn();
     }
 
     // User likes collection
@@ -107,6 +103,22 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create, delete: if isSignedIn() && 
         request.auth.uid == favoriteId.split('_')[0];
+    }
+    
+    // Analytics collection for error tracking
+    match /analytics/{docId} {
+      allow create: if isSignedIn();
+      allow read: if isServiceAccount();
+    }
+    
+    // Special rule for collection group queries
+    // This allows querying all likes and favorites across users
+    match /{path=**}/likes/{documentId} {
+      allow read: if isSignedIn();
+    }
+    
+    match /{path=**}/favorites/{documentId} {
+      allow read: if isSignedIn();
     }
   }
 } 

@@ -126,6 +126,20 @@ public class EventWishApplication extends Application implements Configuration.P
             // Initialize FirestoreManager with context
             FirestoreManager.getInstance(this);
             
+            // Initialize templates collection to ensure it exists
+            FirestoreManager.getInstance(this).ensureTemplatesCollectionExists()
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Templates collection initialized successfully");
+                    // Now sync template counts from user data
+                    FirestoreManager.getInstance(this).initializeTemplateCountsFromUserData()
+                        .addOnSuccessListener(syncVoid -> 
+                            Log.d(TAG, "Template counts synced successfully"))
+                        .addOnFailureListener(e -> 
+                            Log.e(TAG, "Failed to sync template counts", e));
+                })
+                .addOnFailureListener(e -> 
+                    Log.e(TAG, "Failed to initialize templates collection", e));
+            
             // Initialize Firebase services before auth
             initializeFirebaseServices();
             
@@ -985,6 +999,24 @@ public class EventWishApplication extends Application implements Configuration.P
      * Initialize Firebase services (Analytics, Crashlytics, Performance, etc.)
      */
     private void initializeFirebaseServices() {
+        Log.d(TAG, "Initializing Firebase services");
+        
+        // Initialize FirestoreManager early but on a background thread
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            // Initialize FirestoreManager
+            FirestoreManager firestoreManager = FirestoreManager.getInstance();
+            
+            // Ensure templates collection exists - this is potentially a slow operation
+            Log.d(TAG, "Starting template collection initialization (background thread)");
+            firestoreManager.ensureTemplatesCollectionExists()
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Templates collection initialized successfully");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to initialize templates collection", e);
+                });
+        });
+            
         try {
             // Initialize Firebase Analytics
             FirebaseAnalytics.getInstance(this);
@@ -998,32 +1030,27 @@ public class EventWishApplication extends Application implements Configuration.P
             PerformanceTracker.init(this);
             Log.d(TAG, "Firebase Performance initialized");
             
-            // Initialize Firebase Remote Config
+            // Initialize Firebase Remote Config and In-App Messaging
             try {
                 FirebaseInAppMessagingHandler.init(this);
                 Log.d(TAG, "Firebase In-App Messaging initialized");
                 com.ds.eventwish.utils.RemoteConfigManager.getInstance(this);
                 Log.d(TAG, "Firebase Remote Config initialized");
             } catch (Exception e) {
-                Log.e(TAG, "Error initializing Firebase Remote Config: " + e.getMessage(), e);
-                Log.e(TAG, "Error initializing Firebase In-App Messaging: " + e.getMessage(), e);
+                Log.e(TAG, "Error initializing Firebase Remote Config or In-App Messaging", e);
             }
             
             // Initialize ShareMessageManager for dynamic share messages
             try {
-                com.ds.eventwish.utils.RemoteConfigManager.getInstance(this);
-                Log.d(TAG, "Firebase Remote Config initialized");
                 com.ds.eventwish.utils.ShareMessageManager.getInstance(this);
-                Log.d(TAG, "ShareMessageManager initialized with Firebase Remote Config");
+                Log.d(TAG, "ShareMessageManager initialized");
             } catch (Exception e) {
-                Log.e(TAG, "Error initializing Firebase Remote Config: " + e.getMessage(), e);
-                Log.e(TAG, "Error initializing ShareMessageManager: " + e.getMessage(), e);
+                Log.e(TAG, "Error initializing ShareMessageManager", e);
             }
             
             // Verify Firebase project configuration
             verifyFirebaseProject();
         } catch (Exception e) {
-            Log.e(TAG, "Error initializing Firebase services: " + e.getMessage(), e);
             Log.e(TAG, "Error initializing Firebase services", e);
         }
     }
