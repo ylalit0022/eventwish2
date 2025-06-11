@@ -51,7 +51,11 @@ async function addEnhancedUsers() {
         deviceId: 'device_super_' + Date.now(),
         displayName: 'Super User',
         email: 'super@example.com',
+        phoneNumber: '+91987654321',
         profilePhoto: 'https://example.com/photos/super.jpg',
+        coins: 1000,
+        isUnlocked: true,
+        unlockExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
         lastOnline: new Date(),
         created: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), // 1 year ago
         subscription: {
@@ -93,13 +97,18 @@ async function addEnhancedUsers() {
         deviceId: 'device_power_' + Date.now(),
         displayName: 'Power User',
         email: 'power@example.com',
+        phoneNumber: '+91987654322',
         profilePhoto: 'https://example.com/photos/power.jpg',
+        coins: 500,
+        isUnlocked: true,
+        unlockExpiry: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from now
         lastOnline: new Date(),
+        created: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000),
         subscription: {
           isActive: true,
-          plan: 'QUARTERLY',
-          startedAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000),
-          expiresAt: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000)
+          plan: 'HALF_YEARLY',
+          startedAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
+          expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
         },
         adsAllowed: false,
         pushPreferences: {
@@ -126,12 +135,17 @@ async function addEnhancedUsers() {
         deviceId: 'device_social_' + Date.now(),
         displayName: 'Social User',
         email: 'social@example.com',
+        phoneNumber: '+91987654323',
+        coins: 250,
+        isUnlocked: true,
+        unlockExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
         lastOnline: new Date(),
+        created: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
         subscription: {
           isActive: true,
-          plan: 'MONTHLY',
-          startedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
-          expiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)
+          plan: 'QUARTERLY',
+          startedAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000),
+          expiresAt: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000)
         },
         adsAllowed: false,
         pushPreferences: {
@@ -162,9 +176,19 @@ async function addEnhancedUsers() {
         deviceId: 'device_new_' + Date.now(),
         displayName: 'New User',
         email: 'new@example.com',
+        phoneNumber: '+91987654324',
         profilePhoto: 'https://example.com/photos/new.jpg',
+        coins: 50,
+        isUnlocked: false,
+        unlockExpiry: null,
         lastOnline: new Date(),
         created: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 1 week ago
+        subscription: {
+          isActive: false,
+          plan: '',
+          startedAt: null,
+          expiresAt: null
+        },
         adsAllowed: true,
         pushPreferences: {
           allowFestivalPush: true,
@@ -194,7 +218,11 @@ async function addEnhancedUsers() {
         deviceId: 'device_inactive_' + Date.now(),
         displayName: 'Inactive User',
         email: 'inactive@example.com',
-        lastOnline: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), // 90 days ago
+        phoneNumber: '+91987654325',
+        coins: 0,
+        isUnlocked: false,
+        unlockExpiry: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), // Expired 15 days ago
+        lastOnline: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
         created: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000),
         subscription: {
           isActive: false,
@@ -225,6 +253,10 @@ async function addEnhancedUsers() {
       // 6. Anonymous User - Minimal data
       {
         deviceId: 'device_anon_' + Date.now(),
+        phoneNumber: null,
+        coins: 0,
+        isUnlocked: false,
+        unlockExpiry: null,
         lastOnline: new Date(),
         created: new Date(),
         adsAllowed: true,
@@ -238,7 +270,13 @@ async function addEnhancedUsers() {
         categories: [],
         engagementLog: [],
         lastActionOnTemplate: null,
-        lastActiveTemplate: null
+        lastActiveTemplate: null,
+        subscription: {
+          isActive: false,
+          plan: '',
+          startedAt: null,
+          expiresAt: null
+        }
       }
     ];
 
@@ -258,7 +296,13 @@ async function addEnhancedUsers() {
         profile: {
           displayName: user.displayName,
           email: user.email,
+          phoneNumber: user.phoneNumber,
           hasPhoto: !!user.profilePhoto
+        },
+        coins: {
+          balance: user.coins,
+          isUnlocked: user.isUnlocked,
+          unlockExpiry: user.unlockExpiry
         },
         subscription: user.subscription,
         engagement: {

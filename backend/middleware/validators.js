@@ -107,7 +107,44 @@ const validateCategory = (req, res, next) => {
     next();
 };
 
+/**
+ * Middleware to validate Firebase UID
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next function
+ * @returns {void}
+ */
+const validateFirebaseUid = (req, res, next) => {
+    const uid = req.body.uid || req.params.uid || req.query.uid;
+    
+    if (!uid) {
+        return res.status(400).json({
+            success: false,
+            message: 'Firebase UID is required'
+        });
+    }
+    
+    // Checking for development mode
+    if (process.env.NODE_ENV === 'development' && process.env.SKIP_AUTH === 'true') {
+        // Allow test UIDs in development mode
+        if (uid.startsWith('test-') && typeof uid === 'string' && uid.length >= 10) {
+            return next();
+        }
+    }
+    
+    // Firebase UIDs are typically 28 characters
+    if (typeof uid !== 'string' || uid.length < 20) {
+        return res.status(400).json({
+            success: false,
+            message: 'Invalid Firebase UID format'
+        });
+    }
+    
+    next();
+};
+
 module.exports = {
     validateDeviceId,
-    validateCategory
+    validateCategory,
+    validateFirebaseUid
 }; 

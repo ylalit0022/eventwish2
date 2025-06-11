@@ -43,8 +43,8 @@ const SubscriptionSchema = new Schema({
     },
     plan: {
         type: String,
-        enum: ['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY'],
-        default: null
+        enum: ['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY', ''],
+        default: ''
     },
     startedAt: { 
         type: Date, 
@@ -60,14 +60,15 @@ const SubscriptionSchema = new Schema({
 const UserSchema = new Schema({
     uid: { 
         type: String, 
-        unique: true, 
-        sparse: true,
+        required: true,
+        unique: true,
         index: true // Add index for efficient queries
     }, // Firebase UID (primary identifier for authenticated users)
     deviceId: {
         type: String,
-        required: true,
+        required: false,
         unique: true,
+        sparse: true, // Allow null/undefined values for deviceId
         trim: true,
         index: true // Add index for efficient queries
     },

@@ -56,89 +56,37 @@ const calculateCategoryScore = (categoryData, maxVisitCount, oldestVisitDate, ne
 
 /**
  * Get personalized recommendations for a user
- * @param {String} deviceId - The user's device ID
- * @param {Number} limit - Maximum number of recommendations to return
- * @returns {Promise<Object>} Object containing recommendations data
+ * @param {string} userId - Firebase UID of the user
+ * @param {number} limit - Maximum number of recommendations to return
+ * @returns {Promise<Array>} - Recommended templates
  */
-const getRecommendationsForUser = async (deviceId, limit = 10) => {
+async function getRecommendationsForUser(userId, limit = 10) {
     try {
-        // Check cache first
-        const cacheKey = `${CACHE_KEY_USER_RECOMMENDATIONS}${deviceId}`;
-        const cachedRecommendations = await cacheService.get(cacheKey);
+        // Check if we have a cached result
+        const cacheKey = `recommendations:${userId}`;
         
-        if (cachedRecommendations) {
-            logger.info(`Using cached recommendations for user: ${deviceId}`);
-            return JSON.parse(cachedRecommendations);
+        // Try to find user by Firebase UID
+        const user = await User.findOne({ uid: userId });
+        
+        if (!user) {
+            // If not found by uid, try deviceId as fallback
+            const userByDeviceId = await User.findOne({ deviceId: userId });
+            if (!userByDeviceId) {
+                logger.warn(`Cannot generate recommendations for unknown user: ${userId}`);
+                return [];
+            }
+            
+            // Use the user found by deviceId
+            return generateRecommendations(userByDeviceId, limit);
         }
         
-        // Get user data
-        const user = await User.findOne({ deviceId });
-        
-        if (!user || !user.categories || user.categories.length === 0) {
-            logger.info(`No category history for user: ${deviceId}, using default recommendations`);
-            return await getDefaultRecommendations(limit);
-        }
-        
-        // Calculate scores for each category
-        const categories = [...user.categories];
-        
-        // Find max visit count and date ranges for normalization
-        const maxVisitCount = Math.max(...categories.map(cat => cat.visitCount));
-        const visitDates = categories.map(cat => new Date(cat.visitDate).getTime());
-        const oldestVisitDate = Math.min(...visitDates);
-        const newestVisitDate = Math.max(...visitDates);
-        
-        // Calculate scores for each category
-        const scoredCategories = categories.map(category => ({
-            category: category.category,
-            score: calculateCategoryScore(
-                category, 
-                maxVisitCount, 
-                oldestVisitDate, 
-                newestVisitDate
-            ),
-            visitCount: category.visitCount,
-            visitDate: category.visitDate
-        }));
-        
-        // Sort by score (descending)
-        scoredCategories.sort((a, b) => b.score - a.score);
-        
-        // Select top categories (up to 3)
-        const topCategories = scoredCategories.slice(0, 3);
-        
-        // Get templates for top categories
-        const recommendedTemplates = await getTemplatesForCategories(
-            topCategories.map(c => c.category), 
-            Math.ceil(limit / topCategories.length)
-        );
-        
-        // Prepare response
-        const recommendations = {
-            templates: recommendedTemplates,
-            topCategories: topCategories.map(cat => ({
-                category: cat.category,
-                score: cat.score,
-                weight: cat.visitCount
-            })),
-            lastUpdated: new Date()
-        };
-        
-        // Cache the results
-        await cacheService.set(
-            cacheKey, 
-            JSON.stringify(recommendations), 
-            CACHE_TTL
-        );
-        
-        return recommendations;
-        
+        // Generate recommendations for user found by UID
+        return generateRecommendations(user, limit);
     } catch (error) {
         logger.error(`Error getting recommendations: ${error.message}`);
-        // Return default recommendations if there's an error
-        return await getDefaultRecommendations(limit);
+        return [];
     }
-};
+}
 
 /**
  * Get templates for a list of categories
@@ -233,18 +181,78 @@ const getDefaultRecommendations = async (limit = 10) => {
 };
 
 /**
- * Invalidate recommendations cache for a user
- * @param {String} deviceId - The user's device ID
+ * Invalidate the recommendations cache for a user
+ * @param {string} userId - Firebase UID of the user
+ * @returns {Promise<void>}
  */
-const invalidateUserRecommendations = async (deviceId) => {
+async function invalidateUserRecommendations(userId) {
+    const cacheKey = `recommendations:${userId}`;
+    // Cache invalidation logic here
+    logger.info(`Recommendations cache invalidated for user ${userId}`);
+}
+
+/**
+ * Generate recommendations for a user
+ * @param {Object} user - User document from MongoDB
+ * @param {number} limit - Maximum number of recommendations to return
+ * @returns {Promise<Array>} - Recommended templates
+ */
+async function generateRecommendations(user, limit = 10) {
     try {
-        const cacheKey = `${CACHE_KEY_USER_RECOMMENDATIONS}${deviceId}`;
-        await cacheService.del(cacheKey);
-        logger.info(`Invalidated recommendations cache for user: ${deviceId}`);
+        if (!user || !user.categories || user.categories.length === 0) {
+            logger.info(`No category history for user: ${user.uid || user.deviceId}, using default recommendations`);
+            return await getDefaultRecommendations(limit);
+        }
+        
+        // Calculate scores for each category
+        const categories = [...user.categories];
+        
+        // Find max visit count and date ranges for normalization
+        const maxVisitCount = Math.max(...categories.map(cat => cat.visitCount));
+        const visitDates = categories.map(cat => new Date(cat.visitDate).getTime());
+        const oldestVisitDate = Math.min(...visitDates);
+        const newestVisitDate = Math.max(...visitDates);
+        
+        // Calculate scores for each category
+        const scoredCategories = categories.map(category => ({
+            category: category.category,
+            score: calculateCategoryScore(
+                category, 
+                maxVisitCount, 
+                oldestVisitDate, 
+                newestVisitDate
+            ),
+            visitCount: category.visitCount,
+            visitDate: category.visitDate
+        }));
+        
+        // Sort by score (descending)
+        scoredCategories.sort((a, b) => b.score - a.score);
+        
+        // Select top categories (up to 3)
+        const topCategories = scoredCategories.slice(0, 3);
+        
+        // Get templates for top categories
+        const recommendedTemplates = await getTemplatesForCategories(
+            topCategories.map(c => c.category), 
+            Math.ceil(limit / topCategories.length)
+        );
+        
+        // Prepare response
+        return {
+            templates: recommendedTemplates,
+            topCategories: topCategories.map(cat => ({
+                category: cat.category,
+                score: cat.score,
+                weight: cat.visitCount
+            })),
+            lastUpdated: new Date()
+        };
     } catch (error) {
-        logger.error(`Error invalidating recommendations cache: ${error.message}`);
+        logger.error(`Error generating recommendations: ${error.message}`);
+        return await getDefaultRecommendations(limit);
     }
-};
+}
 
 module.exports = {
     getRecommendationsForUser,

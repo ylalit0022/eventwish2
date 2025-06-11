@@ -1,59 +1,77 @@
 const admin = require('firebase-admin');
-const path = require('path');
-const fs = require('fs');
+const logger = require('../utils/logger');
 
-// Path to service account key file
-const serviceAccountPath = path.join(__dirname, '../serviceAccountKey.json');
-
-// Initialize Firebase Admin SDK
-let firebaseInitialized = false;
-
-const initializeFirebase = () => {
-  if (firebaseInitialized) {
-    return;
-  }
-  
+/**
+ * Initialize Firebase Admin SDK
+ * This will be used for verifying Firebase ID tokens
+ */
+const initializeFirebaseAdmin = () => {
   try {
-    // Check if service account key file exists
-    if (fs.existsSync(serviceAccountPath)) {
-      // Initialize with service account file
-      const serviceAccount = require(serviceAccountPath);
-      
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-      });
-      
-      console.log('Firebase Admin SDK initialized with service account file');
-    } else {
-      // Initialize with environment variables
-      // This is useful for deployment environments like Heroku
-      const serviceAccountEnv = process.env.FIREBASE_SERVICE_ACCOUNT;
-      
-      if (serviceAccountEnv) {
-        // Parse the JSON string from environment variable
-        const serviceAccountJson = JSON.parse(serviceAccountEnv);
-        
+    // Check if Firebase Admin is already initialized
+    if (admin.apps.length > 0) {
+      logger.info('Firebase Admin SDK already initialized');
+      return admin;
+    }
+
+    // If running with authentication disabled, return uninitialized admin
+    if (process.env.SKIP_AUTH === 'true') {
+      logger.info('Firebase authentication disabled with SKIP_AUTH=true');
+      return admin;
+    }
+
+    // If running in development/test mode, we may want to use a service account file
+    // If in production, we'll rely on Google's Application Default Credentials
+    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+    
+    if (serviceAccount) {
+      try {
+        // Initialize with explicit service account credentials
         admin.initializeApp({
-          credential: admin.credential.cert(serviceAccountJson)
+          credential: admin.credential.cert(JSON.parse(serviceAccount))
         });
+        logger.info('Firebase Admin SDK initialized with service account');
+      } catch (parseError) {
+        logger.error(`Error parsing service account: ${parseError.message}`);
         
-        console.log('Firebase Admin SDK initialized with environment variables');
-      } else {
-        console.error('Firebase service account not found. FCM functionality will not work.');
-        return;
+        if (process.env.NODE_ENV !== 'production') {
+          logger.info('Using empty app configuration for development');
+          admin.initializeApp({});
+        } else {
+          throw parseError;
+        }
+      }
+    } else {
+      // Try to initialize with application default credentials
+      try {
+        // Initialize with application default credentials
+        // This works in Google Cloud and when GOOGLE_APPLICATION_CREDENTIALS env var is set
+        admin.initializeApp({
+          credential: admin.credential.applicationDefault()
+        });
+        logger.info('Firebase Admin SDK initialized with application default credentials');
+      } catch (credError) {
+        logger.error(`Error initializing with application default credentials: ${credError.message}`);
+        
+        if (process.env.NODE_ENV !== 'production') {
+          logger.info('Using empty app configuration for development');
+          admin.initializeApp({});
+        } else {
+          throw credError;
+        }
       }
     }
-    
-    firebaseInitialized = true;
+
+    return admin;
   } catch (error) {
-    console.error('Error initializing Firebase Admin SDK:', error);
+    logger.error(`Error initializing Firebase Admin SDK: ${error.message}`);
+    throw error;
   }
 };
 
-// Initialize Firebase when this module is imported
-initializeFirebase();
+// Initialize Firebase Admin when this module is imported
+const firebaseAdmin = initializeFirebaseAdmin();
 
 module.exports = {
-  admin,
-  messaging: admin.messaging
+  admin: firebaseAdmin,
+  auth: firebaseAdmin.auth()
 }; 

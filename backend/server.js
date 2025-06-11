@@ -14,6 +14,8 @@ const logger = require('./config/logger');
 const monitoringController = require('./controllers/monitoringController');
 const loadBalancer = require('./config/loadBalancer');
 const swagger = require('./config/swagger');
+// Initialize Firebase Admin SDK
+require('./config/firebase');
 
 // Log environment variables for debugging (excluding sensitive ones)
 console.log('NODE_ENV:', process.env.NODE_ENV);

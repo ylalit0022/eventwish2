@@ -3,7 +3,7 @@ const router = express.Router();
 const { AdMob } = require('../models/AdMob');
 const { Coins } = require('../models/Coins');
 const apiAuth = require('../middleware/apiAuth');
-const { validateDeviceId } = require('../middleware/validation');
+const { validateDeviceId } = require('../middleware/validators');
 const { handleError } = require('../utils/errorHandler');
 
 // Get available ad units for a device

@@ -26,13 +26,17 @@ router.get('/time', (req, res) => {
  * @access Public
  */
 router.get('/env', (req, res) => {
+  // Get a filtered copy of environment variables
+  const env = {
+    NODE_ENV: process.env.NODE_ENV,
+    SKIP_AUTH: process.env.SKIP_AUTH,
+    PORT: process.env.PORT,
+    // Add other non-sensitive environment variables here
+  };
+  
   res.json({
     success: true,
-    nodeVersion: process.version,
-    environment: process.env.NODE_ENV || 'development',
-    platform: process.platform,
-    arch: process.arch,
-    memoryUsage: process.memoryUsage()
+    env
   });
 });
 

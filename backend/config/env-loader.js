@@ -53,6 +53,24 @@ function ensureCriticalEnvVars() {
     }
   });
   
+  // Handle Firebase configuration
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+    if (isDevelopment && process.env.SKIP_AUTH === 'true') {
+      console.warn('⚠️  WARNING: FIREBASE_SERVICE_ACCOUNT not set.');
+      console.warn('⚠️  Firebase authentication will be disabled.');
+      console.warn('⚠️  Running with SKIP_AUTH=true for development only!');
+    } else if (isDevelopment) {
+      console.warn('⚠️  WARNING: FIREBASE_SERVICE_ACCOUNT not set.');
+      console.warn('⚠️  Firebase authentication may not work correctly.');
+      console.warn('⚠️  Set SKIP_AUTH=true to disable authentication for development.');
+    } else {
+      // In production, we'll log a warning but not crash the app
+      // This allows for gradual rollout of Firebase auth
+      console.warn('⚠️  WARNING: FIREBASE_SERVICE_ACCOUNT not set in production.');
+      console.warn('⚠️  Firebase authentication will not work!');
+    }
+  }
+  
   // Log environment mode
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 }
