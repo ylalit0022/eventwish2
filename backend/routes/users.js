@@ -12,17 +12,28 @@ const recommendationService = require('../services/recommendationService');
  */
 router.post('/register', validateDeviceId, async (req, res) => {
     try {
-        const { deviceId } = req.body;
+        const { deviceId, uid, displayName, email, profilePhoto } = req.body;
         
         // Check if user already exists
         let user = await User.findOne({ deviceId });
         
         if (user) {
-            // User already exists, update lastOnline
+            // User already exists, update lastOnline and possibly link with Firebase UID
             user.lastOnline = Date.now();
+            
+            // If uid is provided and user doesn't have one yet, link the accounts
+            if (uid && !user.uid) {
+                user.uid = uid;
+            }
+            
+            // Update profile info if provided
+            if (displayName) user.displayName = displayName;
+            if (email) user.email = email;
+            if (profilePhoto) user.profilePhoto = profilePhoto;
+            
             await user.save();
             
-            logger.info(`Existing user logged in: ${deviceId}`);
+            logger.info(`Existing user logged in: ${deviceId}, UID: ${uid || 'anonymous'}`);
             return res.status(200).json({
                 success: true,
                 message: 'User already exists',
@@ -33,13 +44,17 @@ router.post('/register', validateDeviceId, async (req, res) => {
         // Create new user
         user = new User({
             deviceId,
+            uid: uid || null,
+            displayName: displayName || null,
+            email: email || null,
+            profilePhoto: profilePhoto || null,
             lastOnline: Date.now(),
             created: Date.now(),
             categories: []
         });
         
         await user.save();
-        logger.info(`New user registered: ${deviceId}`);
+        logger.info(`New user registered: ${deviceId}, UID: ${uid || 'anonymous'}`);
         
         res.status(201).json({
             success: true,
@@ -134,6 +149,40 @@ router.put('/template-view', validateDeviceId, async (req, res) => {
         
         // Record category visit from template
         await user.visitCategoryFromTemplate(category, templateId);
+        
+        // Set last active template
+        await user.setLastActiveTemplate(templateId, 'VIEW');
+        
+        // Add to engagement log
+        if (!user.engagementLog) {
+            user.engagementLog = [];
+        }
+        user.engagementLog.push({
+            action: 'VIEW',
+            templateId: templateId,
+            timestamp: Date.now()
+        });
+        
+        // Add to recent templates if not already there
+        if (!user.recentTemplatesUsed) {
+            user.recentTemplatesUsed = [];
+        }
+        
+        // Remove the template if it's already in the list
+        user.recentTemplatesUsed = user.recentTemplatesUsed.filter(
+            id => id.toString() !== templateId.toString()
+        );
+        
+        // Add to the beginning of the list (most recent)
+        user.recentTemplatesUsed.unshift(templateId);
+        
+        // Keep only the 10 most recent templates
+        if (user.recentTemplatesUsed.length > 10) {
+            user.recentTemplatesUsed = user.recentTemplatesUsed.slice(0, 10);
+        }
+        
+        await user.save();
+        
         logger.info(`User ${deviceId} viewed template ${templateId} in category: ${category}`);
         
         // Invalidate recommendations cache on template view
@@ -154,16 +203,21 @@ router.put('/template-view', validateDeviceId, async (req, res) => {
 });
 
 /**
- * @route   GET /api/users/:deviceId
- * @desc    Get user data by device ID (for testing and debugging)
+ * @route   GET /api/users/:identifier
+ * @desc    Get user data by device ID or Firebase UID
  * @access  Public (should be restricted in production)
  */
-router.get('/:deviceId', async (req, res) => {
+router.get('/:identifier', async (req, res) => {
     try {
-        const deviceId = req.params.deviceId;
+        const identifier = req.params.identifier;
         
-        // Find user by deviceId
-        const user = await User.findOne({ deviceId });
+        // Try to find user by uid first, then by deviceId
+        let user = await User.findOne({ uid: identifier });
+        
+        // If not found by uid, try deviceId
+        if (!user) {
+            user = await User.findOne({ deviceId: identifier });
+        }
         
         if (!user) {
             return res.status(404).json({
@@ -187,21 +241,39 @@ router.get('/:deviceId', async (req, res) => {
 });
 
 /**
- * @route   GET /api/users/:deviceId/recommendations
+ * @route   GET /api/users/:identifier/recommendations
  * @desc    Get personalized template recommendations for a user
  * @access  Public
  */
-router.get('/:deviceId/recommendations', async (req, res) => {
+router.get('/:identifier/recommendations', async (req, res) => {
     try {
-        const { deviceId } = req.params;
+        const identifier = req.params.identifier;
         const limit = parseInt(req.query.limit) || 10;
         
-        if (!deviceId) {
+        if (!identifier) {
             return res.status(400).json({
                 success: false,
-                message: 'Device ID is required'
+                message: 'User identifier is required'
             });
         }
+        
+        // Try to find user by uid first, then by deviceId
+        let user = await User.findOne({ uid: identifier });
+        
+        // If not found by uid, try deviceId
+        if (!user) {
+            user = await User.findOne({ deviceId: identifier });
+        }
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Use deviceId for recommendation service (for backward compatibility)
+        const deviceId = user.deviceId;
         
         // Get recommendations using the recommendation service
         const recommendations = await recommendationService.getRecommendationsForUser(deviceId, limit);
@@ -260,6 +332,16 @@ router.post('/engagement', validateDeviceId, async (req, res) => {
             case 2: // Template view
                 if (templateId && category) {
                     await user.visitCategoryFromTemplate(category, templateId);
+                    await user.setLastActiveTemplate(templateId, 'VIEW');
+                    
+                    // Add to engagement log
+                    if (!user.engagementLog) user.engagementLog = [];
+                    user.engagementLog.push({
+                        action: 'VIEW',
+                        templateId,
+                        timestamp: timestamp || Date.now()
+                    });
+                    
                     logger.info(`User ${deviceId} engagement: viewed template ${templateId} in ${category}`);
                 }
                 break;
@@ -268,22 +350,81 @@ router.post('/engagement', validateDeviceId, async (req, res) => {
                 if (templateId && category) {
                     // Record as a stronger engagement
                     await user.visitCategoryFromTemplate(category, templateId);
-                    // You could add additional tracking for template usage here
+                    await user.setLastActiveTemplate(templateId, 'SHARE');
+                    
+                    // Add to engagement log
+                    if (!user.engagementLog) user.engagementLog = [];
+                    user.engagementLog.push({
+                        action: 'SHARE',
+                        templateId,
+                        timestamp: timestamp || Date.now()
+                    });
+                    
+                    // Add to recent templates
+                    if (!user.recentTemplatesUsed) user.recentTemplatesUsed = [];
+                    
+                    // Remove template if already in list
+                    user.recentTemplatesUsed = user.recentTemplatesUsed.filter(
+                        id => id.toString() !== templateId.toString()
+                    );
+                    
+                    // Add to beginning of list
+                    user.recentTemplatesUsed.unshift(templateId);
+                    
+                    // Keep only 10 most recent
+                    if (user.recentTemplatesUsed.length > 10) {
+                        user.recentTemplatesUsed = user.recentTemplatesUsed.slice(0, 10);
+                    }
+                    
                     logger.info(`User ${deviceId} engagement: used template ${templateId} in ${category}`);
                 }
                 break;
                 
             case 4: // Explicit like
-            case 5: // Explicit dislike
                 if (templateId && category) {
-                    // Record feedback (like/dislike)
-                    const isLike = type === 4;
-                    // Add to user preferences (simplified implementation)
-                    if (isLike) {
-                        // Track as a positive preference
-                        await user.visitCategoryFromTemplate(category, templateId);
+                    // Record as like
+                    await user.visitCategoryFromTemplate(category, templateId);
+                    await user.setLastActiveTemplate(templateId, 'LIKE');
+                    
+                    // Add to likes if not already there
+                    if (!user.likes) user.likes = [];
+                    if (!user.likes.includes(templateId)) {
+                        user.likes.push(templateId);
                     }
-                    logger.info(`User ${deviceId} engagement: ${isLike ? 'liked' : 'disliked'} template ${templateId}`);
+                    
+                    // Add to engagement log
+                    if (!user.engagementLog) user.engagementLog = [];
+                    user.engagementLog.push({
+                        action: 'LIKE',
+                        templateId,
+                        timestamp: timestamp || Date.now()
+                    });
+                    
+                    logger.info(`User ${deviceId} engagement: liked template ${templateId}`);
+                }
+                break;
+                
+            case 5: // Add to favorites
+                if (templateId && category) {
+                    // Record as favorite
+                    await user.visitCategoryFromTemplate(category, templateId);
+                    await user.setLastActiveTemplate(templateId, 'FAV');
+                    
+                    // Add to favorites if not already there
+                    if (!user.favorites) user.favorites = [];
+                    if (!user.favorites.includes(templateId)) {
+                        user.favorites.push(templateId);
+                    }
+                    
+                    // Add to engagement log
+                    if (!user.engagementLog) user.engagementLog = [];
+                    user.engagementLog.push({
+                        action: 'FAV',
+                        templateId,
+                        timestamp: timestamp || Date.now()
+                    });
+                    
+                    logger.info(`User ${deviceId} engagement: favorited template ${templateId}`);
                 }
                 break;
                 
@@ -344,7 +485,7 @@ router.post('/engagement/sync', validateDeviceId, async (req, res) => {
         let processed = 0;
         for (const engagement of engagements) {
             try {
-                const { type, templateId, category, source } = engagement;
+                const { type, templateId, category, source, timestamp } = engagement;
                 
                 // Process based on type (simplified implementation)
                 if (type === 1 && category) {
@@ -355,6 +496,85 @@ router.post('/engagement/sync', validateDeviceId, async (req, res) => {
                 else if ((type === 2 || type === 3) && templateId && category) {
                     // Template view or use
                     await user.visitCategoryFromTemplate(category, templateId);
+                    
+                    // Set appropriate action
+                    const action = type === 2 ? 'VIEW' : 'SHARE';
+                    await user.setLastActiveTemplate(templateId, action);
+                    
+                    // Add to engagement log
+                    if (!user.engagementLog) user.engagementLog = [];
+                    user.engagementLog.push({
+                        action,
+                        templateId,
+                        timestamp: timestamp || Date.now()
+                    });
+                    
+                    // For template use, add to recent templates
+                    if (type === 3) {
+                        if (!user.recentTemplatesUsed) user.recentTemplatesUsed = [];
+                        
+                        // Remove template if already in list
+                        user.recentTemplatesUsed = user.recentTemplatesUsed.filter(
+                            id => id.toString() !== templateId.toString()
+                        );
+                        
+                        // Add to beginning of list
+                        user.recentTemplatesUsed.unshift(templateId);
+                        
+                        // Keep only 10 most recent
+                        if (user.recentTemplatesUsed.length > 10) {
+                            user.recentTemplatesUsed = user.recentTemplatesUsed.slice(0, 10);
+                        }
+                    }
+                    
+                    processed++;
+                }
+                else if (type === 4 && templateId) {
+                    // Like
+                    if (category) {
+                        await user.visitCategoryFromTemplate(category, templateId);
+                    }
+                    
+                    await user.setLastActiveTemplate(templateId, 'LIKE');
+                    
+                    // Add to likes if not already there
+                    if (!user.likes) user.likes = [];
+                    if (!user.likes.some(id => id.toString() === templateId.toString())) {
+                        user.likes.push(templateId);
+                    }
+                    
+                    // Add to engagement log
+                    if (!user.engagementLog) user.engagementLog = [];
+                    user.engagementLog.push({
+                        action: 'LIKE',
+                        templateId,
+                        timestamp: timestamp || Date.now()
+                    });
+                    
+                    processed++;
+                }
+                else if (type === 5 && templateId) {
+                    // Favorite
+                    if (category) {
+                        await user.visitCategoryFromTemplate(category, templateId);
+                    }
+                    
+                    await user.setLastActiveTemplate(templateId, 'FAV');
+                    
+                    // Add to favorites if not already there
+                    if (!user.favorites) user.favorites = [];
+                    if (!user.favorites.some(id => id.toString() === templateId.toString())) {
+                        user.favorites.push(templateId);
+                    }
+                    
+                    // Add to engagement log
+                    if (!user.engagementLog) user.engagementLog = [];
+                    user.engagementLog.push({
+                        action: 'FAV',
+                        templateId,
+                        timestamp: timestamp || Date.now()
+                    });
+                    
                     processed++;
                 }
             } catch (err) {
@@ -380,6 +600,204 @@ router.post('/engagement/sync', validateDeviceId, async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Server error during batch engagement sync',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   PUT /api/users/preferences
+ * @desc    Update user preferences
+ * @access  Public
+ */
+router.put('/preferences', validateDeviceId, async (req, res) => {
+    try {
+        const { deviceId, preferences } = req.body;
+        
+        if (!deviceId || !preferences) {
+            return res.status(400).json({
+                success: false,
+                message: 'Device ID and preferences are required'
+            });
+        }
+        
+        // Find user by deviceId
+        let user = await User.findOne({ deviceId });
+        
+        if (!user) {
+            logger.warn(`Preferences update attempted for non-existent user: ${deviceId}`);
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Update user preferences
+        if (preferences.preferredTheme !== undefined) {
+            user.preferredTheme = preferences.preferredTheme;
+        }
+        
+        if (preferences.preferredLanguage !== undefined) {
+            user.preferredLanguage = preferences.preferredLanguage;
+        }
+        
+        if (preferences.timezone !== undefined) {
+            user.timezone = preferences.timezone;
+        }
+        
+        if (preferences.pushPreferences !== undefined) {
+            user.pushPreferences = {
+                ...user.pushPreferences || {},
+                ...preferences.pushPreferences
+            };
+        }
+        
+        if (preferences.topicSubscriptions !== undefined && Array.isArray(preferences.topicSubscriptions)) {
+            user.topicSubscriptions = preferences.topicSubscriptions;
+        }
+        
+        if (preferences.muteNotificationsUntil !== undefined) {
+            user.muteNotificationsUntil = preferences.muteNotificationsUntil;
+        }
+        
+        // Update last online time
+        user.lastOnline = Date.now();
+        await user.save();
+        
+        logger.info(`User ${deviceId} preferences updated`);
+        
+        res.status(200).json({
+            success: true,
+            message: 'User preferences updated successfully',
+            user: {
+                preferredTheme: user.preferredTheme,
+                preferredLanguage: user.preferredLanguage,
+                timezone: user.timezone,
+                pushPreferences: user.pushPreferences,
+                topicSubscriptions: user.topicSubscriptions,
+                muteNotificationsUntil: user.muteNotificationsUntil
+            }
+        });
+        
+    } catch (error) {
+        logger.error(`User preferences update error: ${error.message}`, { error });
+        res.status(500).json({
+            success: false,
+            message: 'Server error updating user preferences',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   GET /api/users/:identifier/templates/favorites
+ * @desc    Get user's favorite templates
+ * @access  Public
+ */
+router.get('/:identifier/templates/favorites', async (req, res) => {
+    try {
+        const identifier = req.params.identifier;
+        
+        // Try to find user by uid first, then by deviceId
+        let user = await User.findOne({ uid: identifier }).populate('favorites');
+        
+        // If not found by uid, try deviceId
+        if (!user) {
+            user = await User.findOne({ deviceId: identifier }).populate('favorites');
+        }
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        res.status(200).json({
+            success: true,
+            favorites: user.favorites || []
+        });
+    } catch (error) {
+        logger.error(`Get favorites error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error retrieving favorites',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   GET /api/users/:identifier/templates/likes
+ * @desc    Get user's liked templates
+ * @access  Public
+ */
+router.get('/:identifier/templates/likes', async (req, res) => {
+    try {
+        const identifier = req.params.identifier;
+        
+        // Try to find user by uid first, then by deviceId
+        let user = await User.findOne({ uid: identifier }).populate('likes');
+        
+        // If not found by uid, try deviceId
+        if (!user) {
+            user = await User.findOne({ deviceId: identifier }).populate('likes');
+        }
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        res.status(200).json({
+            success: true,
+            likes: user.likes || []
+        });
+    } catch (error) {
+        logger.error(`Get likes error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error retrieving likes',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   GET /api/users/:identifier/templates/recent
+ * @desc    Get user's recently used templates
+ * @access  Public
+ */
+router.get('/:identifier/templates/recent', async (req, res) => {
+    try {
+        const identifier = req.params.identifier;
+        
+        // Try to find user by uid first, then by deviceId
+        let user = await User.findOne({ uid: identifier }).populate('recentTemplatesUsed');
+        
+        // If not found by uid, try deviceId
+        if (!user) {
+            user = await User.findOne({ deviceId: identifier }).populate('recentTemplatesUsed');
+        }
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        res.status(200).json({
+            success: true,
+            recentTemplates: user.recentTemplatesUsed || []
+        });
+    } catch (error) {
+        logger.error(`Get recent templates error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error retrieving recent templates',
             error: error.message
         });
     }

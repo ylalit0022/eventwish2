@@ -23,14 +23,62 @@ const CategoryVisitSchema = new Schema({
     }
 });
 
+// Subdocument for referral/invite system
+const ReferralSchema = new Schema({
+    referredBy: { 
+        type: String, 
+        default: null 
+    },
+    referralCode: { 
+        type: String, 
+        default: null 
+    }
+});
+
+// Subdocument for subscription
+const SubscriptionSchema = new Schema({
+    isActive: { 
+        type: Boolean, 
+        default: false 
+    },
+    plan: {
+        type: String,
+        enum: ['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY'],
+        default: null
+    },
+    startedAt: { 
+        type: Date, 
+        default: null 
+    },
+    expiresAt: { 
+        type: Date, 
+        default: null 
+    }
+});
+
 // User schema
 const UserSchema = new Schema({
+    uid: { 
+        type: String, 
+        unique: true, 
+        sparse: true,
+        index: true // Add index for efficient queries
+    }, // Firebase UID (primary identifier for authenticated users)
     deviceId: {
         type: String,
         required: true,
         unique: true,
         trim: true,
         index: true // Add index for efficient queries
+    },
+    displayName: { 
+        type: String 
+    },
+    email: { 
+        type: String 
+    },
+    profilePhoto: { 
+        type: String 
     },
     lastOnline: {
         type: Date,
@@ -40,7 +88,82 @@ const UserSchema = new Schema({
         type: Date,
         default: Date.now
     },
-    categories: [CategoryVisitSchema]
+    subscription: SubscriptionSchema,
+    adsAllowed: { 
+        type: Boolean, 
+        default: true 
+    }, // false if premium/no-ads user
+    pushPreferences: {
+        allowFestivalPush: { 
+            type: Boolean, 
+            default: true 
+        },
+        allowPersonalPush: { 
+            type: Boolean, 
+            default: true 
+        }
+    },
+    topicSubscriptions: [{ 
+        type: String 
+    }], // e.g., ['diwali', 'holi']
+    preferredTheme: { 
+        type: String, 
+        default: 'light' 
+    },
+    preferredLanguage: { 
+        type: String, 
+        default: 'en' 
+    },
+    timezone: { 
+        type: String, 
+        default: 'Asia/Kolkata' 
+    },
+    muteNotificationsUntil: { 
+        type: Date, 
+        default: null 
+    },
+    referredBy: ReferralSchema,
+    referralCode: { 
+        type: String 
+    },
+    recentTemplatesUsed: [{ 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Template' 
+    }],
+    favorites: [{ 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Template' 
+    }],
+    likes: [{ 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Template' 
+    }],
+    categories: [CategoryVisitSchema],
+    lastActiveTemplate: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Template',
+        default: null
+    },
+    lastActionOnTemplate: {
+        type: String,
+        enum: ['VIEW', 'LIKE', 'FAV', 'SHARE'],
+        default: null
+    },
+    engagementLog: [{
+        action: { 
+            type: String, 
+            enum: ['SHARE', 'VIEW', 'LIKE', 'FAV'], 
+            required: true 
+        },
+        templateId: { 
+            type: mongoose.Schema.Types.ObjectId, 
+            ref: 'Template' 
+        },
+        timestamp: { 
+            type: Date, 
+            default: Date.now 
+        }
+    }]
 }, {
     timestamps: true // Automatically add createdAt and updatedAt fields
 });
@@ -82,6 +205,14 @@ UserSchema.methods.visitCategory = function(categoryName, source = 'direct') {
 // Add a method to record a category visit from template interaction
 UserSchema.methods.visitCategoryFromTemplate = function(categoryName, templateId) {
     return this.visitCategory(categoryName, 'template');
+};
+
+// Add a method to set the last active template
+UserSchema.methods.setLastActiveTemplate = function(templateId, action = null) {
+    this.lastActiveTemplate = templateId;
+    this.lastActionOnTemplate = action;
+    this.lastOnline = Date.now();
+    return this.save();
 };
 
 module.exports = mongoose.model('User', UserSchema); 

@@ -6,6 +6,7 @@ import com.ds.eventwish.data.model.CategoryIcon;
 import com.ds.eventwish.data.model.Festival;
 import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.data.model.Template;
+import com.ds.eventwish.data.model.User;
 import com.ds.eventwish.data.model.response.BaseResponse;
 import com.ds.eventwish.data.model.response.CategoryIconResponse;
 import com.ds.eventwish.data.model.response.TemplateResponse;
@@ -484,4 +485,97 @@ public interface ApiService {
      */
     @PUT("contact/{id}")
     Call<BaseResponse<Contact>> updateContact(@Path("id") String id, @Body Contact contact);
+    
+    // New User Preference endpoints
+    /**
+     * Update user preferences
+     * @param body Request containing deviceId and preferences
+     * @return Response with updated preferences
+     */
+    @PUT("users/preferences")
+    Call<JsonObject> updateUserPreferences(@Body Map<String, Object> body);
+    
+    /**
+     * Get user's favorite templates
+     * @param userId User ID (Firebase UID or deviceId)
+     * @return Response with favorite templates
+     */
+    @GET("users/{userId}/templates/favorites")
+    Call<JsonObject> getUserFavorites(@Path("userId") String userId);
+    
+    /**
+     * Get user's liked templates
+     * @param userId User ID (Firebase UID or deviceId)
+     * @return Response with liked templates
+     */
+    @GET("users/{userId}/templates/likes")
+    Call<JsonObject> getUserLikes(@Path("userId") String userId);
+    
+    /**
+     * Get user's recently used templates
+     * @param userId User ID (Firebase UID or deviceId)
+     * @return Response with recent templates
+     */
+    @GET("users/{userId}/templates/recent")
+    Call<JsonObject> getUserRecentTemplates(@Path("userId") String userId);
+    
+    /**
+     * Link existing user with Firebase UID
+     * @param deviceId Device ID of the existing user
+     * @param body Request containing uid and optional profile info (displayName, email, photoUrl)
+     * @return Response with user data
+     */
+    @PUT("users/{deviceId}/link-firebase")
+    Call<JsonObject> linkFirebaseUser(
+        @Path("deviceId") String deviceId,
+        @Body Map<String, Object> body
+    );
+    
+    /**
+     * Update user subscription status
+     * @param userId User ID (Firebase UID or deviceId)
+     * @param body Subscription details
+     * @return Response with updated user data
+     */
+    @PUT("users/{userId}/subscription")
+    Call<JsonObject> updateUserSubscription(
+        @Path("userId") String userId,
+        @Body Map<String, Object> body
+    );
+    
+    /**
+     * Update user push notification preferences
+     * @param userId User ID (Firebase UID or deviceId)
+     * @param body Push preferences
+     * @return Response with updated preferences
+     */
+    @PUT("users/{userId}/push-preferences")
+    Call<JsonObject> updatePushPreferences(
+        @Path("userId") String userId,
+        @Body Map<String, Object> body
+    );
+    
+    /**
+     * Subscribe to notification topics
+     * @param userId User ID (Firebase UID or deviceId)
+     * @param body Topics to subscribe to
+     * @return Response with updated subscription status
+     */
+    @POST("users/{userId}/topics/subscribe")
+    Call<JsonObject> subscribeToTopics(
+        @Path("userId") String userId,
+        @Body Map<String, Object> body
+    );
+    
+    /**
+     * Unsubscribe from notification topics
+     * @param userId User ID (Firebase UID or deviceId)
+     * @param body Topics to unsubscribe from
+     * @return Response with updated subscription status
+     */
+    @POST("users/{userId}/topics/unsubscribe")
+    Call<JsonObject> unsubscribeFromTopics(
+        @Path("userId") String userId,
+        @Body Map<String, Object> body
+    );
 }
