@@ -2,6 +2,28 @@ const mongoose = require('mongoose');
 require('../config/env-loader');
 const User = require('../models/User');
 
+// Helper function to print user data
+function printUserData(user) {
+  console.log('\nUser Document Data:');
+  console.log('==================');
+  console.log(JSON.stringify({
+    _id: user._id,
+    uid: user.uid,
+    deviceId: user.deviceId,
+    displayName: user.displayName,
+    email: user.email,
+    preferredTheme: user.preferredTheme,
+    preferredLanguage: user.preferredLanguage,
+    timezone: user.timezone,
+    pushPreferences: user.pushPreferences,
+    lastActionOnTemplate: user.lastActionOnTemplate,
+    categories: user.categories,
+    created: user.created,
+    lastOnline: user.lastOnline
+  }, null, 2));
+  console.log('==================\n');
+}
+
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
@@ -38,17 +60,16 @@ async function testUserModel() {
     
     await testUser.save();
     console.log('✅ Test user created successfully!');
-    console.log(`   - User ID: ${testUser._id}`);
-    console.log(`   - Firebase UID: ${testUser.uid}`);
-    console.log(`   - Device ID: ${testUser.deviceId}`);
+    console.log('Initial user data:');
+    printUserData(testUser);
     
     // 2. Find user by Firebase UID
     console.log('\n2. Finding user by Firebase UID...');
     const userByUid = await User.findOne({ uid: testUser.uid });
     if (userByUid) {
       console.log('✅ User found by Firebase UID!');
-      console.log(`   - User ID: ${userByUid._id}`);
-      console.log(`   - Name: ${userByUid.displayName}`);
+      console.log('User data when found by UID:');
+      printUserData(userByUid);
     } else {
       console.error('❌ Failed to find user by Firebase UID');
     }
@@ -58,8 +79,8 @@ async function testUserModel() {
     const userByDeviceId = await User.findOne({ deviceId: testUser.deviceId });
     if (userByDeviceId) {
       console.log('✅ User found by Device ID!');
-      console.log(`   - User ID: ${userByDeviceId._id}`);
-      console.log(`   - Name: ${userByDeviceId.displayName}`);
+      console.log('User data when found by Device ID:');
+      printUserData(userByDeviceId);
     } else {
       console.error('❌ Failed to find user by Device ID');
     }
@@ -76,9 +97,8 @@ async function testUserModel() {
         updatedUser.preferredLanguage === 'hi' &&
         updatedUser.timezone === 'Asia/Kolkata') {
       console.log('✅ User preferences updated successfully!');
-      console.log(`   - Theme: ${updatedUser.preferredTheme}`);
-      console.log(`   - Language: ${updatedUser.preferredLanguage}`);
-      console.log(`   - Timezone: ${updatedUser.timezone}`);
+      console.log('User data after preference update:');
+      printUserData(updatedUser);
     } else {
       console.error('❌ Failed to update user preferences');
     }
@@ -92,9 +112,8 @@ async function testUserModel() {
     
     if (birthdayCategory) {
       console.log('✅ Category visit recorded successfully!');
-      console.log(`   - Category: ${birthdayCategory.category}`);
-      console.log(`   - Visit count: ${birthdayCategory.visitCount}`);
-      console.log(`   - Source: ${birthdayCategory.source}`);
+      console.log('User data after category visit:');
+      printUserData(userWithCategory);
     } else {
       console.error('❌ Failed to record category visit');
     }
@@ -109,11 +128,20 @@ async function testUserModel() {
         userWithTemplate.lastActiveTemplate.toString() === fakeTemplateId.toString() &&
         userWithTemplate.lastActionOnTemplate === 'VIEW') {
       console.log('✅ Last active template set successfully!');
-      console.log(`   - Template ID: ${userWithTemplate.lastActiveTemplate}`);
-      console.log(`   - Action: ${userWithTemplate.lastActionOnTemplate}`);
+      console.log('User data after setting last active template:');
+      printUserData(userWithTemplate);
     } else {
       console.error('❌ Failed to set last active template');
     }
+    
+    // Show all users in the collection
+    console.log('\nAll users in collection:');
+    const allUsers = await User.find({});
+    console.log(`Total users in collection: ${allUsers.length}`);
+    allUsers.forEach((user, index) => {
+      console.log(`\nUser ${index + 1}:`);
+      printUserData(user);
+    });
     
     // 7. Clean up - delete test user
     console.log('\n7. Cleaning up - deleting test user...');

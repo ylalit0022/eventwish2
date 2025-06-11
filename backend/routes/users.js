@@ -803,4 +803,283 @@ router.get('/:identifier/templates/recent', async (req, res) => {
     }
 });
 
+/**
+ * @route   PUT /api/users/:userId/subscription
+ * @desc    Update user subscription status
+ * @access  Public
+ */
+router.put('/:userId/subscription', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const subscriptionData = req.body;
+        
+        // Find user by uid or deviceId
+        let user = await User.findOne({ uid: userId });
+        if (!user) {
+            user = await User.findOne({ deviceId: userId });
+        }
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Update subscription
+        user.subscription = {
+            ...user.subscription || {},
+            ...subscriptionData
+        };
+        
+        // If subscription is active, disable ads
+        if (user.subscription.isActive) {
+            user.adsAllowed = false;
+        }
+        
+        await user.save();
+        logger.info(`User ${userId} subscription updated`);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Subscription updated successfully',
+            subscription: user.subscription
+        });
+        
+    } catch (error) {
+        logger.error(`Subscription update error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error updating subscription',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   PUT /api/users/:userId/push-preferences
+ * @desc    Update user push notification preferences
+ * @access  Public
+ */
+router.put('/:userId/push-preferences', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { pushPreferences } = req.body;
+        
+        // Find user by uid or deviceId
+        let user = await User.findOne({ uid: userId });
+        if (!user) {
+            user = await User.findOne({ deviceId: userId });
+        }
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Update push preferences
+        user.pushPreferences = {
+            ...user.pushPreferences || {},
+            ...pushPreferences
+        };
+        
+        await user.save();
+        logger.info(`User ${userId} push preferences updated`);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Push preferences updated successfully',
+            pushPreferences: user.pushPreferences
+        });
+        
+    } catch (error) {
+        logger.error(`Push preferences update error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error updating push preferences',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   POST /api/users/:userId/topics/subscribe
+ * @desc    Subscribe to notification topics
+ * @access  Public
+ */
+router.post('/:userId/topics/subscribe', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { topics } = req.body;
+        
+        if (!Array.isArray(topics)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Topics must be an array'
+            });
+        }
+        
+        // Find user by uid or deviceId
+        let user = await User.findOne({ uid: userId });
+        if (!user) {
+            user = await User.findOne({ deviceId: userId });
+        }
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Initialize topicSubscriptions if needed
+        if (!user.topicSubscriptions) {
+            user.topicSubscriptions = [];
+        }
+        
+        // Add new topics
+        topics.forEach(topic => {
+            if (!user.topicSubscriptions.includes(topic)) {
+                user.topicSubscriptions.push(topic);
+            }
+        });
+        
+        await user.save();
+        logger.info(`User ${userId} subscribed to topics: ${topics.join(', ')}`);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Successfully subscribed to topics',
+            topics: user.topicSubscriptions
+        });
+        
+    } catch (error) {
+        logger.error(`Topic subscription error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error subscribing to topics',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   POST /api/users/:userId/topics/unsubscribe
+ * @desc    Unsubscribe from notification topics
+ * @access  Public
+ */
+router.post('/:userId/topics/unsubscribe', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { topics } = req.body;
+        
+        if (!Array.isArray(topics)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Topics must be an array'
+            });
+        }
+        
+        // Find user by uid or deviceId
+        let user = await User.findOne({ uid: userId });
+        if (!user) {
+            user = await User.findOne({ deviceId: userId });
+        }
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Remove topics
+        if (user.topicSubscriptions) {
+            user.topicSubscriptions = user.topicSubscriptions.filter(
+                topic => !topics.includes(topic)
+            );
+        }
+        
+        await user.save();
+        logger.info(`User ${userId} unsubscribed from topics: ${topics.join(', ')}`);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Successfully unsubscribed from topics',
+            topics: user.topicSubscriptions
+        });
+        
+    } catch (error) {
+        logger.error(`Topic unsubscription error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error unsubscribing from topics',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   PUT /api/users/:deviceId/link-firebase
+ * @desc    Link existing user with Firebase UID
+ * @access  Public
+ */
+router.put('/:deviceId/link-firebase', async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        const { uid, displayName, email, photoUrl } = req.body;
+        
+        if (!uid) {
+            return res.status(400).json({
+                success: false,
+                message: 'Firebase UID is required'
+            });
+        }
+        
+        // Find user by deviceId
+        let user = await User.findOne({ deviceId });
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Check if UID is already linked to another user
+        const existingUser = await User.findOne({ uid });
+        if (existingUser && existingUser.deviceId !== deviceId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Firebase UID already linked to another user'
+            });
+        }
+        
+        // Update user data
+        user.uid = uid;
+        if (displayName) user.displayName = displayName;
+        if (email) user.email = email;
+        if (photoUrl) user.profilePhoto = photoUrl;
+        
+        await user.save();
+        logger.info(`User ${deviceId} linked with Firebase UID: ${uid}`);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Successfully linked with Firebase',
+            user
+        });
+        
+    } catch (error) {
+        logger.error(`Firebase linking error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error linking Firebase account',
+            error: error.message
+        });
+    }
+});
+
 module.exports = router; 
