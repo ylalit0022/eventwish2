@@ -46,7 +46,7 @@ public class User {
     
     // Engagement tracking
     private List<EngagementLog> engagementLog = new ArrayList<>();
-    
+
     /**
      * Default constructor
      */
@@ -62,7 +62,7 @@ public class User {
         this.isUnlocked = false;
         this.unlockExpiry = 0;
     }
-    
+
     // Nested class for subscription
     public static class Subscription {
         private boolean isActive;

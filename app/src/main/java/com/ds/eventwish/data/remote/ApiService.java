@@ -253,6 +253,18 @@ public interface ApiService {
     Call<Object> getCurrentUser();
 
     /**
+     * Update user profile in MongoDB after Firebase authentication
+     * @param userData Map containing user profile data (uid, deviceId, displayName, email, profilePhoto, lastOnline)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
+     */
+    @POST("api/users/profile")
+    Call<BaseResponse<Void>> updateUserProfile(
+        @Body Map<String, Object> userData,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
      * Register device with the server
      * @param requestBody Device registration request data
      * @return Response
@@ -270,44 +282,75 @@ public interface ApiService {
 
     /**
      * Update user activity (online status and category visit)
+     * @param body Request body containing uid, category, and source
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
      */
     @PUT("/api/users/activity")
-    Call<JsonObject> updateUserActivity(@Body Map<String, Object> body);
+    Call<JsonObject> updateUserActivity(
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
 
     /**
      * Record a template view with category
+     * @param body Request body containing uid, templateId, and category
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
      */
     @PUT("/api/users/template-view")
-    Call<JsonObject> recordTemplateView(@Body Map<String, Object> body);
+    Call<JsonObject> recordTemplateView(
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
 
     /**
      * Get personalized recommendations for a user
-     * @param deviceId Device ID
+     * @param uid Firebase UID
+     * @param authToken Firebase authentication token (for Authorization header, optional)
      * @return Response with recommendations data
      */
-    @GET("users/{deviceId}/recommendations")
-    Call<JsonObject> getUserRecommendations(@Path("deviceId") String deviceId);
+    @GET("users/{uid}/recommendations")
+    Call<JsonObject> getUserRecommendations(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
 
+    /**
+     * Get user data by deviceId (legacy method)
+     * @param deviceId Device ID
+     * @return Response with user data
+     * @deprecated Use getUserByUid instead
+     */
     @GET("users/{deviceId}")
+    @Deprecated
     Call<JsonObject> getUserByDeviceId(@Path("deviceId") String deviceId);
     
     // User activity and engagement tracking
     
     /**
      * Record user engagement with detailed metrics
-     * @param body Engagement data
+     * @param body Engagement data containing uid, type, templateId, category, etc.
+     * @param authToken Firebase authentication token (for Authorization header)
      * @return Response
      */
     @POST("users/engagement")
-    Call<JsonObject> recordEngagement(@Body Map<String, Object> body);
+    Call<JsonObject> recordEngagement(
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
     
     /**
      * Sync multiple engagement records in a batch
-     * @param body JSON object containing array of engagement data
+     * @param body JSON object containing uid and array of engagement data
+     * @param authToken Firebase authentication token (for Authorization header)
      * @return Response
      */
     @POST("users/engagement/sync")
-    Call<JsonObject> syncEngagementData(@Body JsonObject body);
+    Call<JsonObject> syncEngagementData(
+        @Body JsonObject body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
     
     /**
      * Get personalized recommendations with detailed parameters
@@ -497,27 +540,39 @@ public interface ApiService {
     
     /**
      * Get user's favorite templates
-     * @param userId User ID (Firebase UID or deviceId)
+     * @param uid User ID (Firebase UID)
+     * @param authToken Firebase authentication token (for Authorization header, optional)
      * @return Response with favorite templates
      */
-    @GET("users/{userId}/templates/favorites")
-    Call<JsonObject> getUserFavorites(@Path("userId") String userId);
+    @GET("users/{uid}/templates/favorites")
+    Call<JsonObject> getUserFavorites(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
     
     /**
      * Get user's liked templates
-     * @param userId User ID (Firebase UID or deviceId)
+     * @param uid User ID (Firebase UID)
+     * @param authToken Firebase authentication token (for Authorization header, optional)
      * @return Response with liked templates
      */
-    @GET("users/{userId}/templates/likes")
-    Call<JsonObject> getUserLikes(@Path("userId") String userId);
+    @GET("users/{uid}/templates/likes")
+    Call<JsonObject> getUserLikes(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
     
     /**
      * Get user's recently used templates
-     * @param userId User ID (Firebase UID or deviceId)
+     * @param uid User ID (Firebase UID)
+     * @param authToken Firebase authentication token (for Authorization header, optional)
      * @return Response with recent templates
      */
-    @GET("users/{userId}/templates/recent")
-    Call<JsonObject> getUserRecentTemplates(@Path("userId") String userId);
+    @GET("users/{uid}/templates/recent")
+    Call<JsonObject> getUserRecentTemplates(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
     
     /**
      * Link existing user with Firebase UID
@@ -533,49 +588,222 @@ public interface ApiService {
     
     /**
      * Update user subscription status
-     * @param userId User ID (Firebase UID or deviceId)
+     * @param uid User ID (Firebase UID)
      * @param body Subscription details
+     * @param authToken Firebase authentication token (for Authorization header)
      * @return Response with updated user data
      */
-    @PUT("users/{userId}/subscription")
+    @PUT("users/{uid}/subscription")
     Call<JsonObject> updateUserSubscription(
-        @Path("userId") String userId,
-        @Body Map<String, Object> body
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
     );
     
     /**
      * Update user push notification preferences
-     * @param userId User ID (Firebase UID or deviceId)
+     * @param uid User ID (Firebase UID)
      * @param body Push preferences
+     * @param authToken Firebase authentication token (for Authorization header)
      * @return Response with updated preferences
      */
-    @PUT("users/{userId}/push-preferences")
+    @PUT("users/{uid}/push-preferences")
     Call<JsonObject> updatePushPreferences(
-        @Path("userId") String userId,
-        @Body Map<String, Object> body
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
     );
     
     /**
      * Subscribe to notification topics
-     * @param userId User ID (Firebase UID or deviceId)
+     * @param uid User ID (Firebase UID)
      * @param body Topics to subscribe to
+     * @param authToken Firebase authentication token (for Authorization header)
      * @return Response with updated subscription status
      */
-    @POST("users/{userId}/topics/subscribe")
+    @POST("users/{uid}/topics/subscribe")
     Call<JsonObject> subscribeToTopics(
-        @Path("userId") String userId,
-        @Body Map<String, Object> body
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
     );
     
     /**
      * Unsubscribe from notification topics
-     * @param userId User ID (Firebase UID or deviceId)
+     * @param uid User ID (Firebase UID)
      * @param body Topics to unsubscribe from
+     * @param authToken Firebase authentication token (for Authorization header)
      * @return Response with updated subscription status
      */
-    @POST("users/{userId}/topics/unsubscribe")
+    @POST("users/{uid}/topics/unsubscribe")
     Call<JsonObject> unsubscribeFromTopics(
-        @Path("userId") String userId,
-        @Body Map<String, Object> body
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Add a template to user's favorites
+     * @param uid User ID (Firebase UID)
+     * @param templateId Template ID to add to favorites
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with updated favorites
+     */
+    @PUT("users/{uid}/favorites/{templateId}")
+    Call<JsonObject> addToFavorites(
+        @Path("uid") String uid,
+        @Path("templateId") String templateId,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+    
+    /**
+     * Remove a template from user's favorites
+     * @param uid User ID (Firebase UID)
+     * @param templateId Template ID to remove from favorites
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with updated favorites
+     */
+    @DELETE("users/{uid}/favorites/{templateId}")
+    Call<JsonObject> removeFromFavorites(
+        @Path("uid") String uid,
+        @Path("templateId") String templateId,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+    
+    /**
+     * Add a template to user's likes
+     * @param uid User ID (Firebase UID)
+     * @param templateId Template ID to like
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with updated likes
+     */
+    @PUT("users/{uid}/likes/{templateId}")
+    Call<JsonObject> likeTemplate(
+        @Path("uid") String uid,
+        @Path("templateId") String templateId,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+    
+    /**
+     * Remove a template from user's likes
+     * @param uid User ID (Firebase UID)
+     * @param templateId Template ID to unlike
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with updated likes
+     */
+    @DELETE("users/{uid}/likes/{templateId}")
+    Call<JsonObject> unlikeTemplate(
+        @Path("uid") String uid,
+        @Path("templateId") String templateId,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+    
+    /**
+     * Generate or update referral code for a user
+     * @param uid User ID (Firebase UID)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with referral code
+     */
+    @POST("users/{uid}/referral")
+    Call<JsonObject> generateReferralCode(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+    
+    /**
+     * Apply a referral code to a user
+     * @param uid User ID (Firebase UID)
+     * @param body Request body containing referralCode
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
+     */
+    @POST("users/{uid}/apply-referral")
+    Call<JsonObject> applyReferralCode(
+        @Path("uid") String uid,
+        @Body Map<String, String> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+    
+    /**
+     * Get user's category visit history
+     * @param uid User ID (Firebase UID)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with category visit data
+     */
+    @GET("users/{uid}/categories")
+    Call<JsonObject> getUserCategories(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+    
+    /**
+     * Get user engagement analytics
+     * @param uid User ID (Firebase UID)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with engagement analytics data
+     */
+    @GET("users/{uid}/analytics/engagement")
+    Call<JsonObject> getUserEngagementAnalytics(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+    
+    /**
+     * Mute notifications for a specified duration
+     * @param uid User ID (Firebase UID)
+     * @param body Request body containing duration in hours
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
+     */
+    @PUT("users/{uid}/notifications/mute")
+    Call<JsonObject> muteNotifications(
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+    
+    /**
+     * Unmute notifications
+     * @param uid User ID (Firebase UID)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
+     */
+    @PUT("users/{uid}/notifications/unmute")
+    Call<JsonObject> unmuteNotifications(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+    
+    /**
+     * Get user's notification status
+     * @param uid User ID (Firebase UID)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with notification status
+     */
+    @GET("users/{uid}/notifications/status")
+    Call<JsonObject> getNotificationStatus(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+    
+    /**
+     * First-time authentication with Firebase
+     * Determines if user exists and handles new user creation
+     * @param body Request body containing uid and optional deviceId
+     * @return Response with user data and isNewUser flag
+     */
+    @POST("users/auth")
+    Call<JsonObject> authenticateWithFirebase(@Body Map<String, Object> body);
+    
+    /**
+     * Get user data by Firebase UID
+     * @param uid Firebase UID
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with user data
+     */
+    @GET("users/{uid}")
+    Call<JsonObject> getUserByUid(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
     );
 }

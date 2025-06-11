@@ -231,6 +231,40 @@ public class AuthManager {
     }
     
     /**
+     * Sign in with Google account
+     * @param account GoogleSignInAccount from Google Sign In
+     * @return Task with FirebaseAuthResult
+     */
+    public Task<com.google.firebase.auth.AuthResult> signInWithGoogle(GoogleSignInAccount account) {
+        Log.d(TAG, "signInWithGoogle: starting sign-in with Google account: " + account.getEmail());
+        
+        if (account == null) {
+            Log.e(TAG, "signInWithGoogle: account is null");
+            return Tasks.forException(new IllegalArgumentException("GoogleSignInAccount cannot be null"));
+        }
+        
+        String idToken = account.getIdToken();
+        if (idToken == null) {
+            Log.e(TAG, "signInWithGoogle: ID token is null");
+            return Tasks.forException(new IllegalStateException("ID token is null"));
+        }
+        
+        // Sign in with Google credential
+        AuthCredential credential = GoogleAuthProvider.getCredential(idToken, null);
+        Log.d(TAG, "signInWithGoogle: created AuthCredential, starting Firebase signIn");
+        
+        return auth.signInWithCredential(credential)
+            .addOnSuccessListener(authResult -> {
+                FirebaseUser user = authResult.getUser();
+                Log.d(TAG, "signInWithGoogle: success, Firebase uid: " + user.getUid() + 
+                      ", email: " + user.getEmail() + ", display name: " + user.getDisplayName());
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "signInWithGoogle: failure", e);
+            });
+    }
+    
+    /**
      * Force refresh of ID token
      * @return Task with token string result
      */

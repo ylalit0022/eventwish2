@@ -72,6 +72,7 @@ import com.ds.eventwish.BuildConfig;
 import com.google.firebase.auth.FirebaseAuth;
 import com.ds.eventwish.data.remote.FirestoreManager;
 import com.google.firebase.auth.FirebaseUser;
+import com.ds.eventwish.ui.splash.SplashActivity;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -122,9 +123,12 @@ public class MainActivity extends AppCompatActivity {
             // Initialize Firebase Auth
             auth = FirebaseAuth.getInstance();
             
-            // Sign in anonymously if not already signed in
+            // Check if user is already signed in
             if (auth.getCurrentUser() == null) {
-                signInAnonymously();
+                // No user signed in, redirect to SplashActivity for sign-in
+                startActivity(new Intent(this, com.ds.eventwish.ui.splash.SplashActivity.class));
+                finish();
+                return;
             } else {
                 // User already signed in, initialize components
                 initializeComponents();
@@ -842,33 +846,23 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void signInAnonymously() {
-        auth.signInAnonymously()
-            .addOnSuccessListener(this, authResult -> {
-                Log.d(TAG, "Anonymous sign-in success");
-                // FirestoreManager now handles user ID internally through auth state listener
-                initializeComponents();
-            })
-            .addOnFailureListener(this, e -> {
-                Log.e(TAG, "Anonymous sign-in failed", e);
-                showError("Authentication failed: " + e.getMessage());
-            });
-    }
-
     @Override
     protected void onStart() {
         super.onStart();
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null) {
-            signInAnonymously();
+            // No user signed in, redirect to SplashActivity for sign-in
+            startActivity(new Intent(this, SplashActivity.class));
+            finish();
         } else {
-            // FirestoreManager now handles user ID internally
+            // User already signed in, make sure components are initialized
             initializeComponents();
         }
     }
 
     private void initializeComponents() {
-        // Existing initialization code...
+        // Initialize whatever components need the authenticated user
+        Log.d(TAG, "Initializing components with authenticated user");
     }
 
     private void showError(String message) {

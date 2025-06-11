@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    
+    <!-- Database circle (representing MongoDB) -->
+    <path
+        android:fillColor="#4DB33D"
+        android:pathData="M12,2C8.13,2 5,3.8 5,6v12c0,2.2 3.13,4 7,4s7,-1.8 7,-4V6C19,3.8 15.87,2 12,2zM12,20c-3.31,0 -6,-1.34 -6,-3v-2.71C7.3,15.37 9.53,16 12,16s4.7,-0.63 6,-1.71V17C18,18.66 15.31,20 12,20zM12,14c-3.31,0 -6,-1.34 -6,-3v-2.71C7.3,9.37 9.53,10 12,10s4.7,-0.63 6,-1.71V11C18,12.66 15.31,14 12,14zM12,8c-3.31,0 -6,-1.34 -6,-3s2.69,-3 6,-3s6,1.34 6,3S15.31,8 12,8z" />
+
+    <!-- Sync arrows -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M15.5,14.5l-2.5,0l0,-2l1,0l0,1l1.5,0z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M8.5,9.5l2.5,0l0,2l-1,0l0,-1l-1.5,0z" />
+    
+    <!-- Connecting arrow lines -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M8.5,9.5C7,11 7,13 8.5,14.5" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M15.5,14.5C17,13 17,11 15.5,9.5" />
+</vector> 

@@ -361,8 +361,11 @@ public class EngagementRepository {
                     batchIds.add(data.getId());
                 }
                 
+                // Get auth token - use empty string as we're using device ID for legacy authentication
+                String authToken = "";
+                
                 // Send to server
-                apiService.syncEngagementData(requestBody).enqueue(new Callback<JsonObject>() {
+                apiService.syncEngagementData(requestBody, authToken).enqueue(new Callback<JsonObject>() {
                     @Override
                     public void onResponse(@NonNull Call<JsonObject> call, 
                                            @NonNull Response<JsonObject> response) {
@@ -442,8 +445,11 @@ public class EngagementRepository {
             requestBody.put("source", data.getSource());
         }
         
+        // Get auth token - use empty string as we're using device ID for legacy authentication
+        String authToken = "";
+        
         // Send to server
-        apiService.recordEngagement(requestBody).enqueue(new Callback<JsonObject>() {
+        apiService.recordEngagement(requestBody, authToken).enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(@NonNull Call<JsonObject> call, 
                                    @NonNull Response<JsonObject> response) {

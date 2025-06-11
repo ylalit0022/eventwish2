@@ -251,7 +251,8 @@ public class UserRepository {
         
         final String deviceId = getDeviceId();
         if (deviceId == null || deviceId.isEmpty()) {
-            Log.e(TAG, "Cannot update activity: Device ID is null or empty");
+            Log.e(TAG, "Cannot update user activity: Device ID is null or empty");
+            isUpdatingActivity.postValue(false);
             return;
         }
         
@@ -286,12 +287,16 @@ public class UserRepository {
         
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("deviceId", deviceId);
-        if (category != null) {
+        
+        if (category != null && !category.isEmpty()) {
             requestBody.put("category", category);
             requestBody.put("source", "direct");
         }
         
-        apiService.updateUserActivity(requestBody).enqueue(new Callback<JsonObject>() {
+        // Get auth token - use empty string as we're using device ID for legacy authentication
+        String authToken = "";
+        
+        apiService.updateUserActivity(requestBody, authToken).enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
                 if (response.isSuccessful()) {
@@ -342,7 +347,10 @@ public class UserRepository {
         requestBody.put("templateId", templateId);
         requestBody.put("category", category);
         
-        apiService.recordTemplateView(requestBody).enqueue(new Callback<JsonObject>() {
+        // Get auth token - use empty string as we're using device ID for legacy authentication
+        String authToken = "";
+        
+        apiService.recordTemplateView(requestBody, authToken).enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
                 if (response.isSuccessful()) {
@@ -398,7 +406,10 @@ public class UserRepository {
             return;
         }
         
-        apiService.getUserRecommendations(deviceId).enqueue(new Callback<JsonObject>() {
+        // Get auth token - use empty string as we're using device ID for legacy authentication
+        String authToken = "";
+        
+        apiService.getUserRecommendations(deviceId, authToken).enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
                 if (response.isSuccessful() && response.body() != null) {

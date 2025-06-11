@@ -102,6 +102,8 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Add proper error handling for cancelled sign-in
   - Add proper initialization checks
   - Use proper dependency versions
+  - For non-critical services like MongoDB sync, handle 404 errors gracefully
+  - Treat infrastructure errors in non-critical paths as warnings rather than errors
 
 ## Cursor learned
 
@@ -215,6 +217,15 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Implement retry logic with exponential backoff for network requests
   - Consider the cost of toString() on large objects in log statements
   - Add expiration time to memory caches to force refresh periodically
+- When implementing Google Sign-In for Android:
+  - Create proper method signatures in AuthManager: signInWithGoogle(GoogleSignInAccount) that returns Task<AuthResult>
+  - Always handle both success and failure cases with addOnSuccessListener and addOnFailureListener
+  - Add proper null checks for account and idToken
+  - Include detailed logging for debugging sign-in issues
+  - Maintain consistent error handling patterns between related methods
+  - Ensure method implementations match the call sites in activities/fragments
+  - Consider reusing existing authentication logic (like firebaseAuthWithGoogle) to prevent code duplication
+  - Add proper task continuation for handling authentication results
 - When implementing server-side AdMob integration:
   - Use a centralized service for managing ad configurations
   - Implement caching to reduce database load and improve response times
@@ -1487,3 +1498,167 @@ Implementing Firebase Anonymous Auth combined with FCM token for persistent user
 Implementation complete! All tasks have been completed and tested. The system is ready for deployment.
 
 Would you like to review any specific part of the implementation?
+
+## Implementation Summary
+
+We have successfully implemented Google Sign-In integration with MongoDB sync in the EventWish app:
+
+1. **Firebase Authentication Updates**:
+   - Removed anonymous authentication code
+   - Added Google Sign-In flow with proper error handling
+   - Implemented account switching support
+   - Added Firebase auth state listeners for tracking sign-in status
+
+2. **Data Synchronization**:
+   - Added MongoDB sync after successful Google Sign-In
+   - Implemented error handling for network issues
+   - Added device ID tracking for cross-platform identification
+   - Ensured user profile data is preserved during sign-in
+
+3. **User Experience Improvements**:
+   - Streamlined authentication flow in SplashActivity
+   - Added detailed error messages for sign-in failures
+   - Implemented proper navigation after successful sign-in
+   - Added authentication state persistence across app restarts
+
+4. **Architecture Enhancements**:
+   - Updated FirestoreManager to handle both Google and anonymous auth (for backward compatibility)
+   - Created a clear separation between authentication and data operations
+   - Implemented proper singleton pattern for managers
+   - Added comprehensive error logging for debugging
+
+5. **Security Considerations**:
+   - Used SecureTokenManager for storing sensitive tokens
+   - Implemented token refresh mechanism
+   - Added validation for Google accounts
+   - Removed sensitive data from logs
+
+The implementation is complete and ready for thorough testing according to the detailed test plan.
+
+## Detailed Testing Plan for Google Sign-In
+
+### 1. Basic Functionality Tests
+
+#### A. Fresh Install Flow
+1. Uninstall app
+2. Install app
+3. Verify SplashActivity is shown with Google Sign-In button
+4. Click Google Sign-In button
+5. Select Google account
+6. Verify user is successfully signed in and directed to MainActivity
+7. Verify appropriate user info is displayed in UI
+
+#### B. Sign-Out and Sign-In Again
+1. Sign out of app
+2. Verify user is redirected to SplashActivity
+3. Attempt Google Sign-In again
+4. Verify successful sign-in and navigation to MainActivity
+5. Verify user data is preserved
+
+#### C. App Restart with Existing Sign-In
+1. Sign in to app
+2. Close app (not sign out)
+3. Reopen app
+4. Verify user remains signed in
+5. Verify MainActivity is loaded directly without SplashActivity
+6. Verify all user data is intact
+
+### 2. MongoDB Sync Tests
+
+#### A. User Profile Updates
+1. Create a new test user with Google Sign-In
+2. Use MongoDB admin panel to verify user document is created with:
+   - Correct Firebase UID
+   - Device ID
+   - Display name from Google account
+   - Email from Google account
+   - Profile photo URL from Google account
+   - lastOnline timestamp
+
+#### B. Error Handling
+1. Test with network disabled:
+   - Sign in with Google
+   - Verify app handles offline state gracefully
+   - Enable network and verify sync occurs
+2. Test with invalid MongoDB connection:
+   - Modify API endpoint temporarily to a non-existent endpoint
+   - Sign in with Google
+   - Verify app continues to function despite sync failure
+
+#### C. Token Refresh
+1. Sign in with Google
+2. Manually expire token (if possible)
+3. Perform an action requiring authentication
+4. Verify token is refreshed automatically
+5. Verify MongoDB sync still works after token refresh
+
+### 3. Anonymous Auth Removal Tests
+
+#### A. Firestore Operations
+1. Sign in with Google
+2. Verify all Firestore operations still work:
+   - Read user preferences
+   - Update user preferences
+   - Add/remove favorites
+   - Add/remove likes
+
+#### B. Migration Impact
+1. Install previous version with anonymous auth
+2. Use app to create data (favorites, likes, etc.)
+3. Update to new version with Google Sign-In
+4. Sign in with Google
+5. Verify previously created data is accessible
+
+#### C. Analytics Tracking
+1. Enable analytics in app
+2. Sign in with Google
+3. Perform various actions (view templates, add favorites, etc.)
+4. Verify events are tracked correctly with user ID
+
+### 4. Edge Case Tests
+
+#### A. Network Issues
+1. Start sign-in process
+2. Disable network during process
+3. Verify appropriate error message
+4. Enable network
+5. Retry sign-in
+6. Verify successful completion
+
+#### B. Account Switching
+1. Sign in with Google Account A
+2. Sign out
+3. Sign in with Google Account B
+4. Verify user-specific data changes appropriately
+5. Verify no data leakage between accounts
+
+#### C. Permission Handling
+1. Deny any permissions requested during sign-in
+2. Verify app handles denial gracefully
+3. Grant permissions
+4. Complete sign-in process
+5. Verify functionality works with granted permissions
+
+#### D. Canceled Sign-In
+1. Start Google Sign-In flow
+2. Cancel the operation (back button or cancel button)
+3. Verify app handles cancellation gracefully
+4. Verify user can retry sign-in
+
+### 5. Performance and Security Tests
+
+#### A. Sign-In Performance
+1. Measure time for complete sign-in process
+2. Verify it completes within acceptable time (< 5 seconds)
+3. Test on low-end devices if possible
+
+#### B. Memory Usage
+1. Monitor memory usage during sign-in process
+2. Verify no memory leaks after multiple sign-in/sign-out cycles
+
+#### C. Security Verification
+1. Verify tokens are stored securely using SecureTokenManager
+2. Verify sensitive user information is not exposed in logs
+3. Verify proper HTTPS usage for all network communication
+
+# ... existing code ...

@@ -21,6 +21,7 @@ import android.util.Log;
 import com.ds.eventwish.R;
 import com.ds.eventwish.ui.MainActivity;
 import com.ds.eventwish.data.auth.AuthManager;
+import com.ds.eventwish.data.remote.FirestoreManager;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes;
@@ -375,86 +376,99 @@ public class SplashActivity extends AppCompatActivity {
     }
 
     private void handleGoogleSignInAccount(Task<GoogleSignInAccount> task) {
-        Log.d(TAG, "handleGoogleSignInAccount: processing sign-in account task");
         try {
-            authManager.handleSignInResult(task)
-                .addOnSuccessListener(user -> {
-                    Log.d(TAG, "handleGoogleSignInAccount: successfully signed in with Firebase, uid: " + user.getUid());
-                    
-                    // Store a flag in SharedPreferences that the user has logged in
-                    getSharedPreferences("auth_prefs", MODE_PRIVATE)
-                        .edit()
-                        .putBoolean("user_authenticated", true)
-                        .apply();
-                    
-                    // Force token refresh to ensure we have a valid token
-                    user.getIdToken(true)
-                        .addOnSuccessListener(token -> {
-                            Log.d(TAG, "ID token refreshed successfully after sign-in");
-                            onSignInSuccess(user);
-                        })
-                        .addOnFailureListener(tokenError -> {
-                            Log.e(TAG, "Failed to refresh ID token after sign-in", tokenError);
-                            // Proceed anyway since this is a fresh sign-in
-                            onSignInSuccess(user);
-                        });
+            // Add more detailed error logging
+            Log.d(TAG, "Processing Google Sign-In result: " + 
+                  (task.isSuccessful() ? "Success" : "Failed - " + 
+                   (task.getException() != null ? task.getException().getMessage() : "Unknown error")));
+            
+            // Get Google Sign-In account
+            GoogleSignInAccount account = task.getResult(ApiException.class);
+            
+            // Handle specific error cases
+            if (account == null) {
+                Log.e(TAG, "Sign-in failed: GoogleSignInAccount is null");
+                onSignInFailure(new Exception("GoogleSignInAccount is null"));
+                return;
+            }
+            
+            // Extract account information for logging
+            String id = account.getId();
+            String email = account.getEmail();
+            String displayName = account.getDisplayName();
+            Log.d(TAG, "Google Sign-In success: ID=" + id + ", email=" + email + ", name=" + displayName);
+            
+            // Get Firebase credential from Google Sign-In account
+            authManager.signInWithGoogle(account)
+                .addOnSuccessListener(authResult -> {
+                    Log.d(TAG, "Firebase auth with Google successful");
+                    FirebaseUser user = authResult.getUser();
+                    if (user != null) {
+                        onSignInSuccess(user);
+                    } else {
+                        Log.e(TAG, "Firebase auth successful but user is null");
+                        onSignInFailure(new Exception("Firebase user is null after successful auth"));
+                    }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "handleGoogleSignInAccount: Firebase auth failed", e);
-                    // Clear any cached credentials that might be causing issues
-                    authManager.signOut();
-                    
-                    if (e instanceof ApiException) {
-                        ApiException apiException = (ApiException) e;
-                        int statusCode = apiException.getStatusCode();
-                        Log.e(TAG, "handleGoogleSignInAccount: API exception status code: " + statusCode);
-                        if (statusCode == GoogleSignInStatusCodes.SIGN_IN_CANCELLED) {
-                            onSignInFailure(new Exception(getString(R.string.sign_in_cancelled)));
-                        } else if (statusCode == GoogleSignInStatusCodes.NETWORK_ERROR) {
-                            onSignInFailure(new Exception(getString(R.string.sign_in_network_error)));
-                        } else {
-                            onSignInFailure(new Exception(getString(R.string.sign_in_failed) + " (code: " + statusCode + ")"));
-                        }
-                    } else {
-                        onSignInFailure(e);
-                    }
+                    Log.e(TAG, "Firebase auth with Google failed", e);
+                    onSignInFailure(e);
                 });
+        } catch (ApiException e) {
+            // Handle specific API exception errors
+            String errorMessage;
+            switch (e.getStatusCode()) {
+                case GoogleSignInStatusCodes.SIGN_IN_CANCELLED:
+                    errorMessage = "Sign-in was cancelled";
+                    break;
+                case GoogleSignInStatusCodes.NETWORK_ERROR:
+                    errorMessage = "Network error during sign-in";
+                    break;
+                default:
+                    errorMessage = "Sign-in failed: " + e.getStatusCode() + " - " + e.getMessage();
+                    break;
+            }
+            Log.e(TAG, errorMessage, e);
+            onSignInFailure(e);
         } catch (Exception e) {
-            Log.e(TAG, "handleGoogleSignInAccount: unexpected error", e);
+            // Handle any other unexpected exceptions
+            Log.e(TAG, "Unexpected error in Google Sign-In", e);
             onSignInFailure(e);
         }
     }
 
     private void onSignInSuccess(FirebaseUser user) {
-        Log.d(TAG, "onSignInSuccess: sign-in completed successfully for user: " + user.getUid() + 
-                  ", email: " + user.getEmail() + ", display name: " + user.getDisplayName());
-        isSigningIn = false;
-        signInStatus.setText(R.string.sign_in_success);
+        // Show sign-in success UI
         showSignInSuccess();
         
-        // Store authentication state in AuthStateManager
-        com.ds.eventwish.utils.AuthStateManager.getInstance(this).setAuthenticated(
-            user.getUid(),
-            user.getEmail(),
-            user.getDisplayName()
-        );
-        
-        // Store authentication state in SharedPreferences for backward compatibility
+        // Update user profile in MongoDB (non-critical operation)
+        FirestoreManager.getInstance().updateUserProfileInMongoDB(user)
+            .addOnSuccessListener(aVoid -> {
+                Log.d(TAG, "User profile successfully updated in MongoDB");
+            })
+            .addOnFailureListener(e -> {
+                // Check if it's a 404 error (endpoint doesn't exist)
+                if (e instanceof Exception && e.getMessage() != null && e.getMessage().contains("404")) {
+                    // This is expected if the endpoint doesn't exist yet, so just log a debug message
+                    Log.d(TAG, "MongoDB profile endpoint not available (404) - this is non-critical");
+                } else {
+                    // For other errors, log as a warning rather than an error since this is non-critical
+                    Log.w(TAG, "Failed to update user profile in MongoDB", e);
+                }
+                // Continue anyway since Firebase auth is successful
+            });
+
+        // Store authentication state
         getSharedPreferences("auth_prefs", MODE_PRIVATE)
             .edit()
             .putBoolean("user_authenticated", true)
-            .putString("user_id", user.getUid())
-            .putLong("auth_timestamp", System.currentTimeMillis())
             .apply();
-        
-        // Resume Firebase In-App Messaging now that the user is authenticated
+
+        // Resume in-app messaging
         resumeInAppMessaging();
-        
-        // Navigate to main activity after a short delay
-        new Handler().postDelayed(() -> {
-            Log.d(TAG, "onSignInSuccess: navigating to main activity");
-            startMainActivity();
-        }, 1500); // Increased delay to show success animation
+
+        // Add a delay before navigating to main
+        new Handler().postDelayed(this::navigateToMain, 1000);
     }
 
     private void onSignInFailure(Exception e) {

@@ -11,8 +11,10 @@ import com.ds.eventwish.data.auth.AuthManager;
 import com.ds.eventwish.data.model.NotificationPreference;
 import com.ds.eventwish.data.model.UserPreferences;
 import com.ds.eventwish.data.model.Template;
+import com.ds.eventwish.data.model.response.BaseResponse;
 import com.ds.eventwish.utils.AnalyticsUtils;
 import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.TaskCompletionSource;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -38,6 +40,8 @@ import androidx.work.WorkManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 import androidx.work.BackoffPolicy;
+import retrofit2.Call;
+import retrofit2.Response;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,6 +53,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Manager class for handling Firestore operations related to user preferences and interactions
@@ -131,11 +137,36 @@ public class FirestoreManager {
     }
 
     /**
+     * Check if the current user is signed in with Google
+     * @return true if signed in with Google, false otherwise
+     */
+    public boolean isGoogleSignedIn() {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user != null) {
+            for (com.google.firebase.auth.UserInfo profile : user.getProviderData()) {
+                if ("google.com".equals(profile.getProviderId())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
      * Get current user ID from Firebase Auth
      */
     private Task<String> getUserId() {
-        FirebaseUser user = authManager.getCurrentUser();
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user != null) {
+            // Check if this is a Google-signed-in user
+            boolean isGoogleUser = isGoogleSignedIn();
+            
+            if (isGoogleUser) {
+                Log.d(TAG, "User is authenticated with Google: " + user.getUid());
+            } else {
+                Log.d(TAG, "User is authenticated anonymously: " + user.getUid());
+            }
+            
             return Tasks.forResult(user.getUid());
         }
         
@@ -1260,5 +1291,85 @@ public class FirestoreManager {
             }
             return null; // This ensures the return type is Task<Void>
         });
+    }
+
+    /**
+     * Update user profile in MongoDB after Google Sign-In
+     * @param user Firebase user object
+     * @return Task representing the operation
+     */
+    public Task<Void> updateUserProfileInMongoDB(FirebaseUser user) {
+        if (user == null) {
+            return Tasks.forException(new IllegalArgumentException("User cannot be null"));
+        }
+        
+        // Get device ID
+        String deviceId;
+        try {
+            deviceId = SecureTokenManager.getInstance().getDeviceId();
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting device ID", e);
+            deviceId = "unknown_device";
+        }
+        
+        // Create data map for MongoDB update
+        Map<String, Object> userData = new HashMap<>();
+        userData.put("uid", user.getUid());
+        userData.put("deviceId", deviceId);
+        userData.put("displayName", user.getDisplayName() != null ? user.getDisplayName() : "");
+        userData.put("email", user.getEmail() != null ? user.getEmail() : "");
+        userData.put("profilePhoto", user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : "");
+        userData.put("lastOnline", System.currentTimeMillis());
+        
+        // Use ApiClient if available
+        if (ApiClient.isInitialized()) {
+            // Create a TaskCompletionSource to convert from Executor to Task
+            TaskCompletionSource<Void> taskCompletionSource = new TaskCompletionSource<>();
+            
+            // First get the authentication token
+            user.getIdToken(true)
+                .addOnSuccessListener(getTokenResult -> {
+                    String authToken = getTokenResult.getToken();
+                    // Use a background thread for the network operation
+                    Executors.newSingleThreadExecutor().execute(() -> {
+                        try {
+                            ApiService apiService = ApiClient.getClient();
+                            Call<BaseResponse<Void>> call = apiService.updateUserProfile(userData, "Bearer " + authToken);
+                            Response<BaseResponse<Void>> response = call.execute();
+                            
+                            if (response.isSuccessful()) {
+                                Log.d(TAG, "Successfully updated user profile in MongoDB");
+                                taskCompletionSource.setResult(null);
+                            } else {
+                                // Log the error but don't throw an exception for 404 errors
+                                if (response.code() == 404) {
+                                    Log.w(TAG, "MongoDB profile endpoint not found (404). This is non-critical and can be ignored.");
+                                    // Complete the task successfully since this is non-critical
+                                    taskCompletionSource.setResult(null);
+                                } else {
+                                    // For other errors, log and complete with exception
+                                    Log.e(TAG, "Failed to update MongoDB: " + response.code());
+                                    taskCompletionSource.setException(new Exception("Failed to update MongoDB: " + response.code()));
+                                }
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error updating MongoDB", e);
+                            // Complete the task successfully even if there's an error, since this is non-critical
+                            taskCompletionSource.setResult(null);
+                        }
+                    });
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error getting authentication token", e);
+                    // Complete the task successfully even if there's an error, since this is non-critical
+                    taskCompletionSource.setResult(null);
+                });
+            
+            return taskCompletionSource.getTask();
+        } else {
+            Log.e(TAG, "ApiClient not initialized, cannot update MongoDB");
+            // Return a successful task since this is non-critical
+            return Tasks.forResult(null);
+        }
     }
 } 
