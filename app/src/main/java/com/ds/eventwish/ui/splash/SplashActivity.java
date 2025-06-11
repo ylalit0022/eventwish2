@@ -441,21 +441,48 @@ public class SplashActivity extends AppCompatActivity {
         // Show sign-in success UI
         showSignInSuccess();
         
-        // Update user profile in MongoDB (non-critical operation)
-        FirestoreManager.getInstance().updateUserProfileInMongoDB(user)
-            .addOnSuccessListener(aVoid -> {
-                Log.d(TAG, "User profile successfully updated in MongoDB");
+        // Log user information for debugging
+        Log.d(TAG, "User sign-in success - UID: " + user.getUid() + 
+              ", Display name: " + user.getDisplayName() + 
+              ", Email: " + user.getEmail() + 
+              ", Is anonymous: " + user.isAnonymous() + 
+              ", Provider data count: " + user.getProviderData().size());
+              
+        for (com.google.firebase.auth.UserInfo profile : user.getProviderData()) {
+            Log.d(TAG, "Provider ID: " + profile.getProviderId() + 
+                  ", Provider UID: " + profile.getUid() + 
+                  ", Provider email: " + profile.getEmail());
+        }
+        
+        // First make sure we have a valid token
+        user.getIdToken(true)
+            .addOnSuccessListener(tokenResult -> {
+                Log.d(TAG, "Successfully refreshed user ID token, token length: " + 
+                      (tokenResult.getToken() != null ? tokenResult.getToken().length() : 0));
+                
+                // Now update user profile in MongoDB with fresh token
+                FirestoreManager.getInstance().updateUserProfileInMongoDB(user)
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d(TAG, "User profile successfully updated in MongoDB");
+                    })
+                    .addOnFailureListener(e -> {
+                        // Check if it's a 404 error (endpoint doesn't exist)
+                        if (e instanceof Exception && e.getMessage() != null && e.getMessage().contains("404")) {
+                            // This is expected if the endpoint doesn't exist yet, so just log a debug message
+                            Log.d(TAG, "MongoDB profile endpoint not available (404) - this is non-critical");
+                        } else {
+                            // For other errors, log as a warning rather than an error since this is non-critical
+                            Log.w(TAG, "Failed to update user profile in MongoDB", e);
+                        }
+                        // Continue anyway since Firebase auth is successful
+                    });
             })
             .addOnFailureListener(e -> {
-                // Check if it's a 404 error (endpoint doesn't exist)
-                if (e instanceof Exception && e.getMessage() != null && e.getMessage().contains("404")) {
-                    // This is expected if the endpoint doesn't exist yet, so just log a debug message
-                    Log.d(TAG, "MongoDB profile endpoint not available (404) - this is non-critical");
-                } else {
-                    // For other errors, log as a warning rather than an error since this is non-critical
-                    Log.w(TAG, "Failed to update user profile in MongoDB", e);
-                }
-                // Continue anyway since Firebase auth is successful
+                Log.e(TAG, "Failed to refresh user ID token", e);
+                // Try to update user profile anyway
+                FirestoreManager.getInstance().updateUserProfileInMongoDB(user)
+                    .addOnSuccessListener(aVoid -> Log.d(TAG, "User profile updated in MongoDB despite token refresh failure"))
+                    .addOnFailureListener(e2 -> Log.w(TAG, "Failed to update user profile in MongoDB after token refresh failure", e2));
             });
 
         // Store authentication state

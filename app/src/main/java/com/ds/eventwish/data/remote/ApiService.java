@@ -258,7 +258,7 @@ public interface ApiService {
      * @param authToken Firebase authentication token (for Authorization header)
      * @return Response indicating success or failure
      */
-    @POST("api/users/profile")
+    @POST("users/profile")
     Call<BaseResponse<Void>> updateUserProfile(
         @Body Map<String, Object> userData,
         @retrofit2.http.Header("Authorization") String authToken
@@ -286,7 +286,7 @@ public interface ApiService {
      * @param authToken Firebase authentication token (for Authorization header)
      * @return Response indicating success or failure
      */
-    @PUT("/api/users/activity")
+    @PUT("users/activity")
     Call<JsonObject> updateUserActivity(
         @Body Map<String, Object> body,
         @retrofit2.http.Header("Authorization") String authToken
@@ -298,7 +298,7 @@ public interface ApiService {
      * @param authToken Firebase authentication token (for Authorization header)
      * @return Response indicating success or failure
      */
-    @PUT("/api/users/template-view")
+    @PUT("users/template-view")
     Call<JsonObject> recordTemplateView(
         @Body Map<String, Object> body,
         @retrofit2.http.Header("Authorization") String authToken
