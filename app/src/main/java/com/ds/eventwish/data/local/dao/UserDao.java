@@ -6,6 +6,7 @@ import androidx.room.Delete;
 import androidx.room.Insert;
 import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
+import androidx.room.Transaction;
 import androidx.room.Update;
 
 import com.ds.eventwish.data.local.entity.UserEntity;
@@ -31,6 +32,21 @@ public interface UserDao {
      */
     @Update
     int update(UserEntity user);
+    
+    /**
+     * Insert or update a user
+     * @param user User to insert or update
+     * @return rowId of inserted item or number of rows updated
+     */
+    @Transaction
+    default long insertOrUpdate(UserEntity user) {
+        if (existsByUid(user.getUid())) {
+            update(user);
+            return user.getUid().hashCode(); // Return a consistent value based on UID
+        } else {
+            return insert(user);
+        }
+    }
     
     /**
      * Delete a user

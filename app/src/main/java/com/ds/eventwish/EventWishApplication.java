@@ -163,9 +163,11 @@ public class EventWishApplication extends Application implements Configuration.P
                     if (isGoogleUser) {
                         Log.d(TAG, "Auth state: User signed in with Google: " + user.getUid());
                         // Sync with MongoDB if needed
-                        FirestoreManager.getInstance().updateUserProfileInMongoDB(user)
-                            .addOnSuccessListener(aVoid -> Log.d(TAG, "User profile synced with MongoDB on app start"))
-                            .addOnFailureListener(e -> Log.e(TAG, "Failed to sync user profile with MongoDB", e));
+                        AuthManager.getInstance().syncUserWithMongoDB(user)
+                            .addOnSuccessListener(mongoUser -> 
+                                Log.d(TAG, "User profile synced with MongoDB on app start: " + mongoUser.getUid()))
+                            .addOnFailureListener(e -> 
+                                Log.e(TAG, "Failed to sync user profile with MongoDB", e));
                         
                         // Log additional debug info about user auth state
                         user.getIdToken(true)

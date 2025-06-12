@@ -174,11 +174,7 @@ public interface ApiService {
     @POST("auth/change-password")
     Call<JsonObject> changePassword(@Body Map<String, String> passwordRequest);
 
-    /**
-     * Get the OkHttpClient for this service
-     * @return OkHttpClient instance
-     */
-    OkHttpClient getClient();
+    // Remove non-HTTP method from interface
 
     // SMS verification endpoints
     /**
@@ -259,7 +255,7 @@ public interface ApiService {
      * @return Response indicating success or failure
      */
     @POST("users/profile")
-    Call<BaseResponse<Void>> updateUserProfile(
+    Call<JsonObject> updateUserProfile(
         @Body Map<String, Object> userData,
         @retrofit2.http.Header("Authorization") String authToken
     );

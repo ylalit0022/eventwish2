@@ -141,6 +141,19 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Add proper logging for debugging initialization issues
   - Always use getInstance() method to obtain singleton instances, never use direct instantiation with new
   - For classes that only provide getInstance(Context) without separate init(), ensure you're using the correct method
+- When implementing Firebase Authentication for backend services:
+  - Always set FIREBASE_PROJECT_ID environment variable to resolve "Unable to detect a Project Id" errors
+  - Use proper service account credentials (FIREBASE_SERVICE_ACCOUNT) in production
+  - Provide a fallback for development environments with SKIP_AUTH=true
+  - Add client-side fallback mechanisms to handle 401 authentication errors gracefully
+  - Implement local storage for template likes/favorites when authentication fails
+  - Add detailed error logging for authentication issues
+  - Ensure proper handling of different authentication error codes
+  - Create a good user experience by not showing backend authentication errors to users
+  - Document Firebase setup procedures in a dedicated README file
+  - When implementing token verification in middleware, add proper handling for various error cases
+  - Test authentication with both development and production environments
+  - Consider security implications when storing tokens and user credentials
 - When managing dependencies between singleton classes in Android:
   - Be aware of initialization order between singletons that depend on each other
   - Always initialize security/authentication managers before network/API clients
@@ -1036,629 +1049,253 @@ All implementation details have been completed according to the plan. The app no
 8. Version distribution: % of users on each app version
 9. Force update compliance: % of users who update when forced
 
-## Firebase Remote Config for Dynamic Share Messages
+## Firebase to MongoDB User Data Migration Plan
 
-### Current Implementation
-- Currently, the `handleShareVia` method uses hardcoded share text from string resources
-- No caching mechanism for remote messages
-- No dynamic placeholder replacement for sender/recipient names
+### Task Overview
+Migrate user data storage from Firebase to MongoDB, ensuring data synchronization between Firebase Auth and MongoDB backend.
 
-### Requirements
-1. Fetch share message from Firebase Remote Config parameter "share_message"
-2. Support dynamic placeholders for sender and recipient names
-3. Implement 24-hour cache expiration for fetched messages
-4. Graceful fallback to local strings if remote fetch fails
+### Current System Analysis
+
+#### 1. MongoDB User Schema (`User.js`)
+- **Comprehensive Schema**: Already has fields for uid, deviceId, displayName, email, profilePhoto, lastOnline
+- **User Preferences**: Includes theme, language, timezone, notification settings
+- **Template Interactions**: Tracks favorites, likes, recently used templates
+- **Engagement Tracking**: Records user activity with templates and categories
+- **Helper Methods**: Includes methods for updating lastOnline, category visits, template interactions
+
+#### 2. Backend API Routes (`users.js`)
+- **Authentication Endpoints**:
+  - `/users/profile` - Updates user profile after Firebase authentication
+  - `/users/register` - Registers new user with Firebase UID
+  - `/users/auth` - Handles first-time Firebase authentication
+- **User Data Endpoints**:
+  - GET `/users/:uid` - Fetches user by Firebase UID or device ID
+  - GET `/users/:uid/recommendations` - Gets personalized recommendations
+  - PUT `/users/activity` - Updates user's last online timestamp and category visits
+- **Template Interaction Endpoints**:
+  - PUT/DELETE for likes and favorites
+  - GET endpoints for retrieving user's likes, favorites, and recent templates
+- **Middleware**: Uses `verifyFirebaseToken` and `validateFirebaseUid` for authentication
+
+#### 3. Android User Model (`User.java`)
+- **Core Properties**: uid, phoneNumber, deviceId, displayName, email, profilePhoto
+- **User Preferences**: preferredTheme, preferredLanguage, timezone
+- **Template Interactions**: favorites, likes, recentTemplatesUsed, lastActiveTemplate
+- **Helper Methods**: addFavorite, removeFavorite, addLike, removeLike, recordTemplateView
+
+#### 4. Android API Interface (`ApiService.java`)
+- **User Profile Endpoints**:
+  - `updateUserProfile` - POST to /users/profile
+  - `getUserByUid` - GET from /users/{uid}
+  - `authenticateWithFirebase` - POST to /users/auth
+- **Template Interaction Endpoints**:
+  - Methods for adding/removing likes and favorites
+  - Methods for tracking template views and engagement
+- **Authentication**: Includes header parameter for Firebase authentication token
 
 ### Implementation Plan
 
-#### 1. Firebase Remote Config Setup
-- [X] Ensure Firebase Remote Config is properly initialized in the app
-- [X] Add default values for "share_message" parameter
-- [X] Configure Remote Config in Firebase Console with appropriate message templates
+#### Phase 1: Backend Verification and Enhancement
+- [X] Verify MongoDB User model completeness (already comprehensive)
+- [X] Review existing authentication endpoints
+  - [X] Ensure `/users/profile` properly handles Firebase Auth data
+  - [X] Verify error handling for user creation/update
+  - [X] Check backward compatibility with device ID-based lookups
+- [X] Enhance data consistency
+  - [X] Add validation for required fields
+  - [X] Improve error handling and logging
+  - [X] Add transaction support for critical operations
 
-#### 2. Create ShareMessageManager Class
-- [X] Create a new class `ShareMessageManager` to handle fetching and caching of share messages
-- [X] Implement singleton pattern for easy access
-- [X] Add methods for fetching, caching, and retrieving share messages
+#### Phase 2: Android Client Updates
+- [X] Create/Update UserRepository class
+  - [X] Implement `syncUserWithMongoDB(FirebaseUser user)` method
+  - [X] Add caching mechanism for offline access
+  - [X] Implement retry logic for network failures
+- [X] Update authentication flow
+  - [X] Add MongoDB sync after successful Firebase Auth
+  - [X] Handle edge cases (network issues, token expiration)
+  - [X] Implement proper error handling and user feedback
+- [X] Enhance user profile management
+  - [X] Add methods for fetching and updating user preferences
+  - [X] Implement proper caching strategy
+  - [X] Add background synchronization for offline changes
 
-#### 3. Implement Caching Mechanism
-- [X] Use SharedPreferences to store cached messages
-- [X] Store timestamp alongside cached messages
-- [X] Implement cache validity check (24-hour expiration)
-- [X] Add methods to clear expired cache
+#### Phase 3: Data Migration Strategy
+- [X] Implement migration logic in Android client
+  - [X] Detect users with Firebase data but no MongoDB entry
+  - [X] Sync local data to MongoDB on first login after update
+  - [X] Add migration status tracking to prevent duplicate operations
+- [X] Add server-side migration support
+  - [X] Create admin endpoint for triggering batch migrations
+  - [X] Implement data validation and conflict resolution
+  - [X] Add detailed logging for migration operations
 
-#### 4. Add Placeholder Processing
-- [X] Implement placeholder replacement logic for:
-  - `{{sender_name}}` - Replace with sender's name
-  - `{{recipient_name}}` - Replace with recipient's name
-  - `{{share_url}}` - Replace with the share URL
-- [X] Add fallback for missing placeholder values
+#### Phase 4: Testing and Verification
+- [ ] Test authentication flow
+  - [X] New user registration
+  - [X] Existing user login with Firebase UID
+  - [X] Legacy user login with device ID
+  - [ ] Token refresh and expiration handling
+- [ ] Test data operations
+  - [ ] Profile updates and preferences
+  - [ ] Template interactions (likes, favorites, views)
+  - [ ] Category tracking and recommendations
+- [ ] Test offline capabilities
+  - [ ] Offline data access
+  - [ ] Data synchronization after reconnection
+  - [ ] Conflict resolution
 
-#### 5. Update handleShareVia Method
-- [X] Modify to use ShareMessageManager to get share text
-- [X] Pass sender and recipient names for placeholder replacement
-- [X] Handle cases where remote config fetch fails
-- [X] Maintain platform-specific customization if needed
+### Implementation Details
 
-#### 6. Testing and Validation
-- [X] Test with various placeholder combinations
-- [X] Test cache expiration logic
-- [X] Test fallback to default messages
-- [X] Verify proper message formatting across platforms
+#### 1. Backend Enhancements
+- **User Authentication Flow**:
+  ```
+  1. Client authenticates with Firebase
+  2. Client sends Firebase UID to server
+  3. Server checks if user exists by UID
+  4. If exists: update lastOnline and any provided fields
+  5. If not exists: create new user with provided data
+  6. Return complete user profile
+  ```
 
-### Implementation Summary
+- **Data Consistency Improvements**:
+  - Add validation for required fields (uid at minimum)
+  - Implement proper error handling with specific error codes
+  - Add detailed logging for debugging and monitoring
+  - Use transactions for operations that modify multiple documents
 
-1. Created `ShareMessageManager` class with:
-   - Singleton pattern for easy access
-   - Caching with 24-hour expiration using SharedPreferences
-   - Platform-specific message support
-   - Placeholder replacement for sender name, recipient name, and share URL
+#### 2. Android Client Implementation
+- **UserRepository Class**:
+  ```java
+  public class UserRepository {
+      private final ApiService apiService;
+      private final MutableLiveData<User> currentUser;
+      private final SharedPreferences prefs;
+      
+      // Constructor
+      
+      public Task<User> syncUserWithMongoDB(FirebaseUser firebaseUser) {
+          // Create request body with Firebase user data
+          // Call API to update/create user in MongoDB
+          // Handle response and cache user data
+          // Return Task with User object
+      }
+      
+      public LiveData<User> getUserProfile(String uid) {
+          // Check cache first
+          // If not in cache or expired, fetch from API
+          // Update cache and return LiveData
+      }
+      
+      public Task<User> updateUserProfile(User user) {
+          // Call API to update user profile
+          // Update cache on success
+          // Return Task with updated User
+      }
+      
+      // Other methods for specific operations
+  }
+  ```
 
-2. Updated string resources to use placeholders:
-   - Changed format strings to use `{{placeholder}}` syntax
-   - Added platform-specific message templates
+- **Authentication Flow Updates**:
+  ```java
+  // In login activity or auth manager
+  firebaseAuth.signInWithEmailAndPassword(email, password)
+      .addOnSuccessListener(authResult -> {
+          FirebaseUser firebaseUser = authResult.getUser();
+          if (firebaseUser != null) {
+              userRepository.syncUserWithMongoDB(firebaseUser)
+                  .addOnSuccessListener(user -> {
+                      // Navigate to main activity
+                  })
+                  .addOnFailureListener(e -> {
+                      // Handle MongoDB sync failure
+                      // Show error message but allow proceeding if non-critical
+                  });
+          }
+      })
+      .addOnFailureListener(e -> {
+          // Handle Firebase auth failure
+      });
+  ```
 
-3. Updated `handleShareVia` method to:
-   - Get dynamic share message from ShareMessageManager
-   - Pass sender name, recipient name, and share URL for placeholder replacement
-   - Support platform-specific messages
+#### 3. API Endpoints to Use/Update
 
-4. Added initialization in `EventWishApplication`:
-   - Initialize ShareMessageManager during app startup
-   - Preload share messages when viewing shared wishes
+1. **User Profile Sync**:
+   ```
+   POST /api/users/profile
+   Headers: {
+     "Authorization": "Bearer <firebase_token>"
+   }
+   Body: {
+     "uid": "<firebase_uid>",
+     "displayName": "<user_name>",
+     "email": "<user_email>",
+     "profilePhoto": "<photo_url>",
+     "deviceId": "<device_id>",  // For backward compatibility
+     "lastOnline": <timestamp>
+   }
+   Response: {
+     "success": true,
+     "message": "User profile updated",
+     "user": {<user_object>}
+   }
+   ```
 
-5. Added preloading in `SharedWishFragment`:
-   - Fetch messages in advance when viewing shared wishes
-   - Use cached messages when sharing
+2. **Get User Profile**:
+   ```
+   GET /api/users/{uid}
+   Headers: {
+     "Authorization": "Bearer <firebase_token>"
+   }
+   Response: {
+     "success": true,
+     "user": {<user_object>}
+   }
+   ```
 
-### Benefits Achieved
-- Dynamically updatable share messages without app updates
-- Personalized messages with sender/recipient names
-- Reduced network requests with caching
-- Graceful fallback to local resources
-- A/B testing capability for share messages
+3. **Update User Preferences**:
+   ```
+   PUT /api/users/preferences
+   Headers: {
+     "Authorization": "Bearer <firebase_token>"
+   }
+   Body: {
+     "uid": "<firebase_uid>",
+     "preferences": {
+       "preferredTheme": "dark",
+       "preferredLanguage": "en",
+       "timezone": "America/New_York",
+       // Other preferences
+     }
+   }
+   Response: {
+     "success": true,
+     "message": "User preferences updated successfully",
+     "user": {<updated_preferences>}
+   }
+   ```
 
-# Personalized Push Notification Implementation Plan
-
-## Overview
-Implementing personalized push notifications with template favorites and likes, using Firebase Cloud Messaging (FCM) and Firestore.
-
-## Current Status Analysis
-1. Existing Components:
-   - EventWishFirebaseMessagingService (handles FCM)
-   - TokenRepository (manages FCM tokens)
-   - TemplateDetailFragment (UI for templates)
-   - AnalyticsUtils (tracking)
-
-2. Missing Components:
-   - User preferences storage
-   - Template favorites/likes system
-   - Firestore integration
-   - Personalized notification handling
-
-## Implementation Plan
-
-### Phase 1: Data Models and Storage
-
-1. User Preferences Model (Complete)
-[X] Created UserPreferences.java
-  - Added Firestore annotations (@DocumentId, @PropertyName)
-  - Implemented favorite/like template lists
-  - Added notification preferences map
-  - Added helper methods for template interactions
-  - Added proper null handling in setters
-
-[X] Created NotificationPreference.java
-  - Added constant preference types
-  - Implemented sound and vibration settings
-  - Added time preference support
-  - Added helper method for default preferences
-
-2. UI Components (Complete)
-[X] Updated item_template.xml
-  - Added like and favorite icons
-  - Added proper styling and ripple effects
-  - Created vector drawables for icons
-  - Added proper accessibility support
-
-3. Database Setup (In Progress)
-[X] Created Firestore security rules
-  - Added rules for user preferences
-  - Added rules for favorites collection
-  - Added rules for likes collection
-  - Added rules for notifications
-  - Added admin access for cloud functions
-
-[X] Create Firestore collections
-  - users/{userId}/preferences (stores user settings)
-  - users/{userId}/favorites (stores favorite templates)
-  - users/{userId}/likes (stores liked templates)
-  - users/{userId}/notifications (stores notification history)
-
-### Phase 2: Android Implementation (In Progress)
-[X] Create FirestoreManager
-  - Implemented CRUD operations for user preferences
-  - Added favorites/likes management
-  - Added notification handling
-  - Implemented proper singleton pattern
-  - Added offline persistence
-
-[X] Implement UserPreferencesRepository
-  - Added data synchronization
-  - Implemented error handling
-  - Added analytics tracking
-  - Added edge case handling
-  - Implemented retry mechanisms
-
-[ ] Implement TemplateInteractionRepository
-[ ] Update TemplateDetailFragment
-[ ] Update FCM service
-
-## Next Steps
-
-[X] Create UserPreferences model
-[X] Create NotificationPreference model
-[X] Add UI components for like/favorite
-[X] Setup Firestore security rules
-[X] Create Firestore collections
-[X] Implement FirestoreManager
-[X] Implement repositories
-[ ] Update UI components
-[ ] Update FCM service
-
-Progress will be tracked here with checkmarks as items are completed.
-
-### Phase 3: Analytics Implementation
-[X] Add analytics events
-  - Template interaction events
-    - Favorite added/removed
-    - Like added/removed
-    - Template viewed
-    - Share initiated
-  - Notification events
-    - Notification received
-    - Notification clicked
-    - Notification dismissed
-  - Error events
-    - API failures
-    - Database errors
-    - Permission issues
-  - User preference events
-    - Settings changed
-    - Quiet hours updated
-    - Categories subscribed/unsubscribed
-
-[X] Implement analytics tracking in AnalyticsUtils
-  - Add trackTemplateInteraction method
-  - Add trackNotificationEvent method
-  - Add trackErrorEvent method
-  - Add trackPreferenceChange method
-  - Add proper parameter validation
-  - Add tracking success/failure logging
-
-[X] Add analytics to repositories
-  - Track database operations
-  - Track network calls
-  - Track cache hits/misses
-  - Track synchronization events
-
-### Phase 4: Error Handling and Edge Cases
-[X] Add comprehensive error handling
-  - Network connectivity issues
-    - Handle offline mode gracefully
-    - Implement retry mechanisms
-    - Cache important operations for retry
-  - Permission errors
-    - Handle notification permission denial
-    - Handle storage permission issues
-    - Provide user-friendly error messages
-  - Database errors
-    - Handle transaction failures
-    - Implement conflict resolution
-    - Add data validation
-  - Authentication errors
-    - Handle token expiration
-    - Implement auto-retry with refresh token
-    - Handle permanent authentication failures
-
-[X] Implement edge case handling
-  - Empty states
-    - No favorites/likes
-    - No notification history
-    - First-time user experience
-  - Data synchronization
-    - Handle concurrent modifications
-    - Resolve merge conflicts
-    - Implement version control
-  - Resource constraints
-    - Handle low memory conditions
-    - Manage large dataset pagination
-    - Implement data cleanup
-  - Device-specific issues
-    - Handle different Android versions
-    - Account for various screen sizes
-    - Support different device capabilities
-
-[X] Add error recovery mechanisms
-  - Automatic retry logic
-    - Implement exponential backoff
-    - Set maximum retry attempts
-    - Add retry status notifications
-  - Data consistency checks
-    - Verify database integrity
-    - Validate cached data
-    - Clean up orphaned records
-  - User feedback
-    - Show error resolution options
-    - Provide manual retry buttons
-    - Add help/support access
-
-### Updated Next Steps
-
-[X] Create UserPreferences model
-[X] Create NotificationPreference model
-[X] Add UI components for like/favorite
-[X] Setup Firestore security rules
-[X] Create Firestore collections
-[X] Implement analytics tracking
-[X] Add error handling
-[X] Test edge cases
-
-Progress will be tracked here with checkmarks as items are completed.
-
-# Like and Favorite Implementation Plan
-
-## Current Analysis
-
-### Existing Components
-1. Template.java
-   - Basic template model with id, name, categoryId, imageUrl
-   - ✓ Added like and favorite fields
-   - ✓ Added likeCount field
-
-2. TemplateAdapter.java
-   - Basic adapter implementation
-   - ✓ Uses DiffUtil for efficient updates
-   - ✓ Added like/favorite click handlers
-   - ✓ Added animations
-
-3. item_template.xml
-   - ✓ Moved like and favorite icons outside CardView
-   - ✓ Added MaterialCardView for icon container
-   - ✓ Added proper elevation and background
-
-### Required Changes
-
-#### 1. Model Updates (Template.java)
-[X] Add new fields:
-  - private boolean isLiked
-  - private boolean isFavorited
-  - private int likeCount
-  - Add corresponding getters/setters
-  - Update constructor
-  - Update DIFF_CALLBACK
-
-#### 2. UI Updates (item_template.xml)
-[X] Move interaction buttons outside CardView:
-  - Create new ConstraintLayout as root
-  - Place CardView for template content
-  - Place like/favorite icons overlaid on bottom-right
-  - Apply elevation and background to icons
-  - Add ripple effect for icons
-
-#### 3. Adapter Updates (TemplateAdapter.java)
-[X] Add interaction handling:
-  - Create interface for like/favorite callbacks
-  - Add click listeners for icons
-  - Update ViewHolder binding
-  - Add icon state updates
-  - Add animation for state changes
-
-#### 4. Repository Layer
-[X] Create TemplateInteractionRepository:
-  - Handle like/favorite state persistence
-  - Manage like count updates
-  - Handle Firestore integration
-  - Implement caching
-  - Add analytics tracking
-
-#### 5. ViewModel Updates
-[X] Create TemplateViewModel:
-  - Add like/favorite state management
-  - Add interaction methods
-  - Handle state persistence
-  - Add analytics events
-  - Add proper cleanup in onCleared()
-  - Add error handling
-  - Add loading states
-
-### Implementation Timeline
-- Week 1: Foundation - Core classes and algorithms ✓
-- Week 2: UI Integration - Animations and user experience ✓
-- Week 3: Server-Side Support - API endpoints and distribution algorithms ✓
-- Week 4: Testing and Refinement - In Progress
+### Progress Tracking
+- [X] Analyze existing code and infrastructure
+- [X] Backend verification and enhancement
+  - [X] Review authentication endpoints
+  - [X] Enhance data consistency
+  - [X] Add detailed logging
+- [X] Android client updates
+  - [X] Create/update UserRepository
+  - [X] Update authentication flow
+  - [X] Enhance user profile management
+- [X] Data migration strategy
+  - [X] Implement client-side migration logic
+  - [X] Add server-side migration support
+- [ ] Testing and verification
+  - [X] Test authentication flow
+  - [ ] Test data operations
+  - [ ] Test offline capabilities
 
 ### Next Steps
-1. [X] Create UserPreferences model
-2. [X] Create NotificationPreference model
-3. [X] Add UI components for like/favorite
-4. [X] Setup Firestore security rules
-5. [X] Create Firestore collections
-6. [X] Implement FirestoreManager
-7. [X] Implement repositories
-8. [X] Create TemplateViewModel
-9. [ ] Add comprehensive testing
-
-The TemplateViewModel has been implemented with the following features:
-1. State management for likes, favorites, and like counts
-2. Proper lifecycle handling with resource cleanup
-3. Analytics tracking for user interactions
-4. Error handling and loading states
-5. Efficient caching of LiveData objects
-6. Thread-safe operations with ConcurrentHashMap
-
-Would you like me to proceed with implementing the comprehensive testing plan next?
-
-# Anonymous Auth + FCM Implementation Plan
-
-## Overview
-Implementing Firebase Anonymous Auth combined with FCM token for persistent user identification.
-
-## Current Status Analysis
-[X] Existing Components Identified:
-  - EventWishFirebaseMessagingService (handles FCM)
-  - SecureTokenManager (handles secure storage)
-  - FirestoreManager (uses FCM for user ID)
-
-## Implementation Tasks
-
-### 1. FirestoreManager Updates
-[X] Add Anonymous Auth Support
-  - [X] Add getUserId() method
-  - [X] Update user document structure
-  - [X] Modify setFcmToken() to use Auth UID
-  - [X] Update all queries to use Auth UID
-  - [X] Add error handling for auth state
-
-### 2. FCM Service Updates
-[X] Enhance EventWishFirebaseMessagingService
-  - [X] Add ensureUserAndUpdateToken() method
-  - [X] Update onNewToken() implementation
-  - [X] Add proper error handling
-  - [X] Add token refresh logic
-  - [X] Add token verification
-
-### 3. Application Updates
-[X] Update EventWishApplication
-  - [X] Add Auth state listener
-  - [X] Implement automatic anonymous sign-in
-  - [X] Add initialization order management
-  - [X] Add error recovery logic
-
-### 4. Data Migration
-[X] Plan for Existing Users
-  - [X] Keep FCM token backward compatibility
-  - [X] Add Auth UID to existing documents
-  - [X] Update queries to check both IDs
-  - [X] Add migration completion flag
-
-### 5. Testing Plan
-[X] Core Functionality Tests
-  - [X] Test anonymous sign-in
-  - [X] Test FCM token updates
-  - [X] Test user document updates
-  - [X] Test offline behavior
-
-[X] Edge Cases
-  - [X] Test token refresh
-  - [X] Test auth state changes
-  - [X] Test network failures
-  - [X] Test app restarts
-
-[X] Migration Tests
-  - [X] Test existing user migration
-  - [X] Test data consistency
-  - [X] Test backward compatibility
-
-## Implementation Order
-[X] 1. FirestoreManager basic Auth support
-[X] 2. FCM Service anonymous auth integration
-[X] 3. Application initialization updates
-[X] 4. Data migration implementation
-[X] 5. Testing and validation
-
-## Current Progress
-- Stage: Testing Implementation Complete
-- Next Step: Final Review
-- Status: Ready for deployment
-
-## Notes
-- Keep existing FCM token functionality during transition
-- Implement changes gradually to maintain stability
-- Add proper logging for debugging
-- Focus on maintaining user data consistency
-
-## Validation Checklist
-[X] Anonymous Auth support added to FirestoreManager
-[X] FCM token properly stored
-[X] User data persistent across restarts
-[X] Likes/Favorites maintained
-[X] Offline functionality working
-[X] Migration successful
-[X] No data loss during transition
-
-## Recent Updates
-- Created comprehensive test suite
-- Added core functionality tests
-- Added edge case tests
-- Added migration tests
-- Added proper test cleanup
-- Added test documentation
-
-Implementation complete! All tasks have been completed and tested. The system is ready for deployment.
-
-Would you like to review any specific part of the implementation?
-
-## Implementation Summary
-
-We have successfully implemented Google Sign-In integration with MongoDB sync in the EventWish app:
-
-1. **Firebase Authentication Updates**:
-   - Removed anonymous authentication code
-   - Added Google Sign-In flow with proper error handling
-   - Implemented account switching support
-   - Added Firebase auth state listeners for tracking sign-in status
-
-2. **Data Synchronization**:
-   - Added MongoDB sync after successful Google Sign-In
-   - Implemented error handling for network issues
-   - Added device ID tracking for cross-platform identification
-   - Ensured user profile data is preserved during sign-in
-
-3. **User Experience Improvements**:
-   - Streamlined authentication flow in SplashActivity
-   - Added detailed error messages for sign-in failures
-   - Implemented proper navigation after successful sign-in
-   - Added authentication state persistence across app restarts
-
-4. **Architecture Enhancements**:
-   - Updated FirestoreManager to handle both Google and anonymous auth (for backward compatibility)
-   - Created a clear separation between authentication and data operations
-   - Implemented proper singleton pattern for managers
-   - Added comprehensive error logging for debugging
-
-5. **Security Considerations**:
-   - Used SecureTokenManager for storing sensitive tokens
-   - Implemented token refresh mechanism
-   - Added validation for Google accounts
-   - Removed sensitive data from logs
-
-The implementation is complete and ready for thorough testing according to the detailed test plan.
-
-## Detailed Testing Plan for Google Sign-In
-
-### 1. Basic Functionality Tests
-
-#### A. Fresh Install Flow
-1. Uninstall app
-2. Install app
-3. Verify SplashActivity is shown with Google Sign-In button
-4. Click Google Sign-In button
-5. Select Google account
-6. Verify user is successfully signed in and directed to MainActivity
-7. Verify appropriate user info is displayed in UI
-
-#### B. Sign-Out and Sign-In Again
-1. Sign out of app
-2. Verify user is redirected to SplashActivity
-3. Attempt Google Sign-In again
-4. Verify successful sign-in and navigation to MainActivity
-5. Verify user data is preserved
-
-#### C. App Restart with Existing Sign-In
-1. Sign in to app
-2. Close app (not sign out)
-3. Reopen app
-4. Verify user remains signed in
-5. Verify MainActivity is loaded directly without SplashActivity
-6. Verify all user data is intact
-
-### 2. MongoDB Sync Tests
-
-#### A. User Profile Updates
-1. Create a new test user with Google Sign-In
-2. Use MongoDB admin panel to verify user document is created with:
-   - Correct Firebase UID
-   - Device ID
-   - Display name from Google account
-   - Email from Google account
-   - Profile photo URL from Google account
-   - lastOnline timestamp
-
-#### B. Error Handling
-1. Test with network disabled:
-   - Sign in with Google
-   - Verify app handles offline state gracefully
-   - Enable network and verify sync occurs
-2. Test with invalid MongoDB connection:
-   - Modify API endpoint temporarily to a non-existent endpoint
-   - Sign in with Google
-   - Verify app continues to function despite sync failure
-
-#### C. Token Refresh
-1. Sign in with Google
-2. Manually expire token (if possible)
-3. Perform an action requiring authentication
-4. Verify token is refreshed automatically
-5. Verify MongoDB sync still works after token refresh
-
-### 3. Anonymous Auth Removal Tests
-
-#### A. Firestore Operations
-1. Sign in with Google
-2. Verify all Firestore operations still work:
-   - Read user preferences
-   - Update user preferences
-   - Add/remove favorites
-   - Add/remove likes
-
-#### B. Migration Impact
-1. Install previous version with anonymous auth
-2. Use app to create data (favorites, likes, etc.)
-3. Update to new version with Google Sign-In
-4. Sign in with Google
-5. Verify previously created data is accessible
-
-#### C. Analytics Tracking
-1. Enable analytics in app
-2. Sign in with Google
-3. Perform various actions (view templates, add favorites, etc.)
-4. Verify events are tracked correctly with user ID
-
-### 4. Edge Case Tests
-
-#### A. Network Issues
-1. Start sign-in process
-2. Disable network during process
-3. Verify appropriate error message
-4. Enable network
-5. Retry sign-in
-6. Verify successful completion
-
-#### B. Account Switching
-1. Sign in with Google Account A
-2. Sign out
-3. Sign in with Google Account B
-4. Verify user-specific data changes appropriately
-5. Verify no data leakage between accounts
-
-#### C. Permission Handling
-1. Deny any permissions requested during sign-in
-2. Verify app handles denial gracefully
-3. Grant permissions
-4. Complete sign-in process
-5. Verify functionality works with granted permissions
-
-#### D. Canceled Sign-In
-1. Start Google Sign-In flow
-2. Cancel the operation (back button or cancel button)
-3. Verify app handles cancellation gracefully
-4. Verify user can retry sign-in
-
-### 5. Performance and Security Tests
-
-#### A. Sign-In Performance
-1. Measure time for complete sign-in process
-2. Verify it completes within acceptable time (< 5 seconds)
-3. Test on low-end devices if possible
-
-#### B. Memory Usage
-1. Monitor memory usage during sign-in process
-2. Verify no memory leaks after multiple sign-in/sign-out cycles
-
-#### C. Security Verification
-1. Verify tokens are stored securely using SecureTokenManager
-2. Verify sensitive user information is not exposed in logs
-3. Verify proper HTTPS usage for all network communication
-
-# ... existing code ...
+1. [X] Create/update UserRepository class in Android
+2. [X] Implement syncUserWithMongoDB method
+3. [X] Update authentication flow to call syncUserWithMongoDB
+4. [ ] Complete testing with new and existing users

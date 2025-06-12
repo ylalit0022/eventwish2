@@ -895,18 +895,22 @@ public class HomeViewModel extends ViewModel {
             return Tasks.forException(new IllegalArgumentException("Template or template ID is null"));
         }
         
-        // Get the new state (opposite of current)
-        boolean newLikeState = !template.isLiked();
+        // Use the current state directly instead of negating it
+        boolean currentLikeState = template.isLiked();
         
         // Track the event with appropriate action
-        if (newLikeState) {
+        if (currentLikeState) {
             AnalyticsUtils.getInstance().trackTemplateLike(template.getId(), "home_feed");
         } else {
             AnalyticsUtils.getInstance().trackTemplateUnlike(template.getId(), "home_feed");
         }
         
+        // Log the state for debugging
+        Log.d(TAG, "Sending like state to repository: template=" + template.getId() + 
+              ", isLiked=" + currentLikeState);
+        
         // Update the template in repository and return the task
-        return repository.toggleLike(template.getId(), newLikeState);
+        return repository.toggleLike(template.getId(), currentLikeState);
     }
 
     /**
@@ -919,17 +923,21 @@ public class HomeViewModel extends ViewModel {
             return Tasks.forException(new IllegalArgumentException("Template or template ID is null"));
         }
         
-        // Get the new state (opposite of current)
-        boolean newFavoriteState = !template.isFavorited();
+        // Use the current state directly instead of negating it
+        boolean currentFavoriteState = template.isFavorited();
         
         // Track the event with appropriate action
-        if (newFavoriteState) {
+        if (currentFavoriteState) {
             AnalyticsUtils.getInstance().trackTemplateFavorite(template.getId(), "home_feed");
         } else {
             AnalyticsUtils.getInstance().trackTemplateUnfavorite(template.getId(), "home_feed");
         }
         
+        // Log the state for debugging
+        Log.d(TAG, "Sending favorite state to repository: template=" + template.getId() + 
+              ", isFavorited=" + currentFavoriteState);
+        
         // Update the template in repository and return the task
-        return repository.toggleFavorite(template.getId(), newFavoriteState);
+        return repository.toggleFavorite(template.getId(), currentFavoriteState);
     }
 }

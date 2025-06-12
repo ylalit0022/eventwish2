@@ -168,42 +168,17 @@ public class SplashActivity extends AppCompatActivity {
     }
 
     private void trySilentSignIn() {
-        Log.d(TAG, "trySilentSignIn: attempting silent sign-in");
-        
-        // First check network connectivity
-        if (!NetworkUtils.isNetworkAvailable(this)) {
-            Log.d(TAG, "No network connection, checking for cached user");
-            // Check if we have a cached Firebase user
-            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-            if (currentUser != null) {
-                Log.d(TAG, "Using cached Firebase user in offline mode");
-                // Allow proceeding in offline mode with cached user
-                resumeInAppMessaging();
-                navigateToMain();
-                return;
-            } else {
-                // No cached user and no network
-                Log.d(TAG, "No cached user and no network, showing sign-in button");
-                showSignInButton();
-                return;
-            }
-        }
-        
-        // Check if we have a current user
+        // Check if user is already signed in
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null) {
-            // User exists, force refresh token to ensure it's valid
-            Log.d(TAG, "Current user exists, refreshing token");
+            Log.d(TAG, "User already signed in: " + currentUser.getUid());
+            
+            // Refresh token to ensure it's valid
             currentUser.getIdToken(true)
-                .addOnSuccessListener(result -> {
-                    Log.d(TAG, "Token refresh successful, proceeding to main activity");
-                    // Store authentication state
-                    getSharedPreferences("auth_prefs", MODE_PRIVATE)
-                        .edit()
-                        .putBoolean("user_authenticated", true)
-                        .apply();
-                    resumeInAppMessaging();
-                    navigateToMain();
+                .addOnSuccessListener(tokenResult -> {
+                    Log.d(TAG, "Token refresh successful, token length: " + 
+                          (tokenResult.getToken() != null ? tokenResult.getToken().length() : 0));
+                    onSignInSuccess(currentUser);
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Token refresh failed, user may need to re-authenticate", e);
@@ -213,7 +188,7 @@ public class SplashActivity extends AppCompatActivity {
                 });
         } else {
             // No current user, try silent sign-in
-            authManager.silentSignIn()
+            authManager.trySilentSignIn()
                 .addOnSuccessListener(account -> {
                     Log.d(TAG, "Silent sign-in successful");
                     handleGoogleSignInAccount(Tasks.forResult(account));
@@ -321,9 +296,8 @@ public class SplashActivity extends AppCompatActivity {
         showSignInProgress();
 
         try {
-            Intent signInIntent = authManager.getGoogleSignInClient().getSignInIntent();
+            authManager.getSignInIntent(signInLauncher);
             Log.d(TAG, "startGoogleSignIn: created sign-in intent, launching activity");
-            signInLauncher.launch(signInIntent);
         } catch (Exception e) {
             Log.e(TAG, "startGoogleSignIn: failed to start sign-in", e);
             onSignInFailure(e);
@@ -454,48 +428,38 @@ public class SplashActivity extends AppCompatActivity {
                   ", Provider email: " + profile.getEmail());
         }
         
-        // First make sure we have a valid token
-        user.getIdToken(true)
-            .addOnSuccessListener(tokenResult -> {
-                Log.d(TAG, "Successfully refreshed user ID token, token length: " + 
-                      (tokenResult.getToken() != null ? tokenResult.getToken().length() : 0));
+        // Sync user with MongoDB after successful Firebase authentication
+        authManager.syncUserWithMongoDB(user)
+            .addOnSuccessListener(mongoUser -> {
+                Log.d(TAG, "MongoDB sync successful - User: " + mongoUser.getUid());
                 
-                // Now update user profile in MongoDB with fresh token
-                FirestoreManager.getInstance().updateUserProfileInMongoDB(user)
-                    .addOnSuccessListener(aVoid -> {
-                        Log.d(TAG, "User profile successfully updated in MongoDB");
-                    })
-                    .addOnFailureListener(e -> {
-                        // Check if it's a 404 error (endpoint doesn't exist)
-                        if (e instanceof Exception && e.getMessage() != null && e.getMessage().contains("404")) {
-                            // This is expected if the endpoint doesn't exist yet, so just log a debug message
-                            Log.d(TAG, "MongoDB profile endpoint not available (404) - this is non-critical");
-                        } else {
-                            // For other errors, log as a warning rather than an error since this is non-critical
-                            Log.w(TAG, "Failed to update user profile in MongoDB", e);
-                        }
-                        // Continue anyway since Firebase auth is successful
-                    });
+                // Store authentication state
+                getSharedPreferences("auth_prefs", MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("user_authenticated", true)
+                    .apply();
+                
+                // Resume in-app messaging
+                resumeInAppMessaging();
+                
+                // Add a delay before navigating to main
+                new Handler().postDelayed(this::navigateToMain, 1000);
             })
             .addOnFailureListener(e -> {
-                Log.e(TAG, "Failed to refresh user ID token", e);
-                // Try to update user profile anyway
-                FirestoreManager.getInstance().updateUserProfileInMongoDB(user)
-                    .addOnSuccessListener(aVoid -> Log.d(TAG, "User profile updated in MongoDB despite token refresh failure"))
-                    .addOnFailureListener(e2 -> Log.w(TAG, "Failed to update user profile in MongoDB after token refresh failure", e2));
+                Log.w(TAG, "MongoDB sync failed, but continuing with Firebase auth", e);
+                
+                // Store authentication state anyway since Firebase auth was successful
+                getSharedPreferences("auth_prefs", MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("user_authenticated", true)
+                    .apply();
+                
+                // Resume in-app messaging
+                resumeInAppMessaging();
+                
+                // Add a delay before navigating to main
+                new Handler().postDelayed(this::navigateToMain, 1000);
             });
-
-        // Store authentication state
-        getSharedPreferences("auth_prefs", MODE_PRIVATE)
-            .edit()
-            .putBoolean("user_authenticated", true)
-            .apply();
-
-        // Resume in-app messaging
-        resumeInAppMessaging();
-
-        // Add a delay before navigating to main
-        new Handler().postDelayed(this::navigateToMain, 1000);
     }
 
     private void onSignInFailure(Exception e) {

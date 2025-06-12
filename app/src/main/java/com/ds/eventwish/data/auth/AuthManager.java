@@ -1,7 +1,10 @@
 package com.ds.eventwish.data.auth;
 
 import android.content.Context;
+import android.content.Intent;
 import android.util.Log;
+
+import androidx.activity.result.ActivityResultLauncher;
 
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
@@ -17,22 +20,25 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
 
+import com.ds.eventwish.data.model.User;
+import com.ds.eventwish.data.repository.UserRepository;
+
 /**
  * Manages authentication state and Google Sign-In
  */
 public class AuthManager {
     private static final String TAG = "AuthManager";
+
     private static volatile AuthManager instance;
-    private final FirebaseAuth auth;
+    private final FirebaseAuth auth = FirebaseAuth.getInstance();
     private GoogleSignInClient googleSignInClient;
-    private boolean isInitialized = false;
     private Context applicationContext;
+    private boolean isInitialized = false;
 
-    private AuthManager() {
-        auth = FirebaseAuth.getInstance();
-    }
-
-    public static AuthManager getInstance() {
+    /**
+     * Get singleton instance
+     */
+    public static synchronized AuthManager getInstance() {
         if (instance == null) {
             synchronized (AuthManager.class) {
                 if (instance == null) {
@@ -44,7 +50,7 @@ public class AuthManager {
     }
 
     /**
-     * Initialize the AuthManager with application context
+     * Initialize with context
      */
     public void initialize(Context context) {
         if (isInitialized) {
@@ -99,69 +105,18 @@ public class AuthManager {
     /**
      * Try silent sign in
      */
-    public Task<GoogleSignInAccount> silentSignIn() {
+    public Task<GoogleSignInAccount> trySilentSignIn() {
         if (!isInitialized) {
-            Log.e(TAG, "silentSignIn: AuthManager not initialized");
+            Log.e(TAG, "trySilentSignIn: not initialized");
             return Tasks.forException(new IllegalStateException("AuthManager not initialized"));
         }
 
-        Log.d(TAG, "silentSignIn: attempting silent sign-in");
-        GoogleSignInAccount lastAccount = GoogleSignIn.getLastSignedInAccount(applicationContext);
-        if (lastAccount != null) {
-            Log.d(TAG, "silentSignIn: found last signed in account, email: " + lastAccount.getEmail() + ", id: " + lastAccount.getId());
-            return Tasks.forResult(lastAccount);
-        }
-        Log.d(TAG, "silentSignIn: no cached account found, trying silent sign-in");
-
-        return googleSignInClient.silentSignIn()
-            .addOnSuccessListener(account -> {
-                Log.d(TAG, "silentSignIn: successful, email: " + account.getEmail() + ", id: " + account.getId());
-            })
-            .addOnFailureListener(e -> {
-                Log.e(TAG, "silentSignIn: failed with exception", e);
-                if (e instanceof ApiException) {
-                    ApiException apiException = (ApiException) e;
-                    Log.e(TAG, "silentSignIn: API exception status code: " + apiException.getStatusCode() + 
-                              ", message: " + apiException.getMessage());
-                }
-            });
+        Log.d(TAG, "trySilentSignIn: attempting silent sign in");
+        return googleSignInClient.silentSignIn();
     }
 
     /**
-     * Get Google Sign In Client
-     */
-    public GoogleSignInClient getGoogleSignInClient() {
-        checkInitialized();
-        return googleSignInClient;
-    }
-
-    /**
-     * Handle Google Sign In Result
-     */
-    public Task<FirebaseUser> handleSignInResult(Task<GoogleSignInAccount> completedTask) {
-        Log.d(TAG, "handleSignInResult: starting to handle sign-in result");
-        try {
-            GoogleSignInAccount account = completedTask.getResult(ApiException.class);
-            if (account == null) {
-                Log.e(TAG, "handleSignInResult: account is null");
-                return Tasks.forException(new ApiException(new Status(CommonStatusCodes.ERROR)));
-            }
-            Log.d(TAG, "handleSignInResult: Google sign in successful, email: " + account.getEmail() + 
-                      ", id: " + account.getId() + ", has idToken: " + (account.getIdToken() != null));
-            return firebaseAuthWithGoogle(account);
-        } catch (ApiException e) {
-            Log.e(TAG, "handleSignInResult: failed with status code: " + e.getStatusCode() + 
-                      ", status message: " + e.getStatusMessage() + 
-                      ", error message: " + e.getMessage());
-            return Tasks.forException(e);
-        } catch (Exception e) {
-            Log.e(TAG, "handleSignInResult: unexpected error", e);
-            return Tasks.forException(e);
-        }
-    }
-
-    /**
-     * Sign out from both Firebase and Google
+     * Sign out
      */
     public Task<Void> signOut() {
         if (!isInitialized) {
@@ -170,70 +125,77 @@ public class AuthManager {
         }
 
         Log.d(TAG, "signOut: signing out");
-        return Tasks.whenAll(
-            googleSignInClient.signOut(),
-            Tasks.call(() -> {
-                auth.signOut();
-                return null;
+        
+        // First sign out from Firebase
+        auth.signOut();
+        
+        // Then sign out from Google
+        return googleSignInClient.signOut()
+            .addOnSuccessListener(aVoid -> {
+                Log.d(TAG, "signOut: success");
             })
-        ).addOnCompleteListener(task -> {
-            Log.d(TAG, "signOut: completed, success=" + task.isSuccessful());
-            
-            // Clear authentication state in AuthStateManager
-            if (applicationContext != null) {
-                com.ds.eventwish.utils.AuthStateManager.getInstance(applicationContext).clearAuthentication();
-                
-                // Also clear old SharedPreferences for backward compatibility
-                applicationContext.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
-                    .edit()
-                    .putBoolean("user_authenticated", false)
-                    .remove("user_id")
-                    .apply();
-            }
-        });
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "signOut: failure", e);
+            });
     }
 
     /**
-     * Authenticate with Firebase using Google credentials
+     * Get Google sign in intent
      */
-    private Task<FirebaseUser> firebaseAuthWithGoogle(GoogleSignInAccount acct) {
-        Log.d(TAG, "firebaseAuthWithGoogle: starting Firebase auth, account id: " + acct.getId() + 
-                  ", email: " + acct.getEmail() + ", display name: " + acct.getDisplayName());
-
-        String idToken = acct.getIdToken();
-        if (idToken == null) {
-            Log.e(TAG, "firebaseAuthWithGoogle: ID token is null");
-            return Tasks.forException(new IllegalStateException("ID token is null"));
-        }
-
-        // Sign in with Google credential
-        AuthCredential credential = GoogleAuthProvider.getCredential(idToken, null);
-        Log.d(TAG, "firebaseAuthWithGoogle: created AuthCredential, starting Firebase signIn");
-
-        return auth.signInWithCredential(credential)
-                .continueWith(task -> {
-                    if (task.isSuccessful()) {
-                        FirebaseUser user = task.getResult().getUser();
-                        Log.d(TAG, "firebaseAuthWithGoogle: success, Firebase uid: " + user.getUid() + 
-                                  ", email: " + user.getEmail() + ", display name: " + user.getDisplayName());
-                        return user;
-                    } else {
-                        Log.e(TAG, "firebaseAuthWithGoogle: failure", task.getException());
-                        throw task.getException();
-                    }
-                });
-    }
-
-    private void checkInitialized() {
+    public Task<com.google.android.gms.auth.api.signin.GoogleSignInAccount> getSignInIntent(ActivityResultLauncher<Intent> launcher) {
         if (!isInitialized) {
-            throw new IllegalStateException("AuthManager must be initialized before use");
+            Log.e(TAG, "getSignInIntent: not initialized");
+            return Tasks.forException(new IllegalStateException("AuthManager not initialized"));
+        }
+
+        Log.d(TAG, "getSignInIntent: launching sign in intent");
+        launcher.launch(googleSignInClient.getSignInIntent());
+        
+        // This method doesn't actually return the account, it just launches the intent
+        // The account will be returned in onActivityResult
+        return Tasks.forCanceled();
+    }
+
+    /**
+     * Handle sign in result
+     */
+    public Task<GoogleSignInAccount> handleSignInResult(android.content.Intent data) {
+        if (!isInitialized) {
+            Log.e(TAG, "handleSignInResult: not initialized");
+            return Tasks.forException(new IllegalStateException("AuthManager not initialized"));
+        }
+
+        Log.d(TAG, "handleSignInResult: processing sign in result");
+        
+        try {
+            // Parse the result
+            com.google.android.gms.tasks.Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
+            
+            // Get the account
+            GoogleSignInAccount account = task.getResult(ApiException.class);
+            
+            if (account != null) {
+                Log.d(TAG, "handleSignInResult: success, email: " + account.getEmail());
+                return Tasks.forResult(account);
+            } else {
+                Log.e(TAG, "handleSignInResult: account is null");
+                return Tasks.forException(new ApiException(new Status(CommonStatusCodes.INTERNAL_ERROR)));
+            }
+        } catch (ApiException e) {
+            // Log the error code
+            Log.e(TAG, "handleSignInResult: failed with status code: " + e.getStatusCode());
+            
+            // Special handling for cancelled sign-in
+            if (e.getStatusCode() == CommonStatusCodes.CANCELED) {
+                Log.d(TAG, "handleSignInResult: user cancelled sign in");
+            }
+            
+            return Tasks.forException(e);
         }
     }
-    
+
     /**
-     * Sign in with Google account
-     * @param account GoogleSignInAccount from Google Sign In
-     * @return Task with FirebaseAuthResult
+     * Sign in with Google
      */
     public Task<com.google.firebase.auth.AuthResult> signInWithGoogle(GoogleSignInAccount account) {
         Log.d(TAG, "signInWithGoogle: starting sign-in with Google account: " + account.getEmail());
@@ -258,9 +220,38 @@ public class AuthManager {
                 FirebaseUser user = authResult.getUser();
                 Log.d(TAG, "signInWithGoogle: success, Firebase uid: " + user.getUid() + 
                       ", email: " + user.getEmail() + ", display name: " + user.getDisplayName());
+                
+                // Sync with MongoDB after successful Firebase authentication
+                syncUserWithMongoDB(user);
             })
             .addOnFailureListener(e -> {
                 Log.e(TAG, "signInWithGoogle: failure", e);
+            });
+    }
+    
+    /**
+     * Sync user with MongoDB after successful Firebase authentication
+     * @param firebaseUser Firebase user object
+     * @return Task representing the operation
+     */
+    public Task<User> syncUserWithMongoDB(FirebaseUser firebaseUser) {
+        if (applicationContext == null) {
+            Log.e(TAG, "syncUserWithMongoDB: applicationContext is null");
+            return Tasks.forException(new IllegalStateException("AuthManager not properly initialized"));
+        }
+        
+        Log.d(TAG, "syncUserWithMongoDB: syncing user with MongoDB: " + firebaseUser.getUid());
+        
+        // Get UserRepository instance
+        UserRepository userRepository = UserRepository.getInstance(applicationContext);
+        
+        // Call the sync method
+        return userRepository.syncUserWithMongoDB(firebaseUser)
+            .addOnSuccessListener(user -> {
+                Log.d(TAG, "syncUserWithMongoDB: success, MongoDB user: " + user.getUid());
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "syncUserWithMongoDB: failure", e);
             });
     }
     
@@ -269,21 +260,24 @@ public class AuthManager {
      * @return Task with token string result
      */
     public Task<String> refreshIdToken() {
-        Log.d(TAG, "refreshIdToken: attempting to refresh ID token");
         FirebaseUser user = auth.getCurrentUser();
         if (user == null) {
-            Log.e(TAG, "refreshIdToken: no user logged in");
-            return Tasks.forException(new Exception("No user logged in"));
+            Log.e(TAG, "refreshIdToken: no user signed in");
+            return Tasks.forException(new IllegalStateException("No user signed in"));
         }
+
+        Log.d(TAG, "refreshIdToken: refreshing token for user: " + user.getUid());
         
         return user.getIdToken(true)
             .continueWith(task -> {
                 if (task.isSuccessful() && task.getResult() != null) {
-                    Log.d(TAG, "refreshIdToken: token refresh successful");
-                    return task.getResult().getToken();
+                    String token = task.getResult().getToken();
+                    Log.d(TAG, "refreshIdToken: success, token length: " + (token != null ? token.length() : 0));
+                    return token;
+                } else {
+                    Log.e(TAG, "refreshIdToken: failed to get token", task.getException());
+                    throw new Exception("Failed to refresh token", task.getException());
                 }
-                Log.e(TAG, "refreshIdToken: failed to refresh token", task.getException());
-                throw new Exception("Failed to refresh token");
             });
     }
 } 

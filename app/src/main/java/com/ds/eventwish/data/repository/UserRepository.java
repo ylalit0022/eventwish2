@@ -12,12 +12,15 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
 import com.ds.eventwish.data.auth.AuthManager;
+import com.ds.eventwish.data.model.response.BaseResponse;
 import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.data.remote.ApiService;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.TaskCompletionSource;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.security.MessageDigest;
@@ -37,6 +40,7 @@ import com.ds.eventwish.data.local.dao.CategoryClickDao;
 import com.ds.eventwish.data.local.dao.UserDao;
 import com.ds.eventwish.data.local.entity.CategoryClickEntity;
 import com.ds.eventwish.data.local.entity.UserEntity;
+import com.ds.eventwish.data.model.User;
 import com.ds.eventwish.util.AppExecutors;
 
 /**
@@ -630,5 +634,413 @@ public class UserRepository {
      */
     public void clearCurrentUserId() {
         prefs.edit().remove(KEY_USER_ID).apply();
+    }
+
+    /**
+     * Sync user data with MongoDB after successful Firebase authentication
+     * @param firebaseUser Firebase user object
+     * @return Task representing the operation
+     */
+    public Task<User> syncUserWithMongoDB(FirebaseUser firebaseUser) {
+        if (firebaseUser == null) {
+            return Tasks.forException(new IllegalArgumentException("Firebase user cannot be null"));
+        }
+
+        Log.d(TAG, "Syncing user with MongoDB: " + firebaseUser.getUid());
+
+        // Create a TaskCompletionSource to convert from Retrofit callback to Task
+        TaskCompletionSource<User> taskCompletionSource = new TaskCompletionSource<>();
+
+        // Get device ID
+        final String deviceId = getDeviceId();
+
+        // Force refresh the token to make sure it's valid
+        firebaseUser.getIdToken(true)
+            .addOnSuccessListener(getTokenResult -> {
+                String token = getTokenResult.getToken();
+                Log.d(TAG, "Got fresh Firebase token for MongoDB sync: " + 
+                      (token.length() > 10 ? token.substring(0, 10) + "..." : "invalid") +
+                      ", token length: " + token.length());
+                
+                String authToken = "Bearer " + token;
+
+                // Create data map for MongoDB update
+                Map<String, Object> userData = new HashMap<>();
+                userData.put("uid", firebaseUser.getUid());
+                userData.put("deviceId", deviceId);
+                userData.put("displayName", firebaseUser.getDisplayName() != null ? firebaseUser.getDisplayName() : "");
+                userData.put("email", firebaseUser.getEmail() != null ? firebaseUser.getEmail() : "");
+                userData.put("profilePhoto", firebaseUser.getPhotoUrl() != null ? firebaseUser.getPhotoUrl().toString() : "");
+                userData.put("lastOnline", System.currentTimeMillis());
+
+                // Use a background thread for the network operation
+                AppExecutors.getInstance().networkIO().execute(() -> {
+                    try {
+                        // First try the profile update endpoint
+                        Call<JsonObject> call = apiService.updateUserProfile(userData, authToken);
+                        Response<JsonObject> response = call.execute();
+
+                        if (response.isSuccessful() && response.body() != null) {
+                            Log.d(TAG, "Successfully updated user profile in MongoDB");
+                            JsonObject responseBody = response.body();
+                            
+                            // If response doesn't have user data, create it from Firebase user
+                            if (!responseBody.has("user")) {
+                                JsonObject userObj = new JsonObject();
+                                userObj.addProperty("uid", firebaseUser.getUid());
+                                userObj.addProperty("email", firebaseUser.getEmail());
+                                userObj.addProperty("displayName", firebaseUser.getDisplayName());
+                                if (firebaseUser.getPhotoUrl() != null) {
+                                    userObj.addProperty("profilePhoto", firebaseUser.getPhotoUrl().toString());
+                                }
+                                responseBody.add("user", userObj);
+                            }
+
+                            // Create User object from response
+                            User user = createUserFromJsonObject(responseBody);
+                            
+                            // Cache the user data locally
+                            cacheUserData(user);
+                            
+                            // Set the current user ID
+                            setCurrentUserId(firebaseUser.getUid());
+
+                            // Complete the task with the user object
+                            taskCompletionSource.setResult(user);
+                        } else {
+                            // Log detailed error information for debugging
+                            String errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
+                            Log.e(TAG, "Failed to update user profile in MongoDB: HTTP " + response.code() + 
+                                  ", message: " + errorBody);
+
+                            // Try alternative approach if profile update fails
+                            tryAlternativeAuthMethods(firebaseUser, userData, authToken, taskCompletionSource);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error syncing with MongoDB", e);
+                        tryAlternativeAuthMethods(firebaseUser, userData, authToken, taskCompletionSource);
+                    }
+                });
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Error getting authentication token", e);
+                taskCompletionSource.setException(e);
+            });
+
+        return taskCompletionSource.getTask();
+    }
+
+    /**
+     * Try alternative authentication methods if the primary method fails
+     */
+    private void tryAlternativeAuthMethods(FirebaseUser firebaseUser, Map<String, Object> userData, 
+                                         String authToken, TaskCompletionSource<User> taskCompletionSource) {
+        try {
+            // Try the /auth endpoint which handles first-time authentication
+            Call<JsonObject> authCall = apiService.authenticateWithFirebase(userData);
+            Response<JsonObject> authResponse = authCall.execute();
+
+            if (authResponse.isSuccessful() && authResponse.body() != null) {
+                Log.d(TAG, "Successfully authenticated with Firebase in MongoDB");
+                JsonObject responseBody = authResponse.body();
+
+                // Check if this is a new user
+                boolean isNewUser = responseBody.has("isNewUser") && 
+                                   responseBody.get("isNewUser").getAsBoolean();
+                
+                Log.d(TAG, isNewUser ? "This is a new user" : "This is an existing user");
+
+                // Create User object from response
+                User user = createUserFromJsonObject(responseBody);
+                
+                // Cache the user data locally
+                cacheUserData(user);
+                
+                // Set the current user ID
+                setCurrentUserId(firebaseUser.getUid());
+
+                // Complete the task with the user object
+                taskCompletionSource.setResult(user);
+            } else {
+                // For 404 errors, this is likely because the endpoint doesn't exist yet
+                if (authResponse.code() == 404) {
+                    Log.w(TAG, "MongoDB endpoint not found (404). This is non-critical and can be ignored.");
+                    
+                    // Create a basic user object from Firebase data
+                    User user = createUserFromFirebaseUser(firebaseUser);
+                    taskCompletionSource.setResult(user);
+                } else {
+                    Log.e(TAG, "Failed to authenticate with Firebase in MongoDB: HTTP " + 
+                          authResponse.code() + ", message: " + 
+                          (authResponse.errorBody() != null ? authResponse.errorBody().string() : "No error body"));
+                    
+                    // Create a basic user object from Firebase data as fallback
+                    User user = createUserFromFirebaseUser(firebaseUser);
+                    taskCompletionSource.setResult(user);
+                }
+            }
+        } catch (Exception authError) {
+            Log.e(TAG, "Error trying alternate authentication approach", authError);
+            
+            // Create a basic user object from Firebase data as fallback
+            User user = createUserFromFirebaseUser(firebaseUser);
+            taskCompletionSource.setResult(user);
+        }
+    }
+
+    /**
+     * Create a User object from Firebase user data
+     */
+    private User createUserFromFirebaseUser(FirebaseUser firebaseUser) {
+        User user = new User(firebaseUser.getPhoneNumber());
+        user.setUid(firebaseUser.getUid());
+        user.setDisplayName(firebaseUser.getDisplayName());
+        user.setEmail(firebaseUser.getEmail());
+        user.setProfilePhoto(firebaseUser.getPhotoUrl() != null ? firebaseUser.getPhotoUrl().toString() : null);
+        user.setDeviceId(getDeviceId());
+        user.setLastActive(System.currentTimeMillis());
+        return user;
+    }
+
+    /**
+     * Create a User object from JSON response
+     */
+    private User createUserFromJsonObject(JsonObject responseBody) {
+        User user = new User();
+        
+        if (responseBody.has("user")) {
+            JsonObject userObj = responseBody.getAsJsonObject("user");
+            
+            if (userObj.has("uid")) {
+                user.setUid(userObj.get("uid").getAsString());
+            }
+            
+            if (userObj.has("displayName")) {
+                user.setDisplayName(userObj.get("displayName").getAsString());
+            }
+            
+            if (userObj.has("email")) {
+                user.setEmail(userObj.get("email").getAsString());
+            }
+            
+            if (userObj.has("profilePhoto")) {
+                user.setProfilePhoto(userObj.get("profilePhoto").getAsString());
+            }
+            
+            if (userObj.has("deviceId")) {
+                user.setDeviceId(userObj.get("deviceId").getAsString());
+            } else {
+                user.setDeviceId(getDeviceId());
+            }
+            
+            if (userObj.has("lastOnline")) {
+                try {
+                    JsonElement lastOnlineElement = userObj.get("lastOnline");
+                    if (lastOnlineElement.isJsonPrimitive() && lastOnlineElement.getAsJsonPrimitive().isNumber()) {
+                        // It's a number (timestamp), parse as long
+                        user.setLastActive(lastOnlineElement.getAsLong());
+                    } else {
+                        // It's probably a date string, use current time as fallback
+                        Log.d(TAG, "lastOnline is not a number: " + lastOnlineElement);
+                        user.setLastActive(System.currentTimeMillis());
+                    }
+                } catch (Exception e) {
+                    Log.d(TAG, "Error parsing lastOnline: " + e.getMessage());
+                    user.setLastActive(System.currentTimeMillis());
+                }
+            } else {
+                user.setLastActive(System.currentTimeMillis());
+            }
+            
+            // Parse likes array if available
+            if (userObj.has("likes") && userObj.get("likes").isJsonArray()) {
+                List<String> likes = new ArrayList<>();
+                for (JsonElement like : userObj.getAsJsonArray("likes")) {
+                    likes.add(like.getAsString());
+                }
+                user.setLikes(likes);
+            }
+            
+            // Parse favorites array if available
+            if (userObj.has("favorites") && userObj.get("favorites").isJsonArray()) {
+                List<String> favorites = new ArrayList<>();
+                for (JsonElement favorite : userObj.getAsJsonArray("favorites")) {
+                    favorites.add(favorite.getAsString());
+                }
+                user.setFavorites(favorites);
+            }
+            
+            // Parse recent templates if available
+            if (userObj.has("recentTemplatesUsed") && userObj.get("recentTemplatesUsed").isJsonArray()) {
+                List<String> recentTemplates = new ArrayList<>();
+                for (JsonElement template : userObj.getAsJsonArray("recentTemplatesUsed")) {
+                    recentTemplates.add(template.getAsString());
+                }
+                user.setRecentTemplatesUsed(recentTemplates);
+            }
+            
+            // Parse user preferences
+            if (userObj.has("preferredTheme")) {
+                user.setPreferredTheme(userObj.get("preferredTheme").getAsString());
+            }
+            
+            if (userObj.has("preferredLanguage")) {
+                user.setPreferredLanguage(userObj.get("preferredLanguage").getAsString());
+            }
+            
+            if (userObj.has("timezone")) {
+                user.setTimezone(userObj.get("timezone").getAsString());
+            }
+        } else {
+            // If no user object in response, create a basic one
+            user = new User();
+            user.setDeviceId(getDeviceId());
+            user.setLastActive(System.currentTimeMillis());
+        }
+        
+        return user;
+    }
+
+    /**
+     * Cache user data locally for offline access
+     */
+    private void cacheUserData(User user) {
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            try {
+                // Save to Room database
+                AppDatabase db = AppDatabase.getInstance(context);
+                UserDao userDao = db.userDao();
+                
+                // Convert User to UserEntity
+                UserEntity userEntity = new UserEntity(user.getUid());
+                userEntity.setDisplayName(user.getDisplayName());
+                userEntity.setEmail(user.getEmail());
+                userEntity.setPhotoUrl(user.getProfilePhoto());
+                // Store deviceId in phoneNumber field temporarily
+                userEntity.setPhoneNumber(user.getDeviceId());
+                userEntity.setLastLoginTime(user.getLastActive());
+                userEntity.setAuthenticated(true);
+                
+                // Insert or update user
+                userDao.insertOrUpdate(userEntity);
+                
+                Log.d(TAG, "User data cached locally: " + user.getUid());
+            } catch (Exception e) {
+                Log.e(TAG, "Error caching user data", e);
+            }
+        });
+    }
+
+    /**
+     * Get user profile from MongoDB
+     * @param uid User ID (Firebase UID)
+     * @return LiveData<User> containing the user profile
+     */
+    public LiveData<User> getUserProfile(String uid) {
+        MutableLiveData<User> result = new MutableLiveData<>();
+        
+        if (uid == null || uid.isEmpty()) {
+            Log.e(TAG, "Cannot get user profile: UID is null or empty");
+            result.postValue(null);
+            return result;
+        }
+        
+        // First check if we have a cached user
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            try {
+                AppDatabase db = AppDatabase.getInstance(context);
+                UserDao userDao = db.userDao();
+                UserEntity userEntity = userDao.getUserByUid(uid);
+                
+                if (userEntity != null) {
+                    // Convert UserEntity to User
+                    User user = new User();
+                    user.setUid(userEntity.getUid());
+                    user.setDisplayName(userEntity.getDisplayName());
+                    user.setEmail(userEntity.getEmail());
+                    user.setProfilePhoto(userEntity.getPhotoUrl());
+                    user.setDeviceId(userEntity.getPhoneNumber());
+                    user.setLastActive(userEntity.getLastLoginTime());
+                    
+                    // Post the cached user while we fetch from network
+                    result.postValue(user);
+                }
+                
+                // Fetch from network regardless of cache state
+                fetchUserProfileFromNetwork(uid, result);
+            } catch (Exception e) {
+                Log.e(TAG, "Error getting cached user", e);
+                // Try network if cache fails
+                fetchUserProfileFromNetwork(uid, result);
+            }
+        });
+        
+        return result;
+    }
+
+    /**
+     * Fetch user profile from network
+     */
+    private void fetchUserProfileFromNetwork(String uid, MutableLiveData<User> result) {
+        // Get the current Firebase user to get the token
+        FirebaseUser firebaseUser = authManager.getCurrentUser();
+        
+        if (firebaseUser == null) {
+            Log.e(TAG, "Cannot fetch user profile: No authenticated Firebase user");
+            return;
+        }
+        
+        // Force refresh the token to make sure it's valid
+        firebaseUser.getIdToken(true)
+            .addOnSuccessListener(getTokenResult -> {
+                String token = getTokenResult.getToken();
+                Log.d(TAG, "Got fresh Firebase token for user profile: " + 
+                      (token.length() > 10 ? token.substring(0, 10) + "..." : "invalid") +
+                      ", token length: " + token.length());
+                
+                String authToken = "Bearer " + token;
+                
+                // Use a background thread for the network operation
+                AppExecutors.getInstance().networkIO().execute(() -> {
+                    try {
+                        Call<JsonObject> call = apiService.getUserByUid(uid, authToken);
+                        Response<JsonObject> response = call.execute();
+                        
+                        if (response.isSuccessful() && response.body() != null) {
+                            JsonObject responseBody = response.body();
+                            
+                            // Create User object from response
+                            User user = createUserFromJsonObject(responseBody);
+                            
+                            // Cache the user data locally
+                            cacheUserData(user);
+                            
+                            // Post the result
+                            result.postValue(user);
+                            Log.d(TAG, "Successfully fetched user profile from MongoDB for UID: " + uid);
+                        } else {
+                            // Get error body for debugging
+                            String errorBody = "";
+                            try {
+                                errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
+                            } catch (Exception e) {
+                                errorBody = "Error reading error body: " + e.getMessage();
+                            }
+                            
+                            Log.e(TAG, "Failed to get user profile: HTTP " + response.code() + 
+                                  ", message: " + response.message() +
+                                  "\nError body: " + errorBody);
+                            // Note: We don't post null here to avoid overwriting cached data
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error fetching user profile", e);
+                        // Note: We don't post null here to avoid overwriting cached data
+                    }
+                });
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Error getting authentication token", e);
+                // Note: We don't post null here to avoid overwriting cached data
+            });
     }
 } 
