@@ -63,14 +63,45 @@ function ensureCriticalEnvVars() {
   // First check for Base64 encoded service account
   if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
     try {
+      console.log('DEBUG: Found FIREBASE_SERVICE_ACCOUNT_BASE64');
+      console.log('DEBUG: Base64 length:', process.env.FIREBASE_SERVICE_ACCOUNT_BASE64.length);
+      console.log('DEBUG: First 50 chars:', process.env.FIREBASE_SERVICE_ACCOUNT_BASE64.substring(0, 50));
+      console.log('DEBUG: Last 50 chars:', process.env.FIREBASE_SERVICE_ACCOUNT_BASE64.substring(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64.length - 50));
+      
+      // Check for common issues with Base64 strings
+      if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64.includes(' ')) {
+        console.warn('WARNING: Base64 string contains spaces, which may cause decoding issues');
+      }
+      if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64.includes('\n')) {
+        console.warn('WARNING: Base64 string contains newlines, which may cause decoding issues');
+      }
+      
       // Decode Base64 to JSON string
-      const decodedServiceAccount = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8');
+      let decodedServiceAccount;
+      try {
+        decodedServiceAccount = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8');
+        console.log('DEBUG: Decoded Base64 successfully');
+        console.log('DEBUG: Decoded JSON length:', decodedServiceAccount.length);
+        console.log('DEBUG: First 50 chars of decoded JSON:', decodedServiceAccount.substring(0, 50));
+      } catch (decodeError) {
+        console.error('ERROR: Failed to decode Base64:', decodeError.message);
+        throw new Error(`Failed to decode Base64: ${decodeError.message}`);
+      }
       
       // Parse the JSON to validate
-      const serviceAccount = JSON.parse(decodedServiceAccount);
+      let serviceAccount;
+      try {
+        serviceAccount = JSON.parse(decodedServiceAccount);
+        console.log('DEBUG: Parsed JSON successfully');
+      } catch (parseError) {
+        console.error('ERROR: Failed to parse JSON:', parseError.message);
+        throw new Error(`Failed to parse JSON: ${parseError.message}`);
+      }
       
       // Validate required fields
       if (!serviceAccount.project_id || !serviceAccount.private_key || !serviceAccount.client_email) {
+        console.error('ERROR: Missing required fields in service account');
+        console.log('DEBUG: Fields present:', Object.keys(serviceAccount).join(', '));
         throw new Error('Missing required fields in decoded service account');
       }
       
@@ -85,6 +116,16 @@ function ensureCriticalEnvVars() {
         console.log(`✅ FIREBASE_PROJECT_ID set from service account: ${serviceAccount.project_id}`);
       }
     } catch (error) {
+      console.error('ERROR: Failed to process FIREBASE_SERVICE_ACCOUNT_BASE64:', error.message);
+      
+      // If FORCE_SKIP_AUTH is set, continue without Firebase authentication
+      if (process.env.FORCE_SKIP_AUTH === 'true') {
+        console.warn('⚠️  WARNING: FORCE_SKIP_AUTH=true is set. Continuing without Firebase authentication.');
+        console.warn('⚠️  This is NOT RECOMMENDED for production environments!');
+        process.env.SKIP_AUTH = 'true';
+        return;
+      }
+      
       throw new Error(`Invalid FIREBASE_SERVICE_ACCOUNT_BASE64 format: ${error.message}`);
     }
   }
@@ -98,6 +139,10 @@ function ensureCriticalEnvVars() {
       console.warn('⚠️  WARNING: FIREBASE_SERVICE_ACCOUNT not set.');
       console.warn('⚠️  Firebase authentication may not work correctly.');
       console.warn('⚠️  Set SKIP_AUTH=true to disable authentication for development.');
+    } else if (process.env.FORCE_SKIP_AUTH === 'true') {
+      console.warn('⚠️  WARNING: FORCE_SKIP_AUTH=true is set. Continuing without Firebase authentication.');
+      console.warn('⚠️  This is NOT RECOMMENDED for production environments!');
+      process.env.SKIP_AUTH = 'true';
     } else {
       // In production, we must have Firebase credentials
       throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is required in production. You can also provide FIREBASE_SERVICE_ACCOUNT_BASE64.');
@@ -105,13 +150,27 @@ function ensureCriticalEnvVars() {
   } else if (isProduction) {
     try {
       // Validate the service account JSON in production
+      console.log('DEBUG: Validating FIREBASE_SERVICE_ACCOUNT');
+      console.log('DEBUG: JSON length:', process.env.FIREBASE_SERVICE_ACCOUNT.length);
+      
       const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
       if (!serviceAccount.project_id || !serviceAccount.private_key || !serviceAccount.client_email) {
+        console.error('ERROR: Missing required fields in service account');
+        console.log('DEBUG: Fields present:', Object.keys(serviceAccount).join(', '));
         throw new Error('Invalid service account format - missing required fields');
       }
       console.log('✅ FIREBASE_SERVICE_ACCOUNT validated successfully');
     } catch (error) {
       console.error('Error parsing FIREBASE_SERVICE_ACCOUNT:', error.message);
+      
+      // If FORCE_SKIP_AUTH is set, continue without Firebase authentication
+      if (process.env.FORCE_SKIP_AUTH === 'true') {
+        console.warn('⚠️  WARNING: FORCE_SKIP_AUTH=true is set. Continuing without Firebase authentication.');
+        console.warn('⚠️  This is NOT RECOMMENDED for production environments!');
+        process.env.SKIP_AUTH = 'true';
+        return;
+      }
+      
       throw new Error(`Invalid FIREBASE_SERVICE_ACCOUNT format: ${error.message}`);
     }
   }
@@ -123,14 +182,19 @@ function ensureCriticalEnvVars() {
       process.env.FIREBASE_PROJECT_ID = 'eventwish-app';
       console.warn('⚠️  WARNING: FIREBASE_PROJECT_ID not set in environment variables.');
       console.warn(`⚠️  Using default project ID for development: ${process.env.FIREBASE_PROJECT_ID}`);
+    } else if (process.env.FORCE_SKIP_AUTH === 'true') {
+      // Set a default project ID when FORCE_SKIP_AUTH is true
+      process.env.FIREBASE_PROJECT_ID = 'neweventwish';
+      console.warn('⚠️  WARNING: FIREBASE_PROJECT_ID not set in environment variables.');
+      console.warn(`⚠️  Using default project ID with FORCE_SKIP_AUTH: ${process.env.FIREBASE_PROJECT_ID}`);
     } else {
       // In production, we must have a project ID
       throw new Error('FIREBASE_PROJECT_ID environment variable is required in production.');
     }
   }
   
-  // Prevent SKIP_AUTH in production
-  if (process.env.SKIP_AUTH === 'true' && isProduction) {
+  // Prevent SKIP_AUTH in production unless FORCE_SKIP_AUTH is set
+  if (process.env.SKIP_AUTH === 'true' && isProduction && process.env.FORCE_SKIP_AUTH !== 'true') {
     throw new Error('SECURITY ERROR: Cannot set SKIP_AUTH=true in production environment');
   }
   
