@@ -324,31 +324,35 @@ public class TemplateRepository {
     }
 
     public void loadTemplates(boolean forceRefresh) {
-        if (loading.getValue()) {
+        // Skip if already loading
+        if (loading.getValue() != null && loading.getValue()) {
+            Log.d(TAG, "Already loading templates, skipping duplicate request");
             return;
         }
-        
+
+        // Set loading state
         loading.postValue(true);
         
-        // Get current user for like/favorite status
-        FirebaseAuth auth = FirebaseAuth.getInstance();
-        if (auth.getCurrentUser() == null) {
-            // Try to sign in anonymously
-            auth.signInAnonymously()
-                .addOnSuccessListener(result -> {
-                    Log.d(TAG, "Anonymous sign in successful, user ID: " + result.getUser().getUid());
-                    // Reload templates after successful sign in
-                    loadTemplatesInternal(forceRefresh, result.getUser());
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Anonymous sign in failed", e);
-                    // Continue without user authentication
-                    loadTemplatesInternal(forceRefresh, null);
-                });
-        } else {
-            // User already signed in
-            loadTemplatesInternal(forceRefresh, auth.getCurrentUser());
+        // Clear error state when starting a new load
+        error.postValue(null);
+
+        // Reset pagination for new requests
+        if (forceRefresh) {
+            Log.d(TAG, "Clearing existing templates and resetting pagination");
+            currentPage = 1;
+            hasMorePages = true;
+            
+            // Only clear templates if we're not filtering by category or if this is the initial load
+            if (currentCategory == null || templates.getValue() == null || templates.getValue().isEmpty()) {
+                templates.postValue(new ArrayList<>());
+            }
         }
+
+        // Check if user is logged in
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        
+        // Load templates with user context if available
+        loadTemplatesInternal(forceRefresh, user);
     }
 
     private void loadTemplatesInternal(boolean forceRefresh, FirebaseUser user) {
@@ -1580,22 +1584,17 @@ apiCall.enqueue(new Callback<JsonObject>() {
                     Log.e(TAG, "Error processing favorites response", e);
                 }
                 
-                // Always set the result to ensure task completes
-                tcs.setResult(templates);
-                Log.d(TAG, "Completed interaction check with MongoDB for " + templates.size() + " templates");
-
                 // Apply locally stored interactions after server data
                 List<Template> locallyUpdatedList = applyLocalInteractionStates(templates, userId);
-                if (locallyUpdatedList != templates) {
-                    tcs.setResult(locallyUpdatedList);
-                    Log.d(TAG, "Applied local interaction states after server data");
-                }
+                
+                // Always set the result with locally updated list to ensure task completes
+                tcs.setResult(locallyUpdatedList);
+                Log.d(TAG, "Completed interaction check with MongoDB and applied local states for " + templates.size() + " templates");
             }
             
             @Override
             public void onFailure(Call<JsonObject> call, Throwable t) {
                 Log.e(TAG, "Failed to get favorites from MongoDB", t);
-                // Always set the result to ensure task completes
                 
                 // Apply locally stored interactions even when server fails
                 List<Template> locallyUpdatedList = applyLocalInteractionStates(templates, userId);
@@ -1617,8 +1616,8 @@ apiCall.enqueue(new Callback<JsonObject>() {
         try {
             SharedPreferences prefs = applicationContext.getSharedPreferences("pending_like_actions", Context.MODE_PRIVATE);
             
-            // Create a unique key for this action
-            String key = userId + "_" + templateId + "_" + System.currentTimeMillis();
+            // Create a unique key for this action - use a consistent key format
+            String key = userId + "_" + templateId;
             
             // Create a JSON string with the action details
             JsonObject actionData = new JsonObject();
@@ -1631,7 +1630,7 @@ apiCall.enqueue(new Callback<JsonObject>() {
             prefs.edit().putString(key, actionData.toString()).apply();
             
             Log.d(TAG, "Stored " + (isLike ? "like" : "unlike") + " action locally for template " + 
-                  templateId + " and user " + userId);
+                  templateId + " and user " + userId + " with key: " + key);
             
             // We could schedule a background job to sync these later
             // WorkManager.getInstance(applicationContext).enqueue(...);
@@ -1650,8 +1649,8 @@ apiCall.enqueue(new Callback<JsonObject>() {
         try {
             SharedPreferences prefs = applicationContext.getSharedPreferences("pending_favorite_actions", Context.MODE_PRIVATE);
             
-            // Create a unique key for this action
-            String key = userId + "_" + templateId + "_" + System.currentTimeMillis();
+            // Create a unique key for this action - use a consistent key format
+            String key = userId + "_" + templateId;
             
             // Create a JSON string with the action details
             JsonObject actionData = new JsonObject();
@@ -1664,7 +1663,7 @@ apiCall.enqueue(new Callback<JsonObject>() {
             prefs.edit().putString(key, actionData.toString()).apply();
             
             Log.d(TAG, "Stored " + (isFavorite ? "favorite" : "unfavorite") + " action locally for template " + 
-                  templateId + " and user " + userId);
+                  templateId + " and user " + userId + " with key: " + key);
             
             // We could schedule a background job to sync these later
             // WorkManager.getInstance(applicationContext).enqueue(...);
@@ -1682,10 +1681,13 @@ apiCall.enqueue(new Callback<JsonObject>() {
      */
     private List<Template> applyLocalInteractionStates(List<Template> templates, String userId) {
         if (templates == null || templates.isEmpty() || userId == null || applicationContext == null) {
+            Log.d(TAG, "Cannot apply local interaction states: templates=" + (templates == null ? "null" : templates.size()) +
+                  ", userId=" + (userId == null ? "null" : userId) +
+                  ", applicationContext=" + (applicationContext == null ? "null" : "available"));
             return templates;
         }
         
-        Log.d(TAG, "Applying local interaction states for " + templates.size() + " templates");
+        Log.d(TAG, "Applying local interaction states for " + templates.size() + " templates with userId: " + userId);
         
         try {
             // Create a map of template IDs to templates for quick lookup
@@ -1693,6 +1695,9 @@ apiCall.enqueue(new Callback<JsonObject>() {
             for (Template template : templates) {
                 if (template.getId() != null) {
                     templateMap.put(template.getId(), template);
+                    Log.d(TAG, "Template before local state: id=" + template.getId() + 
+                          ", liked=" + template.isLiked() + 
+                          ", favorited=" + template.isFavorited());
                 }
             }
             
@@ -1729,13 +1734,16 @@ apiCall.enqueue(new Callback<JsonObject>() {
                                     Math.max(0L, currentCount - 1L);
                                 template.setLikeCount(newCount);
                                 
-                                Log.d(TAG, "Applied local like state for template " + templateId + ": " + isLike);
+                                Log.d(TAG, "Applied local like state for template " + templateId + ": " + isLike + 
+                                      ", new like count: " + newCount);
                             }
                         }
                     } catch (Exception e) {
                         Log.e(TAG, "Error processing locally stored like action", e);
                     }
                 }
+            } else {
+                Log.d(TAG, "No locally stored like actions found");
             }
             
             // Load favorites from SharedPreferences
@@ -1771,12 +1779,24 @@ apiCall.enqueue(new Callback<JsonObject>() {
                                     Math.max(0L, currentCount - 1L);
                                 template.setFavoriteCount(newCount);
                                 
-                                Log.d(TAG, "Applied local favorite state for template " + templateId + ": " + isFavorite);
+                                Log.d(TAG, "Applied local favorite state for template " + templateId + ": " + isFavorite + 
+                                      ", new favorite count: " + newCount);
                             }
                         }
                     } catch (Exception e) {
                         Log.e(TAG, "Error processing locally stored favorite action", e);
                     }
+                }
+            } else {
+                Log.d(TAG, "No locally stored favorite actions found");
+            }
+            
+            // Log final states for debugging
+            for (Template template : templates) {
+                if (template.getId() != null) {
+                    Log.d(TAG, "Template after local state: id=" + template.getId() + 
+                          ", liked=" + template.isLiked() + 
+                          ", favorited=" + template.isFavorited());
                 }
             }
         } catch (Exception e) {

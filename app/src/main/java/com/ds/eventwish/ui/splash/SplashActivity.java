@@ -121,7 +121,25 @@ public class SplashActivity extends AppCompatActivity {
         // Set a maximum timeout for the splash screen
         timeoutHandler.postDelayed(() -> {
             if (!isFinishing() && !forceNavigated) {
-                Log.w(TAG, "Splash screen timeout reached, forcing navigation to main");
+                Log.w(TAG, "Splash screen timeout reached");
+                
+                // Check if user is authenticated
+                boolean userAuthenticated = getSharedPreferences("auth_prefs", MODE_PRIVATE)
+                    .getBoolean("user_authenticated", false);
+                
+                // If sign-in button is visible and user is not authenticated, don't force navigate
+                if (signInButton.getVisibility() == View.VISIBLE && !userAuthenticated) {
+                    Log.d(TAG, "Timeout reached but sign-in button is visible and user not authenticated, waiting for user action");
+                    // Don't set forceNavigated flag to allow user to sign in
+                    // Just cancel any pending operations
+                    if (isSigningIn) {
+                        signInStatus.setText(R.string.sign_in_timeout);
+                        isSigningIn = false;
+                    }
+                    return;
+                }
+                
+                // Otherwise, force navigation
                 forceNavigated = true;
                 
                 // Cancel any pending operations
@@ -168,6 +186,16 @@ public class SplashActivity extends AppCompatActivity {
     }
 
     private void trySilentSignIn() {
+        // First check if user explicitly signed out using SharedPreferences
+        boolean userAuthenticated = getSharedPreferences("auth_prefs", MODE_PRIVATE)
+            .getBoolean("user_authenticated", false);
+            
+        if (!userAuthenticated) {
+            Log.d(TAG, "trySilentSignIn: User was explicitly signed out, showing sign-in button");
+            showSignInButton();
+            return;
+        }
+        
         // Check if user is already signed in
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null) {
@@ -243,6 +271,17 @@ public class SplashActivity extends AppCompatActivity {
     private void navigateToMain() {
         // Check if already navigating to avoid multiple calls
         if (isFinishing() || forceNavigated) return;
+        
+        // Check if user is authenticated
+        boolean userAuthenticated = getSharedPreferences("auth_prefs", MODE_PRIVATE)
+            .getBoolean("user_authenticated", false);
+        
+        // If sign-in button is visible and user is not authenticated, don't navigate
+        if (signInButton.getVisibility() == View.VISIBLE && !userAuthenticated) {
+            Log.d(TAG, "navigateToMain: Sign-in button is visible and user not authenticated, waiting for user action");
+            return;
+        }
+        
         forceNavigated = true;
         
         // Cancel any pending timeouts

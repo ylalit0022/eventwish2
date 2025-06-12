@@ -114,6 +114,9 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             // Update UI
             updateLikeState(holder, newLikeState);
             
+            // Show toast message
+            Toast.makeText(context, newLikeState ? "Liked" : "Unliked", Toast.LENGTH_SHORT).show();
+            
             // Update like count
             if (newLikeState) {
                 long newCount = template.getLikeCount() + 1;
@@ -148,6 +151,9 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             
             // Update UI
             updateFavoriteState(holder, newFavoriteState);
+            
+            // Show toast message
+            Toast.makeText(context, newFavoriteState ? "Added to favorites" : "Removed from favorites", Toast.LENGTH_SHORT).show();
             
             // Notify listener
             if (onTemplateInteractionListener != null) {

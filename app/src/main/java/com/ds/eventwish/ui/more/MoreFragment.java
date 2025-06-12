@@ -1,5 +1,6 @@
 package com.ds.eventwish.ui.more;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -7,16 +8,21 @@ import android.view.ViewGroup;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.navigation.Navigation;
 import com.ds.eventwish.BuildConfig;
 import com.ds.eventwish.R;
 import com.ds.eventwish.databinding.FragmentMoreBinding;
 import com.ds.eventwish.ui.base.BaseFragment;
+import com.ds.eventwish.ui.splash.SplashActivity;
 import com.ds.eventwish.ui.viewmodel.AppUpdateViewModel;
+import com.ds.eventwish.utils.AuthStateManager;
+import com.google.firebase.auth.FirebaseAuth;
 
 public class MoreFragment extends BaseFragment {
     private FragmentMoreBinding binding;
     private AppUpdateViewModel updateViewModel;
+    private static final String TAG = "MoreFragment";
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -97,6 +103,52 @@ public class MoreFragment extends BaseFragment {
                 }
             }
         });
+        
+        // Set up sign out button click listener
+        binding.signOutCard.setOnClickListener(v -> {
+            showSignOutConfirmationDialog();
+        });
+    }
+    
+    private void showSignOutConfirmationDialog() {
+        new AlertDialog.Builder(requireContext())
+            .setTitle("Sign Out")
+            .setMessage("Are you sure you want to sign out?")
+            .setPositiveButton("Yes", (dialog, which) -> {
+                signOut();
+            })
+            .setNegativeButton("No", null)
+            .show();
+    }
+    
+    private void signOut() {
+        // Sign out from Firebase
+        FirebaseAuth.getInstance().signOut();
+        
+        // Clear any local user data
+        if (getContext() != null) {
+            // Clear auth_prefs
+            getContext().getSharedPreferences("auth_prefs", 0)
+                .edit()
+                .putBoolean("user_authenticated", false)
+                .apply();
+            
+            // Also clear AuthStateManager
+            AuthStateManager.getInstance(requireContext()).clearAuthentication();
+        }
+        
+        // Show success message
+        Toast.makeText(requireContext(), "Signed out successfully", Toast.LENGTH_SHORT).show();
+        
+        // Navigate to SplashActivity
+        Intent intent = new Intent(requireContext(), SplashActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        
+        // Finish current activity
+        if (getActivity() != null) {
+            getActivity().finish();
+        }
     }
 
     @Override
