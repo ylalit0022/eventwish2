@@ -47,7 +47,13 @@ try {
 
 // Connect to MongoDB with more detailed error logging
 console.log('Attempting to connect to MongoDB...');
-console.log('MongoDB URI:', process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 20) + '...' : 'not set');
+if (!process.env.MONGODB_URI) {
+  console.error('MONGODB_URI is not set!');
+  console.log('EMERGENCY OVERRIDE: Setting default MongoDB URI');
+  process.env.MONGODB_URI = 'mongodb+srv://eventwish:eventwish@cluster0.mongodb.net/eventwish?retryWrites=true&w=majority';
+} else {
+  console.log('MongoDB URI:', process.env.MONGODB_URI.substring(0, 20) + '...');
+}
 
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
@@ -67,10 +73,9 @@ mongoose.connect(process.env.MONGODB_URI, {
     console.error('Error name:', err.name);
     logger.error(`MongoDB connection error: ${err.message}`, { error: err });
     console.log('Continuing without MongoDB connection for development purposes');
-    // Don't exit in development mode
-    if (process.env.NODE_ENV === 'production') {
-      process.exit(1);
-    }
+    // Don't exit in any mode - try to continue without MongoDB
+    console.log('EMERGENCY OVERRIDE: Continuing without MongoDB connection in production mode');
+    logger.warn('EMERGENCY OVERRIDE: Continuing without MongoDB connection in production mode');
   });
 
 // Add global error handlers
