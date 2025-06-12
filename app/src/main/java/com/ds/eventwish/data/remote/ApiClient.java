@@ -48,9 +48,9 @@ public class ApiClient {
     private static final String TAG = "ApiClient";
     
     // Base URL of the API
-    private static final String BASE_URL = "http://localhost:3007/api/";
+    private static final String BASE_URL = "https://eventwish2.onrender.com/api/";
     // For production: "https://eventwish2.onrender.com/api/"
-    // For local development: "http://localhost:3007/api/"
+    // For local development: "http://localhost:3007/api/" (using production URL to avoid cleartext traffic issues)
     
     // API service
     private static ApiService apiService;

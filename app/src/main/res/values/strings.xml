@@ -390,9 +390,13 @@
     <string name="all_templates">All Templates</string>
     <string name="template_image_description">Template image</string>
 
+    <string name="profile_edit">Edit Profile</string>
     <string name="profile_default_username">User</string>
     <string name="profile_default_email">user@example.com</string>
-    <string name="profile_edit">Edit Profile</string>
+    <string name="profile_liked_templates_title">Recently Liked Templates</string>
+    <string name="profile_favorited_templates_title">Recently Favorited Templates</string>
+    <string name="profile_no_liked_templates">You haven\'t liked any templates yet</string>
+    <string name="profile_no_favorited_templates">You haven\'t favorited any templates yet</string>
 
     <!-- Error messages -->
     <string name="network_error">Network connection error. Please check your internet connection and try again.</string>
@@ -564,4 +568,6 @@
     <!-- Notification Channels -->
     <string name="notification_channel_events">Event Notifications</string>
     <string name="notification_channel_events_desc">Notifications for upcoming events and festivals</string>
+
+    <string name="more_profile">Profile</string>
 </resources>

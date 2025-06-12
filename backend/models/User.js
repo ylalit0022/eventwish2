@@ -147,13 +147,13 @@ const UserSchema = new Schema({
     },
     lastActionOnTemplate: {
         type: String,
-        enum: ['VIEW', 'LIKE', 'FAV', 'SHARE', null],
+        enum: ['VIEW', 'LIKE', 'FAV', 'SHARE', 'UNLIKE', 'UNFAV', null],
         default: null
     },
     engagementLog: [{
         action: { 
             type: String, 
-            enum: ['SHARE', 'VIEW', 'LIKE', 'FAV'], 
+            enum: ['SHARE', 'VIEW', 'LIKE', 'FAV', 'UNLIKE', 'UNFAV'], 
             required: true 
         },
         templateId: { 

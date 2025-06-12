@@ -2,4 +2,11 @@
 <network-security-config>
     <!-- Default configuration for all domains -->
     <base-config cleartextTrafficPermitted="false" />
+    
+    <!-- Allow cleartext traffic for localhost -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain> <!-- Android emulator special IP -->
+    </domain-config>
 </network-security-config> 

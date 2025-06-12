@@ -1362,6 +1362,10 @@ router.delete('/:uid/favorites/:templateId', validateFirebaseUid, verifyFirebase
                 timestamp: Date.now()
             });
             
+            // Update last active template
+            user.lastActiveTemplate = templateId;
+            user.lastActionOnTemplate = 'UNFAV';
+            
             // Update last online
             user.lastOnline = Date.now();
             
@@ -1518,6 +1522,10 @@ router.delete('/:uid/likes/:templateId', validateFirebaseUid, verifyFirebaseToke
                 templateId,
                 timestamp: Date.now()
             });
+            
+            // Update last active template
+            user.lastActiveTemplate = templateId;
+            user.lastActionOnTemplate = 'UNLIKE';
             
             // Update last online
             user.lastOnline = Date.now();

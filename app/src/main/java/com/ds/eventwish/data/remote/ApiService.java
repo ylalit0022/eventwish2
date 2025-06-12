@@ -30,7 +30,6 @@ import retrofit2.http.Query;
 import retrofit2.http.QueryMap;
 
 import com.google.gson.JsonObject;
-import okhttp3.OkHttpClient;
 
 public interface ApiService {
     // Template endpoints

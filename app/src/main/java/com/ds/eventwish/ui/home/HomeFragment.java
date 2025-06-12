@@ -1336,8 +1336,8 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             }
         });
         
-        // Observe network state
-        createNetworkStateObserver();
+        // Set up network state observer
+        setupNetworkObserver();
         
         // Observe templates from the ViewModel
         viewModel.getTemplates().observe(getViewLifecycleOwner(), templates -> {
@@ -1349,6 +1349,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             
             Log.d(TAG, "Templates updated - size: " + (templates != null ? templates.size() : 0));
             if (templates != null && !templates.isEmpty()) {
+                // Hide error view when templates are loaded successfully
+                hideError();
+                
                 // Create a new list to avoid modification issues
                 List<Template> newList = new ArrayList<>(templates);
                 
@@ -1369,8 +1372,12 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 
                 // Update the adapter with the new list
                 binding.templatesRecyclerView.post(() -> {
+                    // Hide error view if showing
+                    binding.retryLayout.setVisibility(View.GONE);
+                    
                     // Check if we're in pagination mode or regular update
                     boolean isPagination = viewModel.isPaginationInProgress();
+                    Log.d(TAG, "Updating adapter with " + newList.size() + " templates, isPagination: " + isPagination);
                     
                     // Update adapter with new templates
                     adapter.updateTemplates(newList);
@@ -1455,6 +1462,9 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
 //                binding.shimmerLayout.startShimmer();
                 binding.templatesRecyclerView.setVisibility(View.GONE);
                 binding.emptyView.setVisibility(View.GONE);
+                
+                // Hide error view while loading
+                binding.retryLayout.setVisibility(View.GONE);
             } else {
 //                binding.shimmerLayout.stopShimmer();
 //                binding.shimmerLayout.setVisibility(View.GONE);
@@ -1473,13 +1483,16 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         // Observe error state with improved error handling
         viewModel.getError().observe(getViewLifecycleOwner(), error -> {
             if (error != null && !error.isEmpty()) {
-                Log.e(TAG, "Error: " + error);
+                Log.e(TAG, "Error from ViewModel: " + error);
                 boolean isNetworkError = error.contains("timeout") || 
                                        error.contains("failed to connect") ||
                                        error.contains("offline") || 
                                        error.contains("network") || 
                                        error.contains("connection");
                 showNetworkError(isNetworkError);
+                
+                // Stop the refresh animation if it's running
+                binding.swipeRefreshLayout.setRefreshing(false);
             } else {
                 hideError();
             }
@@ -1496,7 +1509,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         });
     }
 
-    private void createNetworkStateObserver() {
+    private void setupNetworkObserver() {
         networkStateObserver = new InternetConnectivityChecker.NetworkStateObserver() {
             @Override
             public void onNetworkStateChanged(boolean isConnected) {
@@ -1516,14 +1529,39 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
 
     private void loadTemplates() {
         if (viewModel != null) {
+            Log.d(TAG, "loadTemplates: Requesting templates from ViewModel");
+            
+            // Hide error view
+            hideError();
+            
+            // Show loading indicator
+            binding.swipeRefreshLayout.setRefreshing(true);
+            
+            // Make sure templates recycler view will be visible after loading
+            binding.templatesRecyclerView.setVisibility(View.VISIBLE);
+            
+            // Load templates
             viewModel.loadTemplates();
+        } else {
+            Log.e(TAG, "loadTemplates: ViewModel is null");
         }
     }
 
     private void showNetworkError(boolean isNetworkError) {
         if (binding != null) {
+            Log.d(TAG, "showNetworkError: Showing error view with isNetworkError=" + isNetworkError);
+            
+            // Show retry layout
             binding.retryLayout.setVisibility(View.VISIBLE);
+            
+            // Hide templates
             binding.templatesRecyclerView.setVisibility(View.GONE);
+            
+            // Hide empty view
+            binding.emptyView.setVisibility(View.GONE);
+            
+            // Hide loading indicator
+            binding.swipeRefreshLayout.setRefreshing(false);
 
             if (isNetworkError) {
                 String title = getString(R.string.no_internet_title);
@@ -1542,6 +1580,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             }
 
             binding.retryButton.setOnClickListener(v -> {
+                Log.d(TAG, "Retry button clicked, attempting to reload templates");
                 hideError();
                 loadTemplates();
             });
@@ -1551,11 +1590,26 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     @Override
     protected void showError(String message) {
         super.showError(message);
+        Log.e(TAG, "showError: " + message);
         if (binding != null) {
+            // Show retry layout
             binding.retryLayout.setVisibility(View.VISIBLE);
+            
+            // Hide templates
             binding.templatesRecyclerView.setVisibility(View.GONE);
+            
+            // Hide empty view
+            binding.emptyView.setVisibility(View.GONE);
+            
+            // Hide loading indicator
+            binding.swipeRefreshLayout.setRefreshing(false);
+            
+            // Set error message
             binding.errorText.setText(message);
+            
+            // Set retry button click listener
             binding.retryButton.setOnClickListener(v -> {
+                Log.d(TAG, "Retry button clicked from showError, attempting to reload templates");
                 hideError();
                 loadTemplates();
             });
@@ -1564,6 +1618,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
 
     protected void hideError() {
         if (binding != null) {
+            Log.d(TAG, "hideError: Hiding error view");
             binding.retryLayout.setVisibility(View.GONE);
             binding.templatesRecyclerView.setVisibility(View.VISIBLE);
         }
@@ -2566,5 +2621,10 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         } catch (Exception e) {
             Log.e(TAG, "Failed to show auth message", e);
         }
+    }
+
+    private void createNetworkStateObserver() {
+        // Call the existing setupNetworkObserver method
+        setupNetworkObserver();
     }
 }

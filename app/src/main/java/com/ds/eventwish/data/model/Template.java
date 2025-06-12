@@ -221,6 +221,8 @@ public class Template {
     public String getThumbnailUrl() { return getPreviewUrl(); }
     public void setThumbnailUrl(String url) { setPreviewUrl(url); }
     
+    public String getImageUrl() { return getPreviewUrl(); }
+    
     public String getHtml() { return getHtmlContent(); }
     public void setHtml(String html) { setHtmlContent(html); }
     

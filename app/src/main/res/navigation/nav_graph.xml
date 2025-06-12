@@ -236,6 +236,14 @@
             app:exitAnim="@anim/nav_default_exit_anim"
             app:popEnterAnim="@anim/nav_default_pop_enter_anim"
             app:popExitAnim="@anim/nav_default_pop_exit_anim" />
+            
+        <action
+            android:id="@+id/action_more_to_profile"
+            app:destination="@id/navigation_profile"
+            app:enterAnim="@anim/nav_default_enter_anim"
+            app:exitAnim="@anim/nav_default_exit_anim"
+            app:popEnterAnim="@anim/nav_default_pop_enter_anim"
+            app:popExitAnim="@anim/nav_default_pop_exit_anim" />
     </fragment>
 
     <fragment
@@ -366,5 +374,18 @@
     <action
         android:id="@+id/action_global_notificationPreferencesFragment"
         app:destination="@id/notificationPreferencesFragment" />
+
+    <fragment
+        android:id="@+id/navigation_profile"
+        android:name="com.ds.eventwish.ui.profile.ProfileFragment"
+        android:label="Profile">
+        <action
+            android:id="@+id/action_navigation_profile_to_templateDetailFragment"
+            app:destination="@id/navigation_template_detail"
+            app:enterAnim="@anim/nav_default_enter_anim"
+            app:exitAnim="@anim/nav_default_exit_anim"
+            app:popEnterAnim="@anim/nav_default_pop_enter_anim"
+            app:popExitAnim="@anim/nav_default_pop_exit_anim" />
+    </fragment>
 
 </navigation>

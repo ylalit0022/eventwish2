@@ -32,6 +32,7 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
     private OnTemplateInteractionListener onTemplateInteractionListener;
     private static final long CLICK_DEBOUNCE_TIME = 800; // ms - longer debounce time for network operations
     private final Map<String, Long> lastClickTimes = new HashMap<>();
+    private static final String TAG = "TemplateAdapter";
 
     public TemplateAdapter(Context context) {
         this.context = context;
@@ -49,6 +50,11 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
     @Override
     public void onBindViewHolder(@NonNull final ViewHolder holder, int position) {
         Template template = templates.get(position);
+        
+        Log.d(TAG, "onBindViewHolder: Binding template at position " + position + 
+              ", ID: " + template.getId() + 
+              ", Title: " + template.getTitle() +
+              ", Preview URL: " + template.getPreviewUrl());
         
         // Set title and category
         holder.titleText.setText(template.getTitle());
@@ -80,6 +86,7 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         }
         
         // Load image
+        Log.d(TAG, "Loading image for template " + template.getId() + " from URL: " + template.getPreviewUrl());
         Glide.with(holder.itemView.getContext())
                 .load(template.getPreviewUrl())
                 .placeholder(R.drawable.placeholder_image)
@@ -90,6 +97,7 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         // Set click listeners
         holder.cardView.setOnClickListener(v -> {
             if (onItemClickListener != null) {
+                Log.d(TAG, "Template clicked: " + template.getId());
                 onItemClickListener.onItemClick(template);
             }
         });
@@ -97,6 +105,8 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         holder.likeIcon.setOnClickListener(v -> {
             boolean newLikeState = !template.isLiked();
             template.setLiked(newLikeState);
+            
+            Log.d(TAG, "Template " + template.getId() + " like toggled to: " + newLikeState);
             
             // Animate the like button
             animateLikeButton(holder.likeIcon, newLikeState);
@@ -130,6 +140,8 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         holder.favoriteIcon.setOnClickListener(v -> {
             boolean newFavoriteState = !template.isFavorited();
             template.setFavorited(newFavoriteState);
+            
+            Log.d(TAG, "Template " + template.getId() + " favorite toggled to: " + newFavoriteState);
             
             // Animate the favorite button
             animateFavoriteButton(holder.favoriteIcon, newFavoriteState);
@@ -227,9 +239,26 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
     }
 
     public void setTemplates(ArrayList<Template> templates) {
+        Log.d(TAG, "setTemplates: Received " + (templates != null ? templates.size() : 0) + " templates");
+        
+        if (templates == null) {
+            Log.e(TAG, "setTemplates: Received null templates list");
+            return;
+        }
+        
+        if (templates.isEmpty()) {
+            Log.d(TAG, "setTemplates: Received empty templates list");
+        } else {
+            Log.d(TAG, "First template ID: " + templates.get(0).getId() + 
+                  ", Title: " + templates.get(0).getTitle() + 
+                  ", Preview URL: " + templates.get(0).getPreviewUrl());
+        }
+        
         this.templates.clear();
         this.templates.addAll(templates);
         notifyDataSetChanged();
+        
+        Log.d(TAG, "setTemplates: Adapter updated with " + this.templates.size() + " templates");
     }
 
     public void setOnItemClickListener(OnItemClickListener listener) {

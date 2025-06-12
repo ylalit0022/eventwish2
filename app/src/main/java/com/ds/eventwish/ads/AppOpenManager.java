@@ -52,9 +52,12 @@ public class AppOpenManager implements LifecycleObserver, Application.ActivityLi
         this.application = application;
         this.disabledActivities = new HashSet<>();
         this.timeoutHandler = new Handler(Looper.getMainLooper());
+        this.retryAttempt = 0; // Explicitly initialize retry counter
         
         this.application.registerActivityLifecycleCallbacks(this);
         ProcessLifecycleOwner.get().getLifecycle().addObserver(this);
+        
+        Log.d(TAG, "AppOpenManager initialized");
     }
 
     /**
@@ -87,7 +90,6 @@ public class AppOpenManager implements LifecycleObserver, Application.ActivityLi
         }
 
         isLoadingAd = true;
-        retryAttempt++;
 
         // Set timeout for ad loading
         timeoutHandler.postDelayed(() -> {
@@ -123,15 +125,27 @@ public class AppOpenManager implements LifecycleObserver, Application.ActivityLi
      * Implements exponential backoff for retries
      */
     private void retryWithBackoff() {
-        if (retryAttempt < MAX_RETRY_ATTEMPTS) {
+        retryAttempt++;
+        
+        if (retryAttempt <= MAX_RETRY_ATTEMPTS) {
             long delay = RETRY_DELAY * (1L << (retryAttempt - 1));
             Log.d(TAG, String.format("Scheduling retry attempt %d/%d in %d ms", 
                 retryAttempt, MAX_RETRY_ATTEMPTS, delay));
             
-            timeoutHandler.postDelayed(this::fetchAd, delay);
+            timeoutHandler.postDelayed(() -> {
+                Log.d(TAG, "Executing retry attempt " + retryAttempt);
+                isLoadingAd = false; // Ensure loading flag is reset before retry
+                fetchAd();
+            }, delay);
         } else {
             Log.e(TAG, "Max retry attempts reached");
             retryAttempt = 0;
+            // Wait longer before trying again after max retries
+            timeoutHandler.postDelayed(() -> {
+                Log.d(TAG, "Attempting to load ad after cooling period");
+                isLoadingAd = false;
+                fetchAd();
+            }, RETRY_DELAY * 10); // 10 second cooling period
         }
     }
 
@@ -142,48 +156,83 @@ public class AppOpenManager implements LifecycleObserver, Application.ActivityLi
         // 2. Ad is not available
         // 3. Current activity is null
         // 4. Current activity is in disabled list
-        if (!isShowingAd && isAdAvailable() && currentActivity != null && !isAppOpenDisabled()) {
-            Log.d(TAG, "Showing app open ad");
+        if (isShowingAd) {
+            Log.d(TAG, "Ad is already showing, not showing another one");
+            return;
+        }
+        
+        if (!isAdAvailable()) {
+            Log.d(TAG, "No ad available to show");
+            if (!isLoadingAd) {
+                Log.d(TAG, "No ad is loading, starting fetch");
+                fetchAd();
+            } else {
+                Log.d(TAG, "Ad is currently loading, waiting for completion");
+            }
+            return;
+        }
+        
+        if (currentActivity == null) {
+            Log.d(TAG, "Current activity is null, cannot show ad");
+            return;
+        }
+        
+        if (isAppOpenDisabled()) {
+            Log.d(TAG, "App open ads are disabled for " + currentActivity.getClass().getSimpleName());
+            return;
+        }
+        
+        Log.d(TAG, "Showing app open ad");
 
-            FullScreenContentCallback fullScreenContentCallback =
-                    new FullScreenContentCallback() {
-                        @Override
-                        public void onAdDismissedFullScreenContent() {
-                            appOpenAd = null;
-                            isShowingAd = false;
-                            fetchAd();
-                        }
+        FullScreenContentCallback fullScreenContentCallback =
+                new FullScreenContentCallback() {
+                    @Override
+                    public void onAdDismissedFullScreenContent() {
+                        Log.d(TAG, "Ad dismissed");
+                        appOpenAd = null;
+                        isShowingAd = false;
+                        fetchAd();
+                    }
 
-                        @Override
-                        public void onAdFailedToShowFullScreenContent(@NonNull AdError adError) {
-                            Log.e(TAG, "Failed to show ad: " + adError.getMessage());
-                            isShowingAd = false;
-                            fetchAd();
-                        }
+                    @Override
+                    public void onAdFailedToShowFullScreenContent(@NonNull AdError adError) {
+                        Log.e(TAG, "Failed to show ad: " + adError.getMessage());
+                        isShowingAd = false;
+                        appOpenAd = null; // Clear the ad reference on failure
+                        fetchAd();
+                    }
 
-                        @Override
-                        public void onAdShowedFullScreenContent() {
-                            isShowingAd = true;
-                        }
-                    };
+                    @Override
+                    public void onAdShowedFullScreenContent() {
+                        Log.d(TAG, "Ad showed successfully");
+                        isShowingAd = true;
+                    }
+                };
 
+        try {
             appOpenAd.setFullScreenContentCallback(fullScreenContentCallback);
             appOpenAd.show(currentActivity);
-        } else {
-            Log.d(TAG, String.format("Can't show ad: showing=%b available=%b activity=%s disabled=%b",
-                isShowingAd, isAdAvailable(), 
-                currentActivity != null ? currentActivity.getClass().getSimpleName() : "null",
-                isAppOpenDisabled()));
-            
-            if (!isLoadingAd && !isAdAvailable()) {
-                fetchAd();
-            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error showing app open ad: " + e.getMessage());
+            isShowingAd = false;
+            appOpenAd = null;
+            fetchAd();
         }
     }
 
     /** Check if ad exists and is not expired */
     private boolean isAdAvailable() {
-        return appOpenAd != null && !isAdExpired();
+        boolean adExists = appOpenAd != null;
+        boolean notExpired = !isAdExpired();
+        boolean result = adExists && notExpired;
+        
+        if (adExists && !notExpired) {
+            Log.d(TAG, "Ad exists but is expired, need to fetch a new one");
+        } else if (!adExists) {
+            Log.d(TAG, "No ad available");
+        }
+        
+        return result;
     }
 
     /** Check if ad has expired */

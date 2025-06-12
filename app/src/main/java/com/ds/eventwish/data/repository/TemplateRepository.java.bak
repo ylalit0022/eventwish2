@@ -1187,15 +1187,14 @@ mainHandler.post(() -> {
             Log.d(TAG, "Got fresh Firebase token for API call: " + (token.length() > 10 ? token.substring(0, 10) + "..." : "invalid"));
             String authToken = "Bearer " + token;
             
-            // Always use the likeTemplate API method regardless of newState
-            // The server will handle adding or removing the like based on the current state
+            // Use different API methods based on the requested state
             Call<JsonObject> apiCall;
             
             if (newState) {
                 // Like template using MongoDB API
                 apiCall = apiService.likeTemplate(userId, templateId, authToken);
             } else {
-                // For unlike, still use the unlikeTemplate endpoint but handle errors properly
+                // Unlike template using MongoDB API
                 apiCall = apiService.unlikeTemplate(userId, templateId, authToken);
             }
             
@@ -1224,14 +1223,13 @@ apiCall.enqueue(new Callback<JsonObject>() {
                         
                         // Check if it contains the Project Id error
                         boolean isProjectIdError = errorBody.contains("Unable to detect a Project Id");
-                        boolean isEnumError = errorBody.contains("is not a valid enum value for path `action`");
                         
                         Log.e(TAG, "Failed to update like state in MongoDB: " + response.code() + 
                               "\nError body: " + errorBody);
                         
-                        if (response.code() == 401 || isProjectIdError || isEnumError) {
-                            // Known Firebase validation issue or enum validation issue - use local storage
-                            Log.d(TAG, "Authentication error or validation error, storing " + 
+                        if (response.code() == 401 || isProjectIdError) {
+                            // Known Firebase validation issue - use local storage
+                            Log.d(TAG, "Authentication error (Firebase Project ID validation), storing " + 
                                   (newState ? "like" : "unlike") + " action locally");
                             
                             // Store action locally and pretend success
@@ -1301,7 +1299,7 @@ mainHandler.post(() -> {
             Log.d(TAG, "Got fresh Firebase token for API call: " + (token.length() > 10 ? token.substring(0, 10) + "..." : "invalid"));
             String authToken = "Bearer " + token;
             
-            // Always use the appropriate API method based on the requested state
+            // Use different API methods based on the requested state
             Call<JsonObject> apiCall;
             
             if (newState) {
@@ -1317,12 +1315,12 @@ apiCall.enqueue(new Callback<JsonObject>() {
     @Override
     public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
         if (response.isSuccessful() && response.body() != null) {
-            Log.d(TAG, "Successfully " + (newState ? "added to favorites" : "removed from favorites") + 
-                  " template " + templateId + " in MongoDB");
+            Log.d(TAG, "Successfully " + (newState ? "added" : "removed") + 
+                  " template " + templateId + " " + (newState ? "to" : "from") + " favorites in MongoDB");
             
             // If unfavoriting, ensure it's removed from the user's favorited templates in MongoDB
             if (!newState) {
-                Log.d(TAG, "Template " + templateId + " removed from user's favorites in MongoDB");
+                Log.d(TAG, "Template " + templateId + " removed from user's favorited templates in MongoDB");
             }
             
             tcs.setResult(newState);
@@ -1337,14 +1335,13 @@ apiCall.enqueue(new Callback<JsonObject>() {
                         
                         // Check if it contains the Project Id error
                         boolean isProjectIdError = errorBody.contains("Unable to detect a Project Id");
-                        boolean isEnumError = errorBody.contains("is not a valid enum value for path `action`");
                         
                         Log.e(TAG, "Failed to update favorite state in MongoDB: " + response.code() + 
                               "\nError body: " + errorBody);
                         
-                        if (response.code() == 401 || isProjectIdError || isEnumError) {
-                            // Known Firebase validation issue or enum validation issue - use local storage
-                            Log.d(TAG, "Authentication error or validation error, storing " + 
+                        if (response.code() == 401 || isProjectIdError) {
+                            // Known Firebase validation issue - use local storage
+                            Log.d(TAG, "Authentication error (Firebase Project ID validation), storing " + 
                                   (newState ? "favorite" : "unfavorite") + " action locally");
                             
                             // Store action locally and pretend success
@@ -2226,3 +2223,4 @@ apiCall.enqueue(new Callback<JsonObject>() {
         return toggleFavorite(templateId, false);
     }
 }
+

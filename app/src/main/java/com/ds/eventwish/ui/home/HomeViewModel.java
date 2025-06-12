@@ -281,26 +281,37 @@ public class HomeViewModel extends ViewModel {
         androidx.lifecycle.Observer<List<Template>> templatesObserver = new androidx.lifecycle.Observer<List<Template>>() {
             @Override
             public void onChanged(List<Template> templates) {
-                if (templates != null && !templates.isEmpty()) {
-                    // Create a new list to avoid modifying the repository's list directly
-                    List<Template> sortedTemplates = new ArrayList<>(templates);
-                    
-                    // Sort by creation date (newest first)
-                    Collections.sort(sortedTemplates, (t1, t2) -> {
-                        long time1 = t1.getCreatedAtTimestamp();
-                        long time2 = t2.getCreatedAtTimestamp();
-                        // Sort in descending order (newest first)
-                        return Long.compare(time2, time1);
-                    });
-                    
-                    Log.d(TAG, "Sorted " + sortedTemplates.size() + " templates by creation date (newest first)");
-                    
-                    // Check for new templates in the sorted list
-                    checkForNewTemplates(sortedTemplates);
-                    
-                    // Remove observer to avoid multiple callbacks
-                    repository.getTemplates().removeObserver(this);
+                Log.d(TAG, "Templates observer triggered with " + 
+                      (templates != null ? templates.size() : 0) + " templates");
+                      
+                if (templates == null) {
+                    Log.e(TAG, "Templates observer received null templates list");
+                    return;
                 }
+                
+                if (templates.isEmpty()) {
+                    Log.d(TAG, "Templates observer received empty templates list");
+                    return;
+                }
+                
+                // Create a new list to avoid modifying the repository's list directly
+                List<Template> sortedTemplates = new ArrayList<>(templates);
+                
+                // Sort by creation date (newest first)
+                Collections.sort(sortedTemplates, (t1, t2) -> {
+                    long time1 = t1.getCreatedAtTimestamp();
+                    long time2 = t2.getCreatedAtTimestamp();
+                    // Sort in descending order (newest first)
+                    return Long.compare(time2, time1);
+                });
+                
+                Log.d(TAG, "Sorted " + sortedTemplates.size() + " templates by creation date (newest first)");
+                
+                // Check for new templates in the sorted list
+                checkForNewTemplates(sortedTemplates);
+                
+                // Remove observer to avoid multiple callbacks
+                repository.getTemplates().removeObserver(this);
             }
         };
         
@@ -308,6 +319,7 @@ public class HomeViewModel extends ViewModel {
         repository.getTemplates().observeForever(templatesObserver);
         
         // Load templates with the current filters
+        Log.d(TAG, "Calling repository.loadTemplates(" + clearExisting + ")");
         repository.loadTemplates(clearExisting);
         
         // Record time of last refresh
@@ -815,6 +827,7 @@ public class HomeViewModel extends ViewModel {
     }
 
     public void loadTemplates() {
+        Log.d(TAG, "loadTemplates() called without parameters, delegating to loadTemplates(false)");
         loadTemplates(false);
     }
 

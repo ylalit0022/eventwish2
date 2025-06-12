@@ -405,15 +405,26 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
         // Set the adapter as a tag on the view holder
         holder.itemView.setTag(TAG_ADAPTER, this);
         
-        if (holder instanceof HeaderViewHolder) {
-            ((HeaderViewHolder) holder).bind((SectionHeader) items.get(position));
-        } else if (holder instanceof TemplateViewHolder) {
-            ((TemplateViewHolder) holder).bind(
-                (Template) items.get(position),
-                recommendedTemplateIds,
-                newTemplateIds,
-                clickListener
-            );
+        try {
+            if (holder instanceof HeaderViewHolder) {
+                SectionHeader header = (SectionHeader) items.get(position);
+                Log.d(TAG, "onBindViewHolder: Binding header at position " + position + ": " + header.getTitle());
+                ((HeaderViewHolder) holder).bind(header);
+            } else if (holder instanceof TemplateViewHolder) {
+                Template template = (Template) items.get(position);
+                Log.d(TAG, "onBindViewHolder: Binding template at position " + position + 
+                      ", ID: " + template.getId() + 
+                      ", Title: " + template.getTitle() +
+                      ", Preview URL: " + template.getPreviewUrl());
+                ((TemplateViewHolder) holder).bind(
+                    template,
+                    recommendedTemplateIds,
+                    newTemplateIds,
+                    clickListener
+                );
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "onBindViewHolder: Error binding view at position " + position, e);
         }
     }
     
@@ -428,11 +439,11 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
      */
     public void updateTemplates(List<Template> templates) {
         if (templates == null) {
-            Log.w(TAG, "Received null templates list");
+            Log.e(TAG, "updateTemplates: Received null templates list");
             return;
         }
         
-        Log.d(TAG, "Updating adapter with " + templates.size() + " templates");
+        Log.d(TAG, "updateTemplates: Updating adapter with " + templates.size() + " templates");
         
         // Sort templates by creation date (newest first)
         List<Template> sortedTemplates = new ArrayList<>(templates);
@@ -443,7 +454,7 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
             return Long.compare(time2, time1);
         });
         
-        Log.d(TAG, "Sorted " + sortedTemplates.size() + " templates by creation date (newest first)");
+        Log.d(TAG, "updateTemplates: Sorted " + sortedTemplates.size() + " templates by creation date (newest first)");
         
         // Clear existing items
         items.clear();
@@ -455,6 +466,7 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
         for (Template template : sortedTemplates) {
             if (recommendedTemplateIds.contains(template.getId()) || template.isRecommended()) {
                 recommendedTemplates.add(template);
+                Log.d(TAG, "updateTemplates: Added template to recommended section: " + template.getId() + ", " + template.getTitle());
             } else {
                 regularTemplates.add(template);
             }
@@ -465,6 +477,7 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
             items.add(new SectionHeader("Recommended for You", 
                 "Personalized recommendations based on your preferences"));
             items.addAll(recommendedTemplates);
+            Log.d(TAG, "updateTemplates: Added recommended section with " + recommendedTemplates.size() + " templates");
         }
         
         // Add regular templates section
@@ -472,9 +485,11 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
             items.add(new SectionHeader("All Templates", 
                 recommendedTemplates.isEmpty() ? "Choose from our collection of templates" : "Browse all available templates"));
             items.addAll(regularTemplates);
+            Log.d(TAG, "updateTemplates: Added regular templates section with " + regularTemplates.size() + " templates");
         }
         
         // Notify adapter of changes
+        Log.d(TAG, "updateTemplates: Final items count: " + items.size() + " (including headers)");
         notifyDataSetChanged();
     }
     

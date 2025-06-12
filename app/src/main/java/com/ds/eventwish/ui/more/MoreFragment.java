@@ -68,6 +68,11 @@ public class MoreFragment extends BaseFragment {
 //            // Navigation.findNavController(v).navigate(R.id.action_more_to_settings);
 //        });
 
+        binding.profileCard.setOnClickListener(v -> {
+            // Navigate to profile
+            Navigation.findNavController(v).navigate(R.id.action_more_to_profile);
+        });
+
         binding.aboutCard.setOnClickListener(v -> {
             // Navigate to about
             Navigation.findNavController(v).navigate(R.id.action_more_to_about);
