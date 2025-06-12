@@ -60,7 +60,36 @@ function ensureCriticalEnvVars() {
   });
   
   // Handle Firebase configuration
-  if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+  // First check for Base64 encoded service account
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+    try {
+      // Decode Base64 to JSON string
+      const decodedServiceAccount = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8');
+      
+      // Parse the JSON to validate
+      const serviceAccount = JSON.parse(decodedServiceAccount);
+      
+      // Validate required fields
+      if (!serviceAccount.project_id || !serviceAccount.private_key || !serviceAccount.client_email) {
+        throw new Error('Missing required fields in decoded service account');
+      }
+      
+      // Set the regular service account variable
+      process.env.FIREBASE_SERVICE_ACCOUNT = decodedServiceAccount;
+      
+      console.log('✅ FIREBASE_SERVICE_ACCOUNT_BASE64 decoded and validated successfully');
+      
+      // Set project ID if not already set
+      if (!process.env.FIREBASE_PROJECT_ID) {
+        process.env.FIREBASE_PROJECT_ID = serviceAccount.project_id;
+        console.log(`✅ FIREBASE_PROJECT_ID set from service account: ${serviceAccount.project_id}`);
+      }
+    } catch (error) {
+      throw new Error(`Invalid FIREBASE_SERVICE_ACCOUNT_BASE64 format: ${error.message}`);
+    }
+  }
+  // Then check for regular service account JSON
+  else if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
     if (isDevelopment && process.env.SKIP_AUTH === 'true') {
       console.warn('⚠️  WARNING: FIREBASE_SERVICE_ACCOUNT not set.');
       console.warn('⚠️  Firebase authentication will be disabled.');
@@ -71,17 +100,18 @@ function ensureCriticalEnvVars() {
       console.warn('⚠️  Set SKIP_AUTH=true to disable authentication for development.');
     } else {
       // In production, we must have Firebase credentials
-      throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is required in production.');
+      throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is required in production. You can also provide FIREBASE_SERVICE_ACCOUNT_BASE64.');
     }
   } else if (isProduction) {
     try {
       // Validate the service account JSON in production
       const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
       if (!serviceAccount.project_id || !serviceAccount.private_key || !serviceAccount.client_email) {
-        throw new Error('Invalid service account format');
+        throw new Error('Invalid service account format - missing required fields');
       }
       console.log('✅ FIREBASE_SERVICE_ACCOUNT validated successfully');
     } catch (error) {
+      console.error('Error parsing FIREBASE_SERVICE_ACCOUNT:', error.message);
       throw new Error(`Invalid FIREBASE_SERVICE_ACCOUNT format: ${error.message}`);
     }
   }
