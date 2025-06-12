@@ -1,3 +1,13 @@
+// Debug environment information
+console.log('=== SERVER STARTUP DIAGNOSTICS ===');
+console.log(`Node.js version: ${process.version}`);
+console.log(`Platform: ${process.platform}`);
+console.log(`Architecture: ${process.arch}`);
+console.log(`Working directory: ${process.cwd()}`);
+console.log(`Memory usage: ${JSON.stringify(process.memoryUsage())}`);
+console.log('=== END DIAGNOSTICS ===');
+
+// Load environment variables
 require('./config/env-loader');
 const express = require('express');
 const mongoose = require('mongoose');
@@ -45,45 +55,40 @@ try {
     console.error('Error loading SharedWish model:', error);
 }
 
-// Connect to MongoDB with more detailed error logging
-console.log('Attempting to connect to MongoDB...');
-if (!process.env.MONGODB_URI) {
-  console.error('MONGODB_URI is not set!');
-  console.log('EMERGENCY OVERRIDE: Setting default MongoDB URI');
-  process.env.MONGODB_URI = 'mongodb+srv://eventwish:eventwish@cluster0.mongodb.net/eventwish?retryWrites=true&w=majority';
-} else {
-  console.log('MongoDB URI:', process.env.MONGODB_URI.substring(0, 20) + '...');
-}
-
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 30000, // Timeout after 30s instead of 30s
-  socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
-  family: 4 // Use IPv4, skip trying IPv6
-})
+// MongoDB Connection
+try {
+  console.log('Attempting to connect to MongoDB...');
+  
+  // Add a default MongoDB URI as a fallback
+  const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/eventwish';
+  console.log(`MongoDB URI (masked): ${mongoURI.replace(/mongodb(\+srv)?:\/\/([^:]+):([^@]+)@/, 'mongodb$1://***:***@')}`);
+  
+  mongoose.connect(mongoURI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
   .then(() => {
-    console.log('Connected to MongoDB successfully');
-    logger.info('Connected to MongoDB');
+    console.log('✅ MongoDB Connected');
+    logger.info('MongoDB Connected');
   })
   .catch((err) => {
-    console.error('MongoDB connection error details:');
-    console.error('Error message:', err.message);
-    console.error('Error code:', err.code);
-    console.error('Error name:', err.name);
-    logger.error(`MongoDB connection error: ${err.message}`, { error: err });
-    console.log('Continuing without MongoDB connection for development purposes');
-    // Don't exit in any mode - try to continue without MongoDB
-    console.log('EMERGENCY OVERRIDE: Continuing without MongoDB connection in production mode');
-    logger.warn('EMERGENCY OVERRIDE: Continuing without MongoDB connection in production mode');
+    console.error('❌ MongoDB Connection Error:', err.message);
+    logger.error('MongoDB Connection Error:', err);
+    console.log('⚠️ WARNING: Continuing without MongoDB connection. Some API endpoints may not work.');
   });
+} catch (error) {
+  console.error('❌ Error in MongoDB connection setup:', error.message);
+  logger.error('Error in MongoDB connection setup:', error);
+  console.log('⚠️ WARNING: Continuing without MongoDB connection. Some API endpoints may not work.');
+}
 
 // Add global error handlers
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:');
   console.error(err);
   logger.error('Uncaught Exception:', err);
-  process.exit(1);
+  // Don't exit, try to keep the server running
+  console.log('EMERGENCY OVERRIDE: Continuing despite uncaught exception');
 });
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -231,16 +236,43 @@ app.get('/wish/:shortCode', async (req, res) => {
 });
 
 // Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/templates', require('./routes/templates'));
-app.use('/api/wishes', require('./routes/wishes'));
-app.use('/api/festivals', require('./routes/festivals'));
-app.use('/api/categoryIcons', require('./routes/categoryIcons'));
-app.use('/api/test/time', require('./routes/timeRoutes'));
-app.use('/api/images', require('./routes/images'));
-app.use('/api/share', require('./routes/share'));
-app.use('/api/users', require('./routes/users'));
-app.use('/api/sponsored-ads', require('./routes/sponsoredAds'));
+try {
+  console.log('Loading routes...');
+  
+  try { app.use('/api/auth', require('./routes/auth')); console.log('✅ Loaded auth routes'); } 
+  catch (e) { console.error('❌ Failed to load auth routes:', e.message); }
+  
+  try { app.use('/api/templates', require('./routes/templates')); console.log('✅ Loaded templates routes'); } 
+  catch (e) { console.error('❌ Failed to load templates routes:', e.message); }
+  
+  try { app.use('/api/wishes', require('./routes/wishes')); console.log('✅ Loaded wishes routes'); } 
+  catch (e) { console.error('❌ Failed to load wishes routes:', e.message); }
+  
+  try { app.use('/api/festivals', require('./routes/festivals')); console.log('✅ Loaded festivals routes'); } 
+  catch (e) { console.error('❌ Failed to load festivals routes:', e.message); }
+  
+  try { app.use('/api/categoryIcons', require('./routes/categoryIcons')); console.log('✅ Loaded categoryIcons routes'); } 
+  catch (e) { console.error('❌ Failed to load categoryIcons routes:', e.message); }
+  
+  try { app.use('/api/test/time', require('./routes/timeRoutes')); console.log('✅ Loaded timeRoutes routes'); } 
+  catch (e) { console.error('❌ Failed to load timeRoutes routes:', e.message); }
+  
+  try { app.use('/api/images', require('./routes/images')); console.log('✅ Loaded images routes'); } 
+  catch (e) { console.error('❌ Failed to load images routes:', e.message); }
+  
+  try { app.use('/api/share', require('./routes/share')); console.log('✅ Loaded share routes'); } 
+  catch (e) { console.error('❌ Failed to load share routes:', e.message); }
+  
+  try { app.use('/api/users', require('./routes/users')); console.log('✅ Loaded users routes'); } 
+  catch (e) { console.error('❌ Failed to load users routes:', e.message); }
+  
+  try { app.use('/api/sponsored-ads', require('./routes/sponsoredAds')); console.log('✅ Loaded sponsoredAds routes'); } 
+  catch (e) { console.error('❌ Failed to load sponsoredAds routes:', e.message); }
+  
+  console.log('✅ All main routes loaded');
+} catch (error) {
+  console.error('❌ Error loading routes:', error);
+}
 
 // Time synchronization route for Android client
 app.get('/api/server/time', (req, res) => {
@@ -322,14 +354,49 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Basic health check endpoint that doesn't require MongoDB
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    mongodb_connected: mongoose.connection.readyState === 1
+  });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({
+    message: 'EventWish API is running',
+    version: '1.0.0',
+    environment: process.env.NODE_ENV,
+    documentation: '/api-docs'
+  });
+});
+
 // Start server
 const PORT = process.env.PORT || 3007;
-const server = app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    console.log(`API documentation available at http://localhost:${PORT}/api-docs`);
-    logger.info(`Server is running on port ${PORT}`);
-    logger.info(`API documentation available at http://localhost:${PORT}/api-docs`);
-});
+try {
+  const server = app.listen(PORT, () => {
+    console.log(`✅ Server running on port ${PORT}`);
+    logger.info(`Server running on port ${PORT}`);
+  });
+
+  server.on('error', (error) => {
+    console.error('❌ Server error:', error.message);
+    logger.error('Server error:', error);
+    
+    // Check for specific errors
+    if (error.code === 'EADDRINUSE') {
+      console.error(`❌ Port ${PORT} is already in use`);
+      logger.error(`Port ${PORT} is already in use`);
+    }
+  });
+} catch (error) {
+  console.error('❌ Failed to start server:', error.message);
+  logger.error('Failed to start server:', error);
+}
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
