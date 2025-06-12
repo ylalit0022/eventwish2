@@ -55,57 +55,104 @@ const verifyFirebaseToken = async (req, res, next) => {
     }
     
     // Verify the token with Firebase Admin
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-    
-    // Add the decoded token and UID to the request object
-    req.user = decodedToken;
-    req.uid = decodedToken.uid;
-    
-    // For endpoints that use req.body.uid, ensure it matches the token
-    if (req.body.uid && req.body.uid !== decodedToken.uid) {
-      logger.warn(`UID mismatch: Token UID ${decodedToken.uid} does not match request UID ${req.body.uid}`);
-      return res.status(403).json({
+    try {
+      // Add a timeout for token verification to prevent hanging requests
+      const decodedTokenPromise = admin.auth().verifyIdToken(idToken);
+      
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Token verification timed out')), 5000);
+      });
+      
+      // Race the token verification against the timeout
+      const decodedToken = await Promise.race([decodedTokenPromise, timeoutPromise]);
+      
+      // Check token expiration time
+      const currentTime = Math.floor(Date.now() / 1000);
+      if (decodedToken.exp && decodedToken.exp < currentTime) {
+        logger.warn(`Token expired for user ${decodedToken.uid}`);
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication token expired. Please login again.'
+        });
+      }
+      
+      // Add the decoded token and UID to the request object
+      req.user = decodedToken;
+      req.uid = decodedToken.uid;
+      
+      // For endpoints that use req.body.uid, ensure it matches the token
+      if (req.body.uid && req.body.uid !== decodedToken.uid) {
+        logger.warn(`UID mismatch: Token UID ${decodedToken.uid} does not match request UID ${req.body.uid}`);
+        return res.status(403).json({
+          success: false,
+          message: 'User ID in request does not match authenticated user'
+        });
+      }
+      
+      // For endpoints that use req.params.uid, ensure it matches the token
+      if (req.params.uid && req.params.uid !== decodedToken.uid) {
+        logger.warn(`UID mismatch: Token UID ${decodedToken.uid} does not match request UID ${req.params.uid}`);
+        return res.status(403).json({
+          success: false,
+          message: 'User ID in request does not match authenticated user'
+        });
+      }
+      
+      logger.info(`User ${decodedToken.uid} authenticated successfully`);
+      next();
+    } catch (verifyError) {
+      logger.error(`Token verification error: ${verifyError.message}`);
+      
+      // Handle specific Firebase Auth errors
+      if (verifyError.code === 'auth/id-token-expired') {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication token expired. Please login again.',
+          code: 'TOKEN_EXPIRED'
+        });
+      } else if (verifyError.code === 'auth/id-token-revoked') {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication token has been revoked. Please login again.',
+          code: 'TOKEN_REVOKED'
+        });
+      } else if (verifyError.code === 'auth/invalid-id-token') {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid authentication token. Please login again.',
+          code: 'INVALID_TOKEN'
+        });
+      } else if (verifyError.message.includes('Unable to detect a Project Id')) {
+        logger.error('Firebase Project ID not configured correctly');
+        return res.status(500).json({
+          success: false,
+          message: 'Server authentication configuration error',
+          code: 'SERVER_CONFIG_ERROR'
+        });
+      } else if (verifyError.message === 'Token verification timed out') {
+        logger.error('Firebase token verification timed out');
+        return res.status(503).json({
+          success: false,
+          message: 'Authentication service timeout',
+          code: 'AUTH_TIMEOUT'
+        });
+      }
+      
+      // Generic error response
+      return res.status(401).json({
         success: false,
-        message: 'User ID in request does not match authenticated user'
+        message: 'Authentication failed. Please login again.',
+        code: 'AUTH_FAILED'
       });
     }
-    
-    // For endpoints that use req.params.uid, ensure it matches the token
-    if (req.params.uid && req.params.uid !== decodedToken.uid) {
-      logger.warn(`UID mismatch: Token UID ${decodedToken.uid} does not match request UID ${req.params.uid}`);
-      return res.status(403).json({
-        success: false,
-        message: 'User ID in request does not match authenticated user'
-      });
-    }
-    
-    logger.info(`User ${decodedToken.uid} authenticated successfully`);
-    next();
   } catch (error) {
     logger.error(`Authentication error: ${error.message}`);
     
-    // Handle specific Firebase Auth errors
-    if (error.code === 'auth/id-token-expired') {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication token expired. Please login again.'
-      });
-    } else if (error.code === 'auth/id-token-revoked') {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication token has been revoked. Please login again.'
-      });
-    } else if (error.code === 'auth/invalid-id-token') {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid authentication token. Please login again.'
-      });
-    }
-    
-    res.status(401).json({
+    return res.status(500).json({
       success: false,
-      message: 'Authentication failed. Please login again.',
-      error: error.message
+      message: 'Server error during authentication',
+      code: 'SERVER_ERROR'
     });
   }
 };
@@ -136,7 +183,16 @@ const optionalFirebaseAuth = async (req, res, next) => {
     
     // Try to verify the token
     try {
-      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      // Add a timeout for token verification
+      const decodedTokenPromise = admin.auth().verifyIdToken(idToken);
+      
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Token verification timed out')), 5000);
+      });
+      
+      // Race the token verification against the timeout
+      const decodedToken = await Promise.race([decodedTokenPromise, timeoutPromise]);
       
       // Add the decoded token and UID to the request object
       req.user = decodedToken;
@@ -169,7 +225,8 @@ const verifyApiKey = (req, res, next) => {
       logger.warn('API key verification failed: No API key provided');
       return res.status(401).json({
         success: false,
-        message: 'API key required'
+        message: 'API key required',
+        code: 'API_KEY_REQUIRED'
       });
     }
     
@@ -178,8 +235,38 @@ const verifyApiKey = (req, res, next) => {
       logger.warn('API key verification failed: Invalid API key');
       return res.status(401).json({
         success: false,
-        message: 'Invalid API key'
+        message: 'Invalid API key',
+        code: 'INVALID_API_KEY'
       });
+    }
+    
+    // Add rate limiting for API key requests in production
+    if (process.env.NODE_ENV === 'production') {
+      // This is a simple in-memory rate limiting implementation
+      // In a real production environment, you would use Redis or similar
+      const now = Date.now();
+      const requestsPerMinute = 60; // Adjust as needed
+      
+      // Create a global request counter if it doesn't exist
+      if (!global.apiKeyRequests) {
+        global.apiKeyRequests = [];
+      }
+      
+      // Clean up old requests (older than 1 minute)
+      global.apiKeyRequests = global.apiKeyRequests.filter(timestamp => now - timestamp < 60000);
+      
+      // Add current request timestamp
+      global.apiKeyRequests.push(now);
+      
+      // Check if we're over the limit
+      if (global.apiKeyRequests.length > requestsPerMinute) {
+        logger.warn('API key rate limit exceeded');
+        return res.status(429).json({
+          success: false,
+          message: 'Rate limit exceeded. Please try again later.',
+          code: 'RATE_LIMIT_EXCEEDED'
+        });
+      }
     }
     
     logger.info('API key verification succeeded');
@@ -188,7 +275,8 @@ const verifyApiKey = (req, res, next) => {
     logger.error(`API key verification error: ${error.message}`);
     res.status(500).json({
       success: false,
-      message: 'Server error during API key verification'
+      message: 'Server error during API key verification',
+      code: 'SERVER_ERROR'
     });
   }
 };

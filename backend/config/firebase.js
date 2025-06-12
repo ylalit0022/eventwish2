@@ -14,30 +14,47 @@ const initializeFirebaseAdmin = () => {
     }
 
     // If running with authentication disabled, return uninitialized admin
+    // Only allow this in development, never in production
     if (process.env.SKIP_AUTH === 'true') {
-      logger.info('Firebase authentication disabled with SKIP_AUTH=true');
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('SECURITY ERROR: Cannot skip authentication in production environment');
+      }
+      logger.warn('Firebase authentication disabled with SKIP_AUTH=true - THIS IS NOT SECURE FOR PRODUCTION');
       return admin;
     }
 
-    // If running in development/test mode, we may want to use a service account file
-    // If in production, we'll rely on Google's Application Default Credentials
+    // Get the Firebase project ID from environment variables
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    
+    // Service account should be required in production
     const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+    
+    if (!serviceAccount && process.env.NODE_ENV === 'production') {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is required in production');
+    }
     
     if (serviceAccount) {
       try {
         // Initialize with explicit service account credentials
+        const serviceAccountObj = JSON.parse(serviceAccount);
         admin.initializeApp({
-          credential: admin.credential.cert(JSON.parse(serviceAccount))
+          credential: admin.credential.cert(serviceAccountObj),
+          // If projectId is explicitly provided, use it as a fallback
+          projectId: serviceAccountObj.project_id || projectId
         });
-        logger.info('Firebase Admin SDK initialized with service account');
+        logger.info(`Firebase Admin SDK initialized with service account, project ID: ${serviceAccountObj.project_id || projectId || 'unknown'}`);
       } catch (parseError) {
         logger.error(`Error parsing service account: ${parseError.message}`);
         
         if (process.env.NODE_ENV !== 'production') {
-          logger.info('Using empty app configuration for development');
-          admin.initializeApp({});
+          logger.warn('Using empty app configuration for development - NOT SECURE FOR PRODUCTION');
+          admin.initializeApp({
+            projectId: projectId || 'eventwish-app'
+          });
+          logger.info(`Development mode: Using project ID: ${projectId || 'eventwish-app'}`);
         } else {
-          throw parseError;
+          // In production, we must have valid credentials
+          throw new Error(`Failed to initialize Firebase Admin SDK: ${parseError.message}`);
         }
       }
     } else {
@@ -45,18 +62,33 @@ const initializeFirebaseAdmin = () => {
       try {
         // Initialize with application default credentials
         // This works in Google Cloud and when GOOGLE_APPLICATION_CREDENTIALS env var is set
-        admin.initializeApp({
+        const appConfig = {
           credential: admin.credential.applicationDefault()
-        });
+        };
+        
+        // Explicitly set project ID if provided to prevent "Unable to detect a Project Id" errors
+        if (projectId) {
+          appConfig.projectId = projectId;
+          logger.info(`Using explicit project ID from environment: ${projectId}`);
+        } else if (process.env.NODE_ENV === 'production') {
+          throw new Error('FIREBASE_PROJECT_ID is required in production when using application default credentials');
+        }
+        
+        admin.initializeApp(appConfig);
         logger.info('Firebase Admin SDK initialized with application default credentials');
       } catch (credError) {
         logger.error(`Error initializing with application default credentials: ${credError.message}`);
         
         if (process.env.NODE_ENV !== 'production') {
-          logger.info('Using empty app configuration for development');
-          admin.initializeApp({});
+          // In development, initialize with just the project ID if available
+          logger.warn('Using empty app configuration for development - NOT SECURE FOR PRODUCTION');
+          admin.initializeApp({
+            projectId: projectId || 'eventwish-app'
+          });
+          logger.info(`Development mode: Using project ID: ${projectId || 'eventwish-app'}`);
         } else {
-          throw credError;
+          // In production, we must have valid credentials
+          throw new Error(`Failed to initialize Firebase Admin SDK: ${credError.message}`);
         }
       }
     }
@@ -64,6 +96,13 @@ const initializeFirebaseAdmin = () => {
     return admin;
   } catch (error) {
     logger.error(`Error initializing Firebase Admin SDK: ${error.message}`);
+    
+    // In production, fail fast if Firebase can't be initialized
+    if (process.env.NODE_ENV === 'production') {
+      logger.error('FATAL: Cannot continue without Firebase authentication in production');
+      process.exit(1);
+    }
+    
     throw error;
   }
 };

@@ -13,6 +13,11 @@ const crypto = require('crypto');
 // Load environment variables from .env file
 dotenv.config();
 
+// Debug environment mode
+console.log('DEBUG: NODE_ENV value:', process.env.NODE_ENV);
+console.log('DEBUG: Is development?', process.env.NODE_ENV !== 'production');
+console.log('DEBUG: SKIP_AUTH value:', process.env.SKIP_AUTH);
+
 /**
  * Generates a temporary secret for development
  * @returns {string} - Random hex string
@@ -27,6 +32,7 @@ function generateTempSecret() {
  */
 function ensureCriticalEnvVars() {
   const isDevelopment = process.env.NODE_ENV !== 'production';
+  const isProduction = process.env.NODE_ENV === 'production';
   
   // Critical environment variables that must be set
   const criticalVars = [
@@ -64,15 +70,57 @@ function ensureCriticalEnvVars() {
       console.warn('⚠️  Firebase authentication may not work correctly.');
       console.warn('⚠️  Set SKIP_AUTH=true to disable authentication for development.');
     } else {
-      // In production, we'll log a warning but not crash the app
-      // This allows for gradual rollout of Firebase auth
-      console.warn('⚠️  WARNING: FIREBASE_SERVICE_ACCOUNT not set in production.');
-      console.warn('⚠️  Firebase authentication will not work!');
+      // In production, we must have Firebase credentials
+      throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is required in production.');
     }
+  } else if (isProduction) {
+    try {
+      // Validate the service account JSON in production
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      if (!serviceAccount.project_id || !serviceAccount.private_key || !serviceAccount.client_email) {
+        throw new Error('Invalid service account format');
+      }
+      console.log('✅ FIREBASE_SERVICE_ACCOUNT validated successfully');
+    } catch (error) {
+      throw new Error(`Invalid FIREBASE_SERVICE_ACCOUNT format: ${error.message}`);
+    }
+  }
+  
+  // Handle Firebase Project ID
+  if (!process.env.FIREBASE_PROJECT_ID) {
+    if (isDevelopment) {
+      // Set a default project ID for development
+      process.env.FIREBASE_PROJECT_ID = 'eventwish-app';
+      console.warn('⚠️  WARNING: FIREBASE_PROJECT_ID not set in environment variables.');
+      console.warn(`⚠️  Using default project ID for development: ${process.env.FIREBASE_PROJECT_ID}`);
+    } else {
+      // In production, we must have a project ID
+      throw new Error('FIREBASE_PROJECT_ID environment variable is required in production.');
+    }
+  }
+  
+  // Prevent SKIP_AUTH in production
+  if (process.env.SKIP_AUTH === 'true' && isProduction) {
+    throw new Error('SECURITY ERROR: Cannot set SKIP_AUTH=true in production environment');
   }
   
   // Log environment mode
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  
+  // Production security checks
+  if (isProduction) {
+    // Check API key strength
+    if (process.env.API_KEY && process.env.API_KEY.length < 32) {
+      console.warn('⚠️  WARNING: API_KEY is less than 32 characters. Consider using a stronger key.');
+    }
+    
+    // Check JWT secret strength
+    if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
+      console.warn('⚠️  WARNING: JWT_SECRET is less than 32 characters. Consider using a stronger secret.');
+    }
+    
+    console.log('✅ Production environment checks completed');
+  }
 }
 
 // Run the check
