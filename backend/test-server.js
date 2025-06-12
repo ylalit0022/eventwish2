@@ -89,6 +89,23 @@ app.post('/api/users/profile', (req, res) => {
   }
 });
 
+// Simple route to test if server is running
+app.get('/test', (req, res) => {
+  res.json({ message: 'Test server is running' });
+});
+
+// Add likes route for testing
+app.put('/api/users/:uid/likes/:templateId', (req, res) => {
+  const { uid, templateId } = req.params;
+  console.log(`Received like request for user ${uid} and template ${templateId}`);
+  res.json({
+    success: true,
+    message: 'Test like endpoint called successfully',
+    uid,
+    templateId
+  });
+});
+
 // Start server
 const PORT = process.env.PORT || 3007;
 app.listen(PORT, () => {

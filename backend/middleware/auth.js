@@ -21,6 +21,11 @@ const verifyFirebaseToken = async (req, res, next) => {
         req.uid = req.headers['x-firebase-uid'];
         req.user = { uid: req.uid };
         logger.info(`Development mode: Using UID ${req.uid} from headers`);
+      } else if (req.params.uid) {
+        // If no header but URL has uid parameter, use that in development mode
+        req.uid = req.params.uid;
+        req.user = { uid: req.uid };
+        logger.info(`Development mode: Using UID ${req.uid} from URL params`);
       }
       return next();
     } else {
@@ -34,6 +39,18 @@ const verifyFirebaseToken = async (req, res, next) => {
 
   try {
     const authHeader = req.headers.authorization;
+    
+    // For development only, allow skipping auth with SKIP_AUTH=true
+    if ((process.env.NODE_ENV === 'development' || process.env.SKIP_AUTH === 'true') && 
+        (!authHeader || !authHeader.startsWith('Bearer '))) {
+      logger.warn('Development mode: Skipping authentication check');
+      if (req.params.uid) {
+        req.uid = req.params.uid;
+        req.user = { uid: req.uid };
+        logger.info(`Development mode: Using UID ${req.uid} from URL params`);
+      }
+      return next();
+    }
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       logger.warn('Authentication failed: No token provided');
@@ -125,6 +142,18 @@ const verifyFirebaseToken = async (req, res, next) => {
         });
       } else if (verifyError.message.includes('Unable to detect a Project Id')) {
         logger.error('Firebase Project ID not configured correctly');
+        
+        // In development, allow proceeding without authentication
+        if (process.env.NODE_ENV === 'development' || process.env.SKIP_AUTH === 'true') {
+          logger.warn('Development mode: Proceeding despite Project ID error');
+          if (req.params.uid) {
+            req.uid = req.params.uid;
+            req.user = { uid: req.uid };
+            logger.info(`Development mode: Using UID ${req.uid} from URL params`);
+            return next();
+          }
+        }
+        
         return res.status(500).json({
           success: false,
           message: 'Server authentication configuration error',

@@ -47,6 +47,8 @@ try {
 
 // Connect to MongoDB with more detailed error logging
 console.log('Attempting to connect to MongoDB...');
+console.log('MongoDB URI:', process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 20) + '...' : 'not set');
+
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -64,7 +66,11 @@ mongoose.connect(process.env.MONGODB_URI, {
     console.error('Error code:', err.code);
     console.error('Error name:', err.name);
     logger.error(`MongoDB connection error: ${err.message}`, { error: err });
-    process.exit(1);
+    console.log('Continuing without MongoDB connection for development purposes');
+    // Don't exit in development mode
+    if (process.env.NODE_ENV === 'production') {
+      process.exit(1);
+    }
   });
 
 // Add global error handlers
@@ -312,8 +318,10 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3007;
 const server = app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+    console.log(`API documentation available at http://localhost:${PORT}/api-docs`);
     logger.info(`Server is running on port ${PORT}`);
     logger.info(`API documentation available at http://localhost:${PORT}/api-docs`);
 });

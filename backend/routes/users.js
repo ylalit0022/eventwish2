@@ -1535,10 +1535,10 @@ router.delete('/:uid/likes/:templateId', validateFirebaseUid, verifyFirebaseToke
                 likes: user.likes
             });
         } else {
-            // Template not in likes
+            // Template not liked
             return res.status(200).json({
                 success: true,
-                message: 'Template not in likes',
+                message: 'Template not liked',
                 likes: user.likes
             });
         }
