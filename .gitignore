@@ -77,3 +77,6 @@ Thumbs.db
 
 # Test logs
 backend-mock/test-logs/*.log
+
+# Firebase service account
+backend/firebase-service-account.json
