@@ -175,6 +175,27 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
     }]);
 });
 
+// Basic health check endpoint that doesn't require MongoDB
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    mongodb_connected: mongoose.connection.readyState === 1
+  });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({
+    message: 'EventWish API is running',
+    version: '1.0.0',
+    environment: process.env.NODE_ENV,
+    documentation: '/api-docs'
+  });
+});
+
 // Deep linking route for wishes
 app.get('/wish/:shortCode', async (req, res) => {
     try {
@@ -354,31 +375,12 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Basic health check endpoint that doesn't require MongoDB
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    mongodb_connected: mongoose.connection.readyState === 1
-  });
-});
-
-// Root endpoint
-app.get('/', (req, res) => {
-  res.status(200).json({
-    message: 'EventWish API is running',
-    version: '1.0.0',
-    environment: process.env.NODE_ENV,
-    documentation: '/api-docs'
-  });
-});
-
 // Start server
 const PORT = process.env.PORT || 3007;
+let server; // Define server in global scope
+
 try {
-  const server = app.listen(PORT, () => {
+  server = app.listen(PORT, () => {
     console.log(`✅ Server running on port ${PORT}`);
     logger.info(`Server running on port ${PORT}`);
   });
@@ -401,11 +403,16 @@ try {
 // Graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    logger.info('HTTP server closed');
-    mongoose.connection.close(false, () => {
-      logger.info('MongoDB connection closed');
-      process.exit(0);
+  if (server) {
+    server.close(() => {
+      logger.info('HTTP server closed');
+      mongoose.connection.close(false, () => {
+        logger.info('MongoDB connection closed');
+        process.exit(0);
+      });
     });
-  });
+  } else {
+    logger.info('HTTP server not initialized, exiting directly');
+    process.exit(0);
+  }
 });
