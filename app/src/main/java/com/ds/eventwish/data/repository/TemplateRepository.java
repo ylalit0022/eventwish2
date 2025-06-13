@@ -12,53 +12,51 @@ import androidx.lifecycle.MutableLiveData;
 
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.model.response.TemplateResponse;
-import com.ds.eventwish.data.remote.ApiClient;
+import com.ds.eventwish.data.db.AppDatabase;
 import com.ds.eventwish.data.remote.ApiService;
 import com.ds.eventwish.data.remote.FirestoreManager;
-import com.ds.eventwish.utils.AnalyticsUtils;
+import com.ds.eventwish.utils.AppExecutors;
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.TaskCompletionSource;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.QuerySnapshot;
-import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 
-import java.util.HashSet;
-import java.util.Set;
-import okhttp3.Dispatcher;
-import okhttp3.OkHttpClient;
-
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.TimeUnit;
 
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
 /**
- * Repository for managing templates
+ * Repository for template data
  */
 public class TemplateRepository {
     private static final String TAG = "TemplateRepository";
     private static final String COLLECTION_TEMPLATES = "templates";
-
+    
     private static volatile TemplateRepository instance;
     private static Context applicationContext;
-
+    
     private final FirebaseFirestore db;
     private final ApiService apiService;
     private final MutableLiveData<List<Template>> templates = new MutableLiveData<>();
@@ -85,6 +83,14 @@ public class TemplateRepository {
         put("Holiday", 7);
         put("Party", 9);
     }};
+
+    private AppDatabase appDatabase;
+
+    // Constants for template state sync 
+    private static final long MIN_SYNC_INTERVAL_MS = 30000; // 30 seconds between syncs
+    private static final long SERVER_SYNC_INTERVAL_MS = 300000; // 5 minutes between server syncs
+    private long lastSyncTimestamp = 0;
+    private long lastServerSyncTimestamp = 0;
 
     /**
      * Callback interface for category operations
@@ -116,16 +122,18 @@ public class TemplateRepository {
 
     private TemplateRepository() {
         this.db = FirebaseFirestore.getInstance();
-        apiService = ApiClient.getClient();
+        this.apiService = com.ds.eventwish.data.remote.ApiClient.getClient();
+        
+        // Initialize Room database for persistent storage
+        this.appDatabase = AppDatabase.getInstance(applicationContext);
+        
+        // Load categories from preferences if available
+        loadCategoriesFromPrefs();
+        
         templates.postValue(new ArrayList<>());
         categories.postValue(new HashMap<>());
         // Initialize with default categories
         ensureDefaultCategories(null);
-        
-        // Load categories if context is available
-        if (applicationContext != null) {
-            loadCategoriesFromPrefs();
-        }
     }
 
     private void loadCategoriesFromPrefs() {
@@ -323,31 +331,13 @@ public class TemplateRepository {
         }
     }
 
+    /**
+     * Load templates from server or cache
+     * @param forceRefresh Whether to force a refresh from server
+     */
     public void loadTemplates(boolean forceRefresh) {
-        // Skip if already loading
-        if (loading.getValue() != null && loading.getValue()) {
-            Log.d(TAG, "Already loading templates, skipping duplicate request");
-            return;
-        }
-
-        // Set loading state
         loading.postValue(true);
         
-        // Clear error state when starting a new load
-        error.postValue(null);
-
-        // Reset pagination for new requests
-        if (forceRefresh) {
-            Log.d(TAG, "Clearing existing templates and resetting pagination");
-            currentPage = 1;
-            hasMorePages = true;
-            
-            // Only clear templates if we're not filtering by category or if this is the initial load
-            if (currentCategory == null || templates.getValue() == null || templates.getValue().isEmpty()) {
-                templates.postValue(new ArrayList<>());
-            }
-        }
-
         // Check if user is logged in
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         
@@ -356,212 +346,197 @@ public class TemplateRepository {
     }
 
     private void loadTemplatesInternal(boolean forceRefresh, FirebaseUser user) {
-        // If this is a forced refresh, reset pagination
-        if (forceRefresh) {
-            currentPage = 1;
-            hasMorePages = true;
-            
-            // Only clear templates if we're not filtering by category or if this is the initial load
-            if (currentCategory == null || templates.getValue() == null || templates.getValue().isEmpty()) {
-                templates.postValue(new ArrayList<>());
-            }
-        }
-        
-        // If we've already loaded all pages, don't make another request
-        if (!hasMorePages && currentPage > 1) {
-            loading.postValue(false);
+        // If we're already loading and this is not a forced refresh, skip
+        if (loading.getValue() != null && loading.getValue() && !forceRefresh) {
             return;
         }
         
-        // Log request details
-        Log.d(TAG, "Loading templates - page: " + currentPage + 
-                  ", category: " + (currentCategory != null ? currentCategory : "All") + 
-                  ", forceRefresh: " + forceRefresh +
-                  ", user: " + (user != null ? user.getUid() : "null"));
-
+        // Set loading flag
+        loading.postValue(true);
+        
+        // Construct API request parameters
+        Map<String, String> params = new HashMap<>();
+        params.put("page", String.valueOf(currentPage));
+        params.put("limit", String.valueOf(PAGE_SIZE));
+        
+        if (currentCategory != null && !currentCategory.isEmpty()) {
+            params.put("category", currentCategory);
+        }
+        
+        // Check if we should use cached data or fetch from API
+        if (!forceRefresh && templates.getValue() != null && !templates.getValue().isEmpty()) {
+            // We have cached data, use it
+            List<Template> cachedTemplates = templates.getValue();
+            Log.d(TAG, "Using cached templates: " + cachedTemplates.size());
+            
+            // Apply local interaction states on background thread
+            AppExecutors.getInstance().diskIO().execute(() -> {
+                try {
+                    if (user != null) {
+                        List<Template> updatedTemplates = applyLocalInteractionStates(cachedTemplates, user.getUid());
+                        AppExecutors.getInstance().mainThread().execute(() -> {
+                            templates.setValue(updatedTemplates);
+                            loading.setValue(false);
+                        });
+                    } else {
+                        // Even without a user, we can still update loading state on main thread
+                        AppExecutors.getInstance().mainThread().execute(() -> {
+                            loading.setValue(false);
+                        });
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error applying local states", e);
+                    // Update loading state on main thread
+                    AppExecutors.getInstance().mainThread().execute(() -> {
+                        loading.setValue(false);
+                    });
+                }
+            });
+            return;
+        }
+        
+        // Get templates from API
         Call<TemplateResponse> call;
-        if (currentCategory != null) {
+        
+        if (currentCategory != null && !currentCategory.isEmpty()) {
             call = apiService.getTemplatesByCategory(currentCategory, currentPage, PAGE_SIZE);
         } else {
             call = apiService.getTemplates(currentPage, PAGE_SIZE);
         }
-
+        
         setCurrentCall(call);
-        call.enqueue(new Callback<TemplateResponse>() {
+        
+        Log.d(TAG, "Fetching templates from API: page=" + currentPage + ", category=" + (currentCategory == null ? "all" : currentCategory));
+        
+        currentCall.enqueue(new Callback<TemplateResponse>() {
             @Override
             public void onResponse(Call<TemplateResponse> call, Response<TemplateResponse> response) {
-                // Clear the current call reference if it matches this call
-                if (currentCall != null && currentCall.equals(call)) {
-                    currentCall = null;
-                }
-                
-                // Skip processing if call was cancelled
-                if (call.isCanceled()) {
-                    Log.d(TAG, "Skipping response handling for cancelled call");
-                    loading.postValue(false);
-                    return;
-                }
-                
-                loading.postValue(false);
-
-                if (response.isSuccessful() && response.body() != null) {
-                    TemplateResponse templateResponse = response.body();
-                    List<Template> currentList = templates.getValue();
-                    if (currentList == null) currentList = new ArrayList<>();
-                    
-                    // Get the new templates from the response
-                    List<Template> newTemplates = templateResponse.getTemplates();
-                    
-                    // Sort the new templates by creation date (newest first)
-                    if (newTemplates != null && !newTemplates.isEmpty()) {
-                        Collections.sort(newTemplates, (t1, t2) -> {
-                            long time1 = t1.getCreatedAtTimestamp();
-                            long time2 = t2.getCreatedAtTimestamp();
-                            // Sort in descending order (newest first)
-                            return Long.compare(time2, time1);
-                        });
-                        
-                        Log.d(TAG, "Sorted " + newTemplates.size() + " templates by creation date (newest first)");
-                    }
-
-                    final List<Template> finalList;
-                    if (forceRefresh) {
-                        // For a force refresh, use only the sorted new templates
-                        finalList = new ArrayList<>(newTemplates);
-                    } else {
-                        // For pagination, we need to merge and maintain the current order
-                        // Add new templates at the end
-                        finalList = new ArrayList<>(currentList);
-                        
-                        // Add new templates that don't already exist in the list
-                        for (Template newTemplate : newTemplates) {
-                            boolean exists = false;
-                            for (Template existingTemplate : finalList) {
-                                if (existingTemplate.getId().equals(newTemplate.getId())) {
-                                    exists = true;
-                                    break;
-                                }
-                            }
-                            if (!exists) {
-                                finalList.add(newTemplate);
-                            }
-                        }
-                        
-                        // Only sort if this is not a user interaction update
-                        if (forceRefresh) {
-                        // Re-sort the entire list to ensure newest templates are always at the top
-                            Collections.sort(finalList, (t1, t2) -> {
-                            long time1 = t1.getCreatedAtTimestamp();
-                            long time2 = t2.getCreatedAtTimestamp();
-                            // Sort in descending order (newest first)
-                            return Long.compare(time2, time1);
-                        });
-                        
-                            Log.d(TAG, "Re-sorted complete list of " + finalList.size() + " templates by creation date");
-                        }
-                    }
-                    
-                    // Check like/favorite status if user is logged in
-                    if (user != null && newTemplates != null && !newTemplates.isEmpty()) {
-                        Log.d(TAG, "Starting interaction check for " + newTemplates.size() + " templates with user: " + user.getUid());
-                        
-                        checkInteractionStates(newTemplates, user.getUid())
-                            .addOnSuccessListener(updatedTemplates -> {
-                                Log.d(TAG, "Successfully checked interaction states");
-                                
-                                // Create a new list with the same order as finalList
-                                List<Template> updatedFinalList = new ArrayList<>(finalList);
-                                
-                                // Update states without changing positions
-                                for (int i = 0; i < updatedFinalList.size(); i++) {
-                                    Template template = updatedFinalList.get(i);
-                                    
-                                    // Find updated template with same ID
-                                    for (Template updatedTemplate : updatedTemplates) {
-                                        if (template.getId().equals(updatedTemplate.getId())) {
-                                            // Update like/favorite status without changing position
-                                            template.setLiked(updatedTemplate.isLiked());
-                                            template.setFavorited(updatedTemplate.isFavorited());
-                                            template.setLikeCount(updatedTemplate.getLikeCount());
-                                            break;
-                                        }
-                                    }
+                // Process response on a background thread to avoid main thread database operations
+                AppExecutors.getInstance().networkIO().execute(() -> {
+                    try {
+                        if (response.isSuccessful() && response.body() != null) {
+                            final TemplateResponse templateResponse = response.body();
+                            List<Template> fetchedTemplates = templateResponse.getTemplates();
+                            
+                            Log.d(TAG, "Fetched templates: " + (fetchedTemplates != null ? fetchedTemplates.size() : 0));
+                            
+                                        // Update pagination state
+            hasMorePages = templateResponse.isHasMore();
+                            
+                            // Process templates and update view on main thread
+                            if (fetchedTemplates != null && !fetchedTemplates.isEmpty()) {
+                                // Update templates in database on background thread
+                                try {
+                                    insertAll(fetchedTemplates, false);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error saving templates to database", e);
                                 }
                                 
-                                // Apply locally stored interactions after server data
-List<Template> locallyUpdatedList = applyLocalInteractionStates(updatedFinalList, user.getUid());
-
-// Post updated list without changing order
-templates.postValue(locallyUpdatedList);
-Log.d(TAG, "Posted updated templates to LiveData with server and local interaction states");
-                            })
-                            .addOnFailureListener(e -> {
-                                Log.e(TAG, "Failed to check interaction states", e);
+                                // Apply local interaction states
+                                final List<Template> processedTemplates;
+                                if (user != null) {
+                                    processedTemplates = applyLocalInteractionStates(fetchedTemplates, user.getUid());
+                                } else {
+                                    processedTemplates = fetchedTemplates;
+                                }
                                 
-                                // Even if server check fails, still apply local states
-                                List<Template> locallyUpdatedList = applyLocalInteractionStates(finalList, user.getUid());
-                                templates.postValue(locallyUpdatedList);
-                                Log.d(TAG, "Posted locally updated templates to LiveData after server failure");
-                            });
-                    } else {
-                        // No user or no templates, just post the list as is
-                        if (user != null) {
-                            // If we have a user but no new templates, still apply local states to the final list
-                            List<Template> locallyUpdatedList = applyLocalInteractionStates(finalList, user.getUid());
-                            templates.postValue(locallyUpdatedList);
+                                // Update UI on main thread
+                                AppExecutors.getInstance().mainThread().execute(() -> {
+                                    templates.setValue(processedTemplates);
+                                    loading.setValue(false);
+                                    error.setValue(null);
+                                });
+                            } else {
+                                // No templates returned, update UI on main thread
+                                AppExecutors.getInstance().mainThread().execute(() -> {
+                                    templates.setValue(new ArrayList<>());
+                                    loading.setValue(false);
+                                    error.setValue(null);
+                                });
+                            }
                         } else {
-                            templates.postValue(finalList);
+                            // API error, update UI on main thread
+                            AppExecutors.getInstance().mainThread().execute(() -> {
+                                error.setValue("Error loading templates: " + 
+                                            (response.errorBody() != null ? response.errorBody().toString() : "Unknown error"));
+                                loading.setValue(false);
+                            });
                         }
+                    } catch (Exception e) {
+                        // Handle exceptions on main thread
+                        AppExecutors.getInstance().mainThread().execute(() -> {
+                            error.setValue("Exception: " + e.getMessage());
+                            loading.setValue(false);
+                        });
+                        Log.e(TAG, "Error processing template response", e);
                     }
-                    
-                    // Handle categories with persistence
-                    Map<String, Integer> categoryMap = templateResponse.getCategories();
-                    if (categoryMap == null) {
-                        Log.d(TAG, "Categories map is null, using empty map");
-                        categoryMap = new HashMap<>();
-                    } else if (categoryMap.isEmpty()) {
-                        Log.d(TAG, "Categories map is empty from server");
-                    } else {
-                        Log.d(TAG, "Categories received from server: " + categoryMap.size());
-                        for (Map.Entry<String, Integer> entry : categoryMap.entrySet()) {
-                            Log.d(TAG, "Category: " + entry.getKey() + ", Count: " + entry.getValue());
-                        }
-                        
-                        // Save categories to SharedPreferences for persistence
-                        saveCategoriesToPrefs(categoryMap);
-                    }
-                    
-                    categories.postValue(categoryMap);
-                    hasMorePages = templateResponse.isHasMore();
-                    currentPage++;
-                } else {
-                    error.postValue("Failed to load templates");
-                    // Only use default categories if we have none
-                    if (categories.getValue() == null || categories.getValue().isEmpty()) {
-                        ensureDefaultCategories(null);
-                    }
-                }
+                });
             }
-
+            
             @Override
             public void onFailure(Call<TemplateResponse> call, Throwable t) {
-                // Clear the current call reference if it matches this call
-                if (currentCall != null && currentCall.equals(call)) {
-                    currentCall = null;
-                }
-                
-                // Check if the call was cancelled
-                if (call.isCanceled()) {
-                    Log.d(TAG, "API call was cancelled - ignoring failure response");
-                } else {
-                    Log.e(TAG, "API call failed: " + t.getMessage(), t);
-                    loading.postValue(false);
-                    error.postValue(t.getMessage());
-                    // Only use default categories if we have none
-                    if (categories.getValue() == null || categories.getValue().isEmpty()) {
-                        ensureDefaultCategories(null);
+                // Process failure on background thread
+                AppExecutors.getInstance().networkIO().execute(() -> {
+                    try {
+                        if (call.isCanceled()) {
+                            Log.d(TAG, "Template call was canceled");
+                            
+                            // Update UI on main thread
+                            AppExecutors.getInstance().mainThread().execute(() -> {
+                                loading.setValue(false);
+                            });
+                            return;
+                        }
+                        
+                        Log.e(TAG, "Failed to fetch templates", t);
+                        
+                        // Try to get templates from database as fallback
+                        List<Template> savedTemplates = new ArrayList<>();
+                        
+                        try {
+                            if (appDatabase != null) {
+                                if (currentCategory != null && !currentCategory.isEmpty()) {
+                                    savedTemplates = appDatabase.templateDao().getTemplatesByCategorySync(currentCategory);
+                                } else {
+                                    savedTemplates = appDatabase.templateDao().getAllTemplatesSync();
+                                }
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error loading templates from database", e);
+                        }
+                        
+                        // Apply local interaction states
+                        final List<Template> processedTemplates;
+                        if (user != null && !savedTemplates.isEmpty()) {
+                            processedTemplates = applyLocalInteractionStates(savedTemplates, user.getUid());
+                        } else {
+                            processedTemplates = savedTemplates;
+                        }
+                        
+                        // Create final reference for lambda
+                        final List<Template> finalProcessedTemplates = processedTemplates;
+                        final String errorMsg = "Failed to fetch templates: " + t.getMessage() + 
+                                         (finalProcessedTemplates.isEmpty() ? "" : " (Using cached data)");
+                        
+                        // Update UI on main thread
+                        AppExecutors.getInstance().mainThread().execute(() -> {
+                            if (!finalProcessedTemplates.isEmpty()) {
+                                templates.setValue(finalProcessedTemplates);
+                                Log.d(TAG, "Using " + finalProcessedTemplates.size() + " cached templates as fallback");
+                            }
+                            
+                            error.setValue(errorMsg);
+                            loading.setValue(false);
+                        });
+                    } catch (Exception e) {
+                        // Handle exceptions on main thread
+                        AppExecutors.getInstance().mainThread().execute(() -> {
+                            error.setValue("Exception during error handling: " + e.getMessage());
+                            loading.setValue(false);
+                        });
+                        Log.e(TAG, "Error handling template call failure", e);
                     }
-                }
+                });
             }
         });
     }
@@ -1150,231 +1125,290 @@ Log.d(TAG, "Posted updated templates to LiveData with server and local interacti
         return likeCount;
     }
 
+    /**
+     * Toggle like status for a template
+     * @param templateId The template ID
+     * @param newState The new like state (true for liked, false for unliked)
+     * @return Task representing the operation
+     */
     public Task<Boolean> toggleLike(String templateId, boolean newState) {
-        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-        if (user == null) {
-            error.postValue("User must be logged in");
-            return Tasks.forException(new IllegalStateException("User must be logged in"));
-        }
-
-        String userId = user.getUid();
-        
-        // Create a TaskCompletionSource to return a Task
         TaskCompletionSource<Boolean> tcs = new TaskCompletionSource<>();
         
-        // Update UI immediately for better user experience - ensure it runs on main thread
-Handler mainHandler = new Handler(Looper.getMainLooper());
-mainHandler.post(() -> {
-    updateTemplateStateLocally(templateId, newState, null);
-    
-    // Notify observers immediately for real-time UI updates
-    List<Template> currentList = templates.getValue();
-    if (currentList != null) {
-        templates.postValue(new ArrayList<>(currentList));
-    }
-});
+        // Get the current user
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null || templateId == null || templateId.isEmpty()) {
+            tcs.setResult(false);
+            return tcs.getTask();
+        }
         
-        // Force refresh the Firebase token to ensure it's not expired
-        user.getIdToken(true).addOnCompleteListener(tokenTask -> {
-            if (!tokenTask.isSuccessful()) {
-                Log.e(TAG, "Failed to get Firebase token", tokenTask.getException());
-                
-                // Store action locally instead of reverting UI
+        String userId = user.getUid();
+        
+        // Update the template in memory first
+        updateTemplateStateLocally(templateId, newState, null);
+
+        // Process on background thread
+        AppExecutors.getInstance().networkIO().execute(() -> {
+            try {
+                // Store action locally first for offline support
                 storeLikeActionLocally(templateId, userId, newState);
                 
-                // For UI consistency, consider this a success
-                tcs.setResult(newState);
-                return;
-            }
-            
-            String token = tokenTask.getResult().getToken();
-            Log.d(TAG, "Got fresh Firebase token for API call: " + (token.length() > 10 ? token.substring(0, 10) + "..." : "invalid"));
-            String authToken = "Bearer " + token;
-            
-            // Always use the likeTemplate API method regardless of newState
-            // The server will handle adding or removing the like based on the current state
-            Call<JsonObject> apiCall;
-            
-            if (newState) {
-                // Like template using MongoDB API
-                apiCall = apiService.likeTemplate(userId, templateId, authToken);
-            } else {
-                // For unlike, still use the unlikeTemplate endpoint but handle errors properly
-                apiCall = apiService.unlikeTemplate(userId, templateId, authToken);
-            }
-            
-            // Execute the API call
-apiCall.enqueue(new Callback<JsonObject>() {
-    @Override
-    public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
-        if (response.isSuccessful() && response.body() != null) {
-            Log.d(TAG, "Successfully " + (newState ? "liked" : "unliked") + 
-                  " template " + templateId + " in MongoDB");
-            
-            // If unliking, ensure it's removed from the user's liked templates in MongoDB
-            if (!newState) {
-                Log.d(TAG, "Template " + templateId + " removed from user's liked templates in MongoDB");
-            }
-            
-            tcs.setResult(newState);
-        } else {
-                        // Get error body for debugging
-                        String errorBody = "";
-                        try {
-                            errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
-                        } catch (Exception e) {
-                            errorBody = "Error reading error body: " + e.getMessage();
-                        }
+                // Get user's token for authentication
+                user.getIdToken(true)
+                    .addOnSuccessListener(getTokenResult -> {
+                        String token = getTokenResult.getToken();
+                        String authToken = "Bearer " + token;
                         
-                        // Check if it contains the Project Id error
-                        boolean isProjectIdError = errorBody.contains("Unable to detect a Project Id");
-                        boolean isEnumError = errorBody.contains("is not a valid enum value for path `action`");
-                        
-                        Log.e(TAG, "Failed to update like state in MongoDB: " + response.code() + 
-                              "\nError body: " + errorBody);
-                        
-                        if (response.code() == 401 || isProjectIdError || isEnumError) {
-                            // Known Firebase validation issue or enum validation issue - use local storage
-                            Log.d(TAG, "Authentication error or validation error, storing " + 
-                                  (newState ? "like" : "unlike") + " action locally");
-                            
-                            // Store action locally and pretend success
-                            storeLikeActionLocally(templateId, userId, newState);
-                            tcs.setResult(newState);
+                        // Use the logged in user's token for authentication
+                        Call<JsonObject> call;
+                        if (newState) {
+                            call = apiService.likeTemplate(
+                                userId,
+                                templateId,
+                                authToken
+                            );
                         } else {
-                            // Other server error - still try local storage but report partial success
-                            Log.w(TAG, "Server error " + response.code() + ", falling back to local storage");
-                            storeLikeActionLocally(templateId, userId, newState);
-                            tcs.setResult(newState);
+                            call = apiService.unlikeTemplate(
+                                userId,
+                                templateId,
+                                authToken
+                            );
                         }
-                    }
-                }
-                
-                @Override
-                public void onFailure(Call<JsonObject> call, Throwable t) {
-                    Log.e(TAG, "API call failed when updating like state", t);
-                    
-                    // For network errors, store locally and maintain UI state
-                    storeLikeActionLocally(templateId, userId, newState);
-                    tcs.setResult(newState); // Pretend success to maintain UI state
-                }
-            });
+                        
+                        // Execute the call
+                        call.enqueue(new Callback<JsonObject>() {
+                            @Override
+                            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                                // Process response on background thread
+                                AppExecutors.getInstance().diskIO().execute(() -> {
+                                    if (response.isSuccessful() && response.body() != null) {
+                                        try {
+                                            JsonObject result = response.body();
+                                            boolean success = result.has("success") && 
+                                                result.get("success").getAsBoolean();
+                                            
+                                            if (success) {
+                                                // Update Room database with the new state
+                                                updateRoomState(templateId, newState, null);
+                                                
+                                                // Set task result
+                                                tcs.setResult(true);
+                                                return;
+                                            }
+                                        } catch (Exception e) {
+                                            Log.e(TAG, "Error parsing like response", e);
+                                        }
+                                    }
+                                    
+                                    // If we got here, something went wrong
+                                    Log.e(TAG, "Like operation failed - status code: " + 
+                                        response.code() + ", message: " + response.message());
+                                    
+                                    // Return result but don't revert the UI change
+                                    // The user already sees the change, and we've stored it locally
+                                    tcs.setResult(false);
+                                });
+                            }
+                            
+                            @Override
+                            public void onFailure(Call<JsonObject> call, Throwable t) {
+                                // Process failure on background thread
+                                AppExecutors.getInstance().diskIO().execute(() -> {
+                                    Log.e(TAG, "Failed to toggle like: " + t.getMessage(), t);
+                                    
+                                    // Return result but don't revert the UI change
+                                    // The user already sees the change, and we've stored it locally
+                                    tcs.setResult(false);
+                                });
+                            }
+                        });
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "Failed to get user token", e);
+                        tcs.setResult(false);
+                    });
+            } catch (Exception e) {
+                Log.e(TAG, "Error in toggleLike", e);
+                tcs.setResult(false);
+            }
         });
         
         return tcs.getTask();
     }
-
+    
+    /**
+     * Toggle favorite status for a template
+     * @param templateId The template ID
+     * @param newState The new favorite state (true for favorited, false for unfavorited)
+     * @return Task representing the operation
+     */
     public Task<Boolean> toggleFavorite(String templateId, boolean newState) {
-        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-        if (user == null) {
-            error.postValue("User must be logged in");
-            return Tasks.forException(new IllegalStateException("User must be logged in"));
-        }
-
-        String userId = user.getUid();
-        
-        // Create a TaskCompletionSource to return a Task
         TaskCompletionSource<Boolean> tcs = new TaskCompletionSource<>();
         
-        // Update UI immediately for better user experience - ensure it runs on main thread
-Handler mainHandler = new Handler(Looper.getMainLooper());
-mainHandler.post(() -> {
-    updateTemplateStateLocally(templateId, null, newState);
-    
-    // Notify observers immediately for real-time UI updates
-    List<Template> currentList = templates.getValue();
-    if (currentList != null) {
-        templates.postValue(new ArrayList<>(currentList));
-    }
-});
+        // Get the current user
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null || templateId == null || templateId.isEmpty()) {
+            tcs.setResult(false);
+            return tcs.getTask();
+        }
         
-        // Force refresh the Firebase token to ensure it's not expired
-        user.getIdToken(true).addOnCompleteListener(tokenTask -> {
-            if (!tokenTask.isSuccessful()) {
-                Log.e(TAG, "Failed to get Firebase token", tokenTask.getException());
-                
-                // Store action locally instead of reverting UI
+        String userId = user.getUid();
+        
+        // Update the template in memory first
+        updateTemplateStateLocally(templateId, null, newState);
+
+        // Process on background thread
+        AppExecutors.getInstance().networkIO().execute(() -> {
+            try {
+                // Store action locally first for offline support
                 storeFavoriteActionLocally(templateId, userId, newState);
                 
-                // For UI consistency, consider this a success
-                tcs.setResult(newState);
-                return;
-            }
-            
-            String token = tokenTask.getResult().getToken();
-            Log.d(TAG, "Got fresh Firebase token for API call: " + (token.length() > 10 ? token.substring(0, 10) + "..." : "invalid"));
-            String authToken = "Bearer " + token;
-            
-            // Always use the appropriate API method based on the requested state
-            Call<JsonObject> apiCall;
-            
-            if (newState) {
-                // Add to favorites using MongoDB API
-                apiCall = apiService.addToFavorites(userId, templateId, authToken);
-            } else {
-                // Remove from favorites using MongoDB API
-                apiCall = apiService.removeFromFavorites(userId, templateId, authToken);
-            }
-            
-            // Execute the API call
-apiCall.enqueue(new Callback<JsonObject>() {
-    @Override
-    public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
-        if (response.isSuccessful() && response.body() != null) {
-            Log.d(TAG, "Successfully " + (newState ? "added to favorites" : "removed from favorites") + 
-                  " template " + templateId + " in MongoDB");
-            
-            // If unfavoriting, ensure it's removed from the user's favorited templates in MongoDB
-            if (!newState) {
-                Log.d(TAG, "Template " + templateId + " removed from user's favorites in MongoDB");
-            }
-            
-            tcs.setResult(newState);
-        } else {
-                        // Get error body for debugging
-                        String errorBody = "";
-                        try {
-                            errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
-                        } catch (Exception e) {
-                            errorBody = "Error reading error body: " + e.getMessage();
-                        }
+                // Get user's token for authentication
+                user.getIdToken(true)
+                    .addOnSuccessListener(getTokenResult -> {
+                        String token = getTokenResult.getToken();
+                        String authToken = "Bearer " + token;
                         
-                        // Check if it contains the Project Id error
-                        boolean isProjectIdError = errorBody.contains("Unable to detect a Project Id");
-                        boolean isEnumError = errorBody.contains("is not a valid enum value for path `action`");
-                        
-                        Log.e(TAG, "Failed to update favorite state in MongoDB: " + response.code() + 
-                              "\nError body: " + errorBody);
-                        
-                        if (response.code() == 401 || isProjectIdError || isEnumError) {
-                            // Known Firebase validation issue or enum validation issue - use local storage
-                            Log.d(TAG, "Authentication error or validation error, storing " + 
-                                  (newState ? "favorite" : "unfavorite") + " action locally");
-                            
-                            // Store action locally and pretend success
-                            storeFavoriteActionLocally(templateId, userId, newState);
-                            tcs.setResult(newState);
+                        // Use the logged in user's token for authentication
+                        Call<JsonObject> call;
+                        if (newState) {
+                            call = apiService.addToFavorites(
+                                userId,
+                                templateId,
+                                authToken
+                            );
                         } else {
-                            // Other server error - still try local storage but report partial success
-                            Log.w(TAG, "Server error " + response.code() + ", falling back to local storage");
-                            storeFavoriteActionLocally(templateId, userId, newState);
-                            tcs.setResult(newState);
+                            call = apiService.removeFromFavorites(
+                                userId,
+                                templateId,
+                                authToken
+                            );
                         }
-                    }
-                }
-                
-                @Override
-                public void onFailure(Call<JsonObject> call, Throwable t) {
-                    Log.e(TAG, "API call failed when updating favorite state", t);
-                    
-                    // For network errors, store locally and maintain UI state
-                    storeFavoriteActionLocally(templateId, userId, newState);
-                    tcs.setResult(newState); // Pretend success to maintain UI state
-                }
-            });
+                        
+                        // Execute the call
+                        call.enqueue(new Callback<JsonObject>() {
+                            @Override
+                            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                                // Process response on background thread
+                                AppExecutors.getInstance().diskIO().execute(() -> {
+                                    if (response.isSuccessful() && response.body() != null) {
+                                        try {
+                                            JsonObject result = response.body();
+                                            boolean success = result.has("success") && 
+                                                result.get("success").getAsBoolean();
+                                            
+                                            if (success) {
+                                                // Update Room database with the new state
+                                                updateRoomState(templateId, null, newState);
+                                                
+                                                // Set task result
+                                                tcs.setResult(true);
+                                                return;
+                                            }
+                                        } catch (Exception e) {
+                                            Log.e(TAG, "Error parsing favorite response", e);
+                                        }
+                                    }
+                                    
+                                    // If we got here, something went wrong
+                                    Log.e(TAG, "Favorite operation failed - status code: " + 
+                                        response.code() + ", message: " + response.message());
+                                    
+                                    // Return result but don't revert the UI change
+                                    // The user already sees the change, and we've stored it locally
+                                    tcs.setResult(false);
+                                });
+                            }
+                            
+                            @Override
+                            public void onFailure(Call<JsonObject> call, Throwable t) {
+                                // Process failure on background thread
+                                AppExecutors.getInstance().diskIO().execute(() -> {
+                                    Log.e(TAG, "Failed to toggle favorite: " + t.getMessage(), t);
+                                    
+                                    // Return result but don't revert the UI change
+                                    // The user already sees the change, and we've stored it locally
+                                    tcs.setResult(false);
+                                });
+                            }
+                        });
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "Failed to get user token", e);
+                        tcs.setResult(false);
+                    });
+            } catch (Exception e) {
+                Log.e(TAG, "Error in toggleFavorite", e);
+                tcs.setResult(false);
+            }
         });
         
         return tcs.getTask();
+    }
+    
+    /**
+     * Update Room database with template state
+     * @param templateId Template ID
+     * @param isLiked Like state or null if not changing
+     * @param isFavorited Favorite state or null if not changing
+     */
+    private void updateRoomState(String templateId, Boolean isLiked, Boolean isFavorited) {
+        if (templateId == null || (isLiked == null && isFavorited == null) || appDatabase == null) {
+            return;
+        }
+        
+        // Always use background thread for database operations
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            try {
+                // First check if the template exists
+                Template template = appDatabase.templateDao().getTemplateByIdSync(templateId);
+                
+                if (template != null) {
+                    // Update like state if provided
+                    if (isLiked != null) {
+                        appDatabase.templateDao().updateLikeState(templateId, isLiked);
+                        Log.d(TAG, "Updated like state in Room database: templateId=" + templateId + ", isLiked=" + isLiked);
+                    }
+                    
+                    // Update favorite state if provided
+                    if (isFavorited != null) {
+                        appDatabase.templateDao().updateFavoriteState(templateId, isFavorited);
+                        Log.d(TAG, "Updated favorite state in Room database: templateId=" + templateId + ", isFavorited=" + isFavorited);
+                    }
+                } else {
+                    // Template doesn't exist in database yet, try to fetch it from API and save
+                    Log.d(TAG, "Template " + templateId + " not found in database, fetching from API");
+                    
+                    try {
+                        // Synchronous API call on background thread is OK
+                        Response<Template> response = apiService.getTemplateById(templateId).execute();
+                        
+                        if (response.isSuccessful() && response.body() != null) {
+                            Template fetchedTemplate = response.body();
+                            
+                            // Set the states before saving
+                            if (isLiked != null) {
+                                fetchedTemplate.setLiked(isLiked);
+                            }
+                            
+                            if (isFavorited != null) {
+                                fetchedTemplate.setFavorited(isFavorited);
+                            }
+                            
+                            // Save to database
+                            appDatabase.templateDao().insert(fetchedTemplate);
+                            Log.d(TAG, "Fetched and saved template " + templateId + " to database with states");
+                        } else {
+                            Log.w(TAG, "Failed to fetch template " + templateId + " from API: " + 
+                                  (response.errorBody() != null ? response.errorBody().string() : "Unknown error"));
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error fetching template " + templateId + " from API", e);
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error updating Room state for template " + templateId, e);
+            }
+        });
     }
 
     /**
@@ -1607,66 +1641,98 @@ apiCall.enqueue(new Callback<JsonObject>() {
     }
 
     /**
-     * Store like action locally when server is unavailable
-     * @param templateId The template ID
-     * @param userId The user ID
-     * @param isLike True if liking, false if unliking
+     * Store like action locally for offline support
+     * @param templateId Template ID
+     * @param userId User ID
+     * @param isLike True for like, false for unlike
      */
     private void storeLikeActionLocally(String templateId, String userId, boolean isLike) {
+        if (templateId == null || userId == null || applicationContext == null) {
+            return;
+        }
+        
+        // Store in SharedPreferences first for faster access
         try {
-            SharedPreferences prefs = applicationContext.getSharedPreferences("pending_like_actions", Context.MODE_PRIVATE);
-            
-            // Create a unique key for this action - use a consistent key format
-            String key = userId + "_" + templateId;
-            
-            // Create a JSON string with the action details
+            // Create a JSON object with the action data
             JsonObject actionData = new JsonObject();
             actionData.addProperty("templateId", templateId);
             actionData.addProperty("userId", userId);
             actionData.addProperty("action", isLike ? "like" : "unlike");
             actionData.addProperty("timestamp", System.currentTimeMillis());
             
+            String jsonStr = new Gson().toJson(actionData);
+            
             // Store in SharedPreferences
-            prefs.edit().putString(key, actionData.toString()).apply();
+            SharedPreferences prefs = applicationContext.getSharedPreferences("pending_like_actions", Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putString(templateId + "_" + userId, jsonStr);
+            editor.apply();
             
-            Log.d(TAG, "Stored " + (isLike ? "like" : "unlike") + " action locally for template " + 
-                  templateId + " and user " + userId + " with key: " + key);
+            // Also store in a user-specific set for faster lookup
+            SharedPreferences userPrefs = applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            Set<String> likedIds = userPrefs.getStringSet("liked_" + userId, new HashSet<>());
+            Set<String> updatedLikedIds = new HashSet<>(likedIds != null ? likedIds : new HashSet<>());
             
-            // We could schedule a background job to sync these later
-            // WorkManager.getInstance(applicationContext).enqueue(...);
+            if (isLike) {
+                updatedLikedIds.add(templateId);
+            } else {
+                updatedLikedIds.remove(templateId);
+            }
+            
+            userPrefs.edit().putStringSet("liked_" + userId, updatedLikedIds).apply();
+            
+            // Also update in Room database for persistence
+            updateRoomState(templateId, isLike, null);
+            
         } catch (Exception e) {
             Log.e(TAG, "Error storing like action locally", e);
         }
     }
-
+    
     /**
-     * Store favorite action locally when server is unavailable
-     * @param templateId The template ID
-     * @param userId The user ID
-     * @param isFavorite True if adding to favorites, false if removing
+     * Store favorite action locally for offline support
+     * @param templateId Template ID
+     * @param userId User ID
+     * @param isFavorite True for favorite, false for unfavorite
      */
     private void storeFavoriteActionLocally(String templateId, String userId, boolean isFavorite) {
+        if (templateId == null || userId == null || applicationContext == null) {
+            return;
+        }
+        
+        // Store in SharedPreferences first for faster access
         try {
-            SharedPreferences prefs = applicationContext.getSharedPreferences("pending_favorite_actions", Context.MODE_PRIVATE);
-            
-            // Create a unique key for this action - use a consistent key format
-            String key = userId + "_" + templateId;
-            
-            // Create a JSON string with the action details
+            // Create a JSON object with the action data
             JsonObject actionData = new JsonObject();
             actionData.addProperty("templateId", templateId);
             actionData.addProperty("userId", userId);
             actionData.addProperty("action", isFavorite ? "favorite" : "unfavorite");
             actionData.addProperty("timestamp", System.currentTimeMillis());
             
+            String jsonStr = new Gson().toJson(actionData);
+            
             // Store in SharedPreferences
-            prefs.edit().putString(key, actionData.toString()).apply();
+            SharedPreferences prefs = applicationContext.getSharedPreferences("pending_favorite_actions", Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putString(templateId + "_" + userId, jsonStr);
+            editor.apply();
             
-            Log.d(TAG, "Stored " + (isFavorite ? "favorite" : "unfavorite") + " action locally for template " + 
-                  templateId + " and user " + userId + " with key: " + key);
+            // Also store in a user-specific set for faster lookup
+            SharedPreferences userPrefs = applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            Set<String> favoritedIds = userPrefs.getStringSet("favorited_" + userId, new HashSet<>());
+            Set<String> updatedFavoritedIds = new HashSet<>(favoritedIds != null ? favoritedIds : new HashSet<>());
             
-            // We could schedule a background job to sync these later
-            // WorkManager.getInstance(applicationContext).enqueue(...);
+            if (isFavorite) {
+                updatedFavoritedIds.add(templateId);
+            } else {
+                updatedFavoritedIds.remove(templateId);
+            }
+            
+            userPrefs.edit().putStringSet("favorited_" + userId, updatedFavoritedIds).apply();
+            
+            // Also update in Room database for persistence
+            updateRoomState(templateId, null, isFavorite);
+            
         } catch (Exception e) {
             Log.e(TAG, "Error storing favorite action locally", e);
         }
@@ -1687,123 +1753,116 @@ apiCall.enqueue(new Callback<JsonObject>() {
             return templates;
         }
         
-        Log.d(TAG, "Applying local interaction states for " + templates.size() + " templates with userId: " + userId);
-        
+        // First try to get data from SharedPreferences (fast, can be done on main thread)
         try {
-            // Create a map of template IDs to templates for quick lookup
-            Map<String, Template> templateMap = new HashMap<>();
-            for (Template template : templates) {
-                if (template.getId() != null) {
-                    templateMap.put(template.getId(), template);
-                    Log.d(TAG, "Template before local state: id=" + template.getId() + 
-                          ", liked=" + template.isLiked() + 
-                          ", favorited=" + template.isFavorited());
-                }
-            }
+            SharedPreferences prefs = applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
             
-            // Load likes from SharedPreferences
-            SharedPreferences likePrefs = applicationContext.getSharedPreferences("pending_like_actions", Context.MODE_PRIVATE);
-            Map<String, ?> allLikes = likePrefs.getAll();
-            
-            if (!allLikes.isEmpty()) {
-                Log.d(TAG, "Found " + allLikes.size() + " locally stored like actions");
-                
-                // Process each stored like action
-                for (Map.Entry<String, ?> entry : allLikes.entrySet()) {
-                    try {
-                        String jsonStr = (String) entry.getValue();
-                        JsonObject actionData = new Gson().fromJson(jsonStr, JsonObject.class);
-                        
-                        if (actionData.has("templateId") && actionData.has("userId") && actionData.has("action")) {
-                            String templateId = actionData.get("templateId").getAsString();
-                            String storedUserId = actionData.get("userId").getAsString();
-                            String action = actionData.get("action").getAsString();
-                            
-                            // Only apply if this is for the current user
-                            if (userId.equals(storedUserId) && templateMap.containsKey(templateId)) {
-                                Template template = templateMap.get(templateId);
-                                boolean isLike = "like".equals(action);
-                                
-                                // Apply the action
-                                template.setLiked(isLike);
-                                
-                                // Update like count
-                                long currentCount = Math.max(0L, template.getLikeCount());
-                                long newCount = isLike ? 
-                                    Math.max(1L, currentCount) : 
-                                    Math.max(0L, currentCount - 1L);
-                                template.setLikeCount(newCount);
-                                
-                                Log.d(TAG, "Applied local like state for template " + templateId + ": " + isLike + 
-                                      ", new like count: " + newCount);
-                            }
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error processing locally stored like action", e);
+            // First try to load likes from SharedPreferences
+            Set<String> likedIds = prefs.getStringSet("liked_" + userId, new HashSet<>());
+            if (likedIds != null && !likedIds.isEmpty()) {
+                Log.d(TAG, "Found " + likedIds.size() + " liked templates in SharedPreferences");
+                for (Template template : templates) {
+                    if (likedIds.contains(template.getId())) {
+                        template.setLiked(true);
                     }
                 }
-            } else {
-                Log.d(TAG, "No locally stored like actions found");
             }
             
-            // Load favorites from SharedPreferences
-            SharedPreferences favoritePrefs = applicationContext.getSharedPreferences("pending_favorite_actions", Context.MODE_PRIVATE);
-            Map<String, ?> allFavorites = favoritePrefs.getAll();
-            
-            if (!allFavorites.isEmpty()) {
-                Log.d(TAG, "Found " + allFavorites.size() + " locally stored favorite actions");
-                
-                // Process each stored favorite action
-                for (Map.Entry<String, ?> entry : allFavorites.entrySet()) {
-                    try {
-                        String jsonStr = (String) entry.getValue();
-                        JsonObject actionData = new Gson().fromJson(jsonStr, JsonObject.class);
-                        
-                        if (actionData.has("templateId") && actionData.has("userId") && actionData.has("action")) {
-                            String templateId = actionData.get("templateId").getAsString();
-                            String storedUserId = actionData.get("userId").getAsString();
-                            String action = actionData.get("action").getAsString();
-                            
-                            // Only apply if this is for the current user
-                            if (userId.equals(storedUserId) && templateMap.containsKey(templateId)) {
-                                Template template = templateMap.get(templateId);
-                                boolean isFavorite = "favorite".equals(action);
-                                
-                                // Apply the action
-                                template.setFavorited(isFavorite);
-                                
-                                // Update favorite count
-                                long currentCount = Math.max(0L, template.getFavoriteCount());
-                                long newCount = isFavorite ? 
-                                    Math.max(1L, currentCount) : 
-                                    Math.max(0L, currentCount - 1L);
-                                template.setFavoriteCount(newCount);
-                                
-                                Log.d(TAG, "Applied local favorite state for template " + templateId + ": " + isFavorite + 
-                                      ", new favorite count: " + newCount);
-                            }
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error processing locally stored favorite action", e);
+            // Then try to load favorites from SharedPreferences
+            Set<String> favoritedIds = prefs.getStringSet("favorited_" + userId, new HashSet<>());
+            if (favoritedIds != null && !favoritedIds.isEmpty()) {
+                Log.d(TAG, "Found " + favoritedIds.size() + " favorited templates in SharedPreferences");
+                for (Template template : templates) {
+                    if (favoritedIds.contains(template.getId())) {
+                        template.setFavorited(true);
                     }
-                }
-            } else {
-                Log.d(TAG, "No locally stored favorite actions found");
-            }
-            
-            // Log final states for debugging
-            for (Template template : templates) {
-                if (template.getId() != null) {
-                    Log.d(TAG, "Template after local state: id=" + template.getId() + 
-                          ", liked=" + template.isLiked() + 
-                          ", favorited=" + template.isFavorited());
                 }
             }
         } catch (Exception e) {
-            Log.e(TAG, "Error applying local interaction states", e);
+            Log.e(TAG, "Error loading template states from SharedPreferences", e);
         }
         
-        return templates;
+        // Try to get data from Room database (more accurate but needs background thread)
+        if (appDatabase == null) {
+            Log.w(TAG, "Room database not initialized, skipping database operations");
+            return templates;
+        }
+        
+        // Create a copy of the templates list to avoid ConcurrentModificationException
+        List<Template> resultTemplates = new ArrayList<>(templates);
+        
+        // Use CountDownLatch to make this synchronous but still off the main thread
+        CountDownLatch latch = new CountDownLatch(1);
+        
+        // Use a thread-safe list to collect results from background thread
+        AtomicReference<List<Template>> updatedTemplatesRef = new AtomicReference<>(resultTemplates);
+        
+        // Process database operations on background thread
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            try {
+                // Get all liked templates from database
+                List<Template> likedTemplates = appDatabase.templateDao().getLikedTemplatesSync();
+                if (likedTemplates != null && !likedTemplates.isEmpty()) {
+                    Log.d(TAG, "Found " + likedTemplates.size() + " liked templates in Room database");
+                    
+                    // Create a set of liked template IDs for faster lookup
+                    Set<String> likedIdsSet = new HashSet<>();
+                    for (Template template : likedTemplates) {
+                        likedIdsSet.add(template.getId());
+                    }
+                    
+                    // Update liked status for all templates
+                    for (Template template : resultTemplates) {
+                        if (likedIdsSet.contains(template.getId())) {
+                            template.setLiked(true);
+                        }
+                    }
+                }
+                
+                // Get all favorited templates from database
+                List<Template> favoritedTemplates = appDatabase.templateDao().getFavoritedTemplatesSync();
+                if (favoritedTemplates != null && !favoritedTemplates.isEmpty()) {
+                    Log.d(TAG, "Found " + favoritedTemplates.size() + " favorited templates in Room database");
+                    
+                    // Create a set of favorited template IDs for faster lookup
+                    Set<String> favoritedIdsSet = new HashSet<>();
+                    for (Template template : favoritedTemplates) {
+                        favoritedIdsSet.add(template.getId());
+                    }
+                    
+                    // Update favorited status for all templates
+                    for (Template template : resultTemplates) {
+                        if (favoritedIdsSet.contains(template.getId())) {
+                            template.setFavorited(true);
+                        }
+                    }
+                }
+                
+                // Update the atomic reference with the updated templates
+                updatedTemplatesRef.set(resultTemplates);
+                
+            } catch (Exception e) {
+                Log.e(TAG, "Error loading template states from Room database", e);
+            } finally {
+                // Signal that background work is complete
+                latch.countDown();
+            }
+        });
+        
+        try {
+            // Wait for database operations to complete
+            // Use a timeout to prevent deadlock
+            boolean completed = latch.await(500, TimeUnit.MILLISECONDS);
+            if (!completed) {
+                Log.w(TAG, "Database operations timed out, returning partially updated templates");
+            }
+        } catch (InterruptedException e) {
+            Log.e(TAG, "Interrupted while waiting for database operations", e);
+            Thread.currentThread().interrupt();
+        }
+        
+        // Return the updated templates
+        return updatedTemplatesRef.get();
     }
 
     /**
@@ -2244,5 +2303,458 @@ apiCall.enqueue(new Callback<JsonObject>() {
      */
     public Task<Boolean> unfavoriteTemplate(String templateId) {
         return toggleFavorite(templateId, false);
+    }
+
+    /**
+     * Sync template states with local storage at app startup
+     * This should be called when the app starts to ensure template states are properly loaded
+     * @param userId Current user ID
+     */
+    public void syncTemplateStatesAtStartup(String userId) {
+        if (userId == null || applicationContext == null) {
+            Log.d(TAG, "Cannot sync template states: userId=" + (userId == null ? "null" : userId) +
+                  ", applicationContext=" + (applicationContext == null ? "null" : "available"));
+            return;
+        }
+
+        // Implement debounce mechanism - avoid syncing too frequently
+        long currentTimeMs = System.currentTimeMillis();
+        if (currentTimeMs - lastSyncTimestamp < MIN_SYNC_INTERVAL_MS) {
+            Log.d(TAG, "Skipping template state sync - called too frequently (last sync was " + 
+                  (currentTimeMs - lastSyncTimestamp) + "ms ago)");
+            return;
+        }
+        
+        // Update the last sync timestamp
+        lastSyncTimestamp = currentTimeMs;
+        
+        // Use LiveData observer to ensure we sync when templates are actually loaded
+        LiveData<List<Template>> templatesLiveData = getTemplates();
+        
+        // Check if templates are already loaded to avoid unnecessary observer
+        List<Template> currentTemplates = templatesLiveData.getValue();
+        if (currentTemplates != null && !currentTemplates.isEmpty()) {
+            // Templates are already loaded, apply states immediately
+            performTemplateStateSync(userId, currentTemplates);
+            
+            // Also fetch states from server for cross-device sync, but only if it's been a while
+            if (currentTimeMs - lastServerSyncTimestamp >= SERVER_SYNC_INTERVAL_MS) {
+                fetchTemplateStatesFromServer(userId);
+                lastServerSyncTimestamp = currentTimeMs;
+            }
+            return;
+        }
+        
+        // Use a one-time observer to sync states when templates become available
+        androidx.lifecycle.Observer<List<Template>> observer = new androidx.lifecycle.Observer<List<Template>>() {
+            @Override
+            public void onChanged(List<Template> templatesList) {
+                if (templatesList != null && !templatesList.isEmpty()) {
+                    // Templates are loaded, apply states
+                    performTemplateStateSync(userId, templatesList);
+                    
+                    // Also fetch states from server for cross-device sync, but only if it's been a while
+                    long currentTime = System.currentTimeMillis();
+                    if (currentTime - lastServerSyncTimestamp >= SERVER_SYNC_INTERVAL_MS) {
+                        fetchTemplateStatesFromServer(userId);
+                        lastServerSyncTimestamp = currentTime;
+                    }
+                    
+                    // Remove observer to avoid multiple updates
+                    templatesLiveData.removeObserver(this);
+                }
+            }
+        };
+        
+        // Make sure observer is added on the main thread
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            templatesLiveData.observeForever(observer);
+        } else {
+            AppExecutors.getInstance().mainThread().execute(() -> {
+                templatesLiveData.observeForever(observer);
+            });
+        }
+        
+        // Set a fallback to ensure we don't keep the observer forever
+        AppExecutors.getInstance().mainThread().execute(() -> {
+            new Handler().postDelayed(() -> {
+                // Check if current templates exist
+                List<Template> fallbackTemplates = templatesLiveData.getValue();
+                if (fallbackTemplates != null && !fallbackTemplates.isEmpty()) {
+                    // Templates exist, sync states and remove observer
+                    performTemplateStateSync(userId, fallbackTemplates);
+                    
+                    // Also fetch states from server for cross-device sync, but only if it's been a while
+                    long currentTime = System.currentTimeMillis();
+                    if (currentTime - lastServerSyncTimestamp >= SERVER_SYNC_INTERVAL_MS) {
+                        fetchTemplateStatesFromServer(userId);
+                        lastServerSyncTimestamp = currentTime;
+                    }
+                    
+                    templatesLiveData.removeObserver(observer);
+                }
+            }, 10000); // 10 second timeout
+        });
+    }
+    
+    /**
+     * Fetch template states from server for cross-device sync
+     * @param userId Current user ID
+     */
+    private void fetchTemplateStatesFromServer(String userId) {
+        if (userId == null || userId.isEmpty()) {
+            Log.e(TAG, "Cannot fetch template states: userId is null or empty");
+            return;
+        }
+        
+        // Get the current Firebase user
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            Log.e(TAG, "Cannot fetch template states: not authenticated with Firebase");
+            return;
+        }
+        
+        Log.d(TAG, "Fetching template states from server for user: " + userId);
+        
+        // Use background thread for network operations
+        AppExecutors.getInstance().networkIO().execute(() -> {
+            try {
+                // Get a fresh token
+                user.getIdToken(true)
+                    .addOnSuccessListener(getTokenResult -> {
+                        String token = getTokenResult.getToken();
+                        String authToken = "Bearer " + token;
+                        
+                        // Fetch likes from server
+                        fetchUserLikesFromServer(userId, authToken);
+                        
+                        // Fetch favorites from server
+                        fetchUserFavoritesFromServer(userId, authToken);
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "Failed to get authentication token for template state sync", e);
+                    });
+            } catch (Exception e) {
+                Log.e(TAG, "Error fetching template states from server", e);
+            }
+        });
+    }
+    
+    /**
+     * Fetch user likes from server and sync to local storage
+     * @param userId Current user ID
+     * @param authToken Firebase authentication token
+     */
+    private void fetchUserLikesFromServer(String userId, String authToken) {
+        if (userId == null || authToken == null) {
+            Log.e(TAG, "Cannot fetch user likes: userId or authToken is null");
+            return;
+        }
+        
+        // Use enqueue instead of execute to avoid NetworkOnMainThreadException
+        apiService.getUserLikes(userId, authToken).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    JsonObject body = response.body();
+                    if (body.has("likes") && body.get("likes").isJsonArray()) {
+                        // Process on background thread to avoid blocking UI
+                        AppExecutors.getInstance().diskIO().execute(() -> {
+                            try {
+                                JsonArray likesArray = body.getAsJsonArray("likes");
+                                Set<String> likedTemplateIds = new HashSet<>();
+                                
+                                for (JsonElement element : likesArray) {
+                                    if (element.isJsonPrimitive()) {
+                                        likedTemplateIds.add(element.getAsString());
+                                        // Store the like action locally
+                                        storeLikeActionLocally(element.getAsString(), userId, true);
+                                    }
+                                }
+                                
+                                Log.d(TAG, "Synced " + likedTemplateIds.size() + " liked templates from server");
+                                
+                                // Store the complete set in SharedPreferences
+                                if (applicationContext != null) {
+                                    SharedPreferences prefs = applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+                                    prefs.edit().putStringSet("liked_" + userId, likedTemplateIds).apply();
+                                }
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error processing user likes response", e);
+                            }
+                        });
+                    } else {
+                        Log.w(TAG, "Invalid response format for user likes");
+                    }
+                } else {
+                    Log.w(TAG, "Failed to fetch user likes from server: " + 
+                          (response.code() + " - " + (response.errorBody() != null ? 
+                           response.errorBody().toString() : "Unknown error")));
+                }
+            }
+            
+            @Override
+            public void onFailure(Call<JsonObject> call, Throwable t) {
+                Log.e(TAG, "Error fetching user likes from server", t);
+            }
+        });
+    }
+    
+    /**
+     * Fetch user favorites from server and sync to local storage
+     * @param userId Current user ID
+     * @param authToken Firebase authentication token
+     */
+    private void fetchUserFavoritesFromServer(String userId, String authToken) {
+        if (userId == null || authToken == null) {
+            Log.e(TAG, "Cannot fetch user favorites: userId or authToken is null");
+            return;
+        }
+        
+        // Use enqueue instead of execute to avoid NetworkOnMainThreadException
+        apiService.getUserFavorites(userId, authToken).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    JsonObject body = response.body();
+                    if (body.has("favorites") && body.get("favorites").isJsonArray()) {
+                        // Process on background thread to avoid blocking UI
+                        AppExecutors.getInstance().diskIO().execute(() -> {
+                            try {
+                                JsonArray favoritesArray = body.getAsJsonArray("favorites");
+                                Set<String> favoritedTemplateIds = new HashSet<>();
+                                
+                                for (JsonElement element : favoritesArray) {
+                                    if (element.isJsonPrimitive()) {
+                                        favoritedTemplateIds.add(element.getAsString());
+                                        // Store the favorite action locally
+                                        storeFavoriteActionLocally(element.getAsString(), userId, true);
+                                    }
+                                }
+                                
+                                Log.d(TAG, "Synced " + favoritedTemplateIds.size() + " favorited templates from server");
+                                
+                                // Store the complete set in SharedPreferences
+                                if (applicationContext != null) {
+                                    SharedPreferences prefs = applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+                                    prefs.edit().putStringSet("favorited_" + userId, favoritedTemplateIds).apply();
+                                }
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error processing user favorites response", e);
+                            }
+                        });
+                    } else {
+                        Log.w(TAG, "Invalid response format for user favorites");
+                    }
+                } else {
+                    Log.w(TAG, "Failed to fetch user favorites from server: " + 
+                          (response.code() + " - " + (response.errorBody() != null ? 
+                           response.errorBody().toString() : "Unknown error")));
+                }
+            }
+            
+            @Override
+            public void onFailure(Call<JsonObject> call, Throwable t) {
+                Log.e(TAG, "Error fetching user favorites from server", t);
+            }
+        });
+    }
+
+    /**
+     * Private helper method to actually perform the template state sync
+     * @param userId Current user ID
+     * @param templatesList List of templates to sync states for
+     */
+    private void performTemplateStateSync(String userId, List<Template> templatesList) {
+        if (templatesList == null || templatesList.isEmpty()) {
+            Log.d(TAG, "No templates to sync");
+            return;
+        }
+        
+        Log.d(TAG, "Syncing template states for " + templatesList.size() + " templates");
+        
+        // Use AppExecutors to run the database operations on a background thread
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            try {
+                // Get liked templates from Room database
+                List<String> likedTemplateIds = new ArrayList<>();
+                if (appDatabase != null) {
+                    List<Template> likedTemplates = appDatabase.templateDao().getLikedTemplatesSync();
+                    if (likedTemplates != null && !likedTemplates.isEmpty()) {
+                        for (Template template : likedTemplates) {
+                            likedTemplateIds.add(template.getId());
+                        }
+                        Log.d(TAG, "Found " + likedTemplateIds.size() + " liked templates in Room database");
+                    }
+                }
+                
+                // Get favorited templates from Room database
+                List<String> favoritedTemplateIds = new ArrayList<>();
+                if (appDatabase != null) {
+                    List<Template> favoritedTemplates = appDatabase.templateDao().getFavoritedTemplatesSync();
+                    if (favoritedTemplates != null && !favoritedTemplates.isEmpty()) {
+                        for (Template template : favoritedTemplates) {
+                            favoritedTemplateIds.add(template.getId());
+                        }
+                        Log.d(TAG, "Found " + favoritedTemplateIds.size() + " favorited templates in Room database");
+                    }
+                }
+                
+                // Get like actions from SharedPreferences
+                Map<String, Boolean> likeActions = new HashMap<>();
+                SharedPreferences likePrefs = applicationContext.getSharedPreferences("pending_like_actions", Context.MODE_PRIVATE);
+                Map<String, ?> allLikes = likePrefs.getAll();
+                
+                for (Map.Entry<String, ?> entry : allLikes.entrySet()) {
+                    try {
+                        String jsonStr = (String) entry.getValue();
+                        JsonObject actionData = new Gson().fromJson(jsonStr, JsonObject.class);
+                        
+                        if (actionData.has("templateId") && actionData.has("userId") && actionData.has("action")) {
+                            String templateId = actionData.get("templateId").getAsString();
+                            String storedUserId = actionData.get("userId").getAsString();
+                            String action = actionData.get("action").getAsString();
+                            
+                            // Only apply if this is for the current user
+                            if (userId.equals(storedUserId)) {
+                                boolean isLike = "like".equals(action);
+                                likeActions.put(templateId, isLike);
+                            }
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error processing locally stored like action", e);
+                    }
+                }
+                
+                // Get favorite actions from SharedPreferences
+                Map<String, Boolean> favoriteActions = new HashMap<>();
+                SharedPreferences favoritePrefs = applicationContext.getSharedPreferences("pending_favorite_actions", Context.MODE_PRIVATE);
+                Map<String, ?> allFavorites = favoritePrefs.getAll();
+                
+                for (Map.Entry<String, ?> entry : allFavorites.entrySet()) {
+                    try {
+                        String jsonStr = (String) entry.getValue();
+                        JsonObject actionData = new Gson().fromJson(jsonStr, JsonObject.class);
+                        
+                        if (actionData.has("templateId") && actionData.has("userId") && actionData.has("action")) {
+                            String templateId = actionData.get("templateId").getAsString();
+                            String storedUserId = actionData.get("userId").getAsString();
+                            String action = actionData.get("action").getAsString();
+                            
+                            // Only apply if this is for the current user
+                            if (userId.equals(storedUserId)) {
+                                boolean isFavorite = "favorite".equals(action);
+                                favoriteActions.put(templateId, isFavorite);
+                            }
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error processing locally stored favorite action", e);
+                    }
+                }
+                
+                // Apply states to templates
+                final List<Template> updatedTemplates = new ArrayList<>();
+                
+                for (Template template : templatesList) {
+                    String templateId = template.getId();
+                    
+                    // Apply like state
+                    if (likedTemplateIds.contains(templateId) || Boolean.TRUE.equals(likeActions.get(templateId))) {
+                        template.setLiked(true);
+                    } else if (likeActions.containsKey(templateId)) {
+                        template.setLiked(likeActions.get(templateId));
+                    }
+                    
+                    // Apply favorite state
+                    if (favoritedTemplateIds.contains(templateId) || Boolean.TRUE.equals(favoriteActions.get(templateId))) {
+                        template.setFavorited(true);
+                    } else if (favoriteActions.containsKey(templateId)) {
+                        template.setFavorited(favoriteActions.get(templateId));
+                    }
+                    
+                    updatedTemplates.add(template);
+                }
+                
+                // Update LiveData on main thread
+                AppExecutors.getInstance().mainThread().execute(() -> {
+                    templates.setValue(updatedTemplates);
+                    Log.d(TAG, "Template states synced at app startup for " + updatedTemplates.size() + " templates");
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Error syncing template states", e);
+            }
+        });
+    }
+
+    // no change needed
+
+    /**
+     * Helper method to get like actions from SharedPreferences
+     */
+    private Map<String, Boolean> getLikeActionsFromPrefs(String userId) {
+        Map<String, Boolean> likeActions = new HashMap<>();
+        try {
+            SharedPreferences likePrefs = applicationContext.getSharedPreferences("pending_like_actions", Context.MODE_PRIVATE);
+            Map<String, ?> allLikes = likePrefs.getAll();
+            
+            for (Map.Entry<String, ?> entry : allLikes.entrySet()) {
+                try {
+                    String jsonStr = (String) entry.getValue();
+                    JsonObject actionData = new Gson().fromJson(jsonStr, JsonObject.class);
+                    
+                    if (actionData.has("templateId") && actionData.has("userId") && actionData.has("action")) {
+                        String templateId = actionData.get("templateId").getAsString();
+                        String storedUserId = actionData.get("userId").getAsString();
+                        String action = actionData.get("action").getAsString();
+                        
+                        // Only apply if this is for the current user
+                        if (userId.equals(storedUserId)) {
+                            boolean isLike = "like".equals(action);
+                            likeActions.put(templateId, isLike);
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error processing locally stored like action", e);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error reading like actions from SharedPreferences", e);
+        }
+        return likeActions;
+    }
+
+    /**
+     * Helper method to get favorite actions from SharedPreferences
+     */
+    private Map<String, Boolean> getFavoriteActionsFromPrefs(String userId) {
+        Map<String, Boolean> favoriteActions = new HashMap<>();
+        try {
+            SharedPreferences favoritePrefs = applicationContext.getSharedPreferences("pending_favorite_actions", Context.MODE_PRIVATE);
+            Map<String, ?> allFavorites = favoritePrefs.getAll();
+            
+            for (Map.Entry<String, ?> entry : allFavorites.entrySet()) {
+                try {
+                    String jsonStr = (String) entry.getValue();
+                    JsonObject actionData = new Gson().fromJson(jsonStr, JsonObject.class);
+                    
+                    if (actionData.has("templateId") && actionData.has("userId") && actionData.has("action")) {
+                        String templateId = actionData.get("templateId").getAsString();
+                        String storedUserId = actionData.get("userId").getAsString();
+                        String action = actionData.get("action").getAsString();
+                        
+                        // Only apply if this is for the current user
+                        if (userId.equals(storedUserId)) {
+                            boolean isFavorite = "favorite".equals(action);
+                            favoriteActions.put(templateId, isFavorite);
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error processing locally stored favorite action", e);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error reading favorite actions from SharedPreferences", e);
+        }
+        return favoriteActions;
     }
 }

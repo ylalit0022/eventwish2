@@ -2,6 +2,9 @@ package com.ds.eventwish.ads;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -33,7 +36,10 @@ public class AppOpenManager implements LifecycleObserver, Application.ActivityLi
     private static final long TIMEOUT_DURATION_MILLIS = 4 * 3600 * 1000; // 4 hours
     private static final long AD_LOAD_TIMEOUT = 10000L; // 10 seconds
     private static final int MAX_RETRY_ATTEMPTS = 3;
+    private static final int MAX_RETRY_CYCLES = 3; // Maximum number of full retry cycles
     private static final long RETRY_DELAY = 1000L; // 1 second
+    private static final long MIN_COOLING_PERIOD = 10000L; // 10 second cooling period
+    private static final long MAX_COOLING_PERIOD = 300000L; // 5 minute maximum cooling period
 
     private final Application application;
     private final Set<Class<? extends Activity>> disabledActivities;
@@ -45,6 +51,8 @@ public class AppOpenManager implements LifecycleObserver, Application.ActivityLi
     private boolean isFirstLaunch = true;
     private long loadTime = 0;
     private int retryAttempt = 0;
+    private int retryCycle = 0;
+    private boolean permanentFailure = false;
 
     @Nullable private Activity currentActivity;
 
@@ -53,6 +61,7 @@ public class AppOpenManager implements LifecycleObserver, Application.ActivityLi
         this.disabledActivities = new HashSet<>();
         this.timeoutHandler = new Handler(Looper.getMainLooper());
         this.retryAttempt = 0; // Explicitly initialize retry counter
+        this.retryCycle = 0; // Initialize cycle counter
         
         this.application.registerActivityLifecycleCallbacks(this);
         ProcessLifecycleOwner.get().getLifecycle().addObserver(this);
@@ -83,9 +92,48 @@ public class AppOpenManager implements LifecycleObserver, Application.ActivityLi
         return currentActivity != null && disabledActivities.contains(currentActivity.getClass());
     }
 
+    /**
+     * Checks for network connectivity
+     * @return true if connected, false otherwise
+     */
+    private boolean isNetworkAvailable() {
+        try {
+            ConnectivityManager connectivityManager = (ConnectivityManager) application.getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (connectivityManager == null) {
+                return false;
+            }
+            NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
+            return networkInfo != null && networkInfo.isConnected();
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking network state", e);
+            return false;
+        }
+    }
+
     /** Request an ad with timeout and retry mechanism */
     public void fetchAd() {
-        if (isLoadingAd || isAdAvailable()) {
+        // Skip if we're already loading or have a permanent failure
+        if (isLoadingAd || isAdAvailable() || permanentFailure) {
+            if (permanentFailure) {
+                Log.d(TAG, "Skipping ad fetch due to permanent failure state");
+            }
+            return;
+        }
+        
+        // Check network connectivity
+        if (!isNetworkAvailable()) {
+            Log.d(TAG, "Network not available, skipping ad fetch");
+            // Schedule a retry after network might be available
+            timeoutHandler.postDelayed(this::fetchAd, MIN_COOLING_PERIOD);
+            return;
+        }
+        
+        // Check if AdMobManager is properly initialized
+        if (!AdMobManager.isInitialized()) {
+            Log.e(TAG, "AdMobManager not initialized, cannot fetch ads");
+            // Don't enter permanent failure state since this might be a temporary issue during app startup
+            // Schedule a retry instead
+            timeoutHandler.postDelayed(this::fetchAd, MIN_COOLING_PERIOD);
             return;
         }
 
@@ -108,6 +156,8 @@ public class AppOpenManager implements LifecycleObserver, Application.ActivityLi
                 isLoadingAd = false;
                 loadTime = (new Date()).getTime();
                 retryAttempt = 0;
+                retryCycle = 0; // Reset cycle counter on success
+                permanentFailure = false; // Clear permanent failure state on success
                 Log.d(TAG, "App open ad loaded successfully");
             }
 
@@ -122,15 +172,25 @@ public class AppOpenManager implements LifecycleObserver, Application.ActivityLi
     }
 
     /**
-     * Implements exponential backoff for retries
+     * Reset the retry state to allow future attempts
+     */
+    public void resetFailureState() {
+        Log.d(TAG, "Resetting ad failure state");
+        permanentFailure = false;
+        retryAttempt = 0;
+        retryCycle = 0;
+    }
+
+    /**
+     * Implements exponential backoff for retries with cycle limits
      */
     private void retryWithBackoff() {
         retryAttempt++;
         
         if (retryAttempt <= MAX_RETRY_ATTEMPTS) {
             long delay = RETRY_DELAY * (1L << (retryAttempt - 1));
-            Log.d(TAG, String.format("Scheduling retry attempt %d/%d in %d ms", 
-                retryAttempt, MAX_RETRY_ATTEMPTS, delay));
+            Log.d(TAG, String.format("Scheduling retry attempt %d/%d in %d ms (cycle %d/%d)", 
+                retryAttempt, MAX_RETRY_ATTEMPTS, delay, retryCycle + 1, MAX_RETRY_CYCLES));
             
             timeoutHandler.postDelayed(() -> {
                 Log.d(TAG, "Executing retry attempt " + retryAttempt);
@@ -138,14 +198,33 @@ public class AppOpenManager implements LifecycleObserver, Application.ActivityLi
                 fetchAd();
             }, delay);
         } else {
-            Log.e(TAG, "Max retry attempts reached");
+            // We've reached the max retry attempts for this cycle
+            Log.e(TAG, "Max retry attempts reached for cycle " + (retryCycle + 1));
             retryAttempt = 0;
+            retryCycle++;
+            
+            if (retryCycle >= MAX_RETRY_CYCLES) {
+                // We've reached the maximum number of retry cycles
+                Log.e(TAG, "Max retry cycles reached (" + MAX_RETRY_CYCLES + "). Entering permanent failure state.");
+                permanentFailure = true;
+                return;
+            }
+            
+            // Calculate cooling period based on the retry cycle (increasing delay)
+            long coolingPeriod = Math.min(
+                MIN_COOLING_PERIOD * (1L << retryCycle), 
+                MAX_COOLING_PERIOD
+            );
+            
+            Log.d(TAG, String.format("Starting cooling period of %d ms before cycle %d/%d", 
+                coolingPeriod, retryCycle + 1, MAX_RETRY_CYCLES));
+                
             // Wait longer before trying again after max retries
             timeoutHandler.postDelayed(() -> {
-                Log.d(TAG, "Attempting to load ad after cooling period");
+                Log.d(TAG, "Attempting to load ad after cooling period (cycle " + (retryCycle + 1) + ")");
                 isLoadingAd = false;
                 fetchAd();
-            }, RETRY_DELAY * 10); // 10 second cooling period
+            }, coolingPeriod);
         }
     }
 
@@ -156,18 +235,24 @@ public class AppOpenManager implements LifecycleObserver, Application.ActivityLi
         // 2. Ad is not available
         // 3. Current activity is null
         // 4. Current activity is in disabled list
+        // 5. In permanent failure state
         if (isShowingAd) {
             Log.d(TAG, "Ad is already showing, not showing another one");
             return;
         }
         
+        if (permanentFailure) {
+            Log.d(TAG, "In permanent failure state, not attempting to show ad");
+            return;
+        }
+        
         if (!isAdAvailable()) {
             Log.d(TAG, "No ad available to show");
-            if (!isLoadingAd) {
+            if (!isLoadingAd && !permanentFailure) {
                 Log.d(TAG, "No ad is loading, starting fetch");
                 fetchAd();
             } else {
-                Log.d(TAG, "Ad is currently loading, waiting for completion");
+                Log.d(TAG, "Ad is currently loading or in permanent failure state, waiting for completion");
             }
             return;
         }
@@ -276,8 +361,26 @@ public class AppOpenManager implements LifecycleObserver, Application.ActivityLi
 
     /** Clean up */
     public void destroy() {
+        Log.d(TAG, "Destroying AppOpenManager");
         timeoutHandler.removeCallbacksAndMessages(null);
         appOpenAd = null;
         currentActivity = null;
+        isLoadingAd = false;
+        isShowingAd = false;
+        
+        // Clean up lifecycle observer
+        try {
+            ProcessLifecycleOwner.get().getLifecycle().removeObserver(this);
+        } catch (Exception e) {
+            Log.e(TAG, "Error removing lifecycle observer", e);
+        }
+    }
+
+    /**
+     * Checks if the manager is in a permanent failure state
+     * @return true if in permanent failure state, false otherwise
+     */
+    public boolean isInPermanentFailureState() {
+        return permanentFailure;
     }
 } 

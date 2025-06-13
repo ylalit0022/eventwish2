@@ -61,18 +61,37 @@ public class AdMobManager {
             instance = new AdMobManager();
             instance.context = context.getApplicationContext();
             
-            // Create ApiService instance
-            ApiService apiService = ApiClient.getClient();
-            instance.repository = new AdMobRepository(context.getApplicationContext(), apiService);
-            
-            // Initialize the Mobile Ads SDK
-            MobileAds.initialize(context, initializationStatus -> {
-                Log.d(TAG, "AdMob SDK Initialized");
-                instance.isInitialized = true;
-                // Start loading interstitial ad
-                instance.loadInterstitialAd();
-            });
+            try {
+                // Check if ApiClient is initialized
+                if (!com.ds.eventwish.data.remote.ApiClient.isInitialized()) {
+                    throw new IllegalStateException("ApiClient not initialized. Call ApiClient.init() first.");
+                }
+                
+                // Create ApiService instance
+                ApiService apiService = ApiClient.getClient();
+                instance.repository = new AdMobRepository(context.getApplicationContext(), apiService);
+                
+                // Initialize the Mobile Ads SDK
+                MobileAds.initialize(context, initializationStatus -> {
+                    Log.d(TAG, "AdMob SDK Initialized");
+                    instance.isInitialized = true;
+                    // Start loading interstitial ad
+                    instance.loadInterstitialAd();
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "Error during AdMobManager initialization: " + e.getMessage(), e);
+                // Keep instance but mark as not initialized
+                instance.isInitialized = false;
+            }
         }
+    }
+    
+    /**
+     * Checks if AdMobManager is properly initialized
+     * @return true if initialized, false otherwise
+     */
+    public static boolean isInitialized() {
+        return instance != null && instance.isInitialized;
     }
     
     /**
@@ -378,10 +397,17 @@ public class AdMobManager {
      * @param callback Callback to be notified when the ad is loaded or fails
      */
     public void loadAppOpenAd(@NonNull AppOpenAdCallback callback) {
-        if (isLoading || !isInitialized) {
+        if (isLoading) {
             String errorMessage = context.getString(R.string.error_unknown);
-            Log.e(TAG, "Cannot load app open ad: " + (isLoading ? "Ad loading in progress" : "AdMob not initialized"));
-            callback.onError(isLoading ? "Ad loading in progress" : errorMessage);
+            Log.e(TAG, "Cannot load app open ad: Ad loading in progress");
+            callback.onError("Ad loading in progress");
+            return;
+        }
+        
+        if (!isInitialized()) {
+            String errorMessage = context.getString(R.string.error_unknown);
+            Log.e(TAG, "Cannot load app open ad: AdMob not initialized");
+            callback.onError(errorMessage);
             return;
         }
         

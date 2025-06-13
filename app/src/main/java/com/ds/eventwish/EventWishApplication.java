@@ -7,6 +7,8 @@ import android.os.Bundle;
 import android.app.Activity;
 import android.os.Handler;
 import android.os.Looper;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 
 import androidx.work.Configuration;
 import androidx.work.Constraints;
@@ -97,6 +99,41 @@ public class EventWishApplication extends Application implements Configuration.P
 
     private boolean wasInBackground = true;
     private AdSessionManager adSessionManager;
+
+    private static final long APP_OPEN_AD_RESET_INTERVAL = 3600000L; // 1 hour
+    private static final long MAX_APP_OPEN_AD_RESET_INTERVAL = 24 * 3600000L; // 24 hours
+    private static final int MAX_RESET_ATTEMPTS = 5; // Maximum number of reset cycles before stopping
+    private final Handler adResetHandler = new Handler(Looper.getMainLooper());
+    private int adResetAttempts = 0; // Track the number of reset attempts
+    
+    private final Runnable adResetRunnable = new Runnable() {
+        @Override
+        public void run() {
+            resetAppOpenAdFailureState();
+            
+            // Increase the delay between reset attempts if we've had several failures
+            adResetAttempts++;
+            long nextDelay;
+            
+            if (adResetAttempts < MAX_RESET_ATTEMPTS) {
+                // Exponential backoff for reset attempts: 1h, 2h, 4h, 8h...
+                nextDelay = Math.min(
+                    APP_OPEN_AD_RESET_INTERVAL * (1L << (adResetAttempts - 1)), 
+                    MAX_APP_OPEN_AD_RESET_INTERVAL
+                );
+                
+                Log.d(TAG, "Scheduling next app open ad reset attempt " + 
+                      adResetAttempts + "/" + MAX_RESET_ATTEMPTS + 
+                      " in " + (nextDelay / 60000) + " minutes");
+                
+                // Schedule the next reset with increased delay
+                adResetHandler.postDelayed(this, nextDelay);
+            } else {
+                Log.d(TAG, "Maximum app open ad reset attempts reached (" + 
+                      MAX_RESET_ATTEMPTS + "), stopping automatic resets");
+            }
+        }
+    };
 
     /**
      * Get the application instance
@@ -299,16 +336,6 @@ public class EventWishApplication extends Application implements Configuration.P
             
             // Register user in background
             registerUserInBackground();
-            
-            // Initialize AdMob (if needed)
-            try {
-                AdMobManager.init(this);
-                appOpenManager = new AppOpenManager(this);
-                Log.d(TAG, "13. AdMob and AppOpenManager initialized");
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing AdMob: " + e.getMessage(), e);
-                // Continue without AdMob
-            }
             
             // Initialize InternetConnectivityChecker
             try {
@@ -601,8 +628,16 @@ public class EventWishApplication extends Application implements Configuration.P
 
     @Override
     public void onTerminate() {
+        // Remove any pending ad reset callbacks to prevent leaks
+        adResetHandler.removeCallbacks(adResetRunnable);
+        
+        // Clean up AppOpenManager to prevent memory leaks
+        if (appOpenManager != null) {
+            appOpenManager.destroy();
+            appOpenManager = null;
+        }
+        
         super.onTerminate();
-        // Clean up resources
     }
 
     private void scheduleWorkers() {
@@ -1158,9 +1193,21 @@ public class EventWishApplication extends Application implements Configuration.P
             
             // Initialize AdMob if not in debug mode or if explicitly enabled in debug
             try {
-                // Initialize AdMob
+                // First verify ApiClient is initialized
+                if (!ApiClient.isInitialized()) {
+                    Log.w(TAG, "ApiClient not initialized before AdMob, initializing now");
+                    try {
+                        ApiClient.init(this);
+                        Log.d(TAG, "ApiClient initialized for AdMob");
+                    } catch (Exception apiEx) {
+                        Log.e(TAG, "Failed to initialize ApiClient for AdMob: " + apiEx.getMessage(), apiEx);
+                        throw new IllegalStateException("ApiClient initialization required for AdMob", apiEx);
+                    }
+                }
+                
+                // Now initialize AdMob
                 AdMobManager.init(this);
-                Log.d(TAG, "AdMob initialized");
+                Log.d(TAG, "AdMob initialized successfully");
                 
                 // Initialize App Open Ads
                 appOpenManager = new AppOpenManager(this);
@@ -1173,8 +1220,12 @@ public class EventWishApplication extends Application implements Configuration.P
                 // Initialize AdSessionManager
                 adSessionManager = AdSessionManager.getInstance(this);
                 Log.d(TAG, "AdSessionManager initialized");
+                
+                // Schedule periodic reset of AppOpenManager failure state
+                scheduleAppOpenAdFailureStateReset();
             } catch (Exception e) {
                 Log.e(TAG, "Error initializing AdMob: " + e.getMessage(), e);
+                // Continue without AdMob functionality
             }
             
             // Initialize Internet Connectivity Checker
@@ -1223,5 +1274,86 @@ public class EventWishApplication extends Application implements Configuration.P
                     .addOnSuccessListener(aVoid -> Log.d(TAG, "FCM token updated in Firestore"))
                     .addOnFailureListener(e -> Log.e(TAG, "Failed to update FCM token in Firestore", e));
             });
+    }
+
+    /**
+     * Schedule periodic reset of AppOpenManager failure state
+     * This ensures that after a longer period, we try to load ads again
+     * even if we encountered persistent failures before
+     */
+    private void scheduleAppOpenAdFailureStateReset() {
+        // First check if AdMobManager is initialized
+        if (!AdMobManager.isInitialized()) {
+            Log.d(TAG, "AdMobManager not initialized, skipping app open ad failure state reset scheduling");
+            // Try again later with a shorter delay
+            adResetHandler.postDelayed(() -> {
+                if (AdMobManager.isInitialized()) {
+                    Log.d(TAG, "AdMobManager now initialized, scheduling app open ad failure state reset");
+                    scheduleAppOpenAdFailureStateReset();
+                }
+            }, 60000); // Check again in one minute
+            return;
+        }
+    
+        // Initialize counter
+        adResetAttempts = 0;
+        
+        Log.d(TAG, "Scheduling initial app open ad failure state reset in " + 
+            (APP_OPEN_AD_RESET_INTERVAL / 60000) + " minutes");
+            
+        // Start the reset schedule
+        adResetHandler.postDelayed(adResetRunnable, APP_OPEN_AD_RESET_INTERVAL);
+    }
+    
+    /**
+     * Reset the AppOpenManager failure state to allow trying to load ads again
+     */
+    private void resetAppOpenAdFailureState() {
+        // First check if AdMobManager is initialized
+        if (!AdMobManager.isInitialized()) {
+            Log.d(TAG, "AdMobManager not initialized, skipping app open ad failure state reset");
+            return;
+        }
+        
+        if (appOpenManager != null) {
+            // Check network connectivity
+            ConnectivityManager connectivityManager = 
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            
+            if (connectivityManager == null) {
+                Log.d(TAG, "Cannot check network connectivity, skipping ad failure state reset");
+                return;
+            }
+            
+            NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
+            if (networkInfo == null || !networkInfo.isConnected()) {
+                Log.d(TAG, "No network connection available, skipping app open ad failure state reset");
+                return;
+            }
+            
+            // Check if we're in a permanent failure state and log detailed info
+            boolean wasInPermanentFailure = appOpenManager.isInPermanentFailureState();
+            
+            if (wasInPermanentFailure) {
+                Log.d(TAG, "Attempting to reset app open ad permanent failure state (attempt " + 
+                      adResetAttempts + "/" + MAX_RESET_ATTEMPTS + ")");
+            } else {
+                Log.d(TAG, "Resetting app open ad temporary failure state");
+            }
+            
+            // Reset the failure state
+            appOpenManager.resetFailureState();
+            
+            // Try to fetch a new ad
+            appOpenManager.fetchAd();
+            
+            // If the previous state was a permanent failure, log that we're trying again
+            if (wasInPermanentFailure) {
+                Log.d(TAG, "Reset attempt " + adResetAttempts + 
+                      " complete, attempting to fetch new ad after permanent failure");
+            }
+        } else {
+            Log.d(TAG, "AppOpenManager is null, cannot reset failure state");
+        }
     }
 }

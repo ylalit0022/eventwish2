@@ -30,6 +30,13 @@ public interface TemplateDao {
     @Query("SELECT * FROM templates WHERE id = :id")
     LiveData<Template> getTemplateById(String id);
 
+    /**
+     * Synchronous version of getTemplateById that returns the template directly
+     * without using LiveData. Useful for background operations.
+     */
+    @Query("SELECT * FROM templates WHERE id = :id")
+    Template getTemplateByIdSync(String id);
+
     @Query("SELECT * FROM templates ORDER BY lastUpdated DESC LIMIT :limit OFFSET :offset")
     LiveData<List<Template>> getTemplatesPaged(int limit, int offset);
 
@@ -88,6 +95,20 @@ public interface TemplateDao {
     @Query("SELECT * FROM templates WHERE isLiked = 1")
     LiveData<List<Template>> getLikedTemplates();
 
+    /**
+     * Synchronous version of getLikedTemplates that returns the templates directly
+     * without using LiveData. Useful for background operations.
+     */
+    @Query("SELECT * FROM templates WHERE isLiked = 1")
+    List<Template> getLikedTemplatesSync();
+
     @Query("SELECT * FROM templates WHERE isFavorited = 1")
     LiveData<List<Template>> getFavoritedTemplates();
+
+    /**
+     * Synchronous version of getFavoritedTemplates that returns the templates directly
+     * without using LiveData. Useful for background operations.
+     */
+    @Query("SELECT * FROM templates WHERE isFavorited = 1")
+    List<Template> getFavoritedTemplatesSync();
 } 

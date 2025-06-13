@@ -1,0 +1,36 @@
+[33mcommit f8ba4994f15afbd2a065bde6ab2ae88c467eb809[m
+Author: User <user@example.com>
+Date:   Fri Jun 6 17:00:27 2025 +0530
+
+    fixed app open ad
+
+app/build.gradle
+app/release/app-release.aab
+app/src/main/AndroidManifest.xml
+app/src/main/java/com/ds/eventwish/EventWishApplication.java
+app/src/main/java/com/ds/eventwish/MainActivity.java
+app/src/main/java/com/ds/eventwish/ads/AdMobManager.java
+app/src/main/java/com/ds/eventwish/ads/AppOpenManager.java
+app/src/main/java/com/ds/eventwish/data/repository/BaseRepository.java
+app/src/main/java/com/ds/eventwish/data/repository/CategoryIconRepository.java
+app/src/main/java/com/ds/eventwish/ui/connectivity/InternetConnectivityChecker.java
+app/src/main/java/com/ds/eventwish/ui/detail/TemplateDetailFragment.java
+app/src/main/java/com/ds/eventwish/ui/festival/FestivalNotificationFragment.java
+app/src/main/java/com/ds/eventwish/ui/home/HomeFragment.java
+app/src/main/java/com/ds/eventwish/ui/viewmodel/AppUpdateManager.java
+app/src/main/java/com/ds/eventwish/ui/viewmodel/AppUpdateViewModel.java
+app/src/main/java/com/ds/eventwish/utils/AppUpdateChecker.java
+app/src/main/java/com/ds/eventwish/utils/AppUpdateHandler.java
+app/src/main/java/com/ds/eventwish/utils/InternetConnectivityChecker.java
+app/src/main/res/drawable/circle_background.xml
+app/src/main/res/drawable/date_background.xml
+app/src/main/res/drawable/ic_empty_calendar.xml
+app/src/main/res/drawable/ic_error.xml
+app/src/main/res/drawable/ic_festival.xml
+app/src/main/res/drawable/ic_no_internet.xml
+app/src/main/res/layout/fragment_festival_notification.xml
+app/src/main/res/layout/item_festival.xml
+app/src/main/res/layout/layout_error.xml
+app/src/main/res/values/strings.xml
+backend/data/festivalDemoData.js
+backend/scripts/insertFestivalDemoData.js
