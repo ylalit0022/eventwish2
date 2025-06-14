@@ -33,6 +33,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.ds.eventwish.utils.NetworkUtils;
 import com.google.firebase.inappmessaging.FirebaseInAppMessaging;
+import com.ds.eventwish.utils.ApiEnvironmentHelper;
 
 public class SplashActivity extends AppCompatActivity {
     private static final String TAG = "SplashActivity";
@@ -65,6 +66,9 @@ public class SplashActivity extends AppCompatActivity {
         );
         
         setContentView(R.layout.activity_splash);
+
+        // Show API environment info
+        ApiEnvironmentHelper.showApiEnvironmentInfo(this);
 
         // Pause Firebase In-App Messaging until user is authenticated
         pauseInAppMessaging();

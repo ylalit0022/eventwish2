@@ -56,6 +56,30 @@ const SubscriptionSchema = new Schema({
     }
 });
 
+// Blocking information schema (subdocument)
+const BlockInfoSchema = new Schema({
+    blockedBy: {
+        type: String,  // Admin UID who blocked the user
+        required: true
+    },
+    reason: {
+        type: String,
+        default: ''
+    },
+    blockedAt: {
+        type: Date,
+        default: Date.now
+    },
+    blockExpiresAt: {
+        type: Date,
+        default: null  // null means indefinite block
+    },
+    notes: {
+        type: String,
+        default: ''
+    }
+});
+
 // User schema
 const UserSchema = new Schema({
     uid: { 
@@ -88,6 +112,15 @@ const UserSchema = new Schema({
     created: {
         type: Date,
         default: Date.now
+    },
+    isBlocked: {
+        type: Boolean,
+        default: false,
+        index: true // Add index for filtering blocked users
+    },
+    blockInfo: {
+        type: BlockInfoSchema,
+        default: null
     },
     subscription: SubscriptionSchema,
     adsAllowed: { 
@@ -214,6 +247,45 @@ UserSchema.methods.setLastActiveTemplate = function(templateId, action = null) {
     this.lastActionOnTemplate = action;
     this.lastOnline = Date.now();
     return this.save();
+};
+
+// Add method to block a user
+UserSchema.methods.blockUser = async function(adminUid, reason, expiresAt, notes) {
+    this.isBlocked = true;
+    this.blockInfo = {
+        blockedBy: adminUid,
+        reason: reason || 'Blocked by administrator',
+        blockedAt: new Date(),
+        blockExpiresAt: expiresAt || null,
+        notes: notes || ''
+    };
+    
+    await this.save();
+    return this;
+};
+
+// Add method to unblock a user
+UserSchema.methods.unblockUser = async function() {
+    this.isBlocked = false;
+    this.blockInfo = null;
+    
+    await this.save();
+    return this;
+};
+
+// Add method to check if user is currently blocked
+UserSchema.methods.isCurrentlyBlocked = function() {
+    if (!this.isBlocked) return false;
+    
+    // If block has an expiration time and that time has passed, user is no longer blocked
+    if (this.blockInfo && this.blockInfo.blockExpiresAt && 
+        new Date() > this.blockInfo.blockExpiresAt) {
+        // Auto-unblock
+        this.isBlocked = false;
+        return false;
+    }
+    
+    return true;
 };
 
 module.exports = mongoose.model('User', UserSchema); 

@@ -47,10 +47,17 @@ public class ApiClient {
     // Static members
     private static final String TAG = "ApiClient";
     
-    // Base URL of the API
-    private static final String BASE_URL = "https://eventwish2.onrender.com/api/";
-    // For production: "https://eventwish2.onrender.com/api/"
-    // For local development: "http://localhost:3007/api/" (using production URL to avoid cleartext traffic issues)
+      // Base URL of the API
+   //   private static final String BASE_URL = "https://eventwish2.onrender.com/api/";
+      // For production: "https://eventwish2.onrender.com/api/"
+      // For local development: "http://localhost:3007/api/" (using production URL to avoid cleartext traffic issues)
+    // Base URL of the API - now using BuildConfig to switch between environments
+    // This allows using different URLs based on build variants (debug, local, release)
+    // See build.gradle for configuration of each variant
+    private static final String BASE_URL = BuildConfig.BASE_URL;
+    
+    // API environment (PRODUCTION or LOCAL)
+    private static final String API_ENV = BuildConfig.API_ENV;
     
     // API service
     private static ApiService apiService;
@@ -72,6 +79,30 @@ public class ApiClient {
      */
     public static boolean isInitialized() {
         return isInitialized && context != null;
+    }
+    
+    /**
+     * Get the current API environment (PRODUCTION or LOCAL)
+     * @return API environment string
+     */
+    public static String getApiEnvironment() {
+        return API_ENV;
+    }
+    
+    /**
+     * Get the base URL being used
+     * @return Base URL string
+     */
+    public static String getBaseUrl() {
+        return BASE_URL;
+    }
+    
+    /**
+     * Check if using local development server
+     * @return true if using local server, false if using production
+     */
+    public static boolean isLocalEnvironment() {
+        return "LOCAL".equals(API_ENV);
     }
 
     /**
@@ -137,6 +168,7 @@ public class ApiClient {
             
             // Log for debugging
             Log.d(TAG, "ApiClient successfully initialized with API URL: " + BASE_URL);
+            Log.d(TAG, "API Environment: " + API_ENV + (isLocalEnvironment() ? " (LOCAL DEVELOPMENT)" : " (PRODUCTION)"));
         } catch (Exception e) {
             Log.e(TAG, "Failed to initialize ApiClient: " + e.getMessage(), e);
             context = null;

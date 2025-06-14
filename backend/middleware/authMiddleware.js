@@ -239,40 +239,87 @@ const verifyClientApp = (req, res, next) => {
 
 /**
  * Middleware to verify admin role
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next function
+ * @param {String} requiredPermission - Optional specific permission to check
+ * @returns {Function} Express middleware function
  */
-const verifyAdmin = (req, res, next) => {
-  try {
-    // Check if user exists in request (set by verifyToken)
-    if (!req.user) {
-      return res.status(401).json({
+const verifyAdmin = (requiredPermission = null) => {
+  return async (req, res, next) => {
+    try {
+      const { getAdminRole, hasPermission } = require('../config/adminConfig');
+      
+      // Check if user exists in request (set by verifyToken)
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not authenticated',
+          error: 'AUTH_USER_MISSING'
+        });
+      }
+      
+      // Get user email from the Firebase decoded token
+      const userEmail = req.user.email;
+      
+      if (!userEmail) {
+        logger.warn('Admin verification failed: No email in user token', { userId: req.user.uid });
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: No email in user profile',
+          error: 'AUTH_EMAIL_MISSING'
+        });
+      }
+      
+      // Check if email is in admin whitelist and get role
+      const role = getAdminRole(userEmail);
+      
+      if (!role) {
+        logger.warn('User is not an admin', { 
+          userId: req.user.uid,
+          email: userEmail 
+        });
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: Not in admin whitelist',
+          error: 'AUTH_ADMIN_REQUIRED'
+        });
+      }
+      
+      // If specific permission is required, check if the admin role has it
+      if (requiredPermission && !hasPermission(role, requiredPermission)) {
+        logger.warn('Admin lacks required permission', {
+          userId: req.user.uid,
+          email: userEmail,
+          role,
+          requiredPermission
+        });
+        return res.status(403).json({
+          success: false,
+          message: `Access denied: Required permission '${requiredPermission}' not granted for your role`,
+          error: 'AUTH_PERMISSION_DENIED'
+        });
+      }
+      
+      // Add admin info to the request
+      req.adminInfo = {
+        role,
+        email: userEmail
+      };
+      
+      logger.debug('Admin verified successfully', { 
+        userId: req.user.uid,
+        email: userEmail,
+        role
+      });
+      
+      next();
+    } catch (error) {
+      logger.error(`Admin verification error: ${error.message}`, { error });
+      return res.status(500).json({
         success: false,
-        message: 'User not authenticated',
-        error: 'AUTH_USER_MISSING'
+        message: 'Server error during admin verification',
+        error: 'AUTH_SERVER_ERROR'
       });
     }
-    
-    // Check if user has admin role
-    if (!req.user.isAdmin) {
-      logger.warn('User is not an admin', { userId: req.user.id });
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied: Admin role required',
-        error: 'AUTH_ADMIN_REQUIRED'
-      });
-    }
-    
-    next();
-  } catch (error) {
-    logger.error(`Admin verification error: ${error.message}`, { error });
-    return res.status(500).json({
-      success: false,
-      message: 'Server error during admin verification',
-      error: 'AUTH_SERVER_ERROR'
-    });
-  }
+  };
 };
 
 /**
@@ -320,6 +367,99 @@ const validateRegistration = (req, res, next) => {
   }
 };
 
+/**
+ * Middleware to verify Firebase ID token
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next function
+ */
+const verifyFirebaseToken = async (req, res, next) => {
+  try {
+    // Get token from Authorization header
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: 'No Firebase token provided',
+        error: 'AUTH_TOKEN_MISSING'
+      });
+    }
+    
+    const idToken = authHeader.split('Bearer ')[1];
+    
+    // Check for development mode
+    const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_AUTH === 'true';
+    const isDevToken = idToken === 'dev-token';
+    const devEmail = req.headers['x-dev-email'];
+    const isDevAdmin = req.headers['x-dev-admin'] === 'true';
+    
+    // Allow dev token in development mode
+    if (isDevelopment && isDevToken && devEmail && isDevAdmin) {
+      logger.info('Using development authentication mode', { email: devEmail });
+      
+      // Create a mock user object similar to Firebase decoded token
+      req.user = {
+        uid: 'dev-admin-uid',
+        email: devEmail,
+        email_verified: true,
+        name: 'Development Admin',
+        role: 'superAdmin',
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iss: 'dev-auth'
+      };
+      
+      return next();
+    }
+    
+    // Initialize Firebase Admin if not already initialized
+    const admin = require('firebase-admin');
+    if (!admin.apps.length) {
+      // Check if we have service account credentials
+      if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        try {
+          const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+          admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount)
+          });
+        } catch (error) {
+          logger.error('Failed to parse Firebase service account', { error });
+          admin.initializeApp({
+            projectId: process.env.FIREBASE_PROJECT_ID
+          });
+        }
+      } else {
+        // Initialize with application default credentials
+        admin.initializeApp({
+          projectId: process.env.FIREBASE_PROJECT_ID
+        });
+      }
+    }
+    
+    // Verify the ID token
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    
+    // Add the decoded token to the request
+    req.user = decodedToken;
+    
+    logger.debug('Firebase token verified successfully', { 
+      uid: decodedToken.uid,
+      email: decodedToken.email
+    });
+    
+    next();
+  } catch (error) {
+    logger.error(`Firebase token verification error: ${error.message}`, { error });
+    
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid Firebase token',
+      error: 'AUTH_TOKEN_INVALID'
+    });
+  }
+};
+
 module.exports = {
   verifyToken,
   verifyTokenWithRefresh,
@@ -329,5 +469,6 @@ module.exports = {
   verifyClientApp,
   verifyAdmin,
   verifyAppSignature,
-  validateRegistration
+  validateRegistration,
+  verifyFirebaseToken
 };

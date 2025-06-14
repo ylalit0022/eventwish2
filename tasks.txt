@@ -1,0 +1,448 @@
+Configuration on demand is an incubating feature.
+
+> Task :tasks
+
+------------------------------------------------------------
+Tasks runnable from root project 'EventWish'
+------------------------------------------------------------
+
+Android tasks
+-------------
+app:androidDependencies - Displays the Android dependencies of the project.
+app:signingReport - Displays the signing info for the base and test modules
+app:sourceSets - Prints out all the source sets defined in this project.
+
+Build tasks
+-----------
+app:assemble - Assemble main outputs for all the variants.
+app:assembleAndroidTest - Assembles all the Test applications.
+app:build - Assembles and tests this project.
+app:buildDependents - Assembles and tests this project and all projects that depend on it.
+app:buildNeeded - Assembles and tests this project and all projects it depends on.
+app:bundle - Assemble bundles for all the variants.
+app:clean - Deletes the build directory.
+app:compileDebugAndroidTestSources
+app:compileDebugSources
+app:compileDebugUnitTestSources
+app:compileLocalSources
+app:compileLocalUnitTestSources
+app:compileReleaseSources
+app:compileReleaseUnitTestSources
+
+Build Setup tasks
+-----------------
+init - Initializes a new Gradle build.
+updateDaemonJvm - Generates or updates the Gradle Daemon JVM criteria.
+wrapper - Generates Gradle wrapper files.
+
+Firebase Crashlytics tasks
+--------------------------
+app:injectCrashlyticsMappingFileIdDebug - Injects a mapping file id into the app, used by Crashlytics for deobfuscation.
+app:injectCrashlyticsMappingFileIdLocal - Injects a mapping file id into the app, used by Crashlytics for deobfuscation.
+app:injectCrashlyticsMappingFileIdRelease - Injects a mapping file id into the app, used by Crashlytics for deobfuscation.
+
+Help tasks
+----------
+buildEnvironment - Displays all buildscript dependencies declared in root project 'EventWish'.
+app:buildEnvironment - Displays all buildscript dependencies declared in project ':app'.
+dependencies - Displays all dependencies declared in root project 'EventWish'.
+app:dependencies - Displays all dependencies declared in project ':app'.
+dependencyInsight - Displays the insight into a specific dependency in root project 'EventWish'.
+app:dependencyInsight - Displays the insight into a specific dependency in project ':app'.
+help - Displays a help message.
+app:help - Displays a help message.
+javaToolchains - Displays the detected java toolchains.
+app:javaToolchains - Displays the detected java toolchains.
+outgoingVariants - Displays the outgoing variants of root project 'EventWish'.
+app:outgoingVariants - Displays the outgoing variants of project ':app'.
+projects - Displays the sub-projects of root project 'EventWish'.
+app:projects - Displays the sub-projects of project ':app'.
+properties - Displays the properties of root project 'EventWish'.
+app:properties - Displays the properties of project ':app'.
+resolvableConfigurations - Displays the configurations that can be resolved in root project 'EventWish'.
+app:resolvableConfigurations - Displays the configurations that can be resolved in project ':app'.
+tasks - Displays the tasks runnable from root project 'EventWish' (some of the displayed tasks may belong to subprojects).
+app:tasks - Displays the tasks runnable from project ':app'.
+
+Install tasks
+-------------
+app:installDebug - Installs the Debug build.
+app:installDebugAndroidTest - Installs the android (on device) tests for the Debug build.
+app:installLocal - Installs the Local build.
+app:uninstallAll - Uninstall all applications.
+app:uninstallDebug - Uninstalls the Debug build.
+app:uninstallDebugAndroidTest - Uninstalls the android (on device) tests for the Debug build.
+app:uninstallLocal - Uninstalls the Local build.
+app:uninstallRelease - Uninstalls the Release build.
+
+Verification tasks
+------------------
+app:check - Runs all checks.
+app:checkJetifier - Checks whether Jetifier is needed for the current project
+app:connectedAndroidTest - Installs and runs instrumentation tests for all flavors on connected devices.
+app:connectedCheck - Runs all device checks on currently connected devices.
+app:connectedDebugAndroidTest - Installs and runs the tests for debug on connected devices.
+app:deviceAndroidTest - Installs and runs instrumentation tests using all Device Providers.
+app:deviceCheck - Runs all device checks using Device Providers and Test Servers.
+app:lint - Runs lint on the default variant.
+app:lintDebug - Print text output from the corresponding lint report task
+app:lintFix - Runs lint on the default variant and applies any safe suggestions to the source code.
+app:lintLocal - Print text output from the corresponding lint report task
+app:lintRelease - Print text output from the corresponding lint report task
+app:test - Run unit tests for all variants.
+app:testDebugUnitTest - Run unit tests for the debug build.
+app:testLocalUnitTest - Run unit tests for the local build.
+app:testReleaseUnitTest - Run unit tests for the release build.
+app:updateLintBaseline - Updates the lint baseline using the default variant.
+
+Other tasks
+-----------
+app:analyzeDebugAndroidTestDependencies
+app:analyzeDebugDependencies
+app:analyzeDebugUnitTestDependencies
+app:analyzeLocalDependencies
+app:analyzeLocalUnitTestDependencies
+app:analyzeReleaseDependencies
+app:analyzeReleaseUnitTestDependencies
+app:appIdListTask
+app:asarToCompatSplitsForDebug
+app:asarToCompatSplitsForLocal
+app:asarToCompatSplitsForRelease
+app:assembleDebug - Assembles main output for variant debug
+app:assembleDebugAndroidTest - Assembles main output for variant debugAndroidTest
+app:assembleDebugUnitTest - Assembles main output for variant debugUnitTest
+app:assembleLocal - Assembles main output for variant local
+app:assembleLocalUnitTest - Assembles main output for variant localUnitTest
+app:assembleRelease - Assembles main output for variant release
+app:assembleReleaseUnitTest - Assembles main output for variant releaseUnitTest
+app:buildDebugPreBundle
+app:buildLocalPreBundle
+app:buildReleasePreBundle
+app:bundleDebug - Assembles bundle for variant debug
+app:bundleDebugClassesToCompileJar
+app:bundleDebugClassesToRuntimeJar
+app:bundleDebugResources
+app:bundleLocal - Assembles bundle for variant local
+app:bundleLocalClassesToCompileJar
+app:bundleLocalClassesToRuntimeJar
+app:bundleLocalResources
+app:bundleRelease - Assembles bundle for variant release
+app:bundleReleaseClassesToCompileJar
+app:bundleReleaseClassesToRuntimeJar
+app:bundleReleaseResources
+app:checkDebugAarMetadata
+app:checkDebugAndroidTestAarMetadata
+app:checkDebugAndroidTestDuplicateClasses
+app:checkDebugDuplicateClasses
+app:checkDebugManifest
+app:checkLocalAarMetadata
+app:checkLocalDuplicateClasses
+app:checkLocalManifest
+app:checkReleaseAarMetadata
+app:checkReleaseDuplicateClasses
+app:checkReleaseManifest
+clean
+app:collectReleaseDependencies
+app:compileDebugAndroidTestJavaWithJavac
+app:compileDebugAndroidTestShaders
+app:compileDebugArtProfile
+app:compileDebugJavaWithJavac
+app:compileDebugShaders
+app:compileDebugUnitTestJavaWithJavac
+app:compileLint
+app:compileLintChecks
+app:compileLocalArtProfile
+app:compileLocalJavaWithJavac
+app:compileLocalShaders
+app:compileLocalUnitTestJavaWithJavac
+app:compileReleaseArtProfile
+app:compileReleaseJavaWithJavac
+app:compileReleaseShaders
+app:compileReleaseUnitTestJavaWithJavac
+components - Displays the components produced by root project 'EventWish'. [deprecated]
+app:components - Displays the components produced by project ':app'. [deprecated]
+app:compressDebugAndroidTestAssets
+app:compressDebugAssets
+app:compressLocalAssets
+app:compressReleaseAssets
+app:configureReleaseDependencies
+app:consumeConfigAttr
+app:createDebugAndroidTestApkListingFileRedirect
+app:createDebugApkListingFileRedirect
+app:createDebugApksFromBundleListingFileRedirect
+app:createDebugBundleListingFileRedirect
+app:createDebugCompatibleScreenManifests
+app:createDebugVariantModel
+app:createLocalApkListingFileRedirect
+app:createLocalApksFromBundleListingFileRedirect
+app:createLocalBundleListingFileRedirect
+app:createLocalCompatibleScreenManifests
+app:createLocalVariantModel
+app:createMockableJar
+app:createReleaseApkListingFileRedirect
+app:createReleaseApksFromBundleListingFileRedirect
+app:createReleaseBundleListingFileRedirect
+app:createReleaseCompatibleScreenManifests
+app:createReleaseVariantModel
+app:dataBindingGenBaseClassesDebug
+app:dataBindingGenBaseClassesDebugAndroidTest
+app:dataBindingGenBaseClassesLocal
+app:dataBindingGenBaseClassesRelease
+app:dataBindingMergeDependencyArtifactsDebug
+app:dataBindingMergeDependencyArtifactsDebugAndroidTest
+app:dataBindingMergeDependencyArtifactsLocal
+app:dataBindingMergeDependencyArtifactsRelease
+dependentComponents - Displays the dependent components of components in root project 'EventWish'. [deprecated]
+app:dependentComponents - Displays the dependent components of components in project ':app'. [deprecated]
+app:desugarDebugAndroidTestFileDependencies
+app:desugarDebugFileDependencies
+app:desugarLocalFileDependencies
+app:desugarReleaseFileDependencies
+app:dexBuilderDebug
+app:dexBuilderDebugAndroidTest
+app:dexBuilderLocal
+app:dexBuilderRelease
+app:extractApksForDebug
+app:extractApksForLocal
+app:extractApksForRelease
+app:extractApksFromBundleForDebug
+app:extractApksFromBundleForLocal
+app:extractApksFromBundleForRelease
+app:extractApksFromSdkSplitsForDebug
+app:extractApksFromSdkSplitsForLocal
+app:extractApksFromSdkSplitsForRelease
+app:extractDebugNativeDebugMetadata
+app:extractDebugNativeSymbolTables
+app:extractDeepLinksDebug
+app:extractDeepLinksLocal
+app:extractDeepLinksRelease
+app:extractLocalNativeDebugMetadata
+app:extractLocalNativeSymbolTables
+app:extractProguardFiles
+app:extractReleaseNativeDebugMetadata
+app:extractReleaseNativeSymbolTables
+app:generateDebugAndroidTestAssets
+app:generateDebugAndroidTestBuildConfig
+app:generateDebugAndroidTestResources
+app:generateDebugAndroidTestResValues
+app:generateDebugAndroidTestSources
+app:generateDebugAssets
+app:generateDebugBuildConfig
+app:generateDebugFeatureMetadata
+app:generateDebugFeatureTransitiveDeps
+app:generateDebugLintModel
+app:generateDebugLintReportModel
+app:generateDebugManifestClass
+app:generateDebugResources
+app:generateDebugResValues
+app:generateDebugSources
+app:generateDebugUnitTestAssets
+app:generateDebugUnitTestResources
+app:generateDebugUnitTestSources
+app:generateLocalAssets
+app:generateLocalBuildConfig
+app:generateLocalFeatureMetadata
+app:generateLocalFeatureTransitiveDeps
+app:generateLocalLintModel
+app:generateLocalLintReportModel
+app:generateLocalManifestClass
+app:generateLocalResources
+app:generateLocalResValues
+app:generateLocalSources
+app:generateLocalUnitTestAssets
+app:generateLocalUnitTestResources
+app:generateLocalUnitTestSources
+app:generateReleaseAssets
+app:generateReleaseBuildConfig
+app:generateReleaseFeatureMetadata
+app:generateReleaseFeatureTransitiveDeps
+app:generateReleaseLintModel
+app:generateReleaseLintReportModel
+app:generateReleaseManifestClass
+app:generateReleaseResources
+app:generateReleaseResValues
+app:generateReleaseSources
+app:generateReleaseUnitTestAssets
+app:generateReleaseUnitTestResources
+app:generateReleaseUnitTestSources
+app:generateSafeArgsDebug
+app:generateSafeArgsLocal
+app:generateSafeArgsRelease
+app:javaPreCompileDebug
+app:javaPreCompileDebugAndroidTest
+app:javaPreCompileDebugUnitTest
+app:javaPreCompileLocal
+app:javaPreCompileLocalUnitTest
+app:javaPreCompileRelease
+app:javaPreCompileReleaseUnitTest
+app:lintAnalyzeDebug - Run lint analysis on the debug variant
+app:lintAnalyzeLocal - Run lint analysis on the local variant
+app:lintAnalyzeRelease - Run lint analysis on the release variant
+app:lintFixDebug - Fix lint on the debug variant
+app:lintFixLocal - Fix lint on the local variant
+app:lintFixRelease - Fix lint on the release variant
+app:lintReportDebug - Run lint on the debug variant
+app:lintReportLocal - Run lint on the local variant
+app:lintReportRelease - Run lint on the release variant
+app:makeApkFromBundleForDebug
+app:makeApkFromBundleForLocal
+app:makeApkFromBundleForRelease
+app:mapDebugAndroidTestSourceSetPaths
+app:mapDebugSourceSetPaths
+app:mapLocalSourceSetPaths
+app:mapReleaseSourceSetPaths
+app:mergeDebugAndroidTestAssets
+app:mergeDebugAndroidTestGeneratedProguardFiles
+app:mergeDebugAndroidTestGlobalSynthetics
+app:mergeDebugAndroidTestJavaResource
+app:mergeDebugAndroidTestJniLibFolders
+app:mergeDebugAndroidTestNativeLibs
+app:mergeDebugAndroidTestResources
+app:mergeDebugAndroidTestShaders
+app:mergeDebugArtProfile
+app:mergeDebugAssets
+app:mergeDebugGeneratedProguardFiles
+app:mergeDebugGlobalSynthetics
+app:mergeDebugJavaResource
+app:mergeDebugJniLibFolders
+app:mergeDebugNativeDebugMetadata
+app:mergeDebugNativeLibs
+app:mergeDebugResources
+app:mergeDebugShaders
+app:mergeDexRelease
+app:mergeExtDexDebug
+app:mergeExtDexDebugAndroidTest
+app:mergeExtDexLocal
+app:mergeExtDexRelease
+app:mergeLibDexDebug
+app:mergeLibDexDebugAndroidTest
+app:mergeLibDexLocal
+app:mergeLocalArtProfile
+app:mergeLocalAssets
+app:mergeLocalGeneratedProguardFiles
+app:mergeLocalGlobalSynthetics
+app:mergeLocalJavaResource
+app:mergeLocalJniLibFolders
+app:mergeLocalNativeDebugMetadata
+app:mergeLocalNativeLibs
+app:mergeLocalResources
+app:mergeLocalShaders
+app:mergeProjectDexDebug
+app:mergeProjectDexDebugAndroidTest
+app:mergeProjectDexLocal
+app:mergeReleaseArtProfile
+app:mergeReleaseAssets
+app:mergeReleaseGeneratedProguardFiles
+app:mergeReleaseGlobalSynthetics
+app:mergeReleaseJavaResource
+app:mergeReleaseJniLibFolders
+app:mergeReleaseNativeDebugMetadata
+app:mergeReleaseNativeLibs
+app:mergeReleaseResources
+app:mergeReleaseShaders
+model - Displays the configuration model of root project 'EventWish'. [deprecated]
+app:model - Displays the configuration model of project ':app'. [deprecated]
+app:optimizeReleaseResources
+app:packageDebug
+app:packageDebugAndroidTest
+app:packageDebugBundle
+app:packageDebugResources
+app:packageDebugUniversalApk
+app:packageLocal
+app:packageLocalBundle
+app:packageLocalResources
+app:packageLocalUniversalApk
+app:packageRelease
+app:packageReleaseBundle
+app:packageReleaseResources
+app:packageReleaseUniversalApk
+app:parseDebugIntegrityConfig
+app:parseDebugLocalResources
+app:parseLocalIntegrityConfig
+app:parseLocalLocalResources
+app:parseReleaseIntegrityConfig
+app:parseReleaseLocalResources
+app:preBuild
+app:preDebugAndroidTestBuild
+app:preDebugBuild
+app:preDebugUnitTestBuild
+app:preLocalBuild
+app:preLocalUnitTestBuild
+prepareKotlinBuildScriptModel
+app:prepareLintJarForPublish
+app:preReleaseBuild
+app:preReleaseUnitTestBuild
+app:processApplicationManifestDebugForBundle
+app:processApplicationManifestLocalForBundle
+app:processApplicationManifestReleaseForBundle
+app:processDebugAndroidTestJavaRes
+app:processDebugAndroidTestManifest
+app:processDebugAndroidTestResources
+app:processDebugGoogleServices
+app:processDebugJavaRes
+app:processDebugMainManifest
+app:processDebugManifest
+app:processDebugManifestForInstantApp
+app:processDebugManifestForPackage
+app:processDebugResources
+app:processDebugUnitTestJavaRes
+app:processLocalGoogleServices
+app:processLocalJavaRes
+app:processLocalMainManifest
+app:processLocalManifest
+app:processLocalManifestForInstantApp
+app:processLocalManifestForPackage
+app:processLocalResources
+app:processLocalUnitTestJavaRes
+app:processManifestDebugForFeature
+app:processManifestLocalForFeature
+app:processManifestReleaseForFeature
+app:processReleaseGoogleServices
+app:processReleaseJavaRes
+app:processReleaseMainManifest
+app:processReleaseManifest
+app:processReleaseManifestForInstantApp
+app:processReleaseManifestForPackage
+app:processReleaseResources
+app:processReleaseUnitTestJavaRes
+app:produceDebugBundleIdeListingFile
+app:produceLocalBundleIdeListingFile
+app:produceReleaseBundleIdeListingFile
+app:resolveConfigAttr
+app:sdkReleaseDependencyData
+app:signDebugBundle
+app:signingConfigWriterDebug
+app:signingConfigWriterDebugAndroidTest
+app:signingConfigWriterLocal
+app:signingConfigWriterRelease
+app:signLocalBundle
+app:signReleaseBundle
+app:stripDebugAndroidTestDebugSymbols
+app:stripDebugDebugSymbols
+app:stripLocalDebugSymbols
+app:stripReleaseDebugSymbols
+app:updateLintBaselineDebug - Update the lint baseline using the debug variant
+app:updateLintBaselineLocal - Update the lint baseline using the local variant
+app:updateLintBaselineRelease - Update the lint baseline using the release variant
+app:validateSigningDebug
+app:validateSigningDebugAndroidTest
+app:validateSigningLocal
+app:writeDebugAndroidTestSigningConfigVersions
+app:writeDebugApplicationId
+app:writeDebugAppMetadata
+app:writeDebugModuleMetadata
+app:writeDebugSigningConfigVersions
+app:writeLocalApplicationId
+app:writeLocalAppMetadata
+app:writeLocalModuleMetadata
+app:writeLocalSigningConfigVersions
+app:writeReleaseApplicationId
+app:writeReleaseAppMetadata
+app:writeReleaseModuleMetadata
+app:writeReleaseSigningConfigVersions
+app:zipApksForDebug
+app:zipApksForLocal
+app:zipApksForRelease
+
+BUILD SUCCESSFUL in 2s
+1 actionable task: 1 executed

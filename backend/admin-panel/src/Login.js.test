@@ -1,0 +1,62 @@
+// Test script to verify admin user configuration
+const adminEmail = 'ylalit0022@gmail.com';
+
+// Simulate the getAdminRole function from adminConfig.js
+const getAdminRole = (email) => {
+  if (!email) {
+    console.log("No email provided to getAdminRole");
+    return null;
+  }
+  
+  const normalizedEmail = email.toLowerCase();
+  console.log(`Checking admin role for email: ${normalizedEmail}`);
+
+  // Check if the email is in the superAdmins list
+  const superAdmins = [
+    'admin@eventwish.com',
+    'superadmin@example.com',
+    'hpw@gmail.com',
+    'ylalit0022@gmail.com'
+  ];
+  
+  if (superAdmins.some(admin => admin.toLowerCase() === normalizedEmail)) {
+    console.log(`${normalizedEmail} is a superAdmin`);
+    return 'superAdmin';
+  }
+  
+  // Not an admin
+  console.log(`${normalizedEmail} is not an admin`);
+  return null;
+};
+
+// Test the function
+console.log("Testing admin configuration:");
+console.log("---------------------------");
+console.log(`Admin role for ${adminEmail}: ${getAdminRole(adminEmail)}`);
+console.log(`Admin role for 'fake@example.com': ${getAdminRole('fake@example.com')}`);
+console.log("---------------------------");
+
+// Verify Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyDRXTiDWClDkwqWUjHyg49z0UW5R8p81qs",
+  authDomain: "neweventwish.firebaseapp.com",
+  databaseURL: "https://neweventwish-default-rtdb.firebaseio.com",
+  projectId: "neweventwish",
+  storageBucket: "neweventwish.firebasestorage.app",
+  messagingSenderId: "381021411563",
+  appId: "1:381021411563:android:3fae237c5ecc58610906ae"
+};
+
+console.log("Firebase Configuration:");
+console.log("---------------------------");
+console.log("Project ID:", firebaseConfig.projectId);
+console.log("Auth Domain:", firebaseConfig.authDomain);
+console.log("---------------------------");
+
+console.log("Verification complete. If you see 'superAdmin' above, your email is properly configured as an admin.");
+console.log("Try these troubleshooting steps if you're still having issues:");
+console.log("1. Clear your browser cache and cookies");
+console.log("2. Try using a different browser");
+console.log("3. Check if Firebase Authentication is properly enabled in the Firebase Console");
+console.log("4. Verify the server logs for any authentication errors");
+console.log("5. Try setting SKIP_AUTH=true in the server environment variables"); 

@@ -86,6 +86,120 @@ Snippet: This is a snippet of the search result
 ```
 If needed, you can further use the `web_scraper.py` file to scrape the web page content.
 
+# Scratchpad
+
+## Enhance Admin Panel User Detail Page with Additional Schema Fields
+
+### 🎯 Objective
+Enhance the existing UserDetail page in the admin panel to display and make editable additional user schema fields from the MongoDB User model:
+1. Subscription model with editable fields and date display
+2. Topic subscriptions with comma-separated editing
+3. Referral schema information (display only)
+4. Ads allowed flag (editable)
+
+### 🧩 Related Files
+- backend/models/User.js (User model schema with all fields)
+- backend/admin-panel/src/pages/UserDetail.js (User detail page to be enhanced)
+- backend/admin-panel/src/api.js (API client for user operations)
+- backend/routes/adminRoutes.js (API routes for user operations)
+
+### ✅ Checklist
+- [X] Analyze current UserDetail.js implementation to understand structure
+  - [X] Identify tab structure and existing sections
+  - [X] Understand how edit mode works
+  - [X] Review field change handling
+- [X] Analyze User.js model to understand schema fields to be added
+  - [X] Subscription schema (isActive, plan, startedAt, expiresAt)
+  - [X] topicSubscriptions array
+  - [X] referredBy schema (referredBy, referralCode)
+  - [X] adsAllowed boolean flag
+- [X] Enhance Subscription tab in UserDetail.js
+  - [X] Make subscription fields editable in edit mode
+  - [X] Add date inputs for startedAt and expiresAt fields
+  - [X] Add dropdown for subscription plan selection
+  - [X] Add toggle for isActive field
+- [X] Add Topic Subscriptions section
+  - [X] Display existing topic subscriptions
+  - [X] Add comma-separated editing functionality
+  - [X] Handle array conversion for API updates
+- [X] Add Referral Information section
+  - [X] Display referredBy and referralCode fields (read-only)
+  - [X] Format display for better readability
+- [X] Add Ads Control section
+  - [X] Add toggle for adsAllowed field
+  - [X] Add explanation text for this setting
+- [X] Update handleFieldChange method to handle complex fields
+  - [X] Add support for array fields (topicSubscriptions)
+  - [X] Add support for nested objects (subscription)
+  - [X] Add proper date handling for subscription dates
+- [ ] Test all new functionality
+  - [ ] Test subscription editing
+  - [ ] Test topic subscription editing
+  - [ ] Test ads allowed toggle
+  - [ ] Verify referral information display
+
+### 🧠 Context
+The User model in MongoDB has a comprehensive schema with many fields and subdocuments that weren't previously editable in the admin panel:
+
+1. **Subscription Schema**:
+   ```javascript
+   const SubscriptionSchema = new Schema({
+     isActive: { type: Boolean, default: false },
+     plan: { type: String, enum: ['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY', ''], default: '' },
+     startedAt: { type: Date, default: null },
+     expiresAt: { type: Date, default: null }
+   });
+   ```
+
+2. **Topic Subscriptions**:
+   ```javascript
+   topicSubscriptions: [{ type: String }], // e.g., ['diwali', 'holi']
+   ```
+
+3. **Referral Schema**:
+   ```javascript
+   const ReferralSchema = new Schema({
+     referredBy: { type: String, default: null },
+     referralCode: { type: String, default: null }
+   });
+   ```
+
+4. **Ads Allowed**:
+   ```javascript
+   adsAllowed: { type: Boolean, default: true }, // false if premium/no-ads user
+   ```
+
+The UserDetail.js page uses a tab-based interface with sections for different aspects of the user data. The implementation now includes enhanced functionality for all the required fields.
+
+### 🚧 Progress Log
+- Initial analysis of UserDetail.js complete
+  - Found tab-based structure with 6 tabs (Profile, Preferences, Subscription, Templates, Categories, Activity)
+  - Identified edit mode toggle and field change handling
+  - Subscription tab exists but fields are not editable
+  - No sections for topic subscriptions, referral info, or ads control
+- Analysis of User.js model complete
+  - Identified all required schema fields
+  - Noted data types and default values
+  - Found enum values for subscription plan
+- Implementation complete:
+  1. Enhanced Subscription tab to make fields editable:
+     - Added toggle for isActive field
+     - Added dropdown for subscription plan selection
+     - Added date inputs for startedAt and expiresAt fields
+  2. Added new sections:
+     - Topic subscriptions with comma-separated editing
+     - Referral information display
+     - Ads allowed toggle with explanation
+  3. Updated field change handling:
+     - Added handleNestedFieldChange for nested objects
+     - Added handleTopicSubscriptionsChange for array fields
+     - Added date formatting and parsing functions
+  4. Avoided external dependencies:
+     - Used native datetime-local input instead of date picker library
+- Next steps:
+  - Test the implementation with real data
+  - Verify all fields are properly saved and displayed
+
 # Lessons
 
 ## User Specified Lessons
@@ -433,976 +547,6 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
   - Use deep links with Intent.ACTION_VIEW for notification actions
   - Add proper debug logging throughout the implementation
   - Create a test activity for manual testing and debugging
-
-# Scratchpad
-
-## Fix TemplateDao Missing Methods for TemplateRepository
-
-### 🎯 Objective
-Fix compilation errors in TemplateRepository.java related to missing TemplateDao methods: getTemplateByIdSync(), getLikedTemplatesSync(), and getFavoritedTemplatesSync().
-
-### 🧩 Related Files
-- app/src/main/java/com/ds/eventwish/data/repository/TemplateRepository.java (file with compilation errors)
-- app/src/main/java/com/ds/eventwish/data/db/TemplateDao.java (interface that needs to be updated)
-- app/src/main/java/com/ds/eventwish/data/db/AppDatabase.java (database class that uses the TemplateDao)
-- app/src/main/java/com/ds/eventwish/data/model/Template.java (Template model)
-
-### ✅ Checklist
-- [X] Analyze current TemplateDao interface to understand existing methods
-- [X] Check if any similar synchronous methods exist in TemplateDao
-- [X] Identify all instances where the missing methods are called in TemplateRepository
-- [X] Implement the missing synchronous methods in TemplateDao:
-  - [X] getTemplateByIdSync(String)
-  - [X] getLikedTemplatesSync()
-  - [X] getFavoritedTemplatesSync()
-- [X] Ensure the implementations match expected return types in TemplateRepository
-- [X] Verify that implementations align with existing database operations
-- [X] Check if a database migration is needed for these changes (Not needed as we're just adding query methods, not changing schema)
-- [X] Test compilation to ensure all errors are resolved
-- [X] Verify that the overall app functionality is preserved (No database schema changes, only added query methods, functionality is preserved)
-
-### 🧠 Context
-The TemplateRepository is trying to use synchronous versions of TemplateDao methods that don't exist:
-1. `getTemplateByIdSync(String)` - Likely needs to retrieve a template by ID directly (not using LiveData)
-2. `getLikedTemplatesSync()` - Likely needs to return a list of liked templates directly
-3. `getFavoritedTemplatesSync()` - Likely needs to return a list of favorited templates directly
-
-These synchronous methods would be used in background threads where direct database access is needed without observing LiveData changes.
-
-The issue appears to be that TemplateRepository expects these synchronous methods to exist in TemplateDao, but they are not implemented. We need to add these methods to TemplateDao while ensuring they match the existing database schema and operations.
-
-### 🚧 Progress Log
-- Initial analysis complete - identified 5 compilation errors in TemplateRepository.java
-- Missing methods in TemplateDao:
-  - getTemplateByIdSync(String) - Used in updateRoomState() to check if template exists before updating
-  - getLikedTemplatesSync() - Used in applyLocalInteractionStates() to get all liked templates synchronously
-  - getFavoritedTemplatesSync() - Used in applyLocalInteractionStates() to get all favorited templates synchronously
-- Found existing synchronous methods in TemplateDao:
-  - getAllTemplatesSync() - Returns List<Template> directly without LiveData
-  - getTemplatesByCategorySync(String) - Returns templates by category synchronously
-- Added the missing methods to TemplateDao.java:
-  - Added getTemplateByIdSync(String) method that returns Template directly
-  - Added getLikedTemplatesSync() method that returns List<Template> without LiveData
-  - Added getFavoritedTemplatesSync() method that returns List<Template> without LiveData
-  - Added documentation comments to explain their purpose
-  - Followed the same pattern as existing sync methods
-  - No database migration required as we're only adding query methods, not modifying the schema
-- Build successful! All compilation errors resolved with the following changes:
-  - Added synchronous versions of the methods to TemplateDao.java
-  - No changes were needed to TemplateRepository.java as it was correctly using methods that now exist
-  - Minor warning about Room constructors, but not related to our changes
-- Implementation complete. The app should now work correctly with the synchronous database access methods.
-
-## Fix Excessive AppOpenManager Ad Loading Retry Issue
-
-### 🎯 Objective
-Fix issue with AppOpenManager repeatedly trying to load ads and failing with the error "Failed to load app open ad: An unknown error occurred. Please try again" that's causing excessive log spam and potentially affecting app performance.
-
-### 🧩 Related Files
-- app/src/main/java/com/ds/eventwish/ads/AppOpenManager.java (primary file containing the retry logic)
-- app/src/main/java/com/ds/eventwish/ads/AdMobManager.java (handles ad unit fetching and ad loading)
-- app/src/main/java/com/ds/eventwish/ads/AdMobRepository.java (fetches ad units from server)
-- app/src/main/java/com/ds/eventwish/data/model/ads/AdUnit.java (model for ad units)
-- app/src/main/java/com/ds/eventwish/EventWishApplication.java (initializes AppOpenManager)
-
-### ✅ Checklist
-- [X] Examine AppOpenManager to understand current retry logic
-  - [X] Found retryWithBackoff() method that implements exponential backoff (1s, 2s, 4s)
-  - [X] Identified 10-second cooling period after max retries
-  - [X] Noticed issue in the cycle that restarts continuously 
-- [X] Examine AdMobManager for app open ad loading logic
-  - [X] Found loadAppOpenAd() method with multiple ad unit type attempts
-  - [X] Identified processAppOpenAdUnit() method that handles the actual loading
-- [X] Identify why ads are continuously failing to load
-  - [X] Most likely issue is server connectivity or invalid ad unit IDs
-  - [X] Multiple retry mechanisms in different components making the issue worse
-  - [X] No end condition for retry cycles
-- [X] Fix the continuous retry cycle issue
-  - [X] Modified retryWithBackoff() in AppOpenManager to limit total retry cycles (MAX_RETRY_CYCLES = 3)
-  - [X] Added increasing delay between retry cycles based on cycle count
-  - [X] Added network connectivity check before attempting to fetch ad units
-  - [X] Added permanent failure state after max retry cycles reached
-  - [X] Added mechanism to periodically reset failure state in EventWishApplication
-- [X] Add proper logging for debugging
-  - [X] Added more context to error messages including cycle information
-  - [X] Added network connectivity messages
-  - [X] Added permanent failure state logs
-- [X] Test changes to ensure they work correctly
-  - [X] Code compiles and maintains existing functionality
-  - [X] Logic correctly stops retries after MAX_RETRY_CYCLES reached
-
-### 🧠 Context
-From analyzing the code, I can see that the issue involves multiple components working together:
-
-1. **AppOpenManager** handles the app open ad lifecycle:
-   - It uses a 3-retry exponential backoff (1s, 2s, 4s)
-   - After max retries, it implements a 10s cooling period
-   - After cooling period, it restarts the cycle from scratch
-   - This is causing a continuous loop of attempts and failures
-
-2. **AdMobManager** handles the actual ad loading:
-   - It tries multiple ad unit types ("app_open", "AppOpen", "App Open")
-   - It has its own retry logic for ad loading failures
-   - This creates nested retry loops that make troubleshooting difficult
-
-3. **AdMobRepository** fetches ad units from server:
-   - Uses a hardcoded API key and app signature
-   - Attempts to save ad units to local database
-   - Has extensive error logging
-
-The logs show "No ad available" repeatedly, which suggests one of several issues:
-- The server is not returning valid ad units (perhaps due to auth issues)
-- The ad units are valid but AdMob isn't returning ads for these units
-- There's a network connectivity issue
-- The test device is not properly set up for test ads
-
-### 🚧 Progress Log
-- Initial analysis of logs complete:
-  - AppOpenManager is failing to load ads
-  - 3 retry attempts occurring with exponential backoff (1s, 2s, 4s)
-  - After max retries, it waits ~10 seconds before trying again
-  - Continuous failure cycle suggests more fundamental issue
-
-- Code analysis complete:
-  - Identified core retry logic in AppOpenManager.retryWithBackoff()
-  - Found ad loading process in AdMobManager.loadAppOpenAd()
-  - Determined that error is occurring at "No ad available" stage
-  - Noticed multiple nested retry mechanisms creating a complex retry pattern
-  - The issue appears to be that the cooling period always leads to another cycle of retries
-  - No condition exists to eventually stop trying after repeated failures
-
-- Implementation complete:
-  - Modified AppOpenManager to add MAX_RETRY_CYCLES (3 cycles maximum)
-  - Added network connectivity check before attempting ad fetches
-  - Added permanent failure state after all retry cycles are exhausted
-  - Added exponentially increasing cooling periods between retry cycles
-  - Added resetFailureState() method to allow manual reset of failure state
-  - Added periodic reset scheduler in EventWishApplication to try again after 1 hour
-  - Added proper cleanup in onTerminate() to avoid memory leaks
-
-- The changes address all the root issues:
-  1. Stops continuous retry cycles that waste resources
-  2. Avoids unnecessary attempts when network is unavailable
-  3. Implements proper backoff strategy with increasing delays
-  4. Still allows for recovery after longer periods
-  5. Adds proper logging for easier debugging
-  6. Maintains compatibility with existing code
-
-- Summary of changes:
-  1. Modified AppOpenManager.java:
-     - Added MAX_RETRY_CYCLES constant to limit total retry cycles
-     - Added network connectivity check with isNetworkAvailable() method
-     - Modified retryWithBackoff() to track retry cycles and implement a permanent failure state
-     - Added exponential cooldown periods between cycles
-     - Added resetFailureState() method to allow recovery from permanent failure
-     
-  2. Modified EventWishApplication.java:
-     - Added periodic reset mechanism (hourly) to clear permanent failure state
-     - Added network connectivity check before attempting resets
-     - Added proper cleanup in onTerminate() to prevent memory leaks
-     - Added detailed logging throughout the process
-
-  3. The solution takes a multi-layered approach:
-     - Short term: Stop the continuous failing retry cycles that waste resources
-     - Medium term: Use exponential backoff with increasing delays between cycles
-     - Long term: Periodically reset failure state to recover when conditions improve
-
-# EventWish App Maintenance Documentation
-
-## Table of Contents
-1. [Application Overview](#application-overview)
-2. [Architecture](#architecture)
-3. [Key Components](#key-components)
-4. [Authentication & Security](#authentication--security)
-5. [Database Structure](#database-structure)
-6. [API Services](#api-services)
-7. [Ad Integration](#ad-integration)
-8. [Analytics Implementation](#analytics-implementation)
-9. [Notifications & Reminders](#notifications--reminders)
-10. [Deep Links](#deep-links)
-11. [Maintenance Procedures](#maintenance-procedures)
-12. [Known Issues](#known-issues)
-13. [Build & Deployment](#build--deployment)
-
-## Application Overview
-
-EventWish is an Android application that allows users to create and share event wishes, manage templates, track festivals, and set reminders. The app follows a modern Android architecture with MVVM pattern, Repository pattern, and leverages Room for local database storage.
-
-### Main Features
-- Template-based wish creation
-- Social media sharing
-- Festival tracking and notifications
-- Reminder system
-- AdMob integration
-- Analytics tracking
-- Deep linking support
-
-## Architecture
-
-The app follows the MVVM (Model-View-ViewModel) architectural pattern:
-
-- **Model**: Data layer with repositories, data sources, and Room database
-- **View**: Activities and Fragments
-- **ViewModel**: Manages UI-related data and handles business logic
-
-### Core Components
-- `EventWishApplication`: Application class that initializes all core services
-- `MainActivity`: Main activity that hosts the navigation component
-- Various repositories for data management
-- Room database for local storage
-- Retrofit for API communication
-- WorkManager for background tasks
-
-## Key Components
-
-### Main Modules
-
-1. **UI Module (`com.ds.eventwish.ui`)**
-   - Activities and Fragments for different app screens
-   - ViewModels that manage UI state
-   - Custom views and adapters
-
-2. **Data Module (`com.ds.eventwish.data`)**
-   - Repositories that coordinate data access
-   - Database entities and DAOs
-   - Remote API client and services
-   - Local storage utilities
-
-3. **Utility Module (`com.ds.eventwish.utils` and `com.ds.eventwish.util`)**
-   - Helper classes for various functionalities
-   - Time and date utilities
-   - Security and encryption
-   - Analytics tracking
-
-4. **Ad Module (`com.ds.eventwish.ads`)**
-   - AdMob integration
-   - Different ad formats (Interstitial, Native, Rewarded, App Open)
-   - Ad unit management
-
-5. **Workers (`com.ds.eventwish.workers`)**
-   - Background tasks managed by WorkManager
-   - Reminder checks
-   - Template updates
-
-6. **Receivers (`com.ds.eventwish.receivers`)**
-   - Broadcast receivers for system events
-   - Alarm receivers
-   - Boot completed receiver
-
-### Navigation
-
-The app uses the Android Navigation Component with a single activity (`MainActivity`) hosting multiple fragments. Navigation is defined in:
-- `app/src/main/res/navigation/nav_graph.xml`: Main navigation graph
-- `app/src/main/res/navigation/mobile_navigation.xml`: Bottom navigation
-- `app/src/main/res/navigation/auth_navigation.xml`: Authentication flow
-
-## Authentication & Security
-
-Authentication is managed through:
-- `SecureTokenManager`: Handles secure storage of tokens and sensitive data
-- `TokenRepository`: Manages token retrieval and renewal
-- `UserRepository`: Handles user registration and authentication
-
-Security considerations:
-- API keys are stored securely
-- Device IDs are hashed for privacy
-- Network calls are secured with HTTPS
-
-## Database Structure
-
-The app uses Room database for local storage. Main entities include:
-
-1. **Template**: Design templates for wishes
-2. **Category**: Template categories
-3. **Festival**: Holiday and event information
-4. **Reminder**: User-set reminders
-5. **AdUnit**: Ad configuration data
-
-Database migrations are handled in the `AppDatabase` class. The database version should be incremented when schema changes occur.
-
-## API Services
-
-API communication is handled by Retrofit through:
-- `ApiClient`: Configures Retrofit and OkHttp
-- `ApiService`: Defines API endpoints
-
-Main API endpoints:
-- Template APIs: Fetch and manage templates
-- Festival APIs: Retrieve festival information
-- Ad unit APIs: Get ad configuration
-- User APIs: Registration and authentication
-
-## Ad Integration
-
-The app uses Google AdMob for advertising with multiple ad formats:
-
-1. **App Open Ads**: Shown when the app is opened (`AppOpenManager`)
-2. **Interstitial Ads**: Full-screen ads between screens (`InterstitialAdManager`)
-3. **Native Ads**: Custom format ads integrated into the UI (`NativeAdHelper`)
-4. **Rewarded Ads**: Ads that reward users (`RewardedAdManager`)
-
-Ad configuration is fetched from the server via the `AdMobRepository` and cached locally.
-
-## Analytics Implementation
-
-Analytics tracking is centralized in the `AnalyticsUtils` class, which provides methods for tracking:
-- Screen views
-- User interactions (clicks, searches)
-- Content engagement
-- Ad performance
-- Error events
-
-Privacy features include:
-- User opt-out mechanism
-- No collection of personally identifiable information (PII)
-- Device information tracking in compliance with Play Store policies
-
-## Notifications & Reminders
-
-The app has a comprehensive notification system:
-- `EventWishNotificationManager`: Creates and manages notifications
-- `NotificationScheduler`: Schedules notifications at specific times
-- `ReminderScheduler`: Handles reminder-specific scheduling
-
-Reminder features:
-- User-configurable reminders for events
-- Persistent notification for active reminders
-- Background checking using WorkManager
-
-## Deep Links
-
-The app supports deep linking to specific content:
-- Wishes: `eventwish://wish/{id}`
-- Festivals: `eventwish://festival/{id}` 
-- Templates: `eventwish://template/{id}`
-
-HTTP(S) deep links:
-- `https://eventwishes.onrender.com/wish/{id}`
-- `https://eventwishes.onrender.com/festival/{id}`
-- `https://eventwishes.onrender.com/template/{id}`
-
-Deep link handling is managed in the `DeepLinkHandler` class.
-
-## Maintenance Procedures
-
-### Regular Maintenance
-
-1. **Update dependencies**:
-   - Regularly update dependencies in `build.gradle` files
-   - Test thoroughly after updates
-   - Pay special attention to Firebase, AdMob, and AndroidX updates
-
-2. **Database migrations**:
-   - When changing the database schema, create migration classes
-   - Test migrations on devices with existing data
-   - Increment the database version number
-
-3. **API changes**:
-   - Update ApiService interface with new endpoints
-   - Update corresponding repository methods
-   - Add appropriate error handling
-
-4. **Ad unit management**:
-   - Periodically check ad unit performance
-   - Update ad unit IDs in the backend when needed
-   - Ensure test ads are used in debug builds
-
-### Troubleshooting
-
-Common issues and solutions:
-1. **Network connectivity issues**:
-   - Check `ApiClient` configuration
-   - Verify `InternetConnectivityChecker` functionality
-   - Check certificate pinning configuration
-
-2. **Notification problems**:
-   - Verify channel creation in `EventWishApplication`
-   - Check Android version-specific notification code
-   - Verify alarm permissions on Android 12+
-
-3. **Database errors**:
-   - Check migration path for schema changes
-   - Verify entity annotations and DAOs
-   - Check for thread-safety issues with LiveData
-
-4. **Ad loading issues**:
-   - Verify internet connectivity
-   - Check ad unit IDs in the database
-   - Verify test mode is enabled in debug builds
-
-## Known Issues
-
-1. LiveData updates from background threads should use postValue() instead of setValue()
-2. AdMob initialization must complete before using other ad components
-3. SecureTokenManager.init() must be called before getInstance()
-4. Proper initialization order of singletons is critical for dependency management
-
-## Build & Deployment
-
-### Build Types
-- **Debug**: Development version with test ads and verbose logging
-- **Release**: Production version with optimizations and release ad units
-
-### Flavor Dimensions
-- **Free**: Basic functionality with ads
-- **Premium**: Enhanced features without ads
-
-### Signing
-- Release builds require signing with the production keystore
-- Debug builds use the debug keystore
-
-### Play Store Deployment
-1. Update version code and name in `build.gradle`
-2. Run `./gradlew bundleRelease`
-3. Test the bundle with the Play Store testing tracks
-4. Deploy to production through the Play Console
-
-## Conclusion
-
-This documentation provides a comprehensive overview of the EventWish app architecture, components, and maintenance procedures. It should serve as a guide for future developers to understand, maintain, and enhance the application.
-
-## About and Contact Implementation Plan
-
-### Current Status
-[X] Server-side implementation complete
-- Models (About.js, Contact.js)
-- Routes (aboutRoutes.js, contactRoutes.js)
-- Server configuration updated
-
-### Android Implementation Plan
-
-#### 1. Examine Existing Structure
-[ ] Review current project structure:
-  - Check existing fragments and navigation
-  - Review current API service implementation
-  - Examine existing WebView implementations
-  - Check current error handling patterns
-
-#### 2. Data Models (app/src/main/java/com/ds/eventwish/data/model/)
-[ ] Create About.java
-```java
-public class About {
-    private String id;
-    private String title;
-    private String htmlCode;
-    private boolean isActive;
-    private String createdAt;
-    private String updatedAt;
-    
-    // Constructor
-    // Getters and Setters
-}
-```
-
-[ ] Create Contact.java
-```java
-public class Contact {
-    private String id;
-    private String title;
-    private String htmlCode;
-    private boolean isActive;
-    private String createdAt;
-    private String updatedAt;
-    
-    // Constructor
-    // Getters and Setters
-}
-```
-
-#### 3. API Service (app/src/main/java/com/ds/eventwish/data/api/)
-[ ] Update ApiService.java
-```java
-@GET("about")
-Call<ApiResponse<About>> getAboutContent();
-
-@GET("contact")
-Call<ApiResponse<Contact>> getContactContent();
-```
-
-#### 4. Repository Layer
-[ ] Create AboutRepository.java
-```java
-public class AboutRepository {
-    private final ApiService apiService;
-    private final MutableLiveData<About> aboutContent;
-    private final MutableLiveData<Boolean> isLoading;
-    private final MutableLiveData<String> error;
-    
-    // Constructor
-    // Methods for fetching and caching about content
-}
-```
-
-[ ] Create ContactRepository.java
-```java
-public class ContactRepository {
-    private final ApiService apiService;
-    private final MutableLiveData<Contact> contactContent;
-    private final MutableLiveData<Boolean> isLoading;
-    private final MutableLiveData<String> error;
-    
-    // Constructor
-    // Methods for fetching and caching contact content
-}
-```
-
-#### 5. ViewModels
-[ ] Create AboutViewModel.java
-```java
-public class AboutViewModel extends ViewModel {
-    private final AboutRepository repository;
-    private final LiveData<About> aboutContent;
-    private final LiveData<Boolean> isLoading;
-    private final LiveData<String> error;
-    
-    // Constructor
-    // Methods for managing about content state
-}
-```
-
-[ ] Create ContactViewModel.java
-```java
-public class ContactViewModel extends ViewModel {
-    private final ContactRepository repository;
-    private final LiveData<Contact> contactContent;
-    private final LiveData<Boolean> isLoading;
-    private final LiveData<String> error;
-    
-    // Constructor
-    // Methods for managing contact content state
-}
-```
-
-#### 6. UI Implementation
-[ ] Create fragment_about.xml
-```xml
-<androidx.constraintlayout.widget.ConstraintLayout>
-    <WebView/>
-    <ProgressBar/>
-    <TextView/> <!-- For error messages -->
-    <SwipeRefreshLayout/> <!-- For pull to refresh -->
-</androidx.constraintlayout.widget.ConstraintLayout>
-```
-
-[ ] Create fragment_contact.xml
-```xml
-<androidx.constraintlayout.widget.ConstraintLayout>
-    <WebView/>
-    <ProgressBar/>
-    <TextView/> <!-- For error messages -->
-    <SwipeRefreshLayout/> <!-- For pull to refresh -->
-</androidx.constraintlayout.widget.ConstraintLayout>
-```
-
-[ ] Create AboutFragment.java
-```java
-public class AboutFragment extends Fragment {
-    private AboutViewModel viewModel;
-    private WebView webView;
-    private ProgressBar progressBar;
-    private TextView errorView;
-    private SwipeRefreshLayout swipeRefresh;
-    
-    // Lifecycle methods
-    // WebView setup
-    // Error handling
-    // Loading state management
-}
-```
-
-[ ] Create ContactFragment.java
-```java
-public class ContactFragment extends Fragment {
-    private ContactViewModel viewModel;
-    private WebView webView;
-    private ProgressBar progressBar;
-    private TextView errorView;
-    private SwipeRefreshLayout swipeRefresh;
-    
-    // Lifecycle methods
-    // WebView setup
-    // Error handling
-    // Loading state management
-}
-```
-
-#### 7. Navigation Setup
-[ ] Update nav_graph.xml
-```xml
-<fragment
-    android:id="@+id/aboutFragment"
-    android:name="com.ds.eventwish.ui.about.AboutFragment"
-    android:label="About" />
-
-<fragment
-    android:id="@+id/contactFragment"
-    android:name="com.ds.eventwish.ui.contact.ContactFragment"
-    android:label="Contact" />
-```
-
-[ ] Update MoreFragment.java
-```java
-// Add click handlers for About and Contact cards
-aboutCard.setOnClickListener(v -> {
-    Navigation.findNavController(v).navigate(R.id.action_moreFragment_to_aboutFragment);
-});
-
-helpCard.setOnClickListener(v -> {
-    Navigation.findNavController(v).navigate(R.id.action_moreFragment_to_contactFragment);
-});
-```
-
-### Implementation Order
-1. [ ] Create data models
-2. [ ] Update API service
-3. [ ] Create repositories
-4. [ ] Create ViewModels
-5. [ ] Create UI layouts
-6. [ ] Implement fragments
-7. [ ] Update navigation
-8. [ ] Test implementation
-
-### Testing Checklist
-1. [ ] Test API integration
-   - Verify about content fetching
-   - Verify contact content fetching
-   - Test error handling
-   - Test loading states
-
-2. [ ] Test UI components
-   - Verify WebView rendering
-   - Test loading indicators
-   - Verify error messages
-   - Test pull-to-refresh
-   - Check navigation
-
-3. [ ] Test offline behavior
-   - Verify error handling without network
-   - Test cached content display
-
-4. [ ] Integration testing
-   - Test navigation flow
-   - Verify memory management
-   - Check WebView cleanup
-
-### Error Handling
-- Network errors
-- Invalid HTML content
-- WebView loading errors
-- Navigation errors
-- Memory management
-
-### Performance Considerations
-- WebView memory management
-- Content caching
-- Efficient navigation
-- Loading state management
-
-### Next Steps
-1. [ ] Start with data models and API service
-2. [ ] Implement repositories and ViewModels
-3. [ ] Create UI components
-4. [ ] Add navigation
-5. [ ] Comprehensive testing
-
-### Implementation Details
-
-All implementation details have been completed according to the plan. The app now has:
-
-1. A new "Check for Updates" button in the More screen
-2. A red indicator that shows when updates are available
-3. The ability to force check for updates by clicking the button
-4. Silent update checking to update the indicator status
-
-### Testing Plan
-1. Test with no update available:
-   - Red indicator should not be visible
-   - Clicking "Check for Updates" should show "No update available" message
-
-2. Test with update available:
-   - Red indicator should be visible
-   - Clicking "Check for Updates" should trigger the update flow
-
-3. Test after app restart:
-   - Indicator state should persist based on update availability
-
-### Implementation Timeline
-1. [ ] Day 1: Add dependencies and create RemoteConfigManager
-2. [ ] Day 2: Update AppUpdateViewModel and create dialog helper
-3. [ ] Day 3: Set up Firebase Console and implement analytics
-4. [ ] Day 4: Testing and refinement
-
-### Benefits
-1. Works in all environments (dev, test, prod)
-2. No Play Store dependency for testing
-3. Detailed analytics on update behavior
-4. Flexible update messages and URLs
-5. Support for force updates
-6. A/B testing capability for update prompts
-7. Remote control of update availability
-8. Enhanced user experience with custom dialogs
-
-### Key Metrics to Track
-1. Update check rate: % of sessions where update check occurs
-2. Update available rate: % of checks where update is available
-3. Update prompt impression rate: % of users who see update dialog
-4. Update acceptance rate: % of users who accept the update
-5. Update deferral rate: % of users who defer the update
-6. Update completion rate: % of users who complete the update process
-7. Time-to-update: Average time between update availability and acceptance
-8. Version distribution: % of users on each app version
-9. Force update compliance: % of users who update when forced
-
-## Firebase to MongoDB User Data Migration Plan
-
-### Task Overview
-Migrate user data storage from Firebase to MongoDB, ensuring data synchronization between Firebase Auth and MongoDB backend.
-
-### Current System Analysis
-
-#### 1. MongoDB User Schema (`User.js`)
-- **Comprehensive Schema**: Already has fields for uid, deviceId, displayName, email, profilePhoto, lastOnline
-- **User Preferences**: Includes theme, language, timezone, notification settings
-- **Template Interactions**: Tracks favorites, likes, recently used templates
-- **Engagement Tracking**: Records user activity with templates and categories
-- **Helper Methods**: Includes methods for updating lastOnline, category visits, template interactions
-
-#### 2. Backend API Routes (`users.js`)
-- **Authentication Endpoints**:
-  - `/users/profile` - Updates user profile after Firebase authentication
-  - `/users/register` - Registers new user with Firebase UID
-  - `/users/auth` - Handles first-time Firebase authentication
-- **User Data Endpoints**:
-  - GET `/users/:uid` - Fetches user by Firebase UID or device ID
-  - GET `/users/:uid/recommendations` - Gets personalized recommendations
-  - PUT `/users/activity` - Updates user's last online timestamp and category visits
-- **Template Interaction Endpoints**:
-  - PUT/DELETE for likes and favorites
-  - GET endpoints for retrieving user's likes, favorites, and recent templates
-- **Middleware**: Uses `verifyFirebaseToken` and `validateFirebaseUid` for authentication
-
-#### 3. Android User Model (`User.java`)
-- **Core Properties**: uid, phoneNumber, deviceId, displayName, email, profilePhoto
-- **User Preferences**: preferredTheme, preferredLanguage, timezone
-- **Template Interactions**: favorites, likes, recentTemplatesUsed, lastActiveTemplate
-- **Helper Methods**: addFavorite, removeFavorite, addLike, removeLike, recordTemplateView
-
-#### 4. Android API Interface (`ApiService.java`)
-- **User Profile Endpoints**:
-  - `updateUserProfile` - POST to /users/profile
-  - `getUserByUid` - GET from /users/{uid}
-  - `authenticateWithFirebase` - POST to /users/auth
-- **Template Interaction Endpoints**:
-  - Methods for adding/removing likes and favorites
-  - Methods for tracking template views and engagement
-- **Authentication**: Includes header parameter for Firebase authentication token
-
-### Implementation Plan
-
-#### Phase 1: Backend Verification and Enhancement
-- [X] Verify MongoDB User model completeness (already comprehensive)
-- [X] Review existing authentication endpoints
-  - [X] Ensure `/users/profile` properly handles Firebase Auth data
-  - [X] Verify error handling for user creation/update
-  - [X] Check backward compatibility with device ID-based lookups
-- [X] Enhance data consistency
-  - [X] Add validation for required fields
-  - [X] Improve error handling and logging
-  - [X] Add transaction support for critical operations
-
-#### Phase 2: Android Client Updates
-- [X] Create/Update UserRepository class
-  - [X] Implement `syncUserWithMongoDB(FirebaseUser user)` method
-  - [X] Add caching mechanism for offline access
-  - [X] Implement retry logic for network failures
-- [X] Update authentication flow
-  - [X] Add MongoDB sync after successful Firebase Auth
-  - [X] Handle edge cases (network issues, token expiration)
-  - [X] Implement proper error handling and user feedback
-- [X] Enhance user profile management
-  - [X] Add methods for fetching and updating user preferences
-  - [X] Implement proper caching strategy
-  - [X] Add background synchronization for offline changes
-
-#### Phase 3: Data Migration Strategy
-- [X] Implement migration logic in Android client
-  - [X] Detect users with Firebase data but no MongoDB entry
-  - [X] Sync local data to MongoDB on first login after update
-  - [X] Add migration status tracking to prevent duplicate operations
-- [X] Add server-side migration support
-  - [X] Create admin endpoint for triggering batch migrations
-  - [X] Implement data validation and conflict resolution
-  - [X] Add detailed logging for migration operations
-
-#### Phase 4: Testing and Verification
-- [ ] Test authentication flow
-  - [X] New user registration
-  - [X] Existing user login with Firebase UID
-  - [X] Legacy user login with device ID
-  - [ ] Token refresh and expiration handling
-- [ ] Test data operations
-  - [ ] Profile updates and preferences
-  - [ ] Template interactions (likes, favorites, views)
-  - [ ] Category tracking and recommendations
-- [ ] Test offline capabilities
-  - [ ] Offline data access
-  - [ ] Data synchronization after reconnection
-  - [ ] Conflict resolution
-
-### Implementation Details
-
-#### 1. Backend Enhancements
-- **User Authentication Flow**:
-  ```
-  1. Client authenticates with Firebase
-  2. Client sends Firebase UID to server
-  3. Server checks if user exists by UID
-  4. If exists: update lastOnline and any provided fields
-  5. If not exists: create new user with provided data
-  6. Return complete user profile
-  ```
-
-- **Data Consistency Improvements**:
-  - Add validation for required fields (uid at minimum)
-  - Implement proper error handling with specific error codes
-  - Add detailed logging for debugging and monitoring
-  - Use transactions for operations that modify multiple documents
-
-#### 2. Android Client Implementation
-- **UserRepository Class**:
-  ```java
-  public class UserRepository {
-      private final ApiService apiService;
-      private final MutableLiveData<User> currentUser;
-      private final SharedPreferences prefs;
-      
-      // Constructor
-      
-      public Task<User> syncUserWithMongoDB(FirebaseUser firebaseUser) {
-          // Create request body with Firebase user data
-          // Call API to update/create user in MongoDB
-          // Handle response and cache user data
-          // Return Task with User object
-      }
-      
-      public LiveData<User> getUserProfile(String uid) {
-          // Check cache first
-          // If not in cache or expired, fetch from API
-          // Update cache and return LiveData
-      }
-      
-      public Task<User> updateUserProfile(User user) {
-          // Call API to update user profile
-          // Update cache on success
-          // Return Task with updated User
-      }
-      
-      // Other methods for specific operations
-  }
-  ```
-
-- **Authentication Flow Updates**:
-  ```java
-  // In login activity or auth manager
-  firebaseAuth.signInWithEmailAndPassword(email, password)
-      .addOnSuccessListener(authResult -> {
-          FirebaseUser firebaseUser = authResult.getUser();
-          if (firebaseUser != null) {
-              userRepository.syncUserWithMongoDB(firebaseUser)
-                  .addOnSuccessListener(user -> {
-                      // Navigate to main activity
-                  })
-                  .addOnFailureListener(e -> {
-                      // Handle MongoDB sync failure
-                      // Show error message but allow proceeding if non-critical
-                  });
-          }
-      })
-      .addOnFailureListener(e -> {
-          // Handle Firebase auth failure
-      });
-  ```
-
-#### 3. API Endpoints to Use/Update
-
-1. **User Profile Sync**:
-   ```
-   POST /api/users/profile
-   Headers: {
-     "Authorization": "Bearer <firebase_token>"
-   }
-   Body: {
-     "uid": "<firebase_uid>",
-     "displayName": "<user_name>",
-     "email": "<user_email>",
-     "profilePhoto": "<photo_url>",
-     "deviceId": "<device_id>",  // For backward compatibility
-     "lastOnline": <timestamp>
-   }
-   Response: {
-     "success": true,
-     "message": "User profile updated",
-     "user": {<user_object>}
-   }
-   ```
-
-2. **Get User Profile**:
-   ```
-   GET /api/users/{uid}
-   Headers: {
-     "Authorization": "Bearer <firebase_token>"
-   }
-   Response: {
-     "success": true,
-     "user": {<user_object>}
-   }
-   ```
-
-3. **Update User Preferences**:
-   ```
-   PUT /api/users/preferences
-   Headers: {
-     "Authorization": "Bearer <firebase_token>"
-   }
-   Body: {
-     "uid": "<firebase_uid>",
-     "preferences": {
-       "preferredTheme": "dark",
-       "preferredLanguage": "en",
-       "timezone": "America/New_York",
-       // Other preferences
-     }
-   }
-   Response: {
-     "success": true,
-     "message": "User preferences updated successfully",
-     "user": {<updated_preferences>}
-   }
-   ```
-
-### Progress Tracking
-- [X] Analyze existing code and infrastructure
-- [X] Backend verification and enhancement
-  - [X] Review authentication endpoints
-  - [X] Enhance data consistency
-  - [X] Add detailed logging
-- [X] Android client updates
-  - [X] Create/update UserRepository
-  - [X] Update authentication flow
-  - [X] Enhance user profile management
-- [X] Data migration strategy
-  - [X] Implement client-side migration logic
-  - [X] Add server-side migration support
-- [ ] Testing and verification
-  - [X] Test authentication flow
-  - [ ] Test data operations
-  - [ ] Test offline capabilities
-
-### Next Steps
-1. [X] Create/update UserRepository class in Android
-2. [X] Implement syncUserWithMongoDB method
-3. [X] Update authentication flow to call syncUserWithMongoDB
-4. [ ] Complete testing with new and existing users
 
 # Summary of Completed Tasks
 

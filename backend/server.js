@@ -109,14 +109,51 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-hashes'", "https://cdn.jsdelivr.net"],
-      scriptSrcAttr: ["'unsafe-inline'"],
-      connectSrc: ["'self'", "https://api.eventwish.com", "https://eventwish2.onrender.com"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-      imgSrc: ["'self'", "data:", "https://via.placeholder.com"],
-      fontSrc: ["'self'", "https://cdn.jsdelivr.net"]
+      scriptSrc: [
+        "'self'", 
+        "'unsafe-inline'", 
+        "'unsafe-eval'",
+        "https://apis.google.com",
+        "https://*.firebaseio.com",
+        "https://*.firebaseapp.com",
+        "https://www.gstatic.com/"
+      ],
+      connectSrc: [
+        "'self'",
+        "https://*.firebaseio.com",
+        "https://*.firebaseapp.com",
+        "https://www.googleapis.com",
+        "https://securetoken.googleapis.com",
+        "https://identitytoolkit.googleapis.com",
+        "wss://*.firebaseio.com"
+      ],
+      frameSrc: [
+        "'self'",
+        "https://*.firebaseio.com",
+        "https://*.firebaseapp.com"
+      ],
+      imgSrc: [
+        "'self'",
+        "data:",
+        "https://*.googleusercontent.com",
+        "https://www.gstatic.com/"
+      ],
+      styleSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "https://fonts.googleapis.com"
+      ],
+      fontSrc: [
+        "'self'",
+        "https://fonts.gstatic.com"
+      ],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: []
     }
-  }
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: false
 }));
 app.use(compression());
 app.use(express.json());
@@ -154,8 +191,8 @@ app.use('/api/', apiLimiter);
 // Serve static files from the backendUi directory
 app.use(express.static('backendUi'));
 
-// Serve static files from the public directory
-app.use(express.static('public'));
+// Serve static files from the admin-panel/build directory
+app.use('/admin', express.static(path.join(__dirname, 'admin-panel/build')));
 
 // Serve static files from the client-examples directory
 app.use('/client-examples', express.static('client-examples'));
@@ -352,10 +389,12 @@ app.use('/api/test', require('./routes/testRoutes'));
 // Import routes
 const aboutRoutes = require('./routes/aboutRoutes');
 const contactRoutes = require('./routes/contactRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 // Use routes
 app.use('/api/about', aboutRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/admin', adminRoutes); // Add admin routes
 
 // Debug logging middleware
 if (process.env.NODE_ENV === 'development') {
@@ -373,6 +412,20 @@ app.use((err, req, res, next) => {
     message: 'Server error',
     error: process.env.NODE_ENV === 'development' ? err.message : 'An unexpected error occurred'
   });
+});
+
+// Handle all admin panel routes
+app.get('/admin/*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin-panel/build/index.html'));
+});
+
+// Handle specific firebase-config.js file requests
+app.get(['/admin/assets/js/firebase-config.js', '/admin-react/js/firebase-config.js'], (req, res) => {
+  console.log('Firebase config requested');
+  
+  // Return a 404 as we've removed the public folder
+  console.error('Firebase config not found: public folder has been removed');
+  res.status(404).send('Firebase config file not found');
 });
 
 // Start server

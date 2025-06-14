@@ -53,9 +53,34 @@ android {
     }
 
     buildTypes {
+        debug {
+            minifyEnabled false
+            // Use production API for regular debug builds
+            buildConfigField "String", "BASE_URL", "\"https://eventwish2.onrender.com/api/\""
+            buildConfigField "String", "API_ENV", "\"PRODUCTION\""
+        }
+        
+        // New build type for local development
+        local {
+            // Extend from debug build type
+            initWith debug
+            minifyEnabled false
+            debuggable true
+            // Use local development server with the correct port (3001)
+            buildConfigField "String", "BASE_URL", "\"http://192.168.25.134:3001/api/\""
+            buildConfigField "String", "API_ENV", "\"LOCAL\""
+            // Add a suffix to distinguish the local build
+            versionNameSuffix "-local"
+            // Match debug signing config
+            signingConfig signingConfigs.debug
+        }
+        
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // Use production API for release builds
+            buildConfigField "String", "BASE_URL", "\"https://eventwish2.onrender.com/api/\""
+            buildConfigField "String", "API_ENV", "\"PRODUCTION\""
         }
     }
     compileOptions {
@@ -104,13 +129,6 @@ android {
         checkGeneratedSources false
         ignoreTestSources true
         warningsAsErrors false
-    }
-
-    // Add dexOptions for better memory management
-    dexOptions {
-        javaMaxHeapSize "2g"
-        preDexLibraries = false
-        maxProcessCount 4
     }
 }
 
