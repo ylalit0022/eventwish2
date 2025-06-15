@@ -545,4 +545,399 @@ export const deleteSharedWish = async (id) => {
   }
 };
 
+// CategoryIcon management
+export const getCategoryIcons = async (page = 1, limit = 10, sort = 'category', order = 'asc', filters = {}) => {
+  try {
+    const response = await api.get('/admin/category-icons', {
+      params: {
+        page,
+        limit,
+        sort,
+        order,
+        ...filters
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching category icons:', error);
+    throw error;
+  }
+};
+
+export const getCategoryIconById = async (id) => {
+  try {
+    if (!id) {
+      console.error('Invalid category icon ID provided');
+      return {
+        success: false,
+        message: 'Invalid category icon ID',
+        error: 'ID is undefined or empty'
+      };
+    }
+    
+    const response = await api.get(`/admin/category-icons/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching category icon ${id}:`, error);
+    throw error;
+  }
+};
+
+export const createCategoryIcon = async (categoryIconData) => {
+  try {
+    const response = await api.post('/admin/category-icons', categoryIconData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating category icon:', error);
+    throw error;
+  }
+};
+
+export const updateCategoryIcon = async (id, categoryIconData) => {
+  try {
+    if (!id) {
+      return {
+        success: false,
+        message: 'Invalid category icon ID',
+        error: 'ID is undefined or empty'
+      };
+    }
+    
+    const response = await api.put(`/admin/category-icons/${id}`, categoryIconData);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating category icon ${id}:`, error);
+    throw error;
+  }
+};
+
+export const deleteCategoryIcon = async (id) => {
+  try {
+    if (!id) {
+      return {
+        success: false,
+        message: 'Invalid category icon ID',
+        error: 'ID is undefined or empty'
+      };
+    }
+    
+    const response = await api.delete(`/admin/category-icons/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error deleting category icon ${id}:`, error);
+    throw error;
+  }
+};
+
+export const toggleCategoryIconStatus = async (id) => {
+  try {
+    console.log("Toggling status for CategoryIcon with ID:", id);
+    
+    if (!id) {
+      console.error("toggleCategoryIconStatus called with undefined or empty ID");
+      return {
+        success: false,
+        message: 'Invalid category icon ID',
+        error: 'ID is undefined or empty'
+      };
+    }
+    
+    const response = await api.patch(`/admin/category-icons/${id}/toggle-status`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error toggling category icon status ${id}:`, error);
+    // Return a structured error object instead of throwing
+    return {
+      success: false,
+      message: 'Error toggling category icon status',
+      error: error.message
+    };
+  }
+};
+
+// Festival management
+export const getFestivals = async (page = 1, limit = 10, sort = 'createdAt', order = 'desc', filters = {}) => {
+  try {
+    const response = await api.get('/admin/festivals', {
+      params: {
+        page,
+        limit,
+        sort,
+        order,
+        ...filters
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching festivals:', error);
+    throw error;
+  }
+};
+
+export const getFestivalById = async (id) => {
+  try {
+    if (!id || id === 'undefined' || id === 'null') {
+      console.error('Invalid festival ID provided');
+      return { success: false, message: 'Invalid festival ID' };
+    }
+    
+    const response = await api.get(`/admin/festivals/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching festival ${id}:`, error);
+    return { success: false, message: `Error fetching festival: ${error.message}` };
+  }
+};
+
+export const createFestival = async (festivalData) => {
+  try {
+    const response = await api.post('/admin/festivals', festivalData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating festival:', error);
+    throw error;
+  }
+};
+
+export const updateFestival = async (id, festivalData) => {
+  try {
+    if (!id || id === 'undefined' || id === 'null') {
+      console.error('Invalid festival ID provided');
+      return { success: false, message: 'Invalid festival ID' };
+    }
+    
+    const response = await api.put(`/admin/festivals/${id}`, festivalData);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating festival ${id}:`, error);
+    return { success: false, message: `Error updating festival: ${error.message}` };
+  }
+};
+
+export const deleteFestival = async (id) => {
+  try {
+    if (!id || id === 'undefined' || id === 'null') {
+      console.error('Invalid festival ID provided');
+      return { success: false, message: 'Invalid festival ID' };
+    }
+    
+    const response = await api.delete(`/admin/festivals/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error deleting festival ${id}:`, error);
+    return { success: false, message: `Error deleting festival: ${error.message}` };
+  }
+};
+
+export const toggleFestivalStatus = async (id) => {
+  try {
+    if (!id || id === 'undefined' || id === 'null') {
+      console.error('Invalid festival ID provided');
+      return { success: false, message: 'Invalid festival ID' };
+    }
+    
+    const response = await api.patch(`/admin/festivals/${id}/toggle-status`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error toggling festival status ${id}:`, error);
+    return { success: false, message: `Error toggling festival status: ${error.message}` };
+  }
+};
+
+// About management
+export const getAbouts = async (page = 1, limit = 10, sort = 'createdAt', order = 'desc', filters = {}) => {
+  try {
+    // Build query parameters
+    const params = new URLSearchParams();
+    params.append('page', page);
+    params.append('limit', limit);
+    params.append('sort', sort);
+    params.append('order', order);
+    
+    // Add text search if provided
+    if (filters.q) {
+      params.append('q', filters.q);
+    }
+
+    // Add isActive filter if provided
+    if (filters.isActive !== undefined && filters.isActive !== 'all') {
+      params.append('isActive', filters.isActive);
+    }
+
+    const response = await api.get(`/admin/about?${params.toString()}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching abouts:', error);
+    throw error;
+  }
+};
+
+export const getAboutById = async (id) => {
+  try {
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      throw new Error('Invalid about ID provided');
+    }
+    
+    const response = await api.get(`/admin/about/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching about ${id}:`, error);
+    throw error;
+  }
+};
+
+export const createAbout = async (aboutData) => {
+  try {
+    const response = await api.post('/admin/about', aboutData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating about:', error);
+    throw error;
+  }
+};
+
+export const updateAbout = async (id, aboutData) => {
+  try {
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      throw new Error('Invalid about ID provided');
+    }
+    
+    const response = await api.put(`/admin/about/${id}`, aboutData);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating about ${id}:`, error);
+    throw error;
+  }
+};
+
+export const deleteAbout = async (id) => {
+  try {
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      throw new Error('Invalid about ID provided');
+    }
+    
+    const response = await api.delete(`/admin/about/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error deleting about ${id}:`, error);
+    throw error;
+  }
+};
+
+export const toggleAboutStatus = async (id) => {
+  try {
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      throw new Error('Invalid about ID provided');
+    }
+    
+    const response = await api.patch(`/admin/about/${id}/toggle-status`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error toggling about status ${id}:`, error);
+    throw error;
+  }
+};
+
+// Contact Management
+export const getContacts = async (page = 1, limit = 10, sort = 'createdAt', order = 'desc', filters = {}) => {
+  try {
+    // Build query parameters
+    const params = new URLSearchParams();
+    params.append('page', page);
+    params.append('limit', limit);
+    params.append('sort', sort);
+    params.append('order', order);
+    
+    // Add search query if provided
+    if (filters.q) {
+      params.append('q', filters.q);
+    }
+    
+    // Add isActive filter if provided
+    if (filters.isActive !== undefined) {
+      params.append('isActive', filters.isActive);
+    }
+    
+    const response = await api.get(`/admin/contact?${params.toString()}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching contacts:', error);
+    throw error;
+  }
+};
+
+export const getContactById = async (id) => {
+  try {
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      throw new Error('Invalid contact ID');
+    }
+    
+    const response = await api.get(`/admin/contact/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching contact with ID ${id}:`, error);
+    throw error;
+  }
+};
+
+export const createContact = async (contactData) => {
+  try {
+    const response = await api.post('/admin/contact', contactData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating contact:', error);
+    throw error;
+  }
+};
+
+export const updateContact = async (id, contactData) => {
+  try {
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      throw new Error('Invalid contact ID');
+    }
+    
+    const response = await api.put(`/admin/contact/${id}`, contactData);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating contact with ID ${id}:`, error);
+    throw error;
+  }
+};
+
+export const deleteContact = async (id) => {
+  try {
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      throw new Error('Invalid contact ID');
+    }
+    
+    const response = await api.delete(`/admin/contact/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error deleting contact with ID ${id}:`, error);
+    throw error;
+  }
+};
+
+export const toggleContactStatus = async (id) => {
+  try {
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      throw new Error('Invalid contact ID');
+    }
+    
+    const response = await api.patch(`/admin/contact/${id}/toggle-status`, {});
+    return response.data;
+  } catch (error) {
+    console.error(`Error toggling contact status with ID ${id}:`, error);
+    throw error;
+  }
+};
+
 export default api; 

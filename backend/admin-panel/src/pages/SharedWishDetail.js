@@ -759,3 +759,4 @@ const SharedWishDetail = () => {
 };
 
 export default SharedWishDetail;
+ 

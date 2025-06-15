@@ -34,7 +34,7 @@ import {
   Edit as EditIcon,
   Cancel as CancelIcon
 } from '@mui/icons-material';
-import { getTemplateById, updateTemplate, deleteTemplate } from '../api';
+import { getTemplateById, updateTemplate, deleteTemplate, getCategoryIcons } from '../api';
 
 // TabPanel component for tab content
 function TabPanel({ children, value, index, ...other }) {
@@ -67,6 +67,8 @@ const TemplateDetail = () => {
   const [editMode, setEditMode] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [categoryIcons, setCategoryIcons] = useState([]);
+  const [selectedCategoryIconId, setSelectedCategoryIconId] = useState('');
 
   // Fetch template data
   useEffect(() => {
@@ -93,6 +95,34 @@ const TemplateDetail = () => {
 
     fetchTemplate();
   }, [id]);
+
+  // Fetch category icons for dropdown
+  useEffect(() => {
+    const fetchCategoryIcons = async () => {
+      try {
+        const response = await getCategoryIcons(1, 100);
+        if (response.success) {
+          setCategoryIcons(response.data);
+          
+          // If template is loaded, find the matching icon ID
+          if (template && template.categoryIcon) {
+            const matchingIcon = response.data.find(icon => 
+              icon.categoryIcon === template.categoryIcon
+            );
+            if (matchingIcon) {
+              setSelectedCategoryIconId(matchingIcon._id);
+            }
+          }
+        } else {
+          console.error('Failed to fetch category icons:', response.message);
+        }
+      } catch (err) {
+        console.error('Error fetching category icons:', err);
+      }
+    };
+
+    fetchCategoryIcons();
+  }, [template?.categoryIcon]);
 
   // Handle tab change
   const handleTabChange = (event, newValue) => {
@@ -177,6 +207,18 @@ const TemplateDetail = () => {
   // Handle back button
   const handleBackClick = () => {
     navigate('/templates');
+  };
+
+  // Get category icon URL for display
+  const getCategoryIconUrl = () => {
+    if (!template || !template.categoryIcon) return '';
+    
+    // If categoryIcon is already a URL string
+    if (typeof template.categoryIcon === 'string' && template.categoryIcon.startsWith('http')) {
+      return template.categoryIcon;
+    }
+    
+    return '';
   };
 
   if (loading) {
@@ -425,19 +467,42 @@ const TemplateDetail = () => {
               )}
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
-                label="Category Icon URL"
-                value={editMode ? editedTemplate.categoryIcon : template.categoryIcon}
-                onChange={(e) => handleFieldChange('categoryIcon', e.target.value)}
-                fullWidth
-                disabled={!editMode}
-                margin="normal"
-                helperText="Enter a valid URL for the category icon"
-              />
-              {template.categoryIcon && (
+              <FormControl fullWidth margin="normal" disabled={!editMode}>
+                <InputLabel id="category-icon-label">Category Icon</InputLabel>
+                <Select
+                  labelId="category-icon-label"
+                  value={editMode ? selectedCategoryIconId : selectedCategoryIconId}
+                  onChange={(e) => {
+                    // Find the selected icon and use its URL
+                    const selectedId = e.target.value;
+                    setSelectedCategoryIconId(selectedId);
+                    
+                    const selectedIcon = categoryIcons.find(icon => icon._id === selectedId);
+                    handleFieldChange('categoryIcon', selectedIcon ? selectedIcon.categoryIcon : '');
+                  }}
+                  label="Category Icon"
+                >
+                  <MenuItem value="">None</MenuItem>
+                  {categoryIcons.map((icon) => (
+                    <MenuItem key={icon._id} value={icon._id}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        {icon.categoryIcon && (
+                          <img 
+                            src={icon.categoryIcon} 
+                            alt={icon.category} 
+                            style={{ width: 24, height: 24, marginRight: 8 }} 
+                          />
+                        )}
+                        {icon.category}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              {(editMode ? editedTemplate.categoryIcon : template.categoryIcon) && (
                 <Box sx={{ mt: 2, textAlign: 'center' }}>
                   <img 
-                    src={template.categoryIcon} 
+                    src={editMode ? editedTemplate.categoryIcon : template.categoryIcon} 
                     alt="Category Icon" 
                     style={{ maxWidth: '100px', maxHeight: '100px', objectFit: 'contain' }}
                   />

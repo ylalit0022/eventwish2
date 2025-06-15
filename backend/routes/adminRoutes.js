@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Template = require('../models/Template');
 const SharedWish = require('../models/SharedWish');
 const { AdMob, adTypes } = require('../models/AdMob');
+const CategoryIcon = require('../models/CategoryIcon');
 const { verifyFirebaseToken, verifyAdmin } = require('../middleware/authMiddleware');
 const logger = require('../config/logger');
 const multer = require('multer');
@@ -12,7 +14,9 @@ const { Parser } = require('json2csv');
 const fs = require('fs');
 const path = require('path');
 const { Readable } = require('stream');
-const mongoose = require('mongoose');
+const Festival = require('../models/Festival');
+const About = require('../models/About');
+const Contact = require('../models/Contact');
 
 // Configure multer for file uploads
 const upload = multer({
@@ -2438,6 +2442,1844 @@ router.delete('/shared-wishes/:id', verifyFirebaseToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error deleting shared wish',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/category-icons
+ * @desc    Get all category icons with pagination, sorting and filtering
+ * @access  Admin only
+ */
+router.get('/category-icons', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    
+    // Sorting parameters
+    const sortField = req.query.sort || 'category';
+    const sortOrder = req.query.order === 'asc' ? 1 : -1;
+    const sort = { [sortField]: sortOrder };
+    
+    // Filtering parameters
+    const filter = {};
+    
+    // Filter by search query (on id, category)
+    if (req.query.q) {
+      const searchQuery = req.query.q;
+      filter.$or = [
+        { id: { $regex: searchQuery, $options: 'i' } },
+        { category: { $regex: searchQuery, $options: 'i' } }
+      ];
+    }
+    
+    // Execute query with pagination and filters
+    const categoryIcons = await CategoryIcon.find(filter)
+      .sort(sort)
+      .skip(skip)
+      .limit(limit);
+    
+    // Get total count for pagination
+    const totalItems = await CategoryIcon.countDocuments(filter);
+    
+    logger.info(`Admin category icons list retrieved by ${req.adminInfo.email}`, {
+      page,
+      limit,
+      totalItems,
+      filters: JSON.stringify(filter)
+    });
+    
+    res.status(200).json({
+      success: true,
+      data: categoryIcons,
+      totalItems,
+      page,
+      limit
+    });
+  } catch (error) {
+    logger.error(`Error retrieving category icons: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error retrieving category icons',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/category-icons/:id
+ * @desc    Get a single category icon by ID
+ * @access  Admin only
+ */
+router.get('/category-icons/:id', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    const { id } = req.params;
+    
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      logger.warn(`Invalid CategoryIcon ID provided: "${id}"`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid CategoryIcon ID provided',
+        error: 'ID parameter is missing or invalid'
+      });
+    }
+
+    // Try to find the category icon by either _id or id field
+    // This handles both MongoDB ObjectId and custom string ID
+    const categoryIcon = await CategoryIcon.findOne({
+      $or: [
+        { _id: id },
+        { id: id }
+      ]
+    });
+    
+    if (!categoryIcon) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category icon not found'
+      });
+    }
+    
+    logger.info(`Admin viewed category icon ${id}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      categoryIcon
+    });
+  } catch (error) {
+    logger.error(`Error retrieving category icon: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error retrieving category icon',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/category-icons
+ * @desc    Create a new category icon
+ * @access  Admin only
+ */
+router.post('/category-icons', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    // Validate required fields
+    if (!req.body.category || !req.body.categoryIcon) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category and categoryIcon are required fields'
+      });
+    }
+    
+    // Check if a category icon with the same category already exists
+    const existingIcon = await CategoryIcon.findOne({ category: req.body.category });
+    if (existingIcon) {
+      return res.status(400).json({
+        success: false,
+        message: 'A category icon with this category already exists'
+      });
+    }
+    
+    // Create a temporary MongoDB ObjectId to use as the base for the custom ID
+    const tempId = new mongoose.Types.ObjectId();
+    
+    // Create new category icon with auto-generated id using "cat_" prefix
+    const categoryIcon = new CategoryIcon({
+      ...req.body,
+      id: `cat_${tempId.toString()}` // Auto-generate id with "cat_" prefix
+    });
+    
+    await categoryIcon.save();
+    
+    logger.info(`Admin created new category icon: ${categoryIcon.category}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(201).json({
+      success: true,
+      message: 'Category icon created successfully',
+      categoryIcon
+    });
+  } catch (error) {
+    logger.error(`Error creating category icon: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error creating category icon',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/category-icons/:id
+ * @desc    Update a category icon
+ * @access  Admin only
+ */
+router.put('/category-icons/:id', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    const { id } = req.params;
+    
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      logger.warn(`Invalid CategoryIcon ID provided: "${id}"`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid CategoryIcon ID provided',
+        error: 'ID parameter is missing or invalid'
+      });
+    }
+
+    // Try to find the category icon by either _id or id field
+    // This handles both MongoDB ObjectId and custom string ID
+    const categoryIcon = await CategoryIcon.findOne({
+      $or: [
+        { _id: id },
+        { id: id }
+      ]
+    });
+    
+    if (!categoryIcon) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category icon not found'
+      });
+    }
+    
+    // If updating id or category, check if they're already in use by another icon
+    if (req.body.id || req.body.category) {
+      const existingIcon = await CategoryIcon.findOne({
+        _id: { $ne: categoryIcon._id },
+        $or: [
+          { id: req.body.id || categoryIcon.id },
+          { category: req.body.category || categoryIcon.category }
+        ]
+      });
+      
+      if (existingIcon) {
+        return res.status(400).json({
+          success: false,
+          message: 'Another category icon with the same id or category already exists'
+        });
+      }
+    }
+    
+    // Update the category icon by _id
+    Object.assign(categoryIcon, req.body);
+    await categoryIcon.save();
+    
+    logger.info(`Admin updated category icon ${id}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Category icon updated successfully',
+      categoryIcon
+    });
+  } catch (error) {
+    logger.error(`Error updating category icon: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating category icon',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   DELETE /api/admin/category-icons/:id
+ * @desc    Delete a category icon
+ * @access  Admin only
+ */
+router.delete('/category-icons/:id', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    const { id } = req.params;
+    
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      logger.warn(`Invalid CategoryIcon ID provided: "${id}"`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid CategoryIcon ID provided',
+        error: 'ID parameter is missing or invalid'
+      });
+    }
+
+    // Try to find the category icon by either _id or id field
+    // This handles both MongoDB ObjectId and custom string ID
+    const categoryIcon = await CategoryIcon.findOne({
+      $or: [
+        { _id: id },
+        { id: id }
+      ]
+    });
+    
+    if (!categoryIcon) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category icon not found'
+      });
+    }
+    
+    // Check if category icon is being used by templates
+    const templatesUsingIcon = await Template.countDocuments({ categoryIcon: categoryIcon._id });
+    
+    if (templatesUsingIcon > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete category icon: it is being used by ${templatesUsingIcon} templates`
+      });
+    }
+    
+    // Delete the category icon
+    await CategoryIcon.deleteOne({ _id: categoryIcon._id });
+    
+    logger.info(`Admin deleted category icon ${id}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Category icon deleted successfully'
+    });
+  } catch (error) {
+    logger.error(`Error deleting category icon: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error deleting category icon',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   PATCH /api/admin/category-icons/:id/toggle-status
+ * @desc    Toggle category icon status
+ * @access  Admin only
+ */
+router.patch('/category-icons/:id/toggle-status', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    const { id } = req.params;
+    
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      logger.warn(`Invalid CategoryIcon ID provided: "${id}"`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid CategoryIcon ID provided',
+        error: 'ID parameter is missing or invalid'
+      });
+    }
+
+    // Try to find the category icon by either _id or id field
+    // This handles both MongoDB ObjectId and custom string ID
+    const categoryIcon = await CategoryIcon.findOne({
+      $or: [
+        { _id: id },
+        { id: id }
+      ]
+    });
+    
+    if (!categoryIcon) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category icon not found'
+      });
+    }
+    
+    // Toggle status (add status field if it doesn't exist)
+    const currentStatus = categoryIcon.status !== undefined ? categoryIcon.status : true;
+    categoryIcon.status = !currentStatus;
+    await categoryIcon.save();
+    
+    logger.info(`Admin toggled category icon status ${id} to ${categoryIcon.status}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: `Category icon status toggled to ${categoryIcon.status ? 'active' : 'inactive'}`,
+      categoryIcon
+    });
+  } catch (error) {
+    logger.error(`Error toggling category icon status: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error toggling category icon status',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/festivals
+ * @desc    Get all festivals with pagination and filtering
+ * @access  Admin only
+ */
+router.get('/festivals', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    // Parse query parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const sort = req.query.sort || 'createdAt';
+    const order = req.query.order === 'asc' ? 1 : -1;
+    
+    // Build sort object
+    const sortObj = {};
+    sortObj[sort] = order;
+    
+    // Build filter object
+    const filter = {};
+    
+    // Text search
+    if (req.query.q) {
+      filter.$or = [
+        { name: { $regex: req.query.q, $options: 'i' } },
+        { slug: { $regex: req.query.q, $options: 'i' } },
+        { category: { $regex: req.query.q, $options: 'i' } },
+        { description: { $regex: req.query.q, $options: 'i' } }
+      ];
+    }
+    
+    // Status filter
+    if (req.query.status) {
+      filter.status = req.query.status;
+    }
+    
+    // Active filter
+    if (req.query.isActive !== undefined) {
+      filter.isActive = req.query.isActive === 'true';
+    }
+    
+    // Category filter
+    if (req.query.category) {
+      filter.category = req.query.category;
+    }
+    
+    // Date range filter
+    if (req.query.startDate || req.query.endDate) {
+      filter.date = {};
+      if (req.query.startDate) {
+        filter.date.$gte = new Date(req.query.startDate);
+      }
+      if (req.query.endDate) {
+        filter.date.$lte = new Date(req.query.endDate);
+      }
+    }
+    
+    // Count total items
+    const totalItems = await Festival.countDocuments(filter);
+    
+    // Get festivals with pagination, sorting, and filtering
+    const festivals = await Festival.find(filter)
+      .populate('categoryIcon')
+      .populate('templates')
+      .sort(sortObj)
+      .skip(skip)
+      .limit(limit);
+    
+    logger.info(`Admin fetched festivals list (page ${page}, limit ${limit})`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      data: festivals,
+      page,
+      limit,
+      totalItems,
+      totalPages: Math.ceil(totalItems / limit)
+    });
+  } catch (error) {
+    logger.error(`Error fetching festivals: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching festivals',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/festivals/:id
+ * @desc    Get a single festival by ID
+ * @access  Admin only
+ */
+router.get('/festivals/:id', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    const { id } = req.params;
+    
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      logger.warn(`Invalid festival ID provided: "${id}"`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid festival ID provided',
+        error: 'ID parameter is missing or invalid'
+      });
+    }
+
+    // Find festival by ID
+    const festival = await Festival.findById(id)
+      .populate('categoryIcon')
+      .populate('templates');
+    
+    if (!festival) {
+      return res.status(404).json({
+        success: false,
+        message: 'Festival not found'
+      });
+    }
+    
+    logger.info(`Admin viewed festival ${id}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      festival
+    });
+  } catch (error) {
+    logger.error(`Error retrieving festival: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error retrieving festival',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/festivals
+ * @desc    Create a new festival
+ * @access  Admin only
+ */
+router.post('/festivals', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    // Validate required fields
+    if (!req.body.name || !req.body.date || !req.body.category) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields',
+        error: 'name, date, and category are required'
+      });
+    }
+    
+    // Check if a festival with the same slug already exists
+    if (req.body.slug) {
+      const existingFestival = await Festival.findOne({ slug: req.body.slug });
+      if (existingFestival) {
+        return res.status(400).json({
+          success: false,
+          message: 'A festival with this slug already exists'
+        });
+      }
+    }
+    
+    // Create new festival
+    const festival = new Festival(req.body);
+    await festival.save();
+    
+    logger.info(`Admin created new festival: ${festival.name}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(201).json({
+      success: true,
+      message: 'Festival created successfully',
+      festival
+    });
+  } catch (error) {
+    logger.error(`Error creating festival: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error creating festival',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/festivals/:id
+ * @desc    Update a festival
+ * @access  Admin only
+ */
+router.put('/festivals/:id', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    const { id } = req.params;
+    
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      logger.warn(`Invalid festival ID provided: "${id}"`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid festival ID provided',
+        error: 'ID parameter is missing or invalid'
+      });
+    }
+
+    // Check if festival exists
+    const festival = await Festival.findById(id);
+    
+    if (!festival) {
+      return res.status(404).json({
+        success: false,
+        message: 'Festival not found'
+      });
+    }
+    
+    // If updating slug, check if it's already in use by another festival
+    if (req.body.slug && req.body.slug !== festival.slug) {
+      const existingFestival = await Festival.findOne({ 
+        slug: req.body.slug,
+        _id: { $ne: id }
+      });
+      
+      if (existingFestival) {
+        return res.status(400).json({
+          success: false,
+          message: 'Another festival with this slug already exists'
+        });
+      }
+    }
+    
+    // Update festival
+    const updatedFestival = await Festival.findByIdAndUpdate(
+      id,
+      req.body,
+      { new: true, runValidators: true }
+    ).populate('categoryIcon').populate('templates');
+    
+    logger.info(`Admin updated festival ${id}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Festival updated successfully',
+      festival: updatedFestival
+    });
+  } catch (error) {
+    logger.error(`Error updating festival: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating festival',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   DELETE /api/admin/festivals/:id
+ * @desc    Delete a festival
+ * @access  Admin only
+ */
+router.delete('/festivals/:id', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    const { id } = req.params;
+    
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      logger.warn(`Invalid festival ID provided: "${id}"`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid festival ID provided',
+        error: 'ID parameter is missing or invalid'
+      });
+    }
+
+    // Check if festival exists
+    const festival = await Festival.findById(id);
+    
+    if (!festival) {
+      return res.status(404).json({
+        success: false,
+        message: 'Festival not found'
+      });
+    }
+    
+    // Delete festival
+    await Festival.findByIdAndDelete(id);
+    
+    logger.info(`Admin deleted festival ${id}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Festival deleted successfully'
+    });
+  } catch (error) {
+    logger.error(`Error deleting festival: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error deleting festival',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   PATCH /api/admin/festivals/:id/toggle-status
+ * @desc    Toggle festival status (isActive)
+ * @access  Admin only
+ */
+router.patch('/festivals/:id/toggle-status', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    const { id } = req.params;
+    
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      logger.warn(`Invalid festival ID provided: "${id}"`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid festival ID provided',
+        error: 'ID parameter is missing or invalid'
+      });
+    }
+
+    // Find festival by ID
+    const festival = await Festival.findById(id);
+    
+    if (!festival) {
+      return res.status(404).json({
+        success: false,
+        message: 'Festival not found'
+      });
+    }
+    
+    // Toggle isActive status
+    festival.isActive = !festival.isActive;
+    await festival.save();
+    
+    logger.info(`Admin toggled festival status ${id} to ${festival.isActive}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: `Festival status toggled to ${festival.isActive ? 'active' : 'inactive'}`,
+      festival
+    });
+  } catch (error) {
+    logger.error(`Error toggling festival status: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error toggling festival status',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/about
+ * @desc    Get all about entries with pagination and filtering
+ * @access  Admin only
+ */
+router.get('/about', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    // Parse query parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const sort = req.query.sort || 'createdAt';
+    const order = req.query.order === 'asc' ? 1 : -1;
+    
+    // Build sort object
+    const sortObj = {};
+    sortObj[sort] = order;
+    
+    // Build filter object
+    const filter = {};
+    
+    // Text search
+    if (req.query.q) {
+      filter.title = { $regex: req.query.q, $options: 'i' };
+    }
+    
+    // Active filter
+    if (req.query.isActive !== undefined) {
+      filter.isActive = req.query.isActive === 'true';
+    }
+    
+    // Count total items
+    const totalItems = await About.countDocuments(filter);
+    
+    // Get about entries with pagination, sorting, and filtering
+    const abouts = await About.find(filter)
+      .sort(sortObj)
+      .skip(skip)
+      .limit(limit);
+    
+    logger.info(`Admin fetched about entries list (page ${page}, limit ${limit})`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      data: abouts,
+      page,
+      limit,
+      totalItems,
+      totalPages: Math.ceil(totalItems / limit)
+    });
+  } catch (error) {
+    logger.error(`Error fetching about entries: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching about entries',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/about/:id
+ * @desc    Get a single about entry by ID
+ * @access  Admin only
+ */
+router.get('/about/:id', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    const { id } = req.params;
+    
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      logger.warn(`Invalid about ID provided: "${id}"`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid about ID provided',
+        error: 'ID parameter is missing or invalid'
+      });
+    }
+
+    // Find about entry by ID
+    const about = await About.findById(id);
+    
+    if (!about) {
+      return res.status(404).json({
+        success: false,
+        message: 'About entry not found'
+      });
+    }
+    
+    logger.info(`Admin viewed about entry ${id}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      about
+    });
+  } catch (error) {
+    logger.error(`Error retrieving about entry: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error retrieving about entry',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/about
+ * @desc    Create a new about entry
+ * @access  Admin only
+ */
+router.post('/about', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    // Validate required fields
+    if (!req.body.title || !req.body.htmlCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields',
+        error: 'title and htmlCode are required'
+      });
+    }
+    
+    // Create new about entry
+    const about = new About({
+      title: req.body.title,
+      htmlCode: req.body.htmlCode,
+      isActive: req.body.isActive !== undefined ? req.body.isActive : true
+    });
+    
+    await about.save();
+    
+    logger.info(`Admin created new about entry: ${about.title}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(201).json({
+      success: true,
+      message: 'About entry created successfully',
+      about
+    });
+  } catch (error) {
+    logger.error(`Error creating about entry: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error creating about entry',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/about/:id
+ * @desc    Update an about entry
+ * @access  Admin only
+ */
+router.put('/about/:id', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    const { id } = req.params;
+    
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      logger.warn(`Invalid about ID provided: "${id}"`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid about ID provided',
+        error: 'ID parameter is missing or invalid'
+      });
+    }
+
+    // Check if about entry exists
+    const about = await About.findById(id);
+    
+    if (!about) {
+      return res.status(404).json({
+        success: false,
+        message: 'About entry not found'
+      });
+    }
+    
+    // Update about entry
+    const updatedAbout = await About.findByIdAndUpdate(
+      id,
+      {
+        title: req.body.title || about.title,
+        htmlCode: req.body.htmlCode || about.htmlCode,
+        isActive: req.body.isActive !== undefined ? req.body.isActive : about.isActive
+      },
+      { new: true, runValidators: true }
+    );
+    
+    logger.info(`Admin updated about entry ${id}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'About entry updated successfully',
+      about: updatedAbout
+    });
+  } catch (error) {
+    logger.error(`Error updating about entry: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating about entry',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   DELETE /api/admin/about/:id
+ * @desc    Delete an about entry
+ * @access  Admin only
+ */
+router.delete('/about/:id', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    const { id } = req.params;
+    
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      logger.warn(`Invalid about ID provided: "${id}"`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid about ID provided',
+        error: 'ID parameter is missing or invalid'
+      });
+    }
+
+    // Check if about entry exists
+    const about = await About.findById(id);
+    
+    if (!about) {
+      return res.status(404).json({
+        success: false,
+        message: 'About entry not found'
+      });
+    }
+    
+    // Don't allow deletion of the only active entry if it's active
+    if (about.isActive) {
+      const count = await About.countDocuments();
+      if (count === 1) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot delete the only active about entry. Create another entry first.'
+        });
+      }
+    }
+    
+    // Delete about entry
+    await About.findByIdAndDelete(id);
+    
+    logger.info(`Admin deleted about entry ${id}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'About entry deleted successfully'
+    });
+  } catch (error) {
+    logger.error(`Error deleting about entry: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error deleting about entry',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   PATCH /api/admin/about/:id/toggle-status
+ * @desc    Toggle about entry status (isActive)
+ * @access  Admin only
+ */
+router.patch('/about/:id/toggle-status', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    const { id } = req.params;
+    
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      logger.warn(`Invalid about ID provided: "${id}"`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid about ID provided',
+        error: 'ID parameter is missing or invalid'
+      });
+    }
+
+    // Find about entry by ID
+    const about = await About.findById(id);
+    
+    if (!about) {
+      return res.status(404).json({
+        success: false,
+        message: 'About entry not found'
+      });
+    }
+    
+    // Toggle isActive status
+    // Note: The pre-save hook will handle making other entries inactive
+    about.isActive = !about.isActive;
+    await about.save();
+    
+    logger.info(`Admin toggled about entry status ${id} to ${about.isActive}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: `About entry status toggled to ${about.isActive ? 'active' : 'inactive'}`,
+      about
+    });
+  } catch (error) {
+    logger.error(`Error toggling about entry status: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error toggling about entry status',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/contact
+ * @desc    Get all contact entries with pagination and filtering
+ * @access  Admin only
+ */
+router.get('/contact', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    // Parse query parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const sort = req.query.sort || 'createdAt';
+    const order = req.query.order === 'asc' ? 1 : -1;
+    
+    // Build sort object
+    const sortObj = {};
+    sortObj[sort] = order;
+    
+    // Build filter object
+    const filter = {};
+    
+    // Text search
+    if (req.query.q) {
+      filter.title = { $regex: req.query.q, $options: 'i' };
+    }
+    
+    // Active filter
+    if (req.query.isActive !== undefined) {
+      filter.isActive = req.query.isActive === 'true';
+    }
+    
+    // Count total items
+    const totalItems = await Contact.countDocuments(filter);
+    
+    // Get contact entries with pagination, sorting, and filtering
+    const contacts = await Contact.find(filter)
+      .sort(sortObj)
+      .skip(skip)
+      .limit(limit);
+    
+    logger.info(`Admin fetched contact entries list (page ${page}, limit ${limit})`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      data: contacts,
+      page,
+      limit,
+      totalItems,
+      totalPages: Math.ceil(totalItems / limit)
+    });
+  } catch (error) {
+    logger.error(`Error fetching contact entries: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching contact entries',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/contact/:id
+ * @desc    Get a single contact entry by ID
+ * @access  Admin only
+ */
+router.get('/contact/:id', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    const { id } = req.params;
+    
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      logger.warn(`Invalid contact ID provided: "${id}"`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid contact ID provided',
+        error: 'ID parameter is missing or invalid'
+      });
+    }
+
+    // Find contact entry by ID
+    const contact = await Contact.findById(id);
+    
+    if (!contact) {
+      return res.status(404).json({
+        success: false,
+        message: 'Contact entry not found'
+      });
+    }
+    
+    logger.info(`Admin viewed contact entry ${id}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      contact
+    });
+  } catch (error) {
+    logger.error(`Error retrieving contact entry: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error retrieving contact entry',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/contact
+ * @desc    Create a new contact entry
+ * @access  Admin only
+ */
+router.post('/contact', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    // Validate required fields
+    if (!req.body.title || !req.body.htmlCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields',
+        error: 'title and htmlCode are required'
+      });
+    }
+    
+    // Create new contact entry
+    const contact = new Contact({
+      title: req.body.title,
+      htmlCode: req.body.htmlCode,
+      isActive: req.body.isActive !== undefined ? req.body.isActive : true
+    });
+    
+    await contact.save();
+    
+    logger.info(`Admin created new contact entry: ${contact.title}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(201).json({
+      success: true,
+      message: 'Contact entry created successfully',
+      contact
+    });
+  } catch (error) {
+    logger.error(`Error creating contact entry: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error creating contact entry',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/contact/:id
+ * @desc    Update a contact entry
+ * @access  Admin only
+ */
+router.put('/contact/:id', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    const { id } = req.params;
+    
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      logger.warn(`Invalid contact ID provided: "${id}"`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid contact ID provided',
+        error: 'ID parameter is missing or invalid'
+      });
+    }
+
+    // Check if contact entry exists
+    const contact = await Contact.findById(id);
+    
+    if (!contact) {
+      return res.status(404).json({
+        success: false,
+        message: 'Contact entry not found'
+      });
+    }
+    
+    // Update contact entry
+    const updatedContact = await Contact.findByIdAndUpdate(
+      id,
+      {
+        title: req.body.title || contact.title,
+        htmlCode: req.body.htmlCode || contact.htmlCode,
+        isActive: req.body.isActive !== undefined ? req.body.isActive : contact.isActive
+      },
+      { new: true, runValidators: true }
+    );
+    
+    logger.info(`Admin updated contact entry ${id}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Contact entry updated successfully',
+      contact: updatedContact
+    });
+  } catch (error) {
+    logger.error(`Error updating contact entry: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating contact entry',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   DELETE /api/admin/contact/:id
+ * @desc    Delete a contact entry
+ * @access  Admin only
+ */
+router.delete('/contact/:id', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    const { id } = req.params;
+    
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      logger.warn(`Invalid contact ID provided: "${id}"`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid contact ID provided',
+        error: 'ID parameter is missing or invalid'
+      });
+    }
+
+    // Check if contact entry exists
+    const contact = await Contact.findById(id);
+    
+    if (!contact) {
+      return res.status(404).json({
+        success: false,
+        message: 'Contact entry not found'
+      });
+    }
+    
+    // Don't allow deletion of the only active entry if it's active
+    if (contact.isActive) {
+      const count = await Contact.countDocuments();
+      if (count === 1) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot delete the only active contact entry. Create another entry first.'
+        });
+      }
+    }
+    
+    // Delete contact entry
+    await Contact.findByIdAndDelete(id);
+    
+    logger.info(`Admin deleted contact entry ${id}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Contact entry deleted successfully'
+    });
+  } catch (error) {
+    logger.error(`Error deleting contact entry: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error deleting contact entry',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   PATCH /api/admin/contact/:id/toggle-status
+ * @desc    Toggle contact entry status (isActive)
+ * @access  Admin only
+ */
+router.patch('/contact/:id/toggle-status', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    const { id } = req.params;
+    
+    // Validate ID parameter
+    if (!id || id === 'undefined' || id === 'null') {
+      logger.warn(`Invalid contact ID provided: "${id}"`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid contact ID provided',
+        error: 'ID parameter is missing or invalid'
+      });
+    }
+
+    // Find contact entry by ID
+    const contact = await Contact.findById(id);
+    
+    if (!contact) {
+      return res.status(404).json({
+        success: false,
+        message: 'Contact entry not found'
+      });
+    }
+    
+    // Toggle isActive status
+    // Note: The pre-save hook will handle making other entries inactive
+    contact.isActive = !contact.isActive;
+    await contact.save();
+    
+    logger.info(`Admin toggled contact entry status ${id} to ${contact.isActive}`, { 
+      admin: req.adminInfo.email,
+      role: req.adminInfo.role
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: `Contact entry status toggled to ${contact.isActive ? 'active' : 'inactive'}`,
+      contact
+    });
+  } catch (error) {
+    logger.error(`Error toggling contact entry status: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error toggling contact entry status',
       error: error.message
     });
   }

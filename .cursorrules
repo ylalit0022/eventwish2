@@ -948,3 +948,694 @@ The backend needs to be updated to support these new features by adding routes a
        - Time period filtering (today, yesterday, last 7 days, last 30 days, this month, last month)
      - Added time filter to the API requests
      - Added refresh functionality for analytics data
+
+## Add CategoryIcon Management Section to Admin Panel
+
+### 🎯 Objective
+Add a new CategoryIcon management section to the admin panel with CRUD operations, including:
+1. A list view showing all CategoryIcons with status toggle feature
+2. A form for creating new CategoryIcons
+3. A detail view for editing existing CategoryIcons
+4. Delete functionality for CategoryIcons
+
+### 🧩 Related Files
+- backend/models/CategoryIcon.js (Schema definition for CategoryIcon)
+- backend/admin-panel/src/api.js (API client for making requests)
+- backend/routes/adminRoutes.js (Backend routes for admin operations)
+- backend/admin-panel/src/App.js (Main app component with routing)
+- backend/admin-panel/src/layouts/MainLayout.js (Main layout with navigation)
+- backend/admin-panel/src/pages/CategoryIcons.js (New file - List view for CategoryIcons)
+- backend/admin-panel/src/pages/CategoryIconDetail.js (New file - Detail/edit view for CategoryIcons)
+- backend/admin-panel/src/pages/CategoryIconCreate.js (New file - Create view for CategoryIcons)
+
+### ✅ Checklist
+- [X] Analyze current implementation to understand patterns
+  - [X] Review existing CRUD pages (e.g., Templates, AdMobs) for patterns
+  - [X] Understand CategoryIcon schema and fields
+  - [X] Check if any CategoryIcon API endpoints already exist
+- [X] Create API functions in api.js
+  - [X] getCategoryIcons (list with pagination/filtering)
+  - [X] getCategoryIconById (get single icon)
+  - [X] createCategoryIcon (create new icon)
+  - [X] updateCategoryIcon (update existing icon)
+  - [X] deleteCategoryIcon (delete icon)
+  - [X] toggleCategoryIconStatus (toggle status)
+- [X] Create backend routes in adminRoutes.js
+  - [X] GET /api/admin/category-icons (list)
+  - [X] GET /api/admin/category-icons/:id (get single)
+  - [X] POST /api/admin/category-icons (create)
+  - [X] PUT /api/admin/category-icons/:id (update)
+  - [X] DELETE /api/admin/category-icons/:id (delete)
+  - [X] PATCH /api/admin/category-icons/:id/toggle-status (toggle status)
+- [X] Create new page components
+  - [X] CategoryIcons.js (list view)
+  - [X] CategoryIconDetail.js (detail/edit view)
+  - [X] CategoryIconCreate.js (create view)
+- [X] Update App.js to include new routes
+  - [X] /category-icons (list)
+  - [X] /category-icons/create (create)
+  - [X] /category-icons/:id (detail/edit)
+- [X] Update MainLayout.js to include CategoryIcon in navigation
+- [X] Implement status toggle feature in CategoryIcons.js
+
+### 🧠 Context
+The CategoryIcon model in MongoDB has a schema with fields for id, category, categoryIcon (URL), iconType, and resourceName. It is used to store icons for different categories in the EventWish application.
+
+Based on the schema, the CategoryIcon model includes:
+1. id - String, required, unique
+2. category - String, required, unique
+3. categoryIcon - String (URL), required, with URL validation
+4. iconType - String enum: ['URL', 'RESOURCE'], default: 'URL'
+5. resourceName - String, default: ''
+
+The admin panel already has similar CRUD sections for other models like Templates, AdMobs, and SharedWishes. We'll follow the same pattern for implementing the CategoryIcon management section.
+
+### 🚧 Progress Log
+- Initial analysis complete
+- Identified key files that need to be created or modified
+- Planned approach for implementing CategoryIcon management section
+
+- Code analysis findings:
+  1. App.js:
+     - Contains routes for all admin panel pages
+     - Uses MainLayout as the parent component for all admin routes
+     - Follows a consistent pattern for CRUD routes:
+       - List view: /resource-name
+       - Detail view: /resource-name/:id
+       - Create view: /resource-name/create
+
+  2. MainLayout.js:
+     - Contains the navigation sidebar
+     - Already has a "Categories" item with CategoryIcon, but it's pointing to a placeholder page
+     - We'll need to update this to point to our new CategoryIcons page
+
+  3. Templates.js (reference for list view):
+     - Uses Material-UI components for layout and UI
+     - Implements pagination, sorting, filtering
+     - Has status toggle feature using toggleTemplateStatus API function
+     - Includes delete functionality with confirmation dialog
+     - Has create and edit actions that navigate to separate pages
+
+  4. CategoryIcon.js (model):
+     - Has a schema with fields: id, category, categoryIcon, iconType, resourceName
+     - Includes URL validation for categoryIcon field
+     - Has timestamps and virtuals enabled
+     - Has a transform function for toJSON to format the response
+
+  5. No existing CategoryIcon API endpoints found in api.js
+     - Need to create all CRUD functions following the pattern of other resources
+
+- Implementation progress:
+  1. Added API functions in api.js:
+     - Added getCategoryIcons for listing category icons with pagination and filtering
+     - Added getCategoryIconById for retrieving a single category icon
+     - Added createCategoryIcon for creating new category icons
+     - Added updateCategoryIcon for updating existing category icons
+     - Added deleteCategoryIcon for deleting category icons
+     - Added toggleCategoryIconStatus for toggling the status of category icons
+
+  2. Added backend routes in adminRoutes.js:
+     - Added GET /api/admin/category-icons for listing category icons with pagination and filtering
+     - Added GET /api/admin/category-icons/:id for retrieving a single category icon
+     - Added POST /api/admin/category-icons for creating new category icons
+     - Added PUT /api/admin/category-icons/:id for updating existing category icons
+     - Added DELETE /api/admin/category-icons/:id for deleting category icons
+     - Added PATCH /api/admin/category-icons/:id/toggle-status for toggling the status of category icons
+     - Added validation for all routes to ensure proper error handling
+
+  3. Created frontend components:
+     - Verified existing CategoryIcons.js component with proper list view functionality
+     - Created CategoryIconDetail.js component for viewing and editing category icons
+     - Created CategoryIconCreate.js component for creating new category icons
+
+  4. Updated App.js:
+     - Added routes for CategoryIcons pages:
+       - /category-icons for the list view
+       - /category-icons/create for the create view
+       - /category-icons/:id for the detail/edit view
+
+  5. Updated MainLayout.js:
+     - Changed "Categories" navigation item to "Category Icons" and updated the path to /category-icons
+
+  6. All components implement proper CRUD functionality:
+     - List view with pagination, sorting, filtering, and status toggle
+     - Detail view with form fields for all CategoryIcon schema fields
+     - Create view with form validation and preview functionality
+     - Delete functionality with confirmation dialog
+
+- Implementation complete! The CategoryIcon management section is now fully functional with all required features.
+
+## Fix CategoryIcon Toggle Status Issue - Updated Approach
+
+### 🎯 Objective
+Fix the "Failed to toggle status: Invalid category icon ID" error in the admin panel by addressing the issue with undefined IDs.
+
+### 🧩 Related Files
+- backend/models/CategoryIcon.js (Schema definition with both _id and id fields)
+- backend/admin-panel/src/pages/CategoryIcons.js (Frontend component with toggle status functionality)
+
+### ✅ Checklist
+- [X] Review the error message: "Error toggling category icon status undefined: Error: Invalid category icon ID"
+- [X] Analyze CategoryIcons.js to understand status toggle functionality
+  - [X] Check how the handleStatusToggle function works
+  - [X] Identify potential issues with ID handling
+- [X] Analyze CategoryIcon.js schema to understand ID transformation
+  - [X] Check the toJSON transform function that's causing the issue
+  - [X] Fix the transform function to preserve both _id and id fields
+- [X] Fix the frontend components to handle both ID fields
+  - [X] Update the Switch component to use icon.id when icon._id is undefined
+  - [X] Update the EditIcon button to use icon.id when icon._id is undefined
+  - [X] Update the TableRow key prop to use icon.id when icon._id is undefined
+  - [X] Update the setCategoryIcons map function to match by either _id or id
+- [ ] Test the changes to ensure they resolve the issue
+
+### 🧠 Context
+The CategoryIcon model has two ID fields:
+1. `_id`: The standard MongoDB ObjectId that is automatically generated
+2. `id`: A custom string ID field with a "cat_" prefix
+
+The issue occurs when trying to toggle the status of a category icon in the admin panel. From the error message "Error toggling category icon status undefined: Error: Invalid category icon ID", we can see that an undefined ID is being passed when toggling status.
+
+The root cause is in the CategoryIcon model's toJSON transform function, which sets `ret.id = ret._id` and then deletes `ret._id`. This means when the data is returned to the frontend, the _id field is missing, causing the toggle status function to fail.
+
+### 🚧 Progress Log
+- Initial analysis of error message complete
+- Reviewed CategoryIcons.js toggle functionality:
+  - Found that handleStatusToggle was being called with icon._id which might be undefined
+  - The Switch component was using icon._id for the onChange handler
+- Reviewed CategoryIcon.js schema:
+  - Found that the toJSON transform function was setting ret.id = ret._id and then deleting ret._id
+  - This was causing icon._id to be undefined in the frontend
+- Made the following changes:
+  1. Fixed the CategoryIcon.js transform function:
+     - Modified it to preserve the _id field while still setting id
+     - Added a check to only set id if it doesn't already exist
+  2. Updated CategoryIcons.js:
+     - Modified the Switch component to use icon._id || icon.id
+     - Updated the disabled prop to check both statusLoading[icon._id] and statusLoading[icon.id]
+     - Updated the EditIcon button to use icon._id || icon.id
+     - Updated the TableRow key prop to use icon._id || icon.id
+     - Modified the setCategoryIcons map function to match by either _id or id
+     
+These changes ensure that regardless of whether _id or id is available, the component will still function correctly. The transform function now preserves both fields, and the frontend components fall back to using id when _id is undefined.
+
+## Update Festival Model Schema
+
+### 🎯 Objective
+Update the existing Festival model schema in backend/models/Festival.js to include new fields for enhanced festival management, including slug, date range, status, priority, notification settings, localization, and theme colors.
+
+### 🧩 Related Files
+- backend/models/Festival.js (Main model file to update)
+- backend/models/CategoryIcon.js (Referenced by the Festival model)
+- backend/models/Template.js (Referenced by the Festival model)
+- Any controllers or services that use the Festival model (need to check for compatibility)
+
+### ✅ Checklist
+- [X] Check if file exists and current structure
+  - [X] Analyze existing Festival.js schema
+  - [X] Compare with new schema requirements
+  - [X] Identify new fields to add
+- [X] Make targeted edits to Festival.js
+  - [X] Add new fields while preserving existing structure
+  - [X] Ensure proper references to CategoryIcon and Template models
+  - [X] Maintain timestamps option
+- [X] Validate schema changes
+  - [X] Check for any syntax errors
+  - [X] Ensure all field types are correctly defined
+  - [X] Verify enum values are properly set
+- [X] Consider potential impacts
+  - [X] Check if existing data will need migration
+  - [X] Consider if any controllers/services need updates
+
+### 🧠 Context
+The Festival model represents festival events in the EventWish application. It stores information about festivals including name, date, description, category, associated templates, and active status. The model references CategoryIcon for festival icons and Template for associated templates.
+
+The update will add several new fields to enhance festival management:
+1. **Basic Information**:
+   - slug (for URL-friendly identifiers)
+   - startDate/endDate (for multi-day festivals)
+   - bannerUrl (for festival banner images)
+   - status (UPCOMING, ONGOING, ENDED)
+   - priority (for sorting)
+
+2. **App Features**:
+   - deepLink (for app navigation)
+   - pushEnabled (for notifications)
+   - personalizedPushTemplate (for custom notifications)
+   - notifyCountdown (for countdown features)
+   - countdownDays (for countdown configuration)
+
+3. **Localization and Theming**:
+   - localizedNames (for multi-language support)
+   - themeColors (for custom festival theming)
+
+These enhancements will support more advanced festival features in the application, including better notification handling, multi-language support, and visual customization.
+
+### 🚧 Progress Log
+- Initial analysis of Festival.js complete
+  - Current schema has basic fields: name, date, description, category, categoryIcon, imageUrl, templates, isActive
+  - Schema includes timestamps
+- Compared with new schema requirements
+  - New fields to add: slug, startDate, endDate, bannerUrl, status, priority, deepLink, pushEnabled, personalizedPushTemplate, notifyCountdown, countdownDays, localizedNames, themeColors
+  - No fields to remove
+  - No changes to existing field definitions
+- Implementation complete:
+  - Added all new fields to the Festival schema while preserving existing structure
+  - Maintained proper field types, defaults, and enums as specified
+  - Preserved existing references to CategoryIcon and Template models
+  - Maintained timestamps option
+- Potential impacts:
+  - Existing data will not be affected as all new fields have default values
+  - Controllers and services using the Festival model might need updates to utilize the new fields
+  - The slug field is marked as unique, so a data migration might be needed to generate slugs for existing festivals
+
+## Add UpcomingFestival Section to Admin Panel
+
+### 🎯 Objective
+Create a new UpcomingFestival section in the admin panel with full CRUD operations, based on the Festival model schema. This includes a list view showing upcoming festivals, a detail view for editing existing festivals, and a form for creating new festivals. The implementation should include status toggle functionality, error handling, and success notifications.
+
+### 🧩 Related Files
+- backend/models/Festival.js (Schema definition for Festival model)
+- backend/admin-panel/src/App.js (Main app component with routing)
+- backend/admin-panel/src/layouts/MainLayout.js (Main layout with navigation)
+- backend/admin-panel/src/api.js (API client for making requests)
+- backend/routes/adminRoutes.js (Backend routes for admin operations)
+- New files to create:
+  - backend/admin-panel/src/pages/UpcomingFestivals.js (List view)
+  - backend/admin-panel/src/pages/UpcomingFestivalDetail.js (Detail/edit view)
+  - backend/admin-panel/src/pages/UpcomingFestivalCreate.js (Create view)
+
+### ✅ Checklist
+- [X] Analyze existing admin panel structure and patterns
+  - [X] Review similar components for patterns (e.g., CategoryIcons, Templates)
+  - [X] Understand how API calls are structured
+  - [X] Check how routing is handled
+- [X] Create backend API endpoints for Festival CRUD operations
+  - [X] GET /api/admin/festivals (list)
+  - [X] GET /api/admin/festivals/:id (get single)
+  - [X] POST /api/admin/festivals (create)
+  - [X] PUT /api/admin/festivals/:id (update)
+  - [X] DELETE /api/admin/festivals/:id (delete)
+  - [X] PATCH /api/admin/festivals/:id/toggle-status (toggle status)
+- [X] Add API functions in api.js
+  - [X] getFestivals (list with pagination/filtering)
+  - [X] getFestivalById (get single festival)
+  - [X] createFestival (create new festival)
+  - [X] updateFestival (update existing festival)
+  - [X] deleteFestival (delete festival)
+  - [X] toggleFestivalStatus (toggle status)
+- [X] Create UpcomingFestivals.js list view
+  - [X] Table with columns for key fields
+  - [X] Status toggle functionality
+  - [X] Pagination and filtering
+  - [X] Add, edit, and delete actions
+  - [X] Error handling and success notifications
+- [X] Create UpcomingFestivalDetail.js detail/edit view
+  - [X] Form fields for all Festival schema properties
+  - [X] Edit mode toggle
+  - [X] Save and delete functionality
+  - [X] Error handling and success notifications
+  - [X] HTML content editor (possibly using a rich text editor)
+- [X] Create UpcomingFestivalCreate.js create view
+  - [X] Form fields for all Festival schema properties
+  - [X] Validation for required fields
+  - [X] Submit functionality
+  - [X] Error handling and success notifications
+  - [X] HTML content editor (possibly using a rich text editor)
+- [X] Update App.js to include new routes
+  - [X] /upcoming-festivals (list)
+  - [X] /upcoming-festivals/create (create)
+  - [X] /upcoming-festivals/:id (detail/edit)
+- [X] Update MainLayout.js to include UpcomingFestival in navigation
+
+### 🧠 Context
+The Festival model in MongoDB has a comprehensive schema with many fields:
+1. Basic Information: name, slug, date, startDate, endDate, description, category, categoryIcon, imageUrl, bannerUrl
+2. References: templates (array of Template references), categoryIcon (reference to CategoryIcon)
+3. Status Fields: isActive, status (UPCOMING, ONGOING, ENDED), priority
+4. App Features: deepLink, pushEnabled, personalizedPushTemplate, notifyCountdown, countdownDays
+5. Localization and Theming: localizedNames (Map), themeColors (Map)
+
+The admin panel follows a pattern of having list views with CRUD operations and detail views for editing. We'll follow this pattern for the UpcomingFestival section.
+
+The implementation should ensure all fields from the Festival schema are properly represented in the UI, with appropriate form controls for each field type (text inputs, date pickers, toggles, selectors, etc.). The status toggle feature should allow admins to quickly activate/deactivate festivals without going to the detail page.
+
+### 🚧 Progress Log
+- Initial analysis of requirements complete
+- Reviewed Festival.js schema to understand all fields that need to be included
+- Analyzed existing admin panel structure to understand patterns and components
+- Created backend API endpoints for Festival CRUD operations in adminRoutes.js
+- Added API functions for Festival CRUD operations in api.js
+- Updated App.js to include routes for UpcomingFestivals pages
+- Updated MainLayout.js to include UpcomingFestivals in navigation menu
+- Created UpcomingFestivals.js component for list view
+- Created UpcomingFestivalDetail.js detail/edit view component with tabs for different sections
+- Created UpcomingFestivalCreate.js create view component with validation
+- Implementation complete! The UpcomingFestival section is now fully functional with all required features.
+
+## Add About Section to Admin Panel
+
+### 🎯 Objective
+Create a new About section in the admin panel with full CRUD operations, based on the About model schema. This includes a list view showing all About entries, a detail view for editing existing entries, and a form for creating new entries. The implementation should include status toggle functionality for the isActive field, error handling, and success notifications.
+
+### 🧩 Related Files
+- backend/models/About.js (Schema definition for About model)
+- backend/admin-panel/src/App.js (Main app component with routing)
+- backend/admin-panel/src/layouts/MainLayout.js (Main layout with navigation)
+- backend/admin-panel/src/api.js (API client for making requests)
+- backend/routes/adminRoutes.js (Backend routes for admin operations)
+- New files to create:
+  - backend/admin-panel/src/pages/Abouts.js (List view)
+  - backend/admin-panel/src/pages/AboutDetail.js (Detail/edit view)
+  - backend/admin-panel/src/pages/AboutCreate.js (Create view)
+
+### ✅ Checklist
+- [X] Analyze existing admin panel structure and patterns
+  - [X] Review similar components for patterns (e.g., UpcomingFestivals)
+  - [X] Understand how API calls are structured
+  - [X] Check how routing is handled
+- [X] Create backend API endpoints for About CRUD operations
+  - [X] GET /api/admin/about (list)
+  - [X] GET /api/admin/about/:id (get single)
+  - [X] POST /api/admin/about (create)
+  - [X] PUT /api/admin/about/:id (update)
+  - [X] DELETE /api/admin/about/:id (delete)
+  - [X] PATCH /api/admin/about/:id/toggle-status (toggle status)
+- [X] Add API functions in api.js
+  - [X] getAbouts (list with pagination/filtering)
+  - [X] getAboutById (get single about)
+  - [X] createAbout (create new about)
+  - [X] updateAbout (update existing about)
+  - [X] deleteAbout (delete about)
+  - [X] toggleAboutStatus (toggle status)
+- [X] Create Abouts.js list view
+  - [X] Table with columns for key fields (title, isActive, createdAt)
+  - [X] Status toggle functionality
+  - [X] Pagination and filtering
+  - [X] Add, edit, and delete actions
+  - [X] Error handling and success notifications
+- [X] Create AboutDetail.js detail/edit view
+  - [X] Form fields for all About schema properties
+  - [X] Edit mode toggle
+  - [X] Save and delete functionality
+  - [X] Error handling and success notifications
+  - [X] HTML content editor (possibly using a rich text editor)
+- [X] Create AboutCreate.js create view
+  - [X] Form fields for all About schema properties
+  - [X] Validation for required fields
+  - [X] Submit functionality
+  - [X] Error handling and success notifications
+  - [X] HTML content editor (possibly using a rich text editor)
+- [X] Update App.js to include new routes
+  - [X] /about (list)
+  - [X] /about/create (create)
+  - [X] /about/:id (detail/edit)
+- [X] Update MainLayout.js to include About in navigation
+
+### 🧠 Context
+The About model in MongoDB has a simple schema with these fields:
+1. title (String, required) - The title of the about content
+2. htmlCode (String, required) - The HTML content
+3. isActive (Boolean, default: true) - Whether this about content is active
+
+The model has a custom pre-save hook that ensures only one About entry can be active at a time. It also has a static method getActive() to retrieve the currently active About entry.
+
+The admin panel follows a pattern of having list views with CRUD operations and detail views for editing. We'll follow this pattern for the About section, with special attention to:
+1. The isActive field should toggle correctly, and the system should handle the constraint that only one About entry can be active
+2. The htmlCode field should be editable using a suitable HTML editor
+3. The implementation should provide appropriate validation and error handling
+
+### 🚧 Progress Log
+- Initial analysis of requirements complete
+- Reviewed About.js schema to understand all fields that need to be included
+- Analyzed existing admin panel structure to understand patterns and components
+- Created backend API endpoints for About CRUD operations in adminRoutes.js:
+  - Added GET /api/admin/about for listing about entries with pagination and filtering
+  - Added GET /api/admin/about/:id for retrieving a single about entry
+  - Added POST /api/admin/about for creating new about entries
+  - Added PUT /api/admin/about/:id for updating existing about entries
+  - Added DELETE /api/admin/about/:id for deleting about entries
+  - Added PATCH /api/admin/about/:id/toggle-status for toggling the status of about entries
+  - Added proper validation for all endpoints
+- Added API functions for About CRUD operations in api.js:
+  - Added getAbouts for listing about entries with pagination and filtering
+  - Added getAboutById for retrieving a single about entry
+  - Added createAbout for creating new about entries
+  - Added updateAbout for updating existing about entries
+  - Added deleteAbout for deleting about entries
+  - Added toggleAboutStatus for toggling the status of about entries
+- Created frontend components:
+  - Created Abouts.js component for list view with search, filtering, and status toggle
+  - Created AboutDetail.js component for viewing and editing about entries
+  - Created AboutCreate.js component for creating new about entries
+- Updated App.js to include routes for About management:
+  - Added /about route for the list view
+  - Added /about/create route for the create view
+  - Added /about/:id route for the detail/edit view
+- Updated MainLayout.js to include About in the navigation menu
+- Implementation complete! The About management section is now fully functional with all required features:
+  - List view with pagination, search, and filtering
+  - Status toggle directly from the list view
+  - Detail view with full editing capabilities
+  - Create view with validation
+  - HTML content preview in both create and detail views
+  - Error handling and success notifications for all operations
+
+## Add Contacts Section to Admin Panel
+
+### 🎯 Objective
+Create a new Contacts section in the admin panel with full CRUD operations, based on the Contact model schema. This includes a list view showing all Contact entries, a detail view for editing existing entries, and a form for creating new entries. The implementation should include status toggle functionality for the isActive field, error handling, and success notifications.
+
+### 🧩 Related Files
+- backend/models/Contact.js (Schema definition for Contact model)
+- backend/admin-panel/src/App.js (Main app component with routing)
+- backend/admin-panel/src/layouts/MainLayout.js (Main layout with navigation)
+- backend/admin-panel/src/api.js (API client for making requests)
+- backend/routes/adminRoutes.js (Backend routes for admin operations)
+- New files to create:
+  - backend/admin-panel/src/pages/Contacts.js (List view)
+  - backend/admin-panel/src/pages/ContactDetail.js (Detail/edit view)
+  - backend/admin-panel/src/pages/ContactCreate.js (Create view)
+- Reference files:
+  - backend/admin-panel/src/pages/Abouts.js (Similar implementation for About)
+  - backend/admin-panel/src/pages/AboutDetail.js (Similar implementation for About)
+  - backend/admin-panel/src/pages/AboutCreate.js (Similar implementation for About)
+
+### ✅ Checklist
+- [X] Analyze existing admin panel structure and patterns
+- [ ] Analyze existing admin panel structure and patterns
+  - [ ] Review similar components for patterns (e.g., About section)
+  - [ ] Understand how API calls are structured
+  - [ ] Check how routing is handled
+- [ ] Create backend API endpoints for Contact CRUD operations
+  - [ ] GET /api/admin/contact (list)
+  - [ ] GET /api/admin/contact/:id (get single)
+  - [ ] POST /api/admin/contact (create)
+  - [ ] PUT /api/admin/contact/:id (update)
+  - [ ] DELETE /api/admin/contact/:id (delete)
+  - [ ] PATCH /api/admin/contact/:id/toggle-status (toggle status)
+- [ ] Add API functions in api.js
+  - [ ] getContacts (list with pagination/filtering)
+  - [ ] getContactById (get single contact)
+  - [ ] createContact (create new contact)
+  - [ ] updateContact (update existing contact)
+  - [ ] deleteContact (delete contact)
+  - [ ] toggleContactStatus (toggle status)
+- [ ] Create Contacts.js list view
+  - [ ] Table with columns for key fields (title, isActive, createdAt)
+  - [ ] Status toggle functionality
+  - [ ] Pagination and filtering
+  - [ ] Add, edit, and delete actions
+  - [ ] Error handling and success notifications
+- [ ] Create ContactDetail.js detail/edit view
+  - [ ] Form fields for all Contact schema properties
+  - [ ] Edit mode toggle
+  - [ ] Save and delete functionality
+  - [ ] Error handling and success notifications
+  - [ ] HTML content editor (possibly using a rich text editor)
+- [ ] Create ContactCreate.js create view
+  - [ ] Form fields for all Contact schema properties
+  - [ ] Validation for required fields
+  - [ ] Submit functionality
+  - [ ] Error handling and success notifications
+  - [ ] HTML content editor (possibly using a rich text editor)
+- [ ] Update App.js to include new routes
+  - [ ] /contacts (list)
+  - [ ] /contacts/create (create)
+  - [ ] /contacts/:id (detail/edit)
+- [ ] Update MainLayout.js to include Contacts in navigation
+
+### 🧠 Context
+The Contact model in MongoDB has a simple schema with these fields:
+1. title (String, required) - The title of the contact content
+2. htmlCode (String, required) - The HTML content
+3. isActive (Boolean, default: true) - Whether this contact content is active
+
+The model has a custom pre-save hook that ensures only one Contact entry can be active at a time. It also has a static method getActive() to retrieve the currently active Contact entry.
+
+The structure of the Contact model is identical to the About model, so we can use the About section implementation as a reference. We'll follow the same patterns for CRUD operations, form fields, and error handling.
+
+The admin panel follows a pattern of having list views with CRUD operations and detail views for editing. We'll follow this pattern for the Contacts section, with special attention to:
+1. The isActive field should toggle correctly, and the system should handle the constraint that only one Contact entry can be active
+2. The htmlCode field should be editable using a suitable HTML editor
+3. The implementation should provide appropriate validation and error handling
+
+### 🚧 Progress Log
+- Initial analysis of requirements complete
+- Reviewed Contact.js schema to understand all fields that need to be included
+- Analyzed existing admin panel structure to understand patterns and components
+- Noted that Contact model is structurally identical to About model, so we can reuse similar patterns
+- Next steps: Create backend API endpoints and API functions
+
+## Fix Field Name Mismatch in Contact Components
+
+### 🎯 Objective
+Fix the field name mismatch between the Contact model schema and the frontend components. The goal is to ensure ContactCreate.js and ContactDetail.js properly implement the same fields as AboutCreate.js and AboutDetail.js while maintaining consistency with the Contact model schema.
+
+### 🧩 Related Files
+- backend/models/Contact.js (Schema definition with htmlCode field)
+- backend/models/About.js (Reference schema with same structure)
+- backend/admin-panel/src/pages/ContactCreate.js (Create component that might have incorrect field references)
+- backend/admin-panel/src/pages/ContactDetail.js (Detail component that might have incorrect field references)
+- backend/admin-panel/src/pages/AboutCreate.js (Reference implementation for Create component)
+- backend/admin-panel/src/pages/AboutDetail.js (Reference implementation for Detail component)
+- backend/admin-panel/src/api.js (API functions for Contact CRUD operations)
+
+### ✅ Checklist
+- [X] Analyze Contact.js model schema to confirm field names
+  - [X] Verify that `htmlCode` is the correct field name for HTML content
+  - [X] Confirm schema structure: title (String), htmlCode (String), isActive (Boolean)
+- [X] Analyze AboutCreate.js and AboutDetail.js to understand implementation
+  - [X] Identify key components and structure
+  - [X] Note how fields are handled and validated
+  - [X] Understand form submission and error handling
+- [X] Examine ContactCreate.js for differences from AboutCreate.js
+  - [X] Check field naming and structure
+  - [X] Check form validation and submission
+  - [X] Note any additional features or differences
+- [X] Examine ContactDetail.js for differences from AboutDetail.js
+  - [X] Check field naming and structure
+  - [X] Check edit mode functionality
+  - [X] Note any additional features or differences
+- [X] Compare API functions in api.js
+  - [X] Verify that Contact API functions use the correct field names
+  - [X] Check for any differences between About and Contact API functions
+
+### 🧠 Context
+The Contact and About models in MongoDB have identical schema structures:
+1. title (String, required)
+2. htmlCode (String, required)
+3. isActive (Boolean, default: true)
+
+Both models have a pre-save hook that ensures only one entry can be active at a time, and both have a getActive() static method.
+
+The AboutCreate.js and AboutDetail.js components provide a reference implementation for managing About entries with these fields. The ContactCreate.js and ContactDetail.js components should follow the same pattern but be adapted for Contact entries.
+
+After analyzing the files, I found that both ContactCreate.js and ContactDetail.js already exist and are properly implemented with the correct field names. The components use ReactQuill for rich text editing of the htmlCode field, which is different from the AboutCreate.js and AboutDetail.js components that use a regular TextField.
+
+The main differences between the implementations are:
+1. ContactCreate.js and ContactDetail.js use a tabbed interface with Basic Info, Content, and Preview tabs
+2. They use ReactQuill for rich text editing instead of a plain TextField
+3. They have more sophisticated validation and error handling
+4. ContactDetail.js includes a confirmation dialog for deletion
+
+### 🚧 Progress Log
+- Initial analysis of Contact.js model schema complete
+  - Confirmed field names: title, htmlCode, isActive
+  - Schema structure matches About.js model
+- Analyzed AboutCreate.js and AboutDetail.js
+  - Simple layout with title, isActive toggle, and htmlCode textarea
+  - Basic validation and error handling
+  - No tabbed interface
+- Examined ContactCreate.js
+  - Already implements correct field names
+  - Uses tabbed interface with Basic Info, Content, and Preview tabs
+  - Uses ReactQuill for rich text editing
+  - Has more sophisticated validation and error handling
+- Examined ContactDetail.js
+  - Already implements correct field names
+  - Uses tabbed interface with Basic Info, Content, and Preview tabs
+  - Uses ReactQuill for rich text editing in edit mode
+  - Includes confirmation dialog for deletion
+- Verified API functions in api.js
+  - Contact API functions use the correct field names and endpoints
+  - Functions include proper validation for ID parameters
+
+### 📝 Conclusion
+No field name mismatches found. Both ContactCreate.js and ContactDetail.js are already correctly implemented with the same fields as AboutCreate.js and AboutDetail.js, but with a more sophisticated UI using tabs and ReactQuill for rich text editing. The implementations are consistent with the Contact model schema.
+
+## Add CategoryIcon Integration to TemplateDetail.js
+
+### 🎯 Objective
+Update the TemplateDetail.js component to properly integrate with the CategoryIcon model, similar to how it's implemented in UpcomingFestivalDetail.js. Currently, TemplateDetail.js treats categoryIcon as a simple URL string, but it should be updated to reference the CategoryIcon model with proper dropdown selection.
+
+### 🧩 Related Files
+- backend/admin-panel/src/pages/TemplateDetail.js (Main file to modify)
+- backend/admin-panel/src/pages/UpcomingFestivalDetail.js (Reference implementation)
+- backend/admin-panel/src/api.js (Contains API functions for CategoryIcon)
+- backend/models/Template.js (Backend model that defines the relationship with CategoryIcon)
+- backend/models/CategoryIcon.js (The referenced model)
+
+### ✅ Checklist
+- [X] Analyze UpcomingFestivalDetail.js implementation of categoryIcon
+  - [X] Identify how CategoryIcon data is fetched
+  - [X] Understand how the dropdown selection is implemented
+  - [X] Note how the selected value is stored and sent to the API
+- [X] Analyze TemplateDetail.js current implementation
+  - [X] Identify where categoryIcon is currently handled
+  - [X] Note differences from the UpcomingFestivalDetail.js approach
+- [X] Identify required API functions
+  - [X] Check if getCategoryIcons function is already imported
+  - [X] Verify if any other API functions are needed
+- [X] Update TemplateDetail.js
+  - [X] Add state for storing categoryIcons list
+  - [X] Add useEffect to fetch categoryIcons on component mount
+  - [X] Replace TextField with FormControl + Select for categoryIcon
+  - [X] Update handleFieldChange to handle categoryIcon selection
+  - [X] Ensure value handling works for both edit and view modes
+- [ ] Test the implementation
+  - [ ] Verify dropdown shows all available category icons
+  - [ ] Ensure selection works correctly
+  - [ ] Confirm that saved changes persist
+
+### 🧠 Context
+In the UpcomingFestivalDetail.js file, the categoryIcon field is implemented as a dropdown selection that references the CategoryIcon model. The component:
+1. Fetches a list of category icons using getCategoryIcons API function
+2. Stores them in a state variable (categoryIcons)
+3. Renders a FormControl with Select and MenuItem components for selection
+4. When a user selects a category icon, it stores the _id of the selected icon
+5. The value is either accessed as editedFestival?.categoryIcon?._id (when it's an object) or editedFestival?.categoryIcon (when it's just the ID)
+
+In contrast, TemplateDetail.js currently treats categoryIcon as a simple URL string with a TextField input. This needs to be updated to match the approach used in UpcomingFestivalDetail.js.
+
+The Template model in the backend likely has a relationship with the CategoryIcon model, similar to the Festival model. The categoryIcon field should store a reference to the CategoryIcon document's _id, not just a URL.
+
+### 🚧 Progress Log
+- Analyzed UpcomingFestivalDetail.js implementation:
+  - Uses getCategoryIcons API function to fetch all category icons
+  - Stores them in categoryIcons state variable
+  - Uses FormControl + Select + MenuItem components for the dropdown
+  - Handles both object references (categoryIcon._id) and direct ID references
+  - Fetches reference data in a separate useEffect
+
+- Analyzed TemplateDetail.js implementation:
+  - Currently uses TextField for categoryIcon input
+  - Treats categoryIcon as a URL string
+  - Shows the image using the URL directly
+  - No integration with CategoryIcon model
+
+- Identified required changes:
+  - Need to add categoryIcons state variable
+  - Need to import and call getCategoryIcons API function
+  - Need to replace TextField with FormControl + Select for categoryIcon
+  - Need to update value handling to work with both object references and direct IDs
+  - Need to update display to show category name instead of URL
+
+- Implementation complete:
+  - Added categoryIcons state variable
+  - Added useEffect to fetch category icons on component mount
+  - Replaced TextField with FormControl + Select for categoryIcon
+  - Added value handling that works with both object references and direct IDs
+  - Added getCategoryIconUrl helper function to get the correct icon URL for display
+  - Added proper display of category name in dropdown
+  - Added proper handling of empty/null values

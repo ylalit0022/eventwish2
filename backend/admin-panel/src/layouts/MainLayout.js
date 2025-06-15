@@ -28,7 +28,10 @@ import {
   Logout as LogoutIcon,
   ViewQuilt as TemplateIcon,
   MonetizationOn as AdMobIcon,
-  Share as SharedWishIcon
+  Share as SharedWishIcon,
+  Celebration as FestivalIcon,
+  Info as InfoIcon,
+  Contacts as ContactsIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -72,8 +75,11 @@ const MainLayout = () => {
     { text: 'Templates', icon: <TemplateIcon />, path: '/templates' },
     { text: 'Shared Wishes', icon: <SharedWishIcon />, path: '/shared-wishes' },
     { text: 'AdMob', icon: <AdMobIcon />, path: '/admob' },
-    { text: 'Categories', icon: <CategoryIcon />, path: '/categories' },
-    { text: 'Settings', icon: <SettingsIcon />, path: '/settings' }
+    { text: 'Category Icons', icon: <CategoryIcon />, path: '/category-icons' },
+    { text: 'Upcoming Festivals', icon: <FestivalIcon />, path: '/upcoming-festivals' },
+    { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
+    { text: 'About', icon: <InfoIcon />, path: '/about' },
+    { text: 'Contacts', icon: <ContactsIcon />, path: '/contacts' }
   ];
 
   // Drawer content

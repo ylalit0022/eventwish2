@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -15,14 +15,18 @@ import {
   Switch,
   IconButton,
   Chip,
-  Autocomplete
+  Autocomplete,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import {
   Save as SaveIcon,
   ArrowBack as ArrowBackIcon,
   Cancel as CancelIcon
 } from '@mui/icons-material';
-import { createTemplate } from '../api';
+import { createTemplate, getCategoryIcons } from '../api';
 
 // TabPanel component for tab content
 function TabPanel({ children, value, index, ...other }) {
@@ -61,6 +65,26 @@ const TemplateCreate = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [tabValue, setTabValue] = useState(0);
+  const [categoryIcons, setCategoryIcons] = useState([]);
+  const [selectedCategoryIconId, setSelectedCategoryIconId] = useState('');
+
+  // Fetch category icons for dropdown
+  useEffect(() => {
+    const fetchCategoryIcons = async () => {
+      try {
+        const response = await getCategoryIcons(1, 100);
+        if (response.success) {
+          setCategoryIcons(response.data);
+        } else {
+          console.error('Failed to fetch category icons:', response.message);
+        }
+      } catch (err) {
+        console.error('Error fetching category icons:', err);
+      }
+    };
+
+    fetchCategoryIcons();
+  }, []);
 
   // Handle tab change
   const handleTabChange = (event, newValue) => {
@@ -308,14 +332,37 @@ const TemplateCreate = () => {
               )}
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField
-                label="Category Icon URL"
-                value={template.categoryIcon}
-                onChange={(e) => handleFieldChange('categoryIcon', e.target.value)}
-                fullWidth
-                margin="normal"
-                helperText="Enter a valid URL for the category icon"
-              />
+              <FormControl fullWidth margin="normal">
+                <InputLabel id="category-icon-label">Category Icon</InputLabel>
+                <Select
+                  labelId="category-icon-label"
+                  value={selectedCategoryIconId}
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    setSelectedCategoryIconId(selectedId);
+                    
+                    const selectedIcon = categoryIcons.find(icon => icon._id === selectedId);
+                    handleFieldChange('categoryIcon', selectedIcon ? selectedIcon.categoryIcon : '');
+                  }}
+                  label="Category Icon"
+                >
+                  <MenuItem value="">None</MenuItem>
+                  {categoryIcons.map((icon) => (
+                    <MenuItem key={icon._id} value={icon._id}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        {icon.categoryIcon && (
+                          <img 
+                            src={icon.categoryIcon} 
+                            alt={icon.category} 
+                            style={{ width: 24, height: 24, marginRight: 8 }} 
+                          />
+                        )}
+                        {icon.category}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
               {template.categoryIcon && (
                 <Box sx={{ mt: 2, textAlign: 'center' }}>
                   <img 

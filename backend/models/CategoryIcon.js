@@ -35,8 +35,10 @@ const categoryIconSchema = new mongoose.Schema({
     toJSON: {
         virtuals: true,
         transform: function(doc, ret) {
-            ret.id = ret._id;
-            delete ret._id;
+            // Set id but don't delete _id to ensure both are available
+            if (!ret.id) {
+                ret.id = ret._id;
+            }
             delete ret.__v;
             return ret;
         }
