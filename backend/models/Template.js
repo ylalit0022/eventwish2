@@ -29,27 +29,46 @@ const templateSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
-    categoryIcon: {
+    isPremium: {
+        type: Boolean,
+        default: false
+    },
+    creatorId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'CategoryIcon',
-        required: false,
+        ref: 'User'
+    },
+    festivalTag: {
+        type: String,
+        default: ''
+    },
+    tags: [{
+        type: String
+    }],
+    usageCount: {
+        type: Number,
+        default: 0
+    },
+    likes: {
+        type: Number,
+        default: 0
+    },
+    favorites: {
+        type: Number,
+        default: 0
+    },
+    categoryIcon: {
+        type: String,
         validate: {
             validator: function(v) {
-                return mongoose.Types.ObjectId.isValid(v);
+                return v === null || v === '' || /^https?:\/\/.+/.test(v);
             },
-            message: props => `${props.value} is not a valid ObjectId!`
+            message: props => `${props.value} is not a valid URL!`
         }
     }
 }, {
     timestamps: true,
     toJSON: {
-        virtuals: true,
-        transform: function(doc, ret) {
-            if (ret.categoryIcon && typeof ret.categoryIcon === 'object') {
-                ret.categoryIcon = ret.categoryIcon._id;
-            }
-            return ret;
-        }
+        virtuals: true
     }
 });
 

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Grid, Paper, Typography, Box, CircularProgress, Card, CardContent } from '@mui/material';
+import { Grid, Paper, Typography, Box, CircularProgress, Card, CardContent, Alert, IconButton, Collapse } from '@mui/material';
 import { Bar, Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { getDashboardStats } from '../api';
+import { Close as CloseIcon } from '@mui/icons-material';
 
 // Register ChartJS components
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
@@ -11,6 +12,8 @@ const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [importNotification, setImportNotification] = useState(null);
+  const [showNotification, setShowNotification] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -53,7 +56,38 @@ const Dashboard = () => {
     };
 
     fetchStats();
+    
+    // Check for template import results in localStorage
+    const checkForImportResults = () => {
+      const importResultsJson = localStorage.getItem('templateImportResults');
+      if (importResultsJson) {
+        try {
+          const results = JSON.parse(importResultsJson);
+          
+          // Only show notification if it's recent (less than 1 hour old)
+          const ONE_HOUR = 60 * 60 * 1000; // in milliseconds
+          if (Date.now() - results.timestamp < ONE_HOUR) {
+            setImportNotification(results);
+            setShowNotification(true);
+          } else {
+            // Clear old notification
+            localStorage.removeItem('templateImportResults');
+          }
+        } catch (err) {
+          console.error('Error parsing import results:', err);
+          localStorage.removeItem('templateImportResults');
+        }
+      }
+    };
+    
+    checkForImportResults();
   }, []);
+
+  // Handle notification close
+  const handleNotificationClose = () => {
+    setShowNotification(false);
+    localStorage.removeItem('templateImportResults');
+  };
 
   // Prepare chart data
   const platformChartData = stats ? {
@@ -126,6 +160,36 @@ const Dashboard = () => {
       <Typography variant="h4" gutterBottom>
         Dashboard
       </Typography>
+      
+      {/* Import Notification */}
+      {importNotification && (
+        <Collapse in={showNotification}>
+          <Alert 
+            severity="info"
+            sx={{ mb: 3 }}
+            action={
+              <IconButton
+                aria-label="close"
+                color="inherit"
+                size="small"
+                onClick={handleNotificationClose}
+              >
+                <CloseIcon fontSize="inherit" />
+              </IconButton>
+            }
+          >
+            <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+              Template Import Completed
+            </Typography>
+            <Typography variant="body2">
+              Total templates processed: {importNotification.total} | 
+              Created: {importNotification.created} | 
+              Updated: {importNotification.updated} | 
+              Errors: {importNotification.errors}
+            </Typography>
+          </Alert>
+        </Collapse>
+      )}
       
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>

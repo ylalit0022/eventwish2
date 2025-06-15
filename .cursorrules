@@ -88,6 +88,269 @@ If needed, you can further use the `web_scraper.py` file to scrape the web page 
 
 # Scratchpad
 
+## Update Template Model Schema
+
+### 🎯 Objective
+Update the existing Template model schema in backend/models/Template.js to include new fields for premium templates, user-generated content support, festival tags, usage metrics, and simplified categoryIcon handling.
+
+### 🧩 Related Files
+- backend/models/Template.js (Main model file to update)
+- backend/controllers/templateController.js (Uses Template model for CRUD operations)
+- backend/controllers/wishController.js (Uses Template model)
+- backend/routes/wishes.js (Uses Template model)
+- backend/services/recommendationService.js (Uses Template model)
+- Various scripts in backend/scripts/ that use the Template model
+- backend/models/CategoryIcon.js (Referenced by the current Template model)
+- backend/models/User.js (Referenced by the new creatorId field)
+
+### ✅ Checklist
+- [X] Analyze current Template.js implementation
+  - [X] Identify existing fields and their types/validations
+  - [X] Note any virtual properties or transformations
+- [X] Compare with new schema requirements
+  - [X] Identify new fields to add
+  - [X] Identify fields with changed definitions
+  - [X] Check for removed fields
+- [X] Update Template.js with new fields
+  - [X] Add isPremium field (Boolean)
+  - [X] Add creatorId field (ObjectId reference to User)
+  - [X] Add festivalTag field (String)
+  - [X] Add tags array field (String[])
+  - [X] Add usageCount field (Number)
+  - [X] Add likes field (Number)
+  - [X] Add favorites field (Number)
+  - [X] Update categoryIcon field (change from ObjectId to String URL)
+- [X] Ensure all schema options are preserved
+  - [X] Keep timestamps option
+  - [X] Handle virtuals and transformations appropriately
+- [ ] Test the changes to ensure all fields work correctly
+
+### 🧠 Context
+The Template model is used to store templates for the EventWish application. Templates have HTML, CSS, and JS content, and are categorized. The current schema includes fields for title, category, content, preview URL, status, and a reference to a CategoryIcon.
+
+The update will add support for:
+1. Premium templates (isPremium field)
+2. User-generated content (creatorId field)
+3. Festival-specific templates (festivalTag field)
+4. Searchable tags (tags array)
+5. Usage and engagement metrics (usageCount, likes, favorites)
+6. Simplified categoryIcon handling (direct URL instead of ObjectId reference)
+
+This will enable new features like premium subscription restrictions, user-generated content, better search/filtering, and engagement tracking.
+
+### 🚧 Progress Log
+- Initial analysis of Template.js complete
+  - Current schema has fields: title, category, htmlContent, cssContent, jsContent, previewUrl, status, categoryIcon
+  - categoryIcon is currently an ObjectId reference to 'CategoryIcon' model
+  - Schema includes timestamps and virtuals
+  - There's a transform function for categoryIcon in toJSON
+- Analyzed related files
+  - Found templateController.js which uses the Template model for CRUD operations
+  - Found several other controllers, routes, and services that use the Template model
+  - Found CategoryIcon.js which is referenced by the current Template model
+  - Note: templateController.js populates the categoryIcon field when fetching templates
+- Updated Template.js with new fields
+  - Added isPremium field (Boolean) with default false
+  - Added creatorId field (ObjectId reference to User)
+  - Added festivalTag field (String) with default empty string
+  - Added tags array field (String[])
+  - Added usageCount, likes, favorites fields (Number) with default 0
+  - Changed categoryIcon from ObjectId reference to String URL with URL validation
+  - Removed the transform function for categoryIcon in toJSON (no longer needed)
+  - Kept timestamps and virtuals options
+- Potential issues to address:
+  - Code that populates the categoryIcon field will need to be updated
+  - Existing data migration will be needed to convert ObjectId references to URLs
+
+## Update SharedWish Model Schema
+
+### 🎯 Objective
+Update the existing SharedWish model schema in backend/models/SharedWish.js to include new fields for deep linking, viewer engagement tracking, and premium sharing analytics. The goal is to enhance the model with additional functionality while preserving existing behavior.
+
+### 🧩 Related Files
+- backend/models/SharedWish.js (Main model file to update)
+- backend/models/Template.js (Referenced by the SharedWish model)
+- backend/models/User.js (Referenced by the new viewerEngagement field)
+- backend/controllers/wishController.js (Likely uses SharedWish model for CRUD operations)
+- backend/routes/wishes.js (API routes that use the SharedWish model)
+- Any services that handle wish sharing and analytics
+
+### ✅ Checklist
+- [X] Analyze current SharedWish.js implementation
+  - [X] Identify existing fields and their types/validations
+  - [X] Note any virtual properties or transformations
+  - [X] Understand the current schema structure and relationships
+- [X] Compare with new schema requirements
+  - [X] Identify new fields to add
+  - [X] Identify fields with changed definitions
+  - [X] Check for removed fields
+- [X] Update SharedWish.js with new fields
+  - [X] Add deeplink field (String)
+  - [X] Add viewerEngagement array field (for tracking user interactions)
+  - [X] Add isPremiumShared field (Boolean)
+  - [X] Remove templateId getter/setter (not present in new schema)
+  - [X] Simplify field definitions to match the new format
+- [X] Ensure all schema options are preserved
+  - [X] Keep timestamps option
+  - [X] Keep toJSON configuration with getters
+- [ ] Test the changes to ensure all fields work correctly
+
+### 🧠 Context
+The SharedWish model is used to store shared event wishes in the EventWish application. It tracks information about who sent and received the wish, which template was used, how it was shared, and engagement metrics like views and shares.
+
+The current schema includes fields for shortCode, template reference, sender/recipient information, customized content, sharing metrics, and analytics data.
+
+The update will add support for:
+1. Deep linking (deeplink field) for re-opening or sharing wishes
+2. Detailed viewer engagement tracking (viewerEngagement array)
+3. Premium template analytics (isPremiumShared field)
+
+These additions will enable better tracking of user engagement with shared wishes, support for app deep linking, and analytics for premium content sharing.
+
+### 🚧 Progress Log
+- Initial analysis of SharedWish.js complete
+  - Current schema has fields for shortCode, template reference, title, description, recipient/sender names, customized content, sharing metrics, and basic analytics
+  - Schema includes a templateId getter/setter which is not present in the new schema
+  - Schema includes timestamps and uses getters in toJSON
+  - The model is stored in a collection named 'sharedwishes'
+- Compared with new schema requirements
+  - New fields to add: deeplink, viewerEngagement array, isPremiumShared
+  - Fields to remove: templateId getter/setter
+  - Field format changes: simplify field definitions to match the new compact format
+  - No changes to schema options (timestamps, toJSON configuration)
+- Updated SharedWish.js model
+  - Added deeplink field for app deep linking support
+  - Added viewerEngagement array for tracking detailed user interactions
+  - Added isPremiumShared field for premium content analytics
+  - Removed templateId getter/setter as it's not needed in the new schema
+  - Simplified field definitions to match the new compact format
+  - Preserved timestamps and toJSON configuration with getters
+  - Maintained compatibility with existing code that uses the model
+
+## Enhance Template Management in Admin Panel
+
+### 🎯 Objective
+Enhance the Template management section in the admin panel with the following features:
+1. Add toggle button for changing template status in the status column
+2. Add CSV import and export functionality
+3. Implement import CSV feature that reports how many templates were updated and created
+4. Add notification on dashboard for template import results
+5. Add filter option for premium templates
+
+### 🧩 Related Files
+- backend/admin-panel/src/pages/Templates.js (Main template list page to modify)
+- backend/admin-panel/src/pages/Dashboard.js (For adding notifications)
+- backend/admin-panel/src/api.js (For adding CSV import/export API functions)
+- backend/routes/adminRoutes.js (For adding backend API routes for CSV operations)
+- backend/controllers/templateController.js (For handling CSV processing logic)
+- backend/package.json (For adding required dependencies)
+
+### ✅ Checklist
+- [X] Add status toggle button in Templates.js
+  - [X] Create toggle button component in the status column
+  - [X] Implement toggle status API function
+  - [X] Add loading state for toggle operation
+  - [X] Add error handling for toggle operation
+- [X] Add CSV export functionality
+  - [X] Add export button in Templates.js
+  - [X] Implement CSV export API function
+  - [X] Create backend route for CSV export
+  - [X] Add proper error handling
+- [X] Add CSV import functionality
+  - [X] Add import button and file upload dialog in Templates.js
+  - [X] Implement CSV import API function
+  - [X] Create backend route for CSV import
+  - [X] Add CSV parsing and validation logic
+  - [X] Track updated and created templates count
+  - [X] Return detailed import results
+- [X] Add import notification on dashboard
+  - [X] Create notification component
+  - [X] Store import results in localStorage or context
+  - [X] Display notification with import results
+  - [X] Add dismiss functionality
+- [X] Add premium filter option
+  - [X] Add premium filter checkbox in filter section
+  - [X] Update filter logic to include premium filter
+  - [X] Update API request to include premium filter
+
+### 🧠 Context
+The Template management section currently allows viewing, creating, editing, and deleting templates. We need to enhance it with more advanced features like quick status toggling and bulk operations through CSV import/export. The status toggle will allow admins to quickly activate/deactivate templates without going to the detail page. The CSV import/export will enable bulk operations and integration with other systems. The premium filter will help admins quickly find premium templates.
+
+The implementation will require both frontend and backend changes. On the frontend, we'll need to add UI components for the new features and implement API calls. On the backend, we'll need to add new routes and controllers to handle the CSV operations and status toggle.
+
+### 🚧 Progress Log
+1. Added API functions for template management:
+   - Added toggleTemplateStatus function to toggle template status
+   - Added exportTemplatesCSV function for CSV export
+   - Added importTemplatesCSV function for CSV import with results tracking
+
+2. Updated Templates.js:
+   - Added status toggle switch in the status column
+   - Added CSV import and export buttons in the header
+   - Added premium filter in the filters section
+   - Added import dialog with file upload and results display
+   - Added proper loading states and error handling
+
+3. Updated Dashboard.js:
+   - Added import notification component
+   - Added localStorage integration for notification persistence
+   - Added dismiss functionality
+
+4. Added backend routes:
+   - Added PATCH /api/admin/templates/:id/toggle-status route
+   - Added GET /api/admin/templates/export-csv route
+   - Added POST /api/admin/templates/import-csv route
+   - Added proper error handling and logging
+
+5. Updated package.json:
+   - Added multer dependency for file uploads
+   - Added csv-parser dependency for CSV parsing
+
+6. All features have been implemented successfully:
+   - Status toggle button allows quick activation/deactivation of templates
+   - CSV export allows downloading templates with current filters applied
+   - CSV import allows bulk creation and updating of templates
+   - Import results are shown in the import dialog and on the dashboard
+   - Premium filter allows filtering templates by premium status
+
+## Update API Base URL from '/api' to '/v1'
+
+### 🎯 Objective
+Update the API base URL in the admin panel from '/api' to '/v1' while ensuring all API calls continue to work correctly.
+
+### 🧩 Related Files
+- backend/admin-panel/src/api.js (Main API client definition with base URL)
+- backend/admin-panel/webpack.config.js (Development server proxy configuration)
+- Any other files that might directly use the API base URL or make direct API calls
+
+### ✅ Checklist
+- [X] Analyze current API implementation in api.js
+  - [X] Identify where the base URL is defined
+  - [X] Check if the base URL is used elsewhere in the codebase
+- [X] Update the API base URL from '/api' to '/v1'
+  - [X] Update API_URL constant in api.js
+  - [X] Update proxy configuration in webpack.config.js
+- [X] Check for any direct API calls that might bypass the api.js client
+- [X] Verify that all API endpoints are correctly referenced
+- [ ] Test the changes to ensure all API calls work correctly
+
+### 🧠 Context
+The admin panel uses a centralized API client defined in api.js that sets up Axios with a base URL. Currently, this base URL is set to '/api', but it needs to be updated to '/v1' to match backend API changes. The API client handles authentication token management and includes interceptors for request and response handling.
+
+The webpack.config.js file contains a proxy configuration that redirects API requests from the frontend to the backend server during development. This proxy configuration also needs to be updated to match the new API base URL.
+
+### 🚧 Progress Log
+- Initial analysis of api.js complete
+  - Found API_URL constant defined at the top of the file as '/api'
+  - The Axios instance is created with this base URL
+  - No other direct references to '/api' found in the file
+- Searched for other occurrences of '/api' in the codebase
+  - Found proxy configuration in webpack.config.js
+  - No direct API calls bypassing the api.js client found
+- Updated API_URL constant in api.js from '/api' to '/v1'
+- Updated proxy configuration in webpack.config.js from '/api' to '/v1'
+- All API endpoints in api.js are relative to the base URL, so they don't need to be changed
+
 ## Enhance Admin Panel User Detail Page with Additional Schema Fields
 
 ### 🎯 Objective
@@ -200,369 +463,488 @@ The UserDetail.js page uses a tab-based interface with sections for different as
   - Test the implementation with real data
   - Verify all fields are properly saved and displayed
 
-# Lessons
+## Fix CSV Export 401 Unauthorized Error
 
-## User Specified Lessons
+### 🎯 Objective
+Fix the 401 Unauthorized error that occurs when attempting to export templates as CSV in the admin panel. The error message indicates an invalid Firebase token, suggesting an authentication issue with the API request.
 
-- You have a python venv in ./venv. Use it.
-- Include info useful for debugging in the program output.
-- Read the file before you try to edit it.
-- Due to Cursor's limit, when you use `git` and `gh` and need to submit a multiline commit message, first write the message in a file, and then use `git commit -F <filename>` or similar command to commit. And then remove the file. Include "[Cursor] " in the commit message and PR title.
-- Always check if files exist and their content before making changes
-- When implementing Google Sign-In:
-  - Check google-services.json for web client ID
-  - Use Tasks.forResult() instead of Task.forResult()
-  - Handle GoogleSignInAccount properly in callbacks
-  - Add proper error handling for cancelled sign-in
-  - Add proper initialization checks
-  - Use proper dependency versions
-  - For non-critical services like MongoDB sync, handle 404 errors gracefully
-  - Treat infrastructure errors in non-critical paths as warnings rather than errors
+### 🧩 Related Files
+- backend/admin-panel/src/api.js (Frontend API client that makes the CSV export request)
+- backend/middleware/authMiddleware.js (Handles authentication verification)
+- backend/routes/adminRoutes.js (Contains the CSV export endpoint)
+- backend/admin-panel/src/pages/Templates.js (Contains the UI component that triggers the CSV export)
+- backend/controllers/templateController.js (Contains template-related logic)
+- backend/models/Template.js (Template data model)
 
-## Cursor learned
+### ✅ Checklist
+- [X] Analyze the error message and understand the authentication flow
+- [X] Check how authentication tokens are passed in the API client
+- [X] Verify how the CSV export endpoint handles authentication
+- [X] Identify why the Firebase token is being rejected
+- [ ] Fix the authentication handling in the CSV export request
+- [ ] Test the fix to ensure CSV export works correctly
 
-- For search results, ensure proper handling of different character encodings (UTF-8) for international queries
-- Add debug information to stderr while keeping the main output clean in stdout for better pipeline integration
-- When using seaborn styles in matplotlib, use 'seaborn-v0_8' instead of 'seaborn' as the style name due to recent seaborn version changes
-- Use 'gpt-4o' as the model name for OpenAI's GPT-4 with vision capabilities
-- When searching for recent news, use the current year (2025) instead of previous years, or simply use the "recent" keyword to get the latest information
-- When implementing Firebase Remote Config for Android:
-  - Create wrapper classes for complex JSON structures
-  - Use proper Gson annotations (@SerializedName) to map JSON keys to class fields
-  - Implement fallback parsing for different JSON structures (direct vs nested)
-  - Add proper error handling for JSON parsing with detailed logging
-  - Save raw JSON to SharedPreferences for debugging and offline access
-  - Add methods to display raw JSON for debugging purposes
-  - Implement custom JSON input for testing without Firebase Console changes
-  - Add validation for JSON format before saving
-  - Use AlertDialog with multiline EditText for custom JSON input
-  - Implement proper permission handling for notifications on Android 13+
-  - Add test buttons for immediate notification testing
-  - Use pretty printing for JSON display in UI
-  - Implement proper date handling for event start/end dates
-  - Add countdown calculation based on current date
-  - Implement notification scheduling with AlarmManager
-  - Add BroadcastReceiver for handling scheduled notifications
-  - Use PendingIntent.FLAG_IMMUTABLE for Android 12+
-  - Create proper notification channels for Android 8+
-  - Add deep link support in notifications
-- When implementing singleton classes in Android, ensure proper initialization before use:
-  - Add an explicit init() method that takes a Context parameter
-  - Check for null context and use applicationContext to prevent memory leaks
-  - Add proper error handling with clear error messages
-  - Implement thread-safe getInstance() method with synchronized keyword
-  - Add initialization checks before returning instances
-  - Add proper logging for debugging initialization issues
-  - Always use getInstance() method to obtain singleton instances, never use direct instantiation with new
-  - For classes that only provide getInstance(Context) without separate init(), ensure you're using the correct method
-- When implementing Firebase Authentication for backend services:
-  - Always set FIREBASE_PROJECT_ID environment variable to resolve "Unable to detect a Project Id" errors
-  - Use proper service account credentials (FIREBASE_SERVICE_ACCOUNT) in production
-  - Provide a fallback for development environments with SKIP_AUTH=true
-  - Add client-side fallback mechanisms to handle 401 authentication errors gracefully
-  - Implement local storage for template likes/favorites when authentication fails
-  - Add detailed error logging for authentication issues
-  - Ensure proper handling of different authentication error codes
-  - Create a good user experience by not showing backend authentication errors to users
-  - Document Firebase setup procedures in a dedicated README file
-  - When implementing token verification in middleware, add proper handling for various error cases
-  - Test authentication with both development and production environments
-  - Consider security implications when storing tokens and user credentials
-- When managing dependencies between singleton classes in Android:
-  - Be aware of initialization order between singletons that depend on each other
-  - Always initialize security/authentication managers before network/API clients
-  - Use a hierarchical initialization approach, starting with core services first
-  - Add null checks and proper error handling for dependent services
-  - Make service fields non-final if initialization can fail or happen asynchronously
-  - Add fallback mechanisms in case dependent services fail to initialize
-  - Consider service registration patterns for complex dependency graphs
-- When working with LiveData in Android:
-  - Always use postValue() instead of setValue() when updating LiveData from background threads
-  - LiveData.setValue() can only be called from the main thread, otherwise it throws IllegalStateException: "Cannot invoke setValue on a background thread"
-  - Use proper threading practices: AppExecutors or Handlers for background operations
-  - When initializing repositories, be careful about threading as constructor code might run on a background thread
-  - Look for error messages like "FATAL EXCEPTION: pool-X-thread-Y" and "java.lang.IllegalStateException: Cannot invoke setValue on a background thread" in logcat
-  - Be especially careful with code that runs in executors (executors.diskIO().execute(() -> {...}), etc.)
-  - Consider using synchronization or thread-safe collections when updating shared data from multiple threads
-  - Add proper error handling for LiveData operations to prevent app crashes
-  - Consider using postValue() by default for all LiveData updates as a safer approach
-  - When debugging thread issues, add Thread.currentThread().getName() to log statements to identify which thread is causing problems
-- When working with Room database in Android:
-  - Add @Ignore annotation to additional constructors to avoid Room warnings
-  - Ensure field names in DAO queries match the actual entity field names
-  - Use appropriate return types in DAO methods (LiveData<T> vs T)
-  - Implement proper type converters for complex types
-  - Add proper error handling for database operations
-  - When storing complex objects, ensure proper type checking and casting when retrieving data
-  - Handle type conversion between Object and specific types like JsonObject with proper instanceof checks
-  - Never perform database operations on the main thread to avoid "IllegalStateException: Cannot access database on the main thread"
-  - Always use background threads (AppExecutors.diskIO().execute()) for database operations including insert, update, and delete
-  - Remember that Room's getters (queries) returning LiveData are already asynchronous and don't need to be moved to a background thread
-  - When fixing database access on main thread issues, be careful to handle exceptions properly in background thread code
-- When implementing Gson converters for Retrofit:
-  - Create custom JsonDeserializer for handling complex JSON structures
-  - Register type adapters with GsonBuilder for specific types
-  - Handle edge cases like null values and different JSON types
-  - Use proper error handling for deserialization exceptions
-- When working with generic types in Java:
-  - Be careful with type inference when using generic methods
-  - Use explicit type parameters when inference fails
-  - Add proper type checking and casting when working with Object types
-  - Handle type conversion between Object and specific types with proper instanceof checks
-- When handling JSON data in Android with Gson:
-  - Be aware that Gson deserializes JSON objects to LinkedTreeMap by default
-  - Always use proper type checking with instanceof before casting
-  - Implement conversion methods between LinkedTreeMap and JsonObject
-  - Use JsonParser.parseString(json).getAsJsonObject() instead of gson.fromJson() for more reliable conversion
-  - Add try-catch blocks around JSON parsing operations to handle malformed data
-  - Consider updating entity data with properly converted objects for future use
-- When working with Java/Android type comparisons:
-  - Always match types in comparisons (don't compare String with int)
-  - Use proper type checking before comparing: entity.getId() != null && !entity.getId().isEmpty() instead of entity.getId() > 0
-  - Check for null and empty string separately when working with String IDs
-  - Add explicit type conversions if comparison between different types is needed (Integer.parseInt())
-- When working with lambda expressions in Java:
-  - Variables captured in lambda expressions must be final or effectively final
-  - Create final copies of variables before passing them to lambdas: final CoinsEntity finalEntity = entity
-  - Be careful with mutating captured objects within lambdas
-  - Use effectively final variables whenever possible to avoid creating extra copies
-- When implementing Android string resources:
-  - Always define error messages and other UI text in strings.xml 
-  - Use consistent naming convention for string resources
-  - Group related strings together with XML comments
-  - Add string resources before referencing them in code to avoid R.string not found errors
-- When working with image loading and caching in Android:
-  - Always pass Context to constructors of repositories and adapters that load images
-  - Use getApplicationContext() when storing context to avoid memory leaks
-  - Implement proper fallback mechanisms for failed image loads
-  - Add cache invalidation logic and expiration timeouts
-  - Use Glide's RequestOptions for consistent image loading configuration
-  - Add proper error handling with RequestListener to catch load failures
-  - Log image loading status and failures for easier debugging
-  - Maintain a local cache of failed URLs to avoid repeated failures
-  - Add explicit placeholder images to prevent UI jumping during loads
-  - Implement retry logic with exponential backoff for network requests
-  - Consider the cost of toString() on large objects in log statements
-  - Add expiration time to memory caches to force refresh periodically
-- When implementing Google Sign-In for Android:
-  - Create proper method signatures in AuthManager: signInWithGoogle(GoogleSignInAccount) that returns Task<AuthResult>
-  - Always handle both success and failure cases with addOnSuccessListener and addOnFailureListener
-  - Add proper null checks for account and idToken
-  - Include detailed logging for debugging sign-in issues
-  - Maintain consistent error handling patterns between related methods
-  - Ensure method implementations match the call sites in activities/fragments
-  - Consider reusing existing authentication logic (like firebaseAuthWithGoogle) to prevent code duplication
-  - Add proper task continuation for handling authentication results
-- When implementing server-side AdMob integration:
-  - Use a centralized service for managing ad configurations
-  - Implement caching to reduce database load and improve response times
-  - Add proper error handling and logging for all ad-related operations
-  - Secure ad-related endpoints with authentication middleware
-  - Implement rate limiting to prevent abuse
-  - Create a lightweight client library for minimal client-side processing
-  - Add offline support with local storage for ad configurations
-  - Track impressions and clicks server-side for better analytics
-  - Implement analytics service for tracking ad performance metrics
-  - Set up monitoring service for real-time tracking of ad operations
-  - Add alerting for critical issues in the monitoring service
-  - Create comprehensive documentation for the integration
-  - Implement comprehensive testing for all components
-  - Use in-memory MongoDB for testing database operations
-  - Mock external dependencies for isolated testing
-  - Test edge cases like rate limiting and cache expiration
-  - Implement integration tests for authentication middleware
-  - Test analytics tracking and monitoring functionality
-- When working with Express middleware:
-  - Ensure consistent naming of middleware functions across all route files
-  - Verify that imported middleware function names match the exported names from the middleware file
-  - Use descriptive names that clearly indicate the middleware's purpose (e.g., verifyApiKey, validateRequest)
-  - When refactoring middleware, update all route files that use the middleware
-  - Consider using middleware factories for configurable middleware
-  - Add proper error handling in middleware functions
-  - Use next() to pass control to the next middleware in the chain
-  - Document middleware functions with JSDoc comments
-- When implementing Firebase Phone Authentication:
-  - Add proper exception handling for FirebaseException in callbacks
-  - Ensure variables used in lambda expressions are final or effectively final
-  - Use SecureTokenManager for storing sensitive authentication tokens
-  - Create a separate UserRepository to manage user authentication state
-  - Implement proper token refresh logic in API clients
-  - Add debug logging for authentication processes
-  - Consider creating a mock server for local testing without Firebase dependencies
-  - Save test logs when running automated authentication tests
-  - Use different API base URLs for debug and production environments
-  - Provide comprehensive technical documentation for the authentication system
-- When configuring OkHttp client for Android applications:
-  - Use connection pooling to improve connection reuse
-  - Enable retryOnConnectionFailure for intermittent network issues
-  - Add HTTP response caching to reduce network requests
-  - Log detailed connection information in debug builds
-  - Set appropriate timeouts for different network conditions
-  - Track timing metrics for API calls to identify performance issues
-  - Add detailed error logging for failed requests
-  - Use interceptors to add common headers across all requests
-- When removing AdMob integration from an Android application:
-  - Delete all ad-related classes and files (AdMobManager, AdConfig, etc.)
-  - Remove Firebase dependencies from build.gradle
-  - Update SecureTokenManager and DeviceUtils to maintain API compatibility
-  - Remove AdMob-related endpoints from ApiService
-  - Keep API key handling methods even after removing ad functionality
-  - Clean up imports and initialization code in Application class
-  - Remove AdMob-related references from Room database entities and DAOs
-  - Modify UI fragments and activities to remove ad containers and references
-  - Run clean builds frequently to catch missing files and dependencies
-  - Fix possible dependency issues by downgrading to compatible versions like OkHttp 4.9.0 instead of 4.12.0
-- When working with Express.js API routes in a Node.js backend:
-  - Always properly register route modules in the main server.js or app.js file
-  - Use app.use('/api/endpoint', require('./routes/endpoint')) pattern
-  - Check for 404 errors in API responses which often indicate missing route registration
-  - Ensure route paths in the router match the client-side API calls
-  - Add explicit route prefixes in app.use() that match client expectations
-  - Validate that middleware is properly imported and applied to routes
-  - Add error logging for failed API requests to quickly identify issues
-  - Use consistent error response formats across all API endpoints
-  - When implementing client-facing APIs, always implement graceful fallbacks on the client side
-  - Use SharedPreferences to track API endpoint availability and avoid repeated failed calls
-  - Add response code-specific handling (like 404 vs 500) for different error scenarios
-  - Ensure data is stored locally when server operations fail to prevent data loss
-- When initializing singleton classes in Android:
-  - For classes that have both init() and getInstance() static methods, always call init() first
-  - Be aware of the error "SecureTokenManager not initialized" which occurs when getInstance() is called before init()
-  - Correct initialization sequence is: SecureTokenManager.init(context); then secureTokenManager = SecureTokenManager.getInstance();
-  - Never call getInstance().init() as it creates a circular dependency (you need an instance to initialize, but initialization is needed to get the instance)
-  - Class implementations should enforce this by throwing an IllegalStateException in getInstance() if init() hasn't been called
-  - Be careful of initialization order when singletons depend on each other
-  - Add proper error handling and logging during initialization
-  - Consider using dependency injection frameworks like Dagger or Hilt to manage singleton lifecycles
-  - Add init checks in methods that require initialization to provide helpful error messages
-- When handling AdMob ad units in Android:
-  - Always check the database for the latest ad unit information before displaying ads
-  - Use a "database-first" approach where you try to match server ad units with database entries by ID
-  - Add proper null and empty string checks for ad unit IDs and codes
-  - Add specific handling for various ad type naming conventions (e.g., "app_open", "AppOpen", "App Open")
-  - Include detailed logging of ad unit selection and matching process
-  - Provide transparency to users about ad unit sources (database vs. original request)
-  - Add robust error handling for when ad units are invalid or missing
-  - Consider creating a unified ad unit selection method to reduce code duplication
-  - Use thread-safe LiveData observers when accessing database in UI components
-- When implementing AdMob interstitial ads in Android:
-  - Always verify helper classes are created before using them in fragments
-  - Check correct import paths when importing utility classes (like AnalyticsUtils)
-  - Use the existing AdConstants class for ad unit IDs instead of hardcoding values
-  - Implement proper cleanup in onDestroy to prevent memory leaks
-  - Preload ads early in onResume for better user experience
-  - Add robust fallbacks when ads aren't loaded or fail to display
-  - Always initialize AdMobManager before using other ad-related helpers
-- When implementing comprehensive analytics tracking in Android:
-  - Create well-defined constant strings for event names and parameter keys
-  - Implement centralized tracking utilities to ensure consistent naming and parameters
-  - Add detailed device information tracking (model, OS, screen size) using system APIs
-  - Track session data with unique identifiers and timestamps
-  - Implement debug logging mechanisms that can be toggled for development
-  - Add privacy compliance features including user opt-out functionality
-  - Add proper error handling and null checks before tracking events
-  - Implement global opt-in/opt-out controls that respect user preferences
-  - Add screen view tracking for both activities and fragments
-  - Use Firebase Analytics setUserProperty for consistent user segmentation
-- When implementing Firebase In-App Messaging in Android apps:
-  - Add proper dependency management (firebase-inappmessaging-display and ktx variant)
-  - Create a singleton handler class with thread-safe initialization pattern
-  - Add proper error handling and logging for all Firebase interactions
-  - Ensure initialization happens in the correct order in the Application class
-  - Test messaging with specific, well-named test events ("test_notification_event")
-  - Register custom receivers in AndroidManifest.xml for handling notification interactions
-  - Implement multiple notification types (immediate and delayed) for comprehensive testing
-  - Ensure all notifications have proper error handling and fallbacks
-  - Add detailed logging of notification lifecycle events for debugging
-  - Create helper classes to abstract notification scheduling complexity
-  - Adapt to Android version differences in the notification scheduling APIs
-  - Use Intent extras for passing notification content between components
-  - Add proper cleanup in onDestroy to prevent memory leaks
-- When implementing proper initialization order in Android applications:
-  - Initialize core services first in the Application class
-  - Pay attention to dependency order: initialize dependencies before they're needed
-  - For DeviceUtils, always call DeviceUtils.init() before getInstance()
-  - For API services, initialize ApiClient early in the application lifecycle to avoid "not initialized" errors
-  - Initialize Firebase services in a consistent order (Crashlytics → Analytics → Performance → In-App Messaging)
-  - For SecurityManager implementations, initialize before any feature that needs encryption
-  - Provide helpful error messages that specify the correct initialization order
-  - Use try-catch blocks to prevent crashes during initialization
-  - Log detailed initialization errors with clear context for debugging
-  - Consider using dependency injection frameworks for complex initialization scenarios
-  - For Firebase components, ensure proper initialization before usage in services
-  - When a class has both init() and getInstance() methods, always call init() first
-- When implementing Firebase Crashlytics in Android:
-  - Always ensure both plugin and dependency are properly configured:
-    - Add 'com.google.firebase:firebase-crashlytics-gradle' to buildscript dependencies in root build.gradle
-    - Apply plugin 'com.google.firebase.crashlytics' in app/build.gradle plugins block
-    - Add Firebase Crashlytics dependency in app/build.gradle dependencies block
-  - Check for error "The Crashlytics build ID is missing" which indicates missing plugin configuration
-  - Maintain proper plugin order: apply Android application plugin before Crashlytics plugin
-  - Keep Crashlytics initialization early in the app lifecycle but after Firebase initialization
-  - Add proper ProGuard/R8 rules if using code obfuscation
-  - Test crash reporting in debug builds before releasing
-  - Add proper logging before potential crash points
-  - Use Crashlytics.log() for adding custom keys and logs before crashes
-- When testing Firebase Authentication in Android:
-  - Be aware that some operations are restricted to administrators only in production
-  - For testing anonymous auth:
-    - Enable Anonymous Authentication in Firebase Console
-    - Add test security rules in Firebase Console for testing
-    - Use emulators for local testing to avoid admin restrictions
-    - Add proper test configurations in google-services.json
-    - Consider using Firebase Local Emulator Suite for CI/CD
-    - Add test-specific security rules for automated tests
-    - Handle "operation is restricted to administrators only" errors
-    - Use try-catch instead of Tasks.await() for signOut operations
-  - For testing in CI/CD:
-    - Set up Firebase Test Lab
-    - Configure test security rules
-    - Use service account credentials
-    - Add proper test configurations
-- When implementing like/favorite functionality in Android apps:
-  - Always ensure UI updates happen on the main thread by using Handler(Looper.getMainLooper())
-  - Use postValue() instead of setValue() for LiveData updates from background threads
-  - Implement proper debounce mechanisms to prevent multiple rapid clicks (800-1000ms)
-  - Add optimistic UI updates with proper error handling and state reversion
-  - Use thread-safe collections like ConcurrentHashMap for tracking state
-  - Ensure proper synchronization between UI and backend operations
-  - Add detailed logging for state changes and errors
-  - Implement proper error handling with UI feedback for failed operations
-  - Use transactions for atomic database operations to ensure data consistency
-  - Add retry mechanisms for failed network operations
-  - Consider using a dedicated worker for background retry operations
-  - Implement proper cleanup to prevent memory leaks
-- When implementing Firebase Remote Config for local push notifications in Android:
-  - Create a dedicated model class for the notification config
-  - Use SimpleDateFormat with synchronized blocks for thread-safe date parsing
-  - Set TimeZone.getTimeZone("UTC") for ISO 8601 date formats
-  - Use a singleton manager class for handling remote config fetching and notification display
-  - Implement caching with SharedPreferences to reduce network requests
-  - Use AlarmManager.setExactAndAllowWhileIdle() for reliable scheduling on newer Android versions
-  - Create a proper notification channel for Android O and above
-  - Use PendingIntent.FLAG_IMMUTABLE for Android S and above
-  - Add proper error handling for malformed config data
-  - Implement a daily check mechanism with proper rescheduling
-  - Add a BroadcastReceiver to handle boot completed events
-  - Use deep links with Intent.ACTION_VIEW for notification actions
-  - Add proper debug logging throughout the implementation
-  - Create a test activity for manual testing and debugging
+### 🧠 Context
+The admin panel makes API requests to the backend server to export templates as CSV. These requests require authentication using Firebase tokens. The current error indicates that the Firebase token being sent with the request is invalid, causing a 401 Unauthorized response.
 
-# Summary of Completed Tasks
+After analyzing the code, I found the following issues:
 
-## 1. Fixed TemplateDao Missing Methods
-Added synchronous versions of DAO methods to fix compilation errors:
-- Added getTemplateByIdSync(String id) to retrieve a template directly without LiveData
-- Added getLikedTemplatesSync() to get liked templates synchronously 
-- Added getFavoritedTemplatesSync() to get favorited templates synchronously
-- Built successfully with no errors or changes to schema
+1. **Authentication Token Issue**: In `api.js`, the `exportTemplatesCSV` function is using `localStorage.getItem('authToken')` for authentication, but this doesn't match how tokens are handled elsewhere in the app. The API client uses `getAuthToken()` from firebase.js for other requests, but not for the CSV export.
 
-## 2. Fixed AppOpenManager Retry Loop Issue
-Fixed excessive AppOpenManager ad retry cycles:
-- Added MAX_RETRY_CYCLES constant to limit total retry cycles to 3
-- Added increasing delay between retry cycles based on cycle count
-- Added network connectivity check before attempting to fetch ad units
-- Implemented permanent failure state after maximum retry cycles
-- Added periodic reset in EventWishApplication to recover after 1 hour
-- Added detailed logging for better debugging
-- No database schema changes were required
+2. **Direct Fetch vs Axios**: The CSV export endpoint uses a direct `fetch()` call instead of the configured Axios instance that has proper interceptors for authentication. This means it's bypassing the standard authentication flow.
+
+3. **Token Format**: The token might not be stored in localStorage with the key 'authToken', or it might be in a different format than expected.
+
+4. **Development Mode Handling**: There's special handling for development mode, but it might not be working correctly for the CSV export endpoint.
+
+5. **MongoDB Object Serialization**: The CSV export in adminRoutes.js is using json2csv which might have issues serializing MongoDB objects with special types.
+
+### 🚧 Progress Log
+- Initial analysis shows a 401 Unauthorized error when trying to export templates as CSV
+- The error message specifically mentions "Invalid Firebase token" with error code "AUTH_TOKEN_INVALID"
+- Examined the authentication flow in the API client and found discrepancies in how the token is handled for CSV export
+- Found that the CSV export function uses a direct fetch call instead of the configured Axios instance
+- Checked the CSV export endpoint in adminRoutes.js and found it's using json2csv for serialization
+- Verified that the Template model contains MongoDB ObjectId references which might cause serialization issues
+- Confirmed json2csv version 5.0.7 is installed in the project
+
+### 📝 Solution Plan
+1. Update the `exportTemplatesCSV` function in api.js to use the same authentication method as other API calls
+2. Use the configured Axios instance with proper interceptors instead of a direct fetch call
+3. Ensure proper error handling and response processing for the CSV download
+4. Consider updating the CSV generation in the backend to handle MongoDB objects better
+5. Add better error logging to help diagnose any remaining issues
+
+## Add AdMob Management Section to Admin Panel
+
+### 🎯 Objective
+Add a new AdMob management section to the admin panel with CRUD operations, including:
+1. A list view showing all AdMob ads with status toggle feature
+2. A form for creating new AdMob ads
+3. A detail view for editing existing AdMob ads
+4. Delete functionality for AdMob ads
+
+### 🧩 Related Files
+- backend/models/AdMob.js (Schema definition for AdMob)
+- backend/admin-panel/src/api.js (API client for making requests)
+- backend/routes/adminRoutes.js (Backend routes for admin operations)
+- backend/admin-panel/src/App.js (Main app component with routing)
+- backend/admin-panel/src/pages/AdMobs.js (List view for AdMob ads)
+- backend/admin-panel/src/pages/AdMobDetail.js (Detail/edit view for AdMob ads)
+- backend/admin-panel/src/pages/AdMobCreate.js (Create view for AdMob ads)
+- backend/admin-panel/src/layouts/MainLayout.js (Main layout with navigation)
+
+### ✅ Checklist
+- [X] Create new API functions in api.js for AdMob CRUD operations
+  - [X] getAdMobs (list with pagination/filtering)
+  - [X] getAdMobById (get single ad)
+  - [X] createAdMob (create new ad)
+  - [X] updateAdMob (update existing ad)
+  - [X] deleteAdMob (delete ad)
+  - [X] toggleAdMobStatus (toggle status)
+- [X] Create new backend routes in adminRoutes.js
+  - [X] GET /api/admin/admob (list)
+  - [X] GET /api/admin/admob/:id (get single)
+  - [X] POST /api/admin/admob (create)
+  - [X] PUT /api/admin/admob/:id (update)
+  - [X] DELETE /api/admin/admob/:id (delete)
+  - [X] PATCH /api/admin/admob/:id/toggle-status (toggle status)
+- [X] Create new page components
+  - [X] AdMobs.js (list view)
+  - [X] AdMobDetail.js (detail/edit view)
+  - [X] AdMobCreate.js (create view)
+- [X] Update App.js to include new routes
+  - [X] /admob (list)
+  - [X] /admob/create (create)
+  - [X] /admob/:id (detail/edit)
+- [X] Ensure form fields match AdMob schema
+  - [X] Basic fields (adName, adUnitCode, adType, status)
+  - [X] Complex fields (targetingCriteria, targetSegments, parameters)
+  - [X] Display settings (maxImpressionsPerDay, minIntervalBetweenAds, cooldownPeriod)
+- [X] Implement status toggle feature
+- [X] Update MainLayout.js to include AdMob in navigation
+
+### 🧠 Context
+The AdMob model in MongoDB has a comprehensive schema with many fields and subdocuments:
+
+1. **Basic Fields**:
+   - adName (String, required)
+   - adUnitCode (String, required, with validation)
+   - adType (String, enum: ['Banner', 'Interstitial', 'Rewarded', 'Native', 'App Open', 'Video'])
+   - status (Boolean, default: true)
+
+2. **Targeting Fields**:
+   - targetingCriteria (Map of Mixed)
+   - targetSegments (Array of ObjectIds referencing UserSegment)
+   - targetingPriority (Number)
+
+3. **Parameters**:
+   - parameters (Map of String)
+
+4. **Analytics Fields**:
+   - impressions, clicks, ctr, revenue (Numbers)
+   - impressionData, clickData, revenueData (Arrays of subdocuments)
+   - segmentPerformance (Map)
+
+5. **Display Settings**:
+   - displaySettings.maxImpressionsPerDay (Number)
+   - displaySettings.minIntervalBetweenAds (Number)
+   - displaySettings.cooldownPeriod (Number)
+
+6. **Device Settings**:
+   - deviceSettings (Map)
+
+The admin panel follows a pattern of having list views with CRUD operations and detail views for editing. We've followed this pattern for the AdMob section.
+
+### 🚧 Progress Log
+- Initial analysis of AdMob.js model complete
+- Identified required API endpoints and frontend components
+- Planned implementation strategy for AdMob management section
+- Added API functions for AdMob CRUD operations in api.js
+- Created AdMobs.js component for list view with status toggle feature
+- Created AdMobDetail.js component for viewing and editing AdMob ads
+- Created AdMobCreate.js component for creating new AdMob ads
+- Updated App.js to include routes for AdMob management
+- Updated MainLayout.js to include AdMob in the navigation menu
+- Added backend routes for AdMob management in adminRoutes.js
+- Implementation complete!
+
+## Fix AdMob Edit Button 500 Error Issue
+
+### 🎯 Objective
+Fix the 500 error that occurs when clicking the edit button in the AdMob management section. The error is related to an undefined ID being passed to the backend, causing a MongoDB ObjectId casting error.
+
+### 🧩 Related Files
+- backend/admin-panel/src/pages/AdMobs.js (Contains the edit button click handler)
+- backend/admin-panel/src/pages/AdMobDetail.js (Handles fetching and displaying AdMob details)
+- backend/admin-panel/src/api.js (Contains API functions for AdMob operations)
+- backend/models/AdMob.js (MongoDB model definition for AdMob)
+- backend/routes/adminRoutes.js (Backend routes that handle AdMob API requests)
+- backend/controllers/adminController.js (Likely contains the handler for AdMob operations)
+
+### ✅ Checklist
+- [X] Analyze the error message to understand the root cause
+  - [X] Identify where the undefined ID is coming from
+  - [X] Check how the ID is passed between components
+- [X] Examine the AdMobs.js file to see how edit button click is handled
+  - [X] Check the handleEditClick function implementation
+  - [X] Verify that ad._id is correctly passed to the function
+- [X] Check the AdMobDetail.js file to see how it uses the ID parameter
+  - [X] Examine the useEffect hook that fetches the AdMob data
+  - [X] Check how it handles undefined or invalid IDs
+- [X] Examine the api.js file to see how getAdMobById is implemented
+  - [X] Check if it validates the ID before making the API call
+  - [X] See if it handles errors properly
+- [X] Examine the backend route and controller that handles the GET request
+  - [X] Check if it validates the ID parameter before querying MongoDB
+- [X] Implement fixes to prevent undefined IDs from causing 500 errors
+  - [X] Add validation in the frontend components
+  - [X] Add validation in the API client
+  - [X] Add validation in the backend route handler
+- [X] Test the changes to ensure they resolve the issue
+
+### 🧠 Context
+The AdMob management section allows administrators to view, create, edit, and delete AdMob ads. The issue occurs when clicking the edit button, which should navigate to the AdMob detail page with the specific ad's ID. However, an undefined ID is being passed, causing a 500 error when the backend tries to convert it to a MongoDB ObjectId.
+
+The error message indicates that MongoDB is trying to cast the string "undefined" to an ObjectId, which fails. This suggests that somewhere in the flow, the ad ID is not being properly passed or is being lost.
+
+Previous fixes attempted to add validation in the frontend components and API client, but the issue persists. This suggests that either:
+1. The fixes were not properly implemented or built
+2. There are other places in the code where validation is needed
+3. The root cause is elsewhere in the application flow
+
+### 🚧 Progress Log
+- Initial analysis of error message complete
+  - Error occurs when trying to fetch an AdMob ad with ID "undefined"
+  - MongoDB fails to cast "undefined" to a valid ObjectId
+- Examined AdMobs.js
+  - handleEditClick function had validation but may not have been built/deployed
+  - Confirmed that ad._id is correctly passed to the function
+- Examined AdMobDetail.js
+  - useEffect fetches AdMob data using the ID from URL params
+  - Had validation but may not have been built/deployed
+- Examined api.js
+  - getAdMobById function had validation but may not have been built/deployed
+  - Added validation to updateAdMob, deleteAdMob, and toggleAdMobStatus functions
+- Examined backend route handler
+  - Found that the backend route handler was not validating the ID parameter
+  - Added validation to all AdMob API routes (GET, PUT, DELETE, PATCH)
+  - Used mongoose.Types.ObjectId.isValid to validate MongoDB ObjectId format
+- Additional fixes:
+  - Added validation in handleSave and handleDelete methods in AdMobDetail.js
+  - Built the admin panel to apply all fixes
+  - Started the development server to test the changes
+- All fixes implemented:
+  1. Frontend validation in AdMobs.js and AdMobDetail.js
+  2. API client validation in api.js
+  3. Backend route validation in adminRoutes.js
+  4. Built and deployed the changes
+
+## Add SharedWish Management Section to Admin Panel
+
+### 🎯 Objective
+Add a new SharedWish management section to the admin panel with list view and detail view, allowing administrators to view and edit shared wishes based on the SharedWish.js schema.
+
+### 🧩 Related Files
+- backend/models/SharedWish.js (Schema definition for SharedWish)
+- backend/admin-panel/src/api.js (API client for making requests)
+- backend/admin-panel/src/App.js (Main app component with routing)
+- backend/admin-panel/src/layouts/MainLayout.js (Main layout with navigation)
+- backend/admin-panel/src/pages/Templates.js (Reference for list view implementation)
+- backend/admin-panel/src/pages/TemplateDetail.js (Reference for detail view implementation)
+- backend/routes/adminRoutes.js (Backend routes for admin operations)
+- backend/controllers/adminController.js (Backend controllers for admin operations)
+
+### ✅ Checklist
+- [X] Create API functions in api.js for SharedWish operations
+  - [X] getSharedWishes (list with pagination/filtering)
+  - [X] getSharedWishById (get single shared wish)
+  - [X] updateSharedWish (update existing shared wish)
+  - [X] deleteSharedWish (delete shared wish)
+- [X] Create new page components
+  - [X] SharedWishes.js (list view)
+  - [X] SharedWishDetail.js (detail/edit view)
+- [X] Update App.js to include new routes
+  - [X] /shared-wishes (list)
+  - [X] /shared-wishes/:id (detail/edit)
+- [X] Update MainLayout.js to include SharedWish in navigation
+- [X] Implement SharedWishes.js list view
+  - [X] Table with columns for key fields (shortCode, title, recipientName, senderName, views, etc.)
+  - [X] Pagination and filtering
+  - [X] Action buttons (view, delete)
+- [X] Implement SharedWishDetail.js detail view
+  - [X] Tabs for different sections of the model
+  - [X] Form fields for all editable properties
+  - [X] Edit mode toggle
+  - [X] Save and delete functionality
+- [X] Implement backend routes in adminRoutes.js
+  - [X] GET /api/admin/shared-wishes (list)
+  - [X] GET /api/admin/shared-wishes/:id (detail)
+  - [X] PUT /api/admin/shared-wishes/:id (update)
+  - [X] DELETE /api/admin/shared-wishes/:id (delete)
+
+### 🧠 Context
+The SharedWish model in MongoDB has a comprehensive schema with many fields and subdocuments:
+
+1. **Basic Fields**:
+   - shortCode (String, required, unique)
+   - template (ObjectId reference to Template)
+   - title, description (String)
+   - recipientName, senderName (String, required)
+
+2. **Content Fields**:
+   - customizedHtml, cssContent, jsContent (String)
+   - previewUrl (String)
+   - deeplink (String)
+
+3. **Sharing Fields**:
+   - sharedVia (String enum)
+   - views, uniqueViews (Number)
+   - viewerIps (Array of String)
+   - shareCount (Number)
+   - shareHistory (Array of subdocuments)
+   - lastSharedAt (Date)
+
+4. **Analytics Fields**:
+   - conversionSource, referrer, deviceInfo (String)
+   - viewerEngagement (Array of subdocuments)
+   - isPremiumShared (Boolean)
+
+The admin panel follows a pattern of having list views with filtering/pagination and detail views for editing. We'll follow this pattern for the SharedWish section.
+
+### 🚧 Progress Log
+- Initial analysis of SharedWish.js model complete
+- Identified required API endpoints and frontend components
+- Planned implementation strategy for SharedWish management section
+- Added API functions for SharedWish operations in api.js
+- Updated App.js to include routes for SharedWish management
+- Updated MainLayout.js to include SharedWish in navigation
+- Created SharedWishes.js component for list view
+- Created SharedWishDetail.js component for detail/edit view
+- All frontend components implemented and ready for testing
+- Implemented backend routes in adminRoutes.js for SharedWish management:
+  - Added GET /api/admin/shared-wishes for listing shared wishes with pagination and filtering
+  - Added GET /api/admin/shared-wishes/:id for retrieving a single shared wish
+  - Added PUT /api/admin/shared-wishes/:id for updating a shared wish
+  - Added DELETE /api/admin/shared-wishes/:id for deleting a shared wish
+- Fixed 404 error by implementing the missing backend routes
+
+## Fix Template ID Display and ViewerEngagement Issues in SharedWish Admin Panel
+
+### 🎯 Objective
+Fix two issues in the SharedWish admin panel:
+1. Template ID field showing "[object Object]" instead of the actual template ID
+2. Properly display and handle the viewerEngagement array based on the SharedWish schema
+
+### 🧩 Related Files
+- backend/admin-panel/src/pages/SharedWishDetail.js (Detail view with template ID display issue)
+- backend/admin-panel/src/api.js (API client for making requests)
+- backend/routes/adminRoutes.js (Backend routes handling the data)
+- backend/models/SharedWish.js (Schema definition with viewerEngagement field)
+
+### ✅ Checklist
+- [X] Analyze the template ID display issue
+  - [X] Check how template data is being populated in the backend
+  - [X] Check how template data is being rendered in SharedWishDetail.js
+  - [X] Determine the correct way to display the template ID
+- [X] Analyze the viewerEngagement field handling
+  - [X] Review the schema definition in SharedWish.js
+  - [X] Check if viewerEngagement is properly displayed in SharedWishDetail.js
+  - [X] Determine what UI components are needed for proper display
+- [X] Fix template ID display in SharedWishDetail.js
+  - [X] Update the template ID field to display the correct value
+  - [X] Ensure the field remains non-editable
+- [X] Enhance viewerEngagement display in SharedWishDetail.js
+  - [X] Add appropriate UI components to display the array data
+  - [X] Handle the userId reference to User model
+  - [X] Format timestamps properly
+  - [X] Add ability to add/remove engagement entries
+- [ ] Test the changes to ensure they work correctly
+
+### 🧠 Context
+The SharedWish model in MongoDB has a template field that references the Template model, and a viewerEngagement array field that contains user engagement data. The template field is currently being displayed as "[object Object]" in the admin panel, which suggests that the object is being converted to a string instead of accessing its properties. The viewerEngagement field may not be properly displayed or may be missing from the UI.
+
+The SharedWish schema defines viewerEngagement as an array of objects with userId (reference to User model), action (enum: 'VIEWED', 'LIKED', 'FAVORITED', 'SHARED'), and timestamp fields. This needs to be properly displayed in the admin panel.
+
+### 🚧 Progress Log
+- Initial analysis complete
+- Identified issues:
+  1. Template ID field in SharedWishDetail.js is displaying "[object Object]" instead of the actual template ID
+  2. ViewerEngagement array is displayed in the UI but needs enhancement
+
+- Code analysis findings:
+  1. Template ID issue:
+     - In SharedWishDetail.js line ~250, the template field is being displayed as `value={editedSharedWish?.template || ''}` 
+     - The template field in the SharedWish schema is defined as a MongoDB ObjectId reference to the Template model
+     - When this object is rendered in a TextField, it's being converted to a string, resulting in "[object Object]"
+     - We need to access the template._id property instead of the whole object
+
+  2. ViewerEngagement handling:
+     - The viewerEngagement field is already being displayed in a List component in the Analytics tab
+     - The current implementation displays "ACTION by USER_ID" and the timestamp
+     - It needs to be enhanced to:
+       a. Display the action in a more user-friendly format
+       b. Show the user ID as a link or with additional user information
+       c. Allow editing the viewerEngagement array in edit mode
+       d. Add the ability to add/remove engagement entries
+
+- Implementation completed:
+  1. Fixed template ID display issue:
+     - Updated the template field to access the _id property: `value={editedSharedWish?.template?._id || editedSharedWish?.template || ''}`
+     - This ensures that if template is an object, we display its ID, but if it's already a string ID, we display that
+     - The field remains non-editable as required
+
+  2. Enhanced viewerEngagement display:
+     - Added conditional rendering based on edit mode
+     - In view mode:
+       - Improved display with appropriate icons based on action type
+       - Better formatted text with bold action type
+       - Proper handling of empty arrays
+     - In edit mode:
+       - Added form fields to edit each engagement record
+       - Added ability to add new engagement records
+       - Added ability to remove existing engagement records
+       - Implemented proper timestamp handling with datetime-local inputs
+
+## Enhance SharedWish Management with User Data and Analytics Dashboard
+
+### 🎯 Objective
+Enhance the SharedWish management section in the admin panel with the following features:
+1. Display user email instead of just userId in SharedWishDetail.js based on the User reference
+2. Add email column to the SharedWishes.js table
+3. Add analytics dashboard above the search field with filtering options
+4. Add template performance tracking with filters for share count
+5. Implement time-based filtering (by date, month, last 7 days)
+
+### 🧩 Related Files
+- backend/admin-panel/src/pages/SharedWishDetail.js (For enhancing user data display)
+- backend/admin-panel/src/pages/SharedWishes.js (For adding email column and analytics dashboard)
+- backend/admin-panel/src/api.js (For adding new API functions to fetch user data and analytics)
+- backend/routes/adminRoutes.js (For adding backend routes to support new API functions)
+- backend/controllers/adminController.js (For implementing backend logic)
+- backend/models/SharedWish.js (Schema reference for viewerEngagement with userId)
+- backend/models/User.js (Schema reference for user data including email)
+
+### ✅ Checklist
+- [X] Analyze current implementation to understand data flow
+  - [X] Check how userId is currently displayed in SharedWishDetail.js
+  - [X] Review SharedWishes.js table structure and filtering options
+  - [X] Understand how API calls are structured in api.js
+- [X] Enhance SharedWishDetail.js
+  - [X] Modify viewerEngagement display to show user email instead of userId
+  - [X] Add API function to fetch user data by ID
+  - [X] Update UI to display email with proper formatting
+- [X] Update SharedWishes.js
+  - [X] Add email column to the table
+  - [X] Modify API call to include user data
+  - [X] Add analytics dashboard above search field
+  - [X] Implement filtering options for analytics
+- [X] Add backend support
+  - [X] Create new API endpoints for analytics data
+  - [X] Implement user data population in SharedWish queries
+  - [X] Add filtering logic for analytics
+- [ ] Test all changes to ensure they work correctly
+
+### 🧠 Context
+The SharedWish model in MongoDB has a viewerEngagement field that contains an array of objects with userId references to the User model. Currently, only the userId is displayed in the UI, but we want to show the user's email instead. Additionally, we want to add analytics capabilities to track template performance and user engagement over time.
+
+The SharedWishes.js file displays a table of shared wishes with basic information. We need to enhance this with an email column and an analytics dashboard above the search field. The analytics dashboard should include filtering options for time periods and template performance metrics.
+
+The backend needs to be updated to support these new features by adding routes and controllers that can fetch the required data and apply the necessary filters.
+
+### 🚧 Progress Log
+- Initial analysis complete
+- Identified key files that need to be modified
+- Planned approach for enhancing user data display and adding analytics dashboard
+
+- Code analysis findings:
+  1. SharedWishDetail.js:
+     - Currently displays viewerEngagement in a list with `primary={`${engagement.action} by ${engagement.userId || 'Anonymous'}`}`
+     - The userId is a MongoDB ObjectId reference to the User model but is not populated
+     - Need to add API function to fetch user data by ID and display email
+  
+  2. SharedWishes.js:
+     - Table columns include: shortCode, title, recipient, sender, views, created, sharedVia, actions
+     - Missing email column for the user who shared the wish
+     - No analytics dashboard above search field
+     - Current filtering only supports text search
+  
+  3. API Functions:
+     - getSharedWishes and getSharedWishById functions exist in api.js
+     - Need to add new function to fetch user data by ID
+     - Need to add new function to fetch analytics data
+  
+  4. Backend Routes:
+     - /api/admin/shared-wishes endpoint exists for listing shared wishes
+     - /api/admin/shared-wishes/:id endpoint exists for getting a single shared wish
+     - Need to add population of user data in these endpoints
+     - Need to add new endpoints for analytics data
+
+  5. User Model:
+     - Contains email field that we need to display
+     - userId in viewerEngagement references this model
+
+- Implementation completed:
+  1. Added new API functions:
+     - Added getUserByObjectId function to fetch user data by MongoDB ObjectId
+     - Added getSharedWishAnalytics function to fetch analytics data
+  
+  2. Added new backend routes:
+     - Added /api/admin/users/by-id/:id endpoint to fetch user by MongoDB ObjectId
+     - Added /api/admin/shared-wishes/analytics endpoint for analytics data
+     - Modified existing SharedWish endpoints to populate user data in viewerEngagement
+  
+  3. Enhanced SharedWishDetail.js:
+     - Updated import statement to include getUserByObjectId
+     - Modified viewerEngagement display to show user email in a Chip component with EmailIcon
+     - Added conditional rendering to handle cases where user data is not available
+  
+  4. Enhanced SharedWishes.js:
+     - Added email column to display the email of the first user in viewerEngagement
+     - Added analytics dashboard above search field with:
+       - Total shares, views, unique views, and average views per share
+       - Top templates by shares and views
+       - Sharing by platform
+       - Time period filtering (today, yesterday, last 7 days, last 30 days, this month, last month)
+     - Added time filter to the API requests
+     - Added refresh functionality for analytics data

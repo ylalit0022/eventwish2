@@ -25,7 +25,10 @@ import {
   People as PeopleIcon,
   Settings as SettingsIcon,
   Category as CategoryIcon,
-  Logout as LogoutIcon
+  Logout as LogoutIcon,
+  ViewQuilt as TemplateIcon,
+  MonetizationOn as AdMobIcon,
+  Share as SharedWishIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -66,6 +69,9 @@ const MainLayout = () => {
   const navItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Users', icon: <PeopleIcon />, path: '/users' },
+    { text: 'Templates', icon: <TemplateIcon />, path: '/templates' },
+    { text: 'Shared Wishes', icon: <SharedWishIcon />, path: '/shared-wishes' },
+    { text: 'AdMob', icon: <AdMobIcon />, path: '/admob' },
     { text: 'Categories', icon: <CategoryIcon />, path: '/categories' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' }
   ];

@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { getAuthToken } from './firebase';
 
+// Set API base URL
 const API_URL = '/api';
+console.log('API base URL set to:', API_URL);
 
 // Create axios instance
 const api = axios.create({
@@ -123,6 +125,22 @@ export const getUserById = async (uid) => {
   }
 };
 
+// New function to get user by MongoDB ObjectId
+export const getUserByObjectId = async (id) => {
+  try {
+    if (!id) {
+      console.error('Invalid user ID provided');
+      return { success: false, message: 'Invalid user ID' };
+    }
+    
+    const response = await api.get(`/admin/users/by-id/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching user by ObjectId ${id}:`, error);
+    return { success: false, message: `Error fetching user: ${error.message}` };
+  }
+};
+
 export const updateUser = async (uid, userData) => {
   try {
     const response = await api.put(`/admin/users/${uid}`, userData);
@@ -160,6 +178,369 @@ export const getDashboardStats = async () => {
     return response.data;
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
+    throw error;
+  }
+};
+
+// Template management
+export const getTemplates = async (page = 1, limit = 10, sort = 'createdAt', order = 'desc', filters = {}) => {
+  try {
+    const response = await api.get('/admin/templates', {
+      params: {
+        page,
+        limit,
+        sort,
+        order,
+        ...filters
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching templates:', error);
+    throw error;
+  }
+};
+
+export const getTemplateById = async (id) => {
+  try {
+    const response = await api.get(`/admin/templates/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching template ${id}:`, error);
+    throw error;
+  }
+};
+
+export const createTemplate = async (templateData) => {
+  try {
+    const response = await api.post('/admin/templates', templateData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating template:', error);
+    throw error;
+  }
+};
+
+export const updateTemplate = async (id, templateData) => {
+  try {
+    const response = await api.put(`/admin/templates/${id}`, templateData);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating template ${id}:`, error);
+    throw error;
+  }
+};
+
+export const deleteTemplate = async (id) => {
+  try {
+    const response = await api.delete(`/admin/templates/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error deleting template ${id}:`, error);
+    throw error;
+  }
+};
+
+export const toggleTemplateStatus = async (id) => {
+  try {
+    const response = await api.patch(`/admin/templates/${id}/toggle-status`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error toggling template status ${id}:`, error);
+    throw error;
+  }
+};
+
+export const exportTemplatesCSV = async (filters = {}) => {
+  try {
+    console.log('Exporting templates as CSV with filters:', filters);
+    
+    // Use a direct fetch instead of axios to avoid potential issues with blob handling
+    const queryParams = new URLSearchParams();
+    
+    // Add filters to query params
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        queryParams.append(key, value);
+      }
+    });
+    
+    const queryString = queryParams.toString();
+    const url = `/api/admin/templates/export-csv${queryString ? `?${queryString}` : ''}`;
+    
+    console.log('Fetching CSV from URL:', url);
+    
+    // Get auth token using the same method as other API calls
+    const token = await getAuthToken();
+    const headers = {
+      'Authorization': token ? `Bearer ${token}` : ''
+    };
+    
+    // Add development mode headers if needed
+    if (localStorage.getItem('devMode') === 'true') {
+      headers['X-Dev-Email'] = 'ylalit0022@gmail.com';
+      headers['X-Dev-Admin'] = 'true';
+    }
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: headers
+    });
+    
+    if (!response.ok) {
+      // Handle error response
+      const errorText = await response.text();
+      console.error('CSV export error response:', errorText);
+      try {
+        const errorJson = JSON.parse(errorText);
+        throw new Error(errorJson.message || errorJson.error || 'Error exporting CSV');
+      } catch (parseError) {
+        throw new Error(`Error exporting CSV: ${response.status} ${response.statusText}`);
+      }
+    }
+    
+    // Get the blob from the response
+    const blob = await response.blob();
+    
+    // Create a download link for the CSV file
+    const url2 = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url2;
+    a.download = `templates_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url2);
+    document.body.removeChild(a);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error exporting templates CSV:', error);
+    throw error;
+  }
+};
+
+export const importTemplatesCSV = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await api.post('/admin/templates/import-csv', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    
+    // Store import results in localStorage for dashboard notification
+    if (response.data.success) {
+      const importResults = {
+        timestamp: Date.now(),
+        created: response.data.created,
+        updated: response.data.updated,
+        errors: response.data.errors || 0,
+        total: response.data.total
+      };
+      localStorage.setItem('templateImportResults', JSON.stringify(importResults));
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error importing templates CSV:', error);
+    throw error;
+  }
+};
+
+// AdMob management
+export const getAdMobs = async (page = 1, limit = 10, sort = 'createdAt', order = 'desc', filters = {}) => {
+  try {
+    const response = await api.get('/admin/admob', {
+      params: {
+        page,
+        limit,
+        sort,
+        order,
+        ...filters
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching AdMob ads:', error);
+    throw error;
+  }
+};
+
+export const getAdMobById = async (id) => {
+  try {
+    console.log(`Fetching AdMob ad with ID: "${id}"`, typeof id);
+    
+    if (!id) {
+      console.error('Invalid AdMob ID: ID is undefined or empty');
+      return {
+        success: false,
+        message: 'Invalid AdMob ID',
+        error: 'ID is undefined or empty'
+      };
+    }
+    
+    // Ensure we're using the correct URL format
+    // API_URL already contains '/api' so we don't need to add it again
+    const url = `/admin/admob/${id}`;
+    console.log(`Making GET request to: ${API_URL}${url}`);
+    
+    // Add additional logging to debug the request
+    console.log('Full request URL:', `${window.location.origin}${API_URL}${url}`);
+    console.log('API base URL:', API_URL);
+    
+    const response = await api.get(url);
+    console.log('AdMob ad fetch response:', response.data);
+    
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching AdMob ad ${id}:`, error);
+    console.error('Error details:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const createAdMob = async (adMobData) => {
+  try {
+    const response = await api.post('/admin/admob', adMobData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating AdMob ad:', error);
+    throw error;
+  }
+};
+
+export const updateAdMob = async (id, adMobData) => {
+  try {
+    if (!id) {
+      return {
+        success: false,
+        message: 'Invalid AdMob ID',
+        error: 'ID is undefined or empty'
+      };
+    }
+    
+    const response = await api.put(`/admin/admob/${id}`, adMobData);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating AdMob ad ${id}:`, error);
+    throw error;
+  }
+};
+
+export const deleteAdMob = async (id) => {
+  try {
+    if (!id) {
+      return {
+        success: false,
+        message: 'Invalid AdMob ID',
+        error: 'ID is undefined or empty'
+      };
+    }
+    
+    const response = await api.delete(`/admin/admob/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error deleting AdMob ad ${id}:`, error);
+    throw error;
+  }
+};
+
+export const toggleAdMobStatus = async (id) => {
+  try {
+    if (!id) {
+      return {
+        success: false,
+        message: 'Invalid AdMob ID',
+        error: 'ID is undefined or empty'
+      };
+    }
+    
+    const response = await api.patch(`/admin/admob/${id}/toggle-status`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error toggling AdMob ad status ${id}:`, error);
+    throw error;
+  }
+};
+
+// SharedWish management
+export const getSharedWishes = async (page = 1, limit = 10, sort = 'createdAt', order = 'desc', filters = {}) => {
+  try {
+    const response = await api.get('/admin/shared-wishes', {
+      params: {
+        page,
+        limit,
+        sort,
+        order,
+        ...filters
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching shared wishes:', error);
+    throw error;
+  }
+};
+
+export const getSharedWishById = async (id) => {
+  if (!id) {
+    console.error('Invalid shared wish ID provided');
+    throw new Error('Invalid shared wish ID');
+  }
+  
+  try {
+    const response = await api.get(`/admin/shared-wishes/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching shared wish ${id}:`, error);
+    throw error;
+  }
+};
+
+export const getSharedWishAnalytics = async (filters = {}) => {
+  try {
+    const response = await api.get('/admin/shared-wishes/analytics', {
+      params: filters
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching shared wish analytics:', error);
+    return {
+      success: false,
+      message: `Error fetching analytics: ${error.message}`
+    };
+  }
+};
+
+export const updateSharedWish = async (id, sharedWishData) => {
+  if (!id) {
+    console.error('Invalid shared wish ID provided');
+    throw new Error('Invalid shared wish ID');
+  }
+  
+  try {
+    const response = await api.put(`/admin/shared-wishes/${id}`, sharedWishData);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating shared wish ${id}:`, error);
+    throw error;
+  }
+};
+
+export const deleteSharedWish = async (id) => {
+  if (!id) {
+    console.error('Invalid shared wish ID provided');
+    throw new Error('Invalid shared wish ID');
+  }
+  
+  try {
+    const response = await api.delete(`/admin/shared-wishes/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error deleting shared wish ${id}:`, error);
     throw error;
   }
 };
