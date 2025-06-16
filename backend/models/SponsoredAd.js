@@ -8,6 +8,7 @@
 const mongoose = require('mongoose');
 
 const sponsoredAdSchema = new mongoose.Schema({
+  uid: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, 
   image_url: {
     type: String,
     required: [true, 'Image URL is required'],

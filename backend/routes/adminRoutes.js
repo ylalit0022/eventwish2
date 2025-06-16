@@ -17,6 +17,7 @@ const { Readable } = require('stream');
 const Festival = require('../models/Festival');
 const About = require('../models/About');
 const Contact = require('../models/Contact');
+const SponsoredAd = require('../models/SponsoredAd');
 
 // Configure multer for file uploads
 const upload = multer({
@@ -854,6 +855,11 @@ router.get('/templates', verifyFirebaseToken, async (req, res) => {
       filter.category = req.query.category;
     }
     
+    // Filter by premium status
+    if (req.query.isPremium === 'true' || req.query.isPremium === true) {
+      filter.isPremium = true;
+    }
+    
     // Filter by search query (on title, category, festivalTag)
     if (req.query.q) {
       const searchQuery = req.query.q;
@@ -1226,6 +1232,11 @@ router.get('/templates/export-csv', verifyFirebaseToken, async (req, res) => {
       filter.category = req.query.category;
     }
     
+    // Filter by premium status
+    if (req.query.isPremium === 'true' || req.query.isPremium === true) {
+      filter.isPremium = true;
+    }
+    
     // Filter by search query (on title, category, festivalTag)
     if (req.query.q) {
       const searchQuery = req.query.q;
@@ -1234,11 +1245,6 @@ router.get('/templates/export-csv', verifyFirebaseToken, async (req, res) => {
         { category: { $regex: searchQuery, $options: 'i' } },
         { festivalTag: { $regex: searchQuery, $options: 'i' } }
       ];
-    }
-    
-    // Filter by premium status
-    if (req.query.isPremium === 'true') {
-      filter.isPremium = true;
     }
     
     logger.info('Fetching templates for CSV export', { filter });
@@ -4280,6 +4286,528 @@ router.patch('/contact/:id/toggle-status', verifyFirebaseToken, async (req, res)
     res.status(500).json({
       success: false,
       message: 'Server error toggling contact entry status',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/sponsored-ads
+ * @desc    Get all sponsored ads with pagination, sorting and filtering
+ * @access  Admin only
+ */
+router.get('/sponsored-ads', async (req, res) => {
+  try {
+    // Check if we're in development mode
+    const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_AUTH === 'true';
+    
+    // Skip auth verification in development mode
+    if (!isDevelopment) {
+      // Verify Firebase token
+      if (!req.headers.authorization || !req.headers.authorization.startsWith('Bearer ')) {
+        return res.status(401).json({
+          success: false,
+          message: 'No Firebase token provided',
+          error: 'AUTH_TOKEN_MISSING'
+        });
+      }
+      
+      // Check admin role
+      const { getAdminRole } = require('../config/adminConfig');
+      if (!req.user || !req.user.email || !getAdminRole(req.user.email)) {
+        return res.status(403).json({
+          success: false,
+          message: 'User is not authorized for admin access',
+          error: 'AUTH_ADMIN_REQUIRED'
+        });
+      }
+    } else {
+      // In development mode, set mock admin info
+      req.adminInfo = {
+        email: 'dev@example.com',
+        role: 'superAdmin'
+      };
+    }
+    
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    
+    // Sorting parameters
+    const sortField = req.query.sort || 'createdAt';
+    const sortOrder = req.query.order === 'asc' ? 1 : -1;
+    const sort = { [sortField]: sortOrder };
+    
+    // Filtering parameters
+    const filter = {};
+    
+    // Filter by status
+    if (req.query.status === 'true' || req.query.status === true) {
+      filter.status = true;
+    } else if (req.query.status === 'false' || req.query.status === false) {
+      filter.status = false;
+    }
+    
+    // Filter by location
+    if (req.query.location) {
+      filter.location = req.query.location;
+    }
+    
+    // Filter by search query (title, description)
+    if (req.query.q) {
+      const searchQuery = req.query.q;
+      filter.$or = [
+        { title: { $regex: searchQuery, $options: 'i' } },
+        { description: { $regex: searchQuery, $options: 'i' } }
+      ];
+    }
+    
+    // Execute query with pagination and filters
+    const sponsoredAds = await SponsoredAd.find(filter)
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
+      .populate('uid', 'email displayName');
+    
+    // Get total count for pagination
+    const totalAds = await SponsoredAd.countDocuments(filter);
+    const totalPages = Math.ceil(totalAds / limit);
+    
+    if (req.adminInfo) {
+      logger.info(`Admin sponsored ads list retrieved by ${req.adminInfo.email}`, {
+        page,
+        limit,
+        totalAds,
+        filters: JSON.stringify(filter)
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      sponsoredAds,
+      pagination: {
+        total: totalAds,
+        page,
+        limit,
+        totalPages
+      }
+    });
+  } catch (error) {
+    logger.error(`Error retrieving sponsored ads: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error retrieving sponsored ads',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/sponsored-ads/:id
+ * @desc    Get a single sponsored ad by ID
+ * @access  Admin only
+ */
+router.get('/sponsored-ads/:id', async (req, res) => {
+  try {
+    // Check if we're in development mode
+    const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_AUTH === 'true';
+    
+    // Skip auth verification in development mode
+    if (!isDevelopment) {
+      // Verify Firebase token
+      if (!req.headers.authorization || !req.headers.authorization.startsWith('Bearer ')) {
+        return res.status(401).json({
+          success: false,
+          message: 'No Firebase token provided',
+          error: 'AUTH_TOKEN_MISSING'
+        });
+      }
+      
+      // Check admin role
+      const { getAdminRole } = require('../config/adminConfig');
+      if (!req.user || !req.user.email || !getAdminRole(req.user.email)) {
+        return res.status(403).json({
+          success: false,
+          message: 'User is not authorized for admin access',
+          error: 'AUTH_ADMIN_REQUIRED'
+        });
+      }
+    } else {
+      // In development mode, set mock admin info
+      req.adminInfo = {
+        email: 'dev@example.com',
+        role: 'superAdmin'
+      };
+    }
+    
+    const { id } = req.params;
+    
+    // Log the ID for debugging
+    console.log(`Received GET request for sponsored ad ID: ${id}`);
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid sponsored ad ID'
+      });
+    }
+    
+    const sponsoredAd = await SponsoredAd.findById(id)
+      .populate('uid', 'email displayName');
+    
+    if (!sponsoredAd) {
+      return res.status(404).json({
+        success: false,
+        message: 'Sponsored ad not found'
+      });
+    }
+    
+    if (req.adminInfo) {
+      logger.info(`Admin sponsored ad detail retrieved by ${req.adminInfo.email}`, {
+        id,
+        title: sponsoredAd.title
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      sponsoredAd
+    });
+  } catch (error) {
+    logger.error(`Error retrieving sponsored ad: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error retrieving sponsored ad',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/sponsored-ads
+ * @desc    Create a new sponsored ad
+ * @access  Admin only
+ */
+router.post('/sponsored-ads', async (req, res) => {
+  try {
+    // Check if we're in development mode
+    const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_AUTH === 'true';
+    
+    // Skip auth verification in development mode
+    if (!isDevelopment) {
+      // Verify Firebase token
+      if (!req.headers.authorization || !req.headers.authorization.startsWith('Bearer ')) {
+        return res.status(401).json({
+          success: false,
+          message: 'No Firebase token provided',
+          error: 'AUTH_TOKEN_MISSING'
+        });
+      }
+      
+      // Check admin role
+      const { getAdminRole } = require('../config/adminConfig');
+      if (!req.user || !req.user.email || !getAdminRole(req.user.email)) {
+        return res.status(403).json({
+          success: false,
+          message: 'User is not authorized for admin access',
+          error: 'AUTH_ADMIN_REQUIRED'
+        });
+      }
+    } else {
+      // In development mode, set mock admin info
+      req.adminInfo = {
+        email: 'dev@example.com',
+        role: 'superAdmin'
+      };
+    }
+    
+    const newSponsoredAd = new SponsoredAd(req.body);
+    
+    await newSponsoredAd.save();
+    
+    if (req.adminInfo) {
+      logger.info(`Admin created new sponsored ad: ${newSponsoredAd.title}`, {
+        admin: req.adminInfo.email,
+        id: newSponsoredAd._id
+      });
+    }
+    
+    res.status(201).json({
+      success: true,
+      message: 'Sponsored ad created successfully',
+      sponsoredAd: newSponsoredAd
+    });
+  } catch (error) {
+    logger.error(`Error creating sponsored ad: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error creating sponsored ad',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/sponsored-ads/:id
+ * @desc    Update a sponsored ad
+ * @access  Admin only
+ */
+router.put('/sponsored-ads/:id', async (req, res) => {
+  try {
+    // Check if we're in development mode
+    const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_AUTH === 'true';
+    
+    // Skip auth verification in development mode
+    if (!isDevelopment) {
+      // Verify Firebase token
+      if (!req.headers.authorization || !req.headers.authorization.startsWith('Bearer ')) {
+        return res.status(401).json({
+          success: false,
+          message: 'No Firebase token provided',
+          error: 'AUTH_TOKEN_MISSING'
+        });
+      }
+      
+      // Check admin role
+      const { getAdminRole } = require('../config/adminConfig');
+      if (!req.user || !req.user.email || !getAdminRole(req.user.email)) {
+        return res.status(403).json({
+          success: false,
+          message: 'User is not authorized for admin access',
+          error: 'AUTH_ADMIN_REQUIRED'
+        });
+      }
+    } else {
+      // In development mode, set mock admin info
+      req.adminInfo = {
+        email: 'dev@example.com',
+        role: 'superAdmin'
+      };
+    }
+    
+    const { id } = req.params;
+    
+    // Log the ID for debugging
+    console.log(`Received PUT request for sponsored ad ID: ${id}`);
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid sponsored ad ID'
+      });
+    }
+    
+    const updatedSponsoredAd = await SponsoredAd.findByIdAndUpdate(
+      id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    
+    if (!updatedSponsoredAd) {
+      return res.status(404).json({
+        success: false,
+        message: 'Sponsored ad not found'
+      });
+    }
+    
+    if (req.adminInfo) {
+      logger.info(`Admin updated sponsored ad: ${updatedSponsoredAd.title}`, {
+        admin: req.adminInfo.email,
+        id
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Sponsored ad updated successfully',
+      sponsoredAd: updatedSponsoredAd
+    });
+  } catch (error) {
+    logger.error(`Error updating sponsored ad: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating sponsored ad',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   DELETE /api/admin/sponsored-ads/:id
+ * @desc    Delete a sponsored ad
+ * @access  Admin only
+ */
+router.delete('/sponsored-ads/:id', async (req, res) => {
+  try {
+    // Check if we're in development mode
+    const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_AUTH === 'true';
+    
+    // Skip auth verification in development mode
+    if (!isDevelopment) {
+      // Verify Firebase token
+      if (!req.headers.authorization || !req.headers.authorization.startsWith('Bearer ')) {
+        return res.status(401).json({
+          success: false,
+          message: 'No Firebase token provided',
+          error: 'AUTH_TOKEN_MISSING'
+        });
+      }
+      
+      // Check admin role
+      const { getAdminRole } = require('../config/adminConfig');
+      if (!req.user || !req.user.email || !getAdminRole(req.user.email)) {
+        return res.status(403).json({
+          success: false,
+          message: 'User is not authorized for admin access',
+          error: 'AUTH_ADMIN_REQUIRED'
+        });
+      }
+    } else {
+      // In development mode, set mock admin info
+      req.adminInfo = {
+        email: 'dev@example.com',
+        role: 'superAdmin'
+      };
+    }
+    
+    const { id } = req.params;
+    
+    // Log the ID for debugging
+    console.log(`Received DELETE request for sponsored ad ID: ${id}`);
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid sponsored ad ID'
+      });
+    }
+    
+    const deletedSponsoredAd = await SponsoredAd.findByIdAndDelete(id);
+    
+    if (!deletedSponsoredAd) {
+      return res.status(404).json({
+        success: false,
+        message: 'Sponsored ad not found'
+      });
+    }
+    
+    if (req.adminInfo) {
+      logger.info(`Admin deleted sponsored ad: ${deletedSponsoredAd.title}`, {
+        admin: req.adminInfo.email,
+        id
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Sponsored ad deleted successfully'
+    });
+  } catch (error) {
+    logger.error(`Error deleting sponsored ad: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error deleting sponsored ad',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   PATCH /api/admin/sponsored-ads/:id/toggle-status
+ * @desc    Toggle the status of a sponsored ad
+ * @access  Admin only
+ */
+router.patch('/sponsored-ads/:id/toggle-status', async (req, res) => {
+  try {
+    // Check if we're in development mode
+    const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_AUTH === 'true';
+    
+    // Skip auth verification in development mode
+    if (!isDevelopment) {
+      // Verify Firebase token
+      if (!req.headers.authorization || !req.headers.authorization.startsWith('Bearer ')) {
+        return res.status(401).json({
+          success: false,
+          message: 'No Firebase token provided',
+          error: 'AUTH_TOKEN_MISSING'
+        });
+      }
+      
+      // Check admin role
+      const { getAdminRole } = require('../config/adminConfig');
+      if (!req.user || !req.user.email || !getAdminRole(req.user.email)) {
+        return res.status(403).json({
+          success: false,
+          message: 'User is not authorized for admin access',
+          error: 'AUTH_ADMIN_REQUIRED'
+        });
+      }
+    } else {
+      // In development mode, set mock admin info
+      req.adminInfo = {
+        email: 'dev@example.com',
+        role: 'superAdmin'
+      };
+    }
+    
+    const { id } = req.params;
+    
+    // Log the ID for debugging
+    console.log(`Received toggle request for ID: ${id}`);
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid sponsored ad ID'
+      });
+    }
+    
+    // First find the sponsored ad
+    const sponsoredAd = await SponsoredAd.findById(id);
+    
+    if (!sponsoredAd) {
+      return res.status(404).json({
+        success: false,
+        message: 'Sponsored ad not found'
+      });
+    }
+    
+    // Toggle the status
+    sponsoredAd.status = !sponsoredAd.status;
+    
+    // Use findByIdAndUpdate instead of save to avoid validation errors
+    const updatedAd = await SponsoredAd.findByIdAndUpdate(
+      id,
+      { status: sponsoredAd.status },
+      { new: true, runValidators: false }
+    );
+    
+    if (!updatedAd) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update sponsored ad status'
+      });
+    }
+    
+    if (req.adminInfo) {
+      logger.info(`Admin toggled sponsored ad status: ${sponsoredAd.title}`, {
+        admin: req.adminInfo.email,
+        id,
+        newStatus: updatedAd.status
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: `Sponsored ad ${updatedAd.status ? 'activated' : 'deactivated'} successfully`,
+      status: updatedAd.status
+    });
+  } catch (error) {
+    logger.error(`Error toggling sponsored ad status: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error toggling sponsored ad status',
       error: error.message
     });
   }

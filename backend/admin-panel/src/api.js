@@ -940,4 +940,110 @@ export const toggleContactStatus = async (id) => {
   }
 };
 
+// SponsoredAd management
+export const getSponsoredAds = async (page = 1, limit = 10, sort = 'createdAt', order = 'desc', filters = {}) => {
+  try {
+    const response = await api.get('/admin/sponsored-ads', {
+      params: {
+        page,
+        limit,
+        sort,
+        order,
+        ...filters
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching sponsored ads:', error);
+    throw error;
+  }
+};
+
+export const getSponsoredAdById = async (id) => {
+  try {
+    if (!id) {
+      console.error('Invalid sponsored ad ID provided');
+      return { success: false, message: 'Invalid sponsored ad ID' };
+    }
+    
+    console.log(`Fetching sponsored ad with ID: ${id}`);
+    
+    const response = await api.get(`/admin/sponsored-ads/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching sponsored ad ${id}:`, error);
+    throw error;
+  }
+};
+
+export const createSponsoredAd = async (sponsoredAdData) => {
+  try {
+    const response = await api.post('/admin/sponsored-ads', sponsoredAdData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating sponsored ad:', error);
+    throw error;
+  }
+};
+
+export const updateSponsoredAd = async (id, sponsoredAdData) => {
+  try {
+    if (!id) {
+      return {
+        success: false,
+        message: 'Invalid sponsored ad ID',
+        error: 'ID is undefined or empty'
+      };
+    }
+    
+    console.log(`Updating sponsored ad with ID: ${id}`);
+    
+    const response = await api.put(`/admin/sponsored-ads/${id}`, sponsoredAdData);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating sponsored ad ${id}:`, error);
+    throw error;
+  }
+};
+
+export const deleteSponsoredAd = async (id) => {
+  try {
+    if (!id) {
+      return {
+        success: false,
+        message: 'Invalid sponsored ad ID',
+        error: 'ID is undefined or empty'
+      };
+    }
+    
+    console.log(`Deleting sponsored ad with ID: ${id}`);
+    
+    const response = await api.delete(`/admin/sponsored-ads/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error deleting sponsored ad ${id}:`, error);
+    throw error;
+  }
+};
+
+export const toggleSponsoredAdStatus = async (id) => {
+  try {
+    if (!id) {
+      return {
+        success: false,
+        message: 'Invalid sponsored ad ID',
+        error: 'ID is undefined or empty'
+      };
+    }
+    
+    console.log(`Toggling sponsored ad status with ID: ${id}`);
+    
+    const response = await api.patch(`/admin/sponsored-ads/${id}/toggle-status`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error toggling sponsored ad status ${id}:`, error);
+    throw error;
+  }
+};
+
 export default api; 

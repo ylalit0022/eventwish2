@@ -80,6 +80,14 @@ const BlockInfoSchema = new Schema({
     }
 });
 
+// 🔔 FCM Token schema
+const FcmTokenSchema = new Schema({
+  token: { type: String, required: true },
+  platform: { type: String, enum: ['android', 'ios', 'web'], default: 'android' },
+  subscribedTopics: [{ type: String }],
+  updatedAt: { type: Date, default: Date.now }
+});
+
 // User schema
 const UserSchema = new Schema({
     uid: { 
@@ -137,6 +145,7 @@ const UserSchema = new Schema({
             default: true 
         }
     },
+    fcmTokens: [FcmTokenSchema], // Array of FCM tokens for push notifications
     topicSubscriptions: [{ 
         type: String 
     }], // e.g., ['diwali', 'holi']
@@ -286,6 +295,58 @@ UserSchema.methods.isCurrentlyBlocked = function() {
     }
     
     return true;
+};
+
+// Add method to add or update FCM token
+UserSchema.methods.addFcmToken = function(token, platform = 'android') {
+    // Check if token already exists
+    const tokenIndex = this.fcmTokens.findIndex(t => t.token === token);
+    
+    if (tokenIndex !== -1) {
+        // Update existing token
+        this.fcmTokens[tokenIndex].platform = platform;
+        this.fcmTokens[tokenIndex].updatedAt = Date.now();
+    } else {
+        // Add new token
+        this.fcmTokens.push({
+            token,
+            platform,
+            subscribedTopics: [],
+            updatedAt: Date.now()
+        });
+    }
+    
+    return this.save();
+};
+
+// Add method to remove FCM token
+UserSchema.methods.removeFcmToken = function(token) {
+    this.fcmTokens = this.fcmTokens.filter(t => t.token !== token);
+    return this.save();
+};
+
+// Add method to subscribe token to topic
+UserSchema.methods.subscribeTokenToTopic = function(token, topic) {
+    const tokenObj = this.fcmTokens.find(t => t.token === token);
+    
+    if (tokenObj && !tokenObj.subscribedTopics.includes(topic)) {
+        tokenObj.subscribedTopics.push(topic);
+        tokenObj.updatedAt = Date.now();
+    }
+    
+    return this.save();
+};
+
+// Add method to unsubscribe token from topic
+UserSchema.methods.unsubscribeTokenFromTopic = function(token, topic) {
+    const tokenObj = this.fcmTokens.find(t => t.token === token);
+    
+    if (tokenObj) {
+        tokenObj.subscribedTopics = tokenObj.subscribedTopics.filter(t => t !== topic);
+        tokenObj.updatedAt = Date.now();
+    }
+    
+    return this.save();
 };
 
 module.exports = mongoose.model('User', UserSchema); 

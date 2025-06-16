@@ -33,7 +33,8 @@ import {
   Search as SearchIcon,
   Block as BlockIcon,
   CheckCircle as UnblockIcon,
-  Visibility as ViewIcon
+  Visibility as ViewIcon,
+  Notifications as NotificationsIcon
 } from '@mui/icons-material';
 import { getUsers, blockUser, unblockUser } from '../api';
 
@@ -280,6 +281,7 @@ const Users = () => {
               <TableCell>Email</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Last Online</TableCell>
+              <TableCell>FCM Tokens</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -316,6 +318,23 @@ const Users = () => {
                 </TableCell>
                 <TableCell>
                   {new Date(user.lastOnline).toLocaleString()}
+                </TableCell>
+                <TableCell>
+                  {user.fcmTokens && user.fcmTokens.length > 0 ? (
+                    <Tooltip title={`${user.fcmTokens.length} FCM token(s) registered`}>
+                      <Chip
+                        icon={<NotificationsIcon />}
+                        label={user.fcmTokens.length}
+                        color="primary"
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Tooltip>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      No tokens
+                    </Typography>
+                  )}
                 </TableCell>
                 <TableCell align="right">
                   <Tooltip title="View Details">
@@ -359,7 +378,7 @@ const Users = () => {
             ))}
             {users.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={6} align="center">
                   <Typography variant="body1" sx={{ py: 2 }}>
                     No users found
                   </Typography>

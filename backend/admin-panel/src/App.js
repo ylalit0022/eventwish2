@@ -37,6 +37,9 @@ import AboutCreate from './pages/AboutCreate';
 import Contacts from './pages/Contacts';
 import ContactDetail from './pages/ContactDetail';
 import ContactCreate from './pages/ContactCreate';
+import SponsoredAds from './pages/SponsoredAds';
+import SponsoredAdDetail from './pages/SponsoredAdDetail';
+import SponsoredAdCreate from './pages/SponsoredAdCreate';
 
 // Create theme
 const theme = createTheme({
@@ -92,6 +95,9 @@ function App() {
                 <Route path="/contacts" element={<Contacts />} />
                 <Route path="/contacts/create" element={<ContactCreate />} />
                 <Route path="/contacts/:id" element={<ContactDetail />} />
+                <Route path="/sponsored-ads" element={<SponsoredAds />} />
+                <Route path="/sponsored-ads/create" element={<SponsoredAdCreate />} />
+                <Route path="/sponsored-ads/:id" element={<SponsoredAdDetail />} />
               </Route>
             </Route>
             

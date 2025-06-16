@@ -54,7 +54,12 @@ import {
   ThumbDown as ThumbDownIcon,
   Visibility as ViewIcon,
   Share as ShareIcon,
-  FilterList as FilterListIcon
+  FilterList as FilterListIcon,
+  Delete as DeleteIcon,
+  Add as AddIcon,
+  PhoneAndroid as PhoneAndroidIcon,
+  Computer as ComputerIcon,
+  Notifications as NotificationsIcon
 } from '@mui/icons-material';
 import { getUserById, blockUser, unblockUser, updateUser } from '../api';
 
@@ -94,6 +99,18 @@ const UserDetail = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [activeFilter, setActiveFilter] = useState('ALL');
+
+  // FCM token states
+  const [tokenPage, setTokenPage] = useState(0);
+  const [tokenRowsPerPage, setTokenRowsPerPage] = useState(5);
+  const [newToken, setNewToken] = useState('');
+  const [newTokenPlatform, setNewTokenPlatform] = useState('android');
+  const [addTokenDialogOpen, setAddTokenDialogOpen] = useState(false);
+  const [tokenActionLoading, setTokenActionLoading] = useState(false);
+  const [selectedToken, setSelectedToken] = useState(null);
+  const [tokenError, setTokenError] = useState(null);
+  const [topicDialogOpen, setTopicDialogOpen] = useState(false);
+  const [newTopic, setNewTopic] = useState('');
 
   // Fetch user data
   useEffect(() => {
@@ -350,6 +367,177 @@ const UserDetail = () => {
     }
   };
 
+  // Handle add token
+  const handleAddToken = async () => {
+    if (!newToken.trim()) {
+      setTokenError('Token cannot be empty');
+      return;
+    }
+
+    try {
+      setTokenActionLoading(true);
+      
+      // Check if token already exists
+      const tokenExists = user.fcmTokens?.some(t => t.token === newToken);
+      if (tokenExists) {
+        setTokenError('This token already exists');
+        setTokenActionLoading(false);
+        return;
+      }
+
+      // Create updated user data with the new token
+      const updatedUser = {
+        ...editedUser,
+        fcmTokens: [
+          ...(editedUser.fcmTokens || []),
+          {
+            token: newToken,
+            platform: newTokenPlatform,
+            subscribedTopics: [],
+            updatedAt: new Date().toISOString()
+          }
+        ]
+      };
+
+      // Update user
+      const response = await updateUser(uid, updatedUser);
+      
+      if (response.success) {
+        setUser(response.user);
+        setEditedUser(response.user);
+        setAddTokenDialogOpen(false);
+        setNewToken('');
+        setNewTokenPlatform('android');
+        setTokenError(null);
+      } else {
+        throw new Error(response.message || 'Failed to add token');
+      }
+    } catch (err) {
+      console.error('Error adding token:', err);
+      setTokenError('Failed to add token: ' + (err.message || 'Unknown error'));
+    } finally {
+      setTokenActionLoading(false);
+    }
+  };
+
+  // Handle remove token
+  const handleRemoveToken = async (tokenToRemove) => {
+    try {
+      setTokenActionLoading(true);
+      
+      // Create updated user data without the token
+      const updatedUser = {
+        ...editedUser,
+        fcmTokens: editedUser.fcmTokens.filter(t => t.token !== tokenToRemove)
+      };
+
+      // Update user
+      const response = await updateUser(uid, updatedUser);
+      
+      if (response.success) {
+        setUser(response.user);
+        setEditedUser(response.user);
+        setTokenError(null);
+      } else {
+        throw new Error(response.message || 'Failed to remove token');
+      }
+    } catch (err) {
+      console.error('Error removing token:', err);
+      setTokenError('Failed to remove token: ' + (err.message || 'Unknown error'));
+    } finally {
+      setTokenActionLoading(false);
+    }
+  };
+
+  // Handle add topic to token
+  const handleAddTopicToToken = async (token, topic) => {
+    if (!token || !topic.trim()) {
+      setTokenError('Token and topic are required');
+      return;
+    }
+
+    try {
+      setTokenActionLoading(true);
+      
+      // Create updated user data with the new topic
+      const updatedUser = {
+        ...editedUser,
+        fcmTokens: editedUser.fcmTokens.map(t => {
+          if (t.token === token) {
+            // Check if topic already exists
+            if (t.subscribedTopics?.includes(topic)) {
+              throw new Error('This topic is already subscribed');
+            }
+            
+            return {
+              ...t,
+              subscribedTopics: [...(t.subscribedTopics || []), topic],
+              updatedAt: new Date().toISOString()
+            };
+          }
+          return t;
+        })
+      };
+
+      // Update user
+      const response = await updateUser(uid, updatedUser);
+      
+      if (response.success) {
+        setUser(response.user);
+        setEditedUser(response.user);
+        setTopicDialogOpen(false);
+        setNewTopic('');
+        setSelectedToken(null);
+        setTokenError(null);
+      } else {
+        throw new Error(response.message || 'Failed to add topic');
+      }
+    } catch (err) {
+      console.error('Error adding topic:', err);
+      setTokenError('Failed to add topic: ' + (err.message || 'Unknown error'));
+    } finally {
+      setTokenActionLoading(false);
+    }
+  };
+
+  // Handle remove topic from token
+  const handleRemoveTopicFromToken = async (token, topicToRemove) => {
+    try {
+      setTokenActionLoading(true);
+      
+      // Create updated user data without the topic
+      const updatedUser = {
+        ...editedUser,
+        fcmTokens: editedUser.fcmTokens.map(t => {
+          if (t.token === token) {
+            return {
+              ...t,
+              subscribedTopics: (t.subscribedTopics || []).filter(topic => topic !== topicToRemove),
+              updatedAt: new Date().toISOString()
+            };
+          }
+          return t;
+        })
+      };
+
+      // Update user
+      const response = await updateUser(uid, updatedUser);
+      
+      if (response.success) {
+        setUser(response.user);
+        setEditedUser(response.user);
+        setTokenError(null);
+      } else {
+        throw new Error(response.message || 'Failed to remove topic');
+      }
+    } catch (err) {
+      console.error('Error removing topic:', err);
+      setTokenError('Failed to remove topic: ' + (err.message || 'Unknown error'));
+    } finally {
+      setTokenActionLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -481,6 +669,7 @@ const UserDetail = () => {
           <Tab label="Templates" />
           <Tab label="Categories" />
           <Tab label="Activity" />
+          <Tab label="Push Notifications" icon={<NotificationsIcon />} iconPosition="start" />
         </Tabs>
       </Paper>
 
@@ -1114,6 +1303,246 @@ const UserDetail = () => {
           </CardContent>
         </Card>
       </TabPanel>
+
+      {/* FCM Tokens Tab */}
+      <TabPanel value={tabValue} index={6}>
+        <Card>
+          <CardContent>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">FCM Tokens</Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={() => setAddTokenDialogOpen(true)}
+                disabled={!editMode}
+              >
+                Add Token
+              </Button>
+            </Box>
+
+            {tokenError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {tokenError}
+                <IconButton
+                  size="small"
+                  aria-label="close"
+                  color="inherit"
+                  onClick={() => setTokenError(null)}
+                >
+                  <CancelIcon fontSize="small" />
+                </IconButton>
+              </Alert>
+            )}
+
+            {user?.fcmTokens && user.fcmTokens.length > 0 ? (
+              <>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Platform</TableCell>
+                        <TableCell>Token</TableCell>
+                        <TableCell>Topics</TableCell>
+                        <TableCell>Last Updated</TableCell>
+                        <TableCell align="right">Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {(user.fcmTokens || [])
+                        .slice(tokenPage * tokenRowsPerPage, tokenPage * tokenRowsPerPage + tokenRowsPerPage)
+                        .map((token, index) => (
+                          <TableRow key={index} hover>
+                            <TableCell>
+                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                {token.platform === 'android' ? (
+                                  <PhoneAndroidIcon color="primary" sx={{ mr: 1 }} />
+                                ) : token.platform === 'ios' ? (
+                                  <PhoneAndroidIcon color="secondary" sx={{ mr: 1 }} />
+                                ) : (
+                                  <ComputerIcon color="action" sx={{ mr: 1 }} />
+                                )}
+                                {token.platform}
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Tooltip title={token.token}>
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    maxWidth: 150,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  {token.token}
+                                </Typography>
+                              </Tooltip>
+                            </TableCell>
+                            <TableCell>
+                              {token.subscribedTopics && token.subscribedTopics.length > 0 ? (
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                  {token.subscribedTopics.map((topic, i) => (
+                                    <Chip
+                                      key={i}
+                                      label={topic}
+                                      size="small"
+                                      variant="outlined"
+                                      onDelete={editMode ? () => handleRemoveTopicFromToken(token.token, topic) : undefined}
+                                    />
+                                  ))}
+                                  {editMode && (
+                                    <Chip
+                                      icon={<AddIcon />}
+                                      label="Add"
+                                      size="small"
+                                      color="primary"
+                                      variant="outlined"
+                                      onClick={() => {
+                                        setSelectedToken(token);
+                                        setTopicDialogOpen(true);
+                                      }}
+                                    />
+                                  )}
+                                </Box>
+                              ) : (
+                                <Typography variant="body2" color="textSecondary">
+                                  No topics
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {new Date(token.updatedAt).toLocaleString()}
+                            </TableCell>
+                            <TableCell align="right">
+                              {editMode && (
+                                <Tooltip title="Remove Token">
+                                  <IconButton
+                                    color="error"
+                                    onClick={() => handleRemoveToken(token.token)}
+                                    disabled={tokenActionLoading}
+                                  >
+                                    <DeleteIcon />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+                <TablePagination
+                  rowsPerPageOptions={[5, 10, 25]}
+                  component="div"
+                  count={user.fcmTokens.length}
+                  rowsPerPage={tokenRowsPerPage}
+                  page={tokenPage}
+                  onPageChange={(e, newPage) => setTokenPage(newPage)}
+                  onRowsPerPageChange={(e) => {
+                    setTokenRowsPerPage(parseInt(e.target.value, 10));
+                    setTokenPage(0);
+                  }}
+                />
+              </>
+            ) : (
+              <Box sx={{ py: 4, textAlign: 'center' }}>
+                <Typography color="textSecondary">No FCM tokens registered</Typography>
+                {editMode && (
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<AddIcon />}
+                    onClick={() => setAddTokenDialogOpen(true)}
+                    sx={{ mt: 2 }}
+                  >
+                    Add Token
+                  </Button>
+                )}
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+      </TabPanel>
+
+      {/* Add Token Dialog */}
+      <Dialog open={addTokenDialogOpen} onClose={() => setAddTokenDialogOpen(false)}>
+        <DialogTitle>Add FCM Token</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Enter the FCM token and select the platform.
+          </DialogContentText>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="FCM Token"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={newToken}
+            onChange={(e) => setNewToken(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+          <FormControl fullWidth>
+            <InputLabel id="platform-select-label">Platform</InputLabel>
+            <Select
+              labelId="platform-select-label"
+              value={newTokenPlatform}
+              label="Platform"
+              onChange={(e) => setNewTokenPlatform(e.target.value)}
+            >
+              <MenuItem value="android">Android</MenuItem>
+              <MenuItem value="ios">iOS</MenuItem>
+              <MenuItem value="web">Web</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddTokenDialogOpen(false)} disabled={tokenActionLoading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleAddToken}
+            color="primary"
+            disabled={tokenActionLoading || !newToken.trim()}
+          >
+            {tokenActionLoading ? <CircularProgress size={24} /> : 'Add'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Topic Dialog */}
+      <Dialog open={topicDialogOpen} onClose={() => setTopicDialogOpen(false)}>
+        <DialogTitle>Add Topic</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Enter the topic name to subscribe this token to.
+          </DialogContentText>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Topic Name"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={newTopic}
+            onChange={(e) => setNewTopic(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTopicDialogOpen(false)} disabled={tokenActionLoading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => handleAddTopicToToken(selectedToken?.token, newTopic)}
+            color="primary"
+            disabled={tokenActionLoading || !newTopic.trim()}
+          >
+            {tokenActionLoading ? <CircularProgress size={24} /> : 'Add'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Block User Dialog */}
       <Dialog open={blockDialogOpen} onClose={() => setBlockDialogOpen(false)}>

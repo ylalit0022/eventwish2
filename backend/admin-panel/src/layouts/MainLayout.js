@@ -31,7 +31,8 @@ import {
   Share as SharedWishIcon,
   Celebration as FestivalIcon,
   Info as InfoIcon,
-  Contacts as ContactsIcon
+  Contacts as ContactsIcon,
+  BrandingWatermark as SponsoredAdIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -75,6 +76,7 @@ const MainLayout = () => {
     { text: 'Templates', icon: <TemplateIcon />, path: '/templates' },
     { text: 'Shared Wishes', icon: <SharedWishIcon />, path: '/shared-wishes' },
     { text: 'AdMob', icon: <AdMobIcon />, path: '/admob' },
+    { text: 'Sponsored Ads', icon: <SponsoredAdIcon />, path: '/sponsored-ads' },
     { text: 'Category Icons', icon: <CategoryIcon />, path: '/category-icons' },
     { text: 'Upcoming Festivals', icon: <FestivalIcon />, path: '/upcoming-festivals' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },

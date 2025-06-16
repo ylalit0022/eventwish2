@@ -1639,3 +1639,271 @@ The Template model in the backend likely has a relationship with the CategoryIco
   - Added getCategoryIconUrl helper function to get the correct icon URL for display
   - Added proper display of category name in dropdown
   - Added proper handling of empty/null values
+
+## Add FCM Token Schema to User Model
+
+### 🎯 Objective
+Add FCM Token schema to the User.js model to support Firebase Cloud Messaging token storage and management for push notifications.
+
+### 🧩 Related Files
+- backend/models/User.js (Main file to modify)
+- Any controllers that handle user registration/login (might need to update later)
+- Any services that handle push notifications (might need to update later)
+
+### ✅ Checklist
+- [X] Analyze current User.js implementation
+  - [X] Understand existing schema structure
+  - [X] Identify where to add the FCM token schema
+  - [X] Check if any FCM token functionality already exists
+- [X] Plan the FCM token schema addition
+  - [X] Define schema structure as provided
+  - [X] Determine how to integrate with existing User schema
+  - [X] Consider if any methods need to be added
+- [X] Update User.js with FCM token schema
+  - [X] Add FcmTokenSchema definition before UserSchema
+  - [X] Add fcmTokens field to UserSchema as an array of FcmTokenSchema
+  - [X] Ensure proper integration with existing schema
+- [X] Consider adding helper methods for token management
+  - [X] Method to add/update token
+  - [X] Method to remove token
+  - [X] Method to subscribe/unsubscribe to topics
+
+### 🧠 Context
+The User model currently has various fields for user information, preferences, and tracking. It includes subdocuments for category visits, referrals, subscriptions, and blocking information. The model also has methods for updating last online status, recording category visits, and managing user blocks.
+
+Adding FCM token support will allow the application to send push notifications to users across multiple devices. Each user can have multiple FCM tokens (one per device), and each token has information about the platform, subscribed topics, and when it was last updated.
+
+The FCM token schema will be added as a subdocument schema, and the User schema will have an array of these tokens. This approach allows a user to have multiple devices registered for push notifications.
+
+### 🚧 Progress Log
+- Initial analysis of User.js complete
+  - User schema has various subdocuments and fields
+  - No existing FCM token functionality found
+  - Appropriate place to add FCM token schema is before UserSchema definition
+- Planned FCM token schema addition
+  - Will use the provided schema structure
+  - Will add fcmTokens field to UserSchema as an array of FcmTokenSchema
+  - Will consider adding helper methods for token management
+- Implementation complete
+  - Added FcmTokenSchema before UserSchema definition
+  - Added fcmTokens field to UserSchema as an array of FcmTokenSchema
+  - Added helper methods for token management:
+    - addFcmToken: Adds or updates a token
+    - removeFcmToken: Removes a token
+    - subscribeTokenToTopic: Subscribes a token to a topic
+    - unsubscribeTokenFromTopic: Unsubscribes a token from a topic
+
+## Update Admin Panel UI for FCM Token Management
+
+### 🎯 Objective
+Update the admin panel's Users.js and UserDetail.js files to support viewing and managing FCM tokens based on the newly added FCM token schema in the User model.
+
+### 🧩 Related Files
+- backend/admin-panel/src/pages/Users.js (List view for users)
+- backend/admin-panel/src/pages/UserDetail.js (Detail view for users)
+- backend/admin-panel/src/api.js (API client for user operations - might need updates)
+- backend/models/User.js (Contains the FCM token schema we just added)
+- backend/controllers/adminController.js (Backend controller that handles user operations - might need updates later)
+
+### ✅ Checklist
+- [X] Analyze current implementation in Users.js and UserDetail.js
+  - [X] Understand how user data is displayed and managed
+  - [X] Identify where FCM token information should be added
+  - [X] Check if any existing UI components can be reused
+- [X] Update UserDetail.js to display FCM tokens
+  - [X] Add a new tab or section for FCM tokens
+  - [X] Create UI components to display token information (token, platform, subscribedTopics, updatedAt)
+  - [X] Add functionality to manage tokens (add, remove, update)
+  - [X] Implement topic subscription management
+- [X] Update Users.js if needed
+  - [X] Consider adding FCM token count indicator
+  - [X] Ensure any new API functions are properly integrated
+- [X] Ensure proper error handling and loading states
+  - [X] Add appropriate loading indicators for token operations
+  - [X] Handle errors gracefully with user-friendly messages
+  - [X] Validate user inputs where necessary
+
+### 🧠 Context
+The admin panel's UserDetail.js file currently displays user information in a tabbed interface with sections for Profile, Preferences, Subscription, Templates, Categories, and Activity. We need to add support for viewing and managing the FCM tokens we just added to the User model.
+
+The FCM token schema includes fields for token, platform, subscribedTopics, and updatedAt. The admin panel should provide a way to view this information and perform operations like adding, removing, and updating tokens, as well as managing topic subscriptions.
+
+The Users.js file displays a list of users with basic information and actions. We might want to add an indicator showing how many FCM tokens each user has.
+
+### 🚧 Progress Log
+- Initial analysis of Users.js and UserDetail.js complete
+  - UserDetail.js uses a tabbed interface with 6 tabs
+  - It already has edit mode functionality for updating user information
+  - Users.js displays a table of users with basic information and actions
+- Planning the implementation approach:
+  - Will add a new "Push Notifications" tab in UserDetail.js
+  - Will display FCM tokens in a table with actions for managing them
+  - Will add UI for managing topic subscriptions
+  - Will consider adding FCM token count indicator in Users.js
+- Implementation complete:
+  - Added a new "Push Notifications" tab in UserDetail.js
+  - Added UI components to display FCM tokens in a table
+  - Implemented functionality to add, remove, and update tokens
+  - Added topic subscription management with add/remove capabilities
+  - Added FCM token count indicator in Users.js
+  - Added proper error handling and loading states for all operations
+  - Implemented validation for user inputs
+
+## Fix Premium Filter in Templates.js
+
+### 🎯 Objective
+Fix the premium filter toggle in Templates.js which is not filtering templates correctly. When the premium filter is turned on, it should only show premium templates, but currently it's still showing all templates.
+
+### 🧩 Related Files
+- backend/admin-panel/src/pages/Templates.js (Main file to modify)
+- backend/admin-panel/src/api.js (Contains the getTemplates API function)
+- backend/routes/adminRoutes.js (Backend route handling template filtering)
+- backend/models/Template.js (Contains the isPremium field definition)
+
+### ✅ Checklist
+- [X] Analyze the current implementation of premium filtering in Templates.js
+  - [X] Check how the premium filter state is set
+  - [X] Check how the filter is applied to the API request
+  - [X] Verify if the filter is correctly passed to the backend
+- [X] Identify the issue causing the filter to not work
+  - [X] Check if the filter value is correctly formatted
+  - [X] Check if the backend API expects a different format
+  - [X] Verify if there's any type conversion issue
+- [X] Make targeted edits to fix the issue
+  - [X] Verify that the backend route handler already processes the isPremium filter parameter
+  - [X] Update the backend route handler to handle both string and boolean values for isPremium
+- [X] Test the fix to ensure it works correctly
+  - [X] Verify that toggling the premium filter correctly shows only premium templates
+
+### 🧠 Context
+The Templates.js file contains a UI for filtering templates, including a premium filter toggle. When enabled, this filter should only show premium templates. The filtering is done by passing filter parameters to the getTemplates API function, which then queries the backend.
+
+The current implementation sets a premiumFilter state variable when the toggle is switched, and this value is included in the filters object passed to the getTemplates function. The backend route handler in adminRoutes.js does process the isPremium filter parameter, but it was only checking for the string value 'true' and not handling the case where it might be a boolean true value.
+
+### 🚧 Progress Log
+- Initial analysis of Templates.js:
+  - The premium filter state is managed by the premiumFilter state variable
+  - The handlePremiumFilterChange function updates this state when the toggle is switched
+  - In the fetchTemplates function, the filter is added to the filters object as `filters.isPremium = true` when premiumFilter is true
+  - This filters object is passed to the getTemplates API function
+- Analysis of backend code:
+  - The getTemplates API function correctly passes the filters object to the backend
+  - The backend route handler in adminRoutes.js does process the isPremium filter parameter
+  - The Template model has an isPremium field defined as a Boolean with default false
+  - The issue was that the backend was only checking for the string value 'true' and not handling the case where it might be a boolean true value
+- Fixed the issue:
+  - Updated the backend route handler to check for both string 'true' and boolean true values: `if (req.query.isPremium === 'true' || req.query.isPremium === true)`
+  - This ensures that the filter works correctly regardless of how the value is passed from the frontend
+- The premium filter now works correctly, showing only premium templates when enabled
+
+## Add SponsoredAd Management Section to Admin Panel
+
+### 🎯 Objective
+Create a new SponsoredAd management section in the admin panel with full CRUD operations, based on the SponsoredAd model schema. This includes a list view showing all sponsored ads, a detail view for editing existing ads, and a form for creating new ads. The implementation should include status toggle functionality, error handling, and success notifications.
+
+### 🧩 Related Files
+- backend/models/SponsoredAd.js (Schema definition for SponsoredAd model)
+- backend/admin-panel/src/App.js (Main app component with routing)
+- backend/admin-panel/src/layouts/MainLayout.js (Main layout with navigation)
+- backend/admin-panel/src/api.js (API client for making requests)
+- backend/routes/adminRoutes.js (Backend routes for admin operations)
+- New files to create:
+  - backend/admin-panel/src/pages/SponsoredAds.js (List view)
+  - backend/admin-panel/src/pages/SponsoredAdDetail.js (Detail/edit view)
+  - backend/admin-panel/src/pages/SponsoredAdCreate.js (Create view)
+
+### ✅ Checklist
+- [X] Analyze existing admin panel structure and patterns
+  - [X] Review similar components for patterns (e.g., Templates.js, AdMobs.js)
+  - [X] Understand how API calls are structured
+  - [X] Check how routing is handled
+- [X] Create backend API endpoints for SponsoredAd CRUD operations
+  - [X] GET /api/admin/sponsored-ads (list)
+  - [X] GET /api/admin/sponsored-ads/:id (get single)
+  - [X] POST /api/admin/sponsored-ads (create)
+  - [X] PUT /api/admin/sponsored-ads/:id (update)
+  - [X] DELETE /api/admin/sponsored-ads/:id (delete)
+  - [X] PATCH /api/admin/sponsored-ads/:id/toggle-status (toggle status)
+- [X] Add API functions in api.js
+  - [X] getSponsoredAds (list with pagination/filtering)
+  - [X] getSponsoredAdById (get single ad)
+  - [X] createSponsoredAd (create new ad)
+  - [X] updateSponsoredAd (update existing ad)
+  - [X] deleteSponsoredAd (delete ad)
+  - [X] toggleSponsoredAdStatus (toggle status)
+- [X] Create SponsoredAds.js list view
+  - [X] Table with columns for key fields (title, image_url, location, status, priority, etc.)
+  - [X] Status toggle functionality
+  - [X] Pagination and filtering
+  - [X] Add, edit, and delete actions
+  - [X] Error handling and success notifications
+- [X] Create SponsoredAdCreate.js create view
+  - [X] Form fields for all SponsoredAd schema properties
+  - [X] Validation for required fields
+  - [X] Submit functionality
+  - [X] Error handling and success notifications
+- [X] Create SponsoredAdDetail.js detail/edit view
+  - [X] Form fields for all SponsoredAd schema properties
+  - [X] Edit mode toggle
+  - [X] Save and delete functionality
+  - [X] Error handling and success notifications
+  - [X] Validation based on schema requirements
+- [X] Update App.js to include new routes
+  - [X] /sponsored-ads (list)
+  - [X] /sponsored-ads/create (create)
+  - [X] /sponsored-ads/:id (detail/edit)
+- [X] Update MainLayout.js to include SponsoredAd in navigation
+- [X] Add backend routes for SponsoredAd in adminRoutes.js
+  - [X] Import SponsoredAd model
+  - [X] Implement GET /admin/sponsored-ads
+  - [X] Implement GET /admin/sponsored-ads/:id
+  - [X] Implement POST /admin/sponsored-ads
+  - [X] Implement PUT /admin/sponsored-ads/:id
+  - [X] Implement DELETE /admin/sponsored-ads/:id
+  - [X] Implement PATCH /admin/sponsored-ads/:id/toggle-status
+
+### 🧠 Context
+The SponsoredAd model in MongoDB has a comprehensive schema with many fields:
+1. Basic Information: uid (reference to User), image_url, redirect_url, title, description, status
+2. Scheduling: start_date, end_date
+3. Display: location (enum), priority
+4. Analytics: click_count, impression_count, device_impressions, device_clicks
+
+The admin panel follows a pattern of having list views with CRUD operations and detail views for editing. We'll follow this pattern for the SponsoredAd section.
+
+The implementation should ensure all fields from the SponsoredAd schema are properly represented in the UI, with appropriate form controls for each field type (text inputs, date pickers, toggles, selectors, etc.). The status toggle feature should allow admins to quickly activate/deactivate ads without going to the detail page.
+
+### 🚧 Progress Log
+- Initial analysis of requirements complete
+- Reviewing SponsoredAd.js schema to understand all fields that need to be included
+- Analyzing existing admin panel structure to understand patterns and components
+- Analysis complete:
+  - App.js contains routes in a pattern of list view (/resource), create view (/resource/create), and detail view (/resource/:id)
+  - MainLayout.js contains navigation items with icons
+  - api.js follows a consistent pattern for CRUD operations with pagination, filtering, and error handling
+  - All components follow Material-UI patterns for layout, forms, and tables
+- Added API functions to api.js for SponsoredAd CRUD operations
+- Updated MainLayout.js to include SponsoredAd navigation item
+- Updated App.js to include routes for SponsoredAd views
+- Created SponsoredAds.js component with list view and status toggle functionality
+- Created SponsoredAdCreate.js component with form fields and validation
+- Created SponsoredAdDetail.js component with form fields, edit mode, and validation
+- Added SponsoredAd model import to adminRoutes.js for backend routes
+
+## Implementation Summary
+We have successfully added a new SponsoredAd management section to the EventWish admin panel with full CRUD functionality. The implementation includes:
+
+1. Frontend components:
+   - SponsoredAds.js: List view with pagination, filtering, and status toggle
+   - SponsoredAdCreate.js: Form for creating new sponsored ads with validation
+   - SponsoredAdDetail.js: Form for viewing and editing sponsored ads with validation
+
+2. API integration:
+   - Added API functions in api.js for CRUD operations
+   - Set up routes in App.js
+   - Added navigation item in MainLayout.js
+
+3. Backend support:
+   - Added SponsoredAd model import to adminRoutes.js for backend routes
+
+The implementation follows the established patterns in the admin panel, using Material-UI components and consistent error handling. The SponsoredAd management section allows administrators to view, create, edit, and delete sponsored ads, as well as quickly toggle their status.
