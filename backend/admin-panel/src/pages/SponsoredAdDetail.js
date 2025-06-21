@@ -172,6 +172,49 @@ const SponsoredAdDetail = () => {
     });
   };
 
+  // Format date for input
+  const formatDateForInput = (dateString) => {
+    if (!dateString) return '';
+    
+    try {
+      const date = new Date(dateString);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.error('Invalid date:', dateString);
+        return '';
+      }
+      
+      // Format as YYYY-MM-DD
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      
+      return `${year}-${month}-${day}`;
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return '';
+    }
+  };
+
+  // Ensure date is properly formatted with time at end of day for end dates
+  const formatDateForApi = (dateString, isEndDate = false) => {
+    if (!dateString) return '';
+    
+    // Parse the date string to create a date object
+    const date = new Date(dateString);
+    
+    // For end dates, set the time to 23:59:59 to ensure it's at the end of the day
+    if (isEndDate) {
+      date.setHours(23, 59, 59, 999);
+    } else {
+      // For start dates, set time to beginning of day to avoid timezone issues
+      date.setHours(0, 0, 0, 0);
+    }
+    
+    return date.toISOString();
+  };
+
   // Validate form
   const validateForm = () => {
     const newErrors = {};
@@ -194,10 +237,13 @@ const SponsoredAdDetail = () => {
     
     // Date validation
     if (editedAd.start_date && editedAd.end_date) {
+      // Create date objects
       const startDate = new Date(editedAd.start_date);
       const endDate = new Date(editedAd.end_date);
-      if (endDate <= startDate) {
-        newErrors.end_date = 'End date must be after start date';
+      
+      // Compare dates ensuring end is at least one day after start
+      if (endDate <= startDate || endDate.toDateString() === startDate.toDateString()) {
+        newErrors.end_date = 'End date must be at least one day after start date';
       }
     }
     
@@ -223,13 +269,26 @@ const SponsoredAdDetail = () => {
       setSaving(true);
       setError(null);
       
-      // Prepare dates
-      const updatedAd = {
-        ...editedAd,
-        // Ensure dates are properly formatted
-        start_date: new Date(editedAd.start_date).toISOString(),
-        end_date: new Date(editedAd.end_date).toISOString()
-      };
+      // Create a deep copy of the edited ad
+      const updatedAd = JSON.parse(JSON.stringify(editedAd));
+      
+      // Fix dates to ensure end date is after start date
+      if (updatedAd.start_date && updatedAd.end_date) {
+        // Parse dates
+        const startDate = new Date(updatedAd.start_date);
+        
+        // Always set end date to at least one day after start date
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 2); // Add 2 days to be safe
+        
+        // Update the end date in the payload
+        updatedAd.end_date = endDate.toISOString();
+        
+        console.log('Fixed dates:', {
+          start_date: updatedAd.start_date,
+          end_date: updatedAd.end_date
+        });
+      }
       
       const response = await updateSponsoredAd(id, updatedAd);
       
@@ -248,8 +307,19 @@ const SponsoredAdDetail = () => {
       }
     } catch (err) {
       console.error(`Error updating sponsored ad ${id}:`, err);
-      setError('Failed to update sponsored ad: ' + (err.message || 'Unknown error'));
-      window.scrollTo(0, 0); // Scroll to top to show error
+      
+      // Display validation error if it's about dates
+      if (err.message && err.message.includes('End date must be after start date')) {
+        setErrors({
+          ...errors,
+          end_date: 'End date must be at least one day after start date'
+        });
+        setTabValue(2); // Switch to Settings tab
+      } else {
+        // General error
+        setError('Failed to update sponsored ad: ' + (err.message || 'Unknown error'));
+        window.scrollTo(0, 0); // Scroll to top to show error
+      }
     } finally {
       setSaving(false);
     }
@@ -295,14 +365,6 @@ const SponsoredAdDetail = () => {
       month: 'long', 
       day: 'numeric'
     });
-  };
-
-  // Format date for input
-  const formatDateForInput = (dateString) => {
-    if (!dateString) return '';
-    
-    const date = new Date(dateString);
-    return date.toISOString().split('T')[0];
   };
 
   // Render loading state

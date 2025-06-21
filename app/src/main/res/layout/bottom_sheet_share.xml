@@ -4,7 +4,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="?attr/colorSurface">
 
     <TextView
         android:layout_width="match_parent"
@@ -13,6 +14,11 @@
         android:text="Share via"
         android:textAlignment="center"
         android:textAppearance="?attr/textAppearanceHeadline6" />
+
+    <com.google.android.material.divider.MaterialDivider
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -33,7 +39,7 @@
             android:focusable="true"
             android:background="?attr/selectableItemBackgroundBorderless">
 
-            <ImageView
+            <com.google.android.material.imageview.ShapeableImageView
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:src="@drawable/ic_whatsapp"
@@ -45,7 +51,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="WhatsApp"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:textColor="?attr/colorOnSurface" />
         </LinearLayout>
 
         <LinearLayout
@@ -60,7 +67,7 @@
             android:focusable="true"
             android:background="?attr/selectableItemBackgroundBorderless">
 
-            <ImageView
+            <com.google.android.material.imageview.ShapeableImageView
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:src="@drawable/ic_facebook"
@@ -72,7 +79,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="Facebook"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:textColor="?attr/colorOnSurface" />
         </LinearLayout>
 
         <LinearLayout
@@ -87,7 +95,7 @@
             android:focusable="true"
             android:background="?attr/selectableItemBackgroundBorderless">
 
-            <ImageView
+            <com.google.android.material.imageview.ShapeableImageView
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:src="@drawable/ic_twitter"
@@ -99,7 +107,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="Twitter"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:textColor="?attr/colorOnSurface" />
         </LinearLayout>
 
         <LinearLayout
@@ -114,7 +123,7 @@
             android:focusable="true"
             android:background="?attr/selectableItemBackgroundBorderless">
 
-            <ImageView
+            <com.google.android.material.imageview.ShapeableImageView
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:src="@drawable/ic_link"
@@ -126,7 +135,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="Copy Link"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:textColor="?attr/colorOnSurface" />
         </LinearLayout>
     </LinearLayout>
 
@@ -148,7 +158,7 @@
             android:focusable="true"
             android:background="?attr/selectableItemBackgroundBorderless">
 
-            <ImageView
+            <com.google.android.material.imageview.ShapeableImageView
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:src="@drawable/ic_instagram"
@@ -160,7 +170,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="Instagram"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:textColor="?attr/colorOnSurface" />
         </LinearLayout>
 
         <LinearLayout
@@ -175,7 +186,7 @@
             android:focusable="true"
             android:background="?attr/selectableItemBackgroundBorderless">
 
-            <ImageView
+            <com.google.android.material.imageview.ShapeableImageView
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:src="@drawable/ic_email"
@@ -187,7 +198,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="Email"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:textColor="?attr/colorOnSurface" />
         </LinearLayout>
 
         <LinearLayout
@@ -202,7 +214,7 @@
             android:focusable="true"
             android:background="?attr/selectableItemBackgroundBorderless">
 
-            <ImageView
+            <com.google.android.material.imageview.ShapeableImageView
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:src="@drawable/ic_sms"
@@ -214,7 +226,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="SMS"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:textColor="?attr/colorOnSurface" />
         </LinearLayout>
 
         <LinearLayout
@@ -229,7 +242,7 @@
             android:focusable="true"
             android:background="?attr/selectableItemBackgroundBorderless">
 
-            <ImageView
+            <com.google.android.material.imageview.ShapeableImageView
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:src="@drawable/ic_more"
@@ -241,7 +254,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="More"
-                android:textSize="12sp" />
+                android:textSize="12sp"
+                android:textColor="?attr/colorOnSurface" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

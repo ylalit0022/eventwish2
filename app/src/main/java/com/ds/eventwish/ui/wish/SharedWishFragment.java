@@ -432,8 +432,8 @@ public class SharedWishFragment extends Fragment {
         
         // Log initial state of buttons
         Log.d(TAG, "📱 Initial button states - Share: disabled, Analytics: " + 
-            (binding.analyticsButton.getVisibility() == View.VISIBLE ? "visible" : "hidden") + 
-            ", Watch Ad: " + (binding.watchAdButton.isEnabled() ? "enabled" : "disabled") + 
+            (binding.analyticsButton.getVisibility() == View.VISIBLE ? "visible" : "hidden") +      
+            ", Watch Ad: " + (binding.watchAdButton.isEnabled() ? "enabled" : "disabled") +
             ", Watch Ad visibility: " + (binding.watchAdButton.getVisibility() == View.VISIBLE ? "visible" : "hidden"));
     }
 
@@ -569,7 +569,7 @@ public class SharedWishFragment extends Fragment {
             binding.watchAdButtonText.setText(R.string.loading_ad);
             Log.d(TAG, "📱🔄 Setting watch ad button visible and showing loading text");
         }
-        
+
         rewardedAdManager.loadAd(new RewardedAdManager.RewardedAdCallback() {
             @Override
             public void onAdLoaded() {
@@ -641,13 +641,13 @@ public class SharedWishFragment extends Fragment {
                 if (binding != null) {
                     binding.watchAdButton.setEnabled(false);
                     binding.watchAdButtonText.setText(R.string.ad_watched);
-                    
+                
                     // Unlock share button (now a floating action button)
-                    binding.shareButton.setEnabled(true);
+                binding.shareButton.setEnabled(true);
                     // Change background color to primary color to indicate it's enabled
                     binding.shareButton.setBackgroundTintList(
                         ColorStateList.valueOf(getResources().getColor(R.color.share_button_enabled)));
-                    binding.shareLockIcon.setVisibility(View.GONE);
+                binding.shareLockIcon.setVisibility(View.GONE);
                     Log.d(TAG, "📱🎁 Share button unlocked after reward earned");
                     
                     // Start the cooldown countdown timer
@@ -720,15 +720,15 @@ public class SharedWishFragment extends Fragment {
             // Mark as watched and unlock sharing
             Log.d(TAG, "📱 User earned reward via listener: " + reward.getAmount() + " " + reward.getType());
             Log.d(TAG, "📱 Ad completed successfully, unlocking share button");
-            rewardedAdWatched = true;
-            
-            // Update UI to unlock share button
-            if (binding != null) {
-                binding.watchAdButton.setEnabled(false);
-                binding.watchAdButtonText.setText(R.string.ad_watched);
+                rewardedAdWatched = true;
                 
+            // Update UI to unlock share button
+                if (binding != null) {
+                    binding.watchAdButton.setEnabled(false);
+                    binding.watchAdButtonText.setText(R.string.ad_watched);
+                    
                 // Unlock share button
-                binding.shareButton.setEnabled(true);
+                    binding.shareButton.setEnabled(true);
                 binding.shareButton.setAlpha(1.0f);
                 binding.shareLockIcon.setVisibility(View.GONE);
                 
@@ -846,7 +846,7 @@ public class SharedWishFragment extends Fragment {
             cooldownTimer.cancel();
             Log.d(TAG, "📱⏲️ Cancelled existing cooldown timer");
         }
-        
+
         Log.d(TAG, "📱⏲️ Starting cooldown timer for " + (remainingMs / 1000) + " seconds");
         
         // Create new timer
@@ -1185,8 +1185,8 @@ public class SharedWishFragment extends Fragment {
     private void showLoading(boolean show) {
         if (binding != null) {
             binding.progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
-            binding.loadingView.setVisibility(show ? View.VISIBLE : View.GONE);
-            binding.contentLayout.setVisibility(show ? View.GONE : View.VISIBLE);
+        binding.loadingView.setVisibility(show ? View.VISIBLE : View.GONE);
+        binding.contentLayout.setVisibility(show ? View.GONE : View.VISIBLE);
         }
     }
 

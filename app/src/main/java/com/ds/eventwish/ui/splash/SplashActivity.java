@@ -2,7 +2,9 @@ package com.ds.eventwish.ui.splash;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.View;
@@ -11,6 +13,12 @@ import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.activity.result.ActivityResult;
@@ -21,6 +29,9 @@ import android.util.Log;
 import com.ds.eventwish.R;
 import com.ds.eventwish.ui.MainActivity;
 import com.ds.eventwish.data.auth.AuthManager;
+import com.ds.eventwish.data.model.DeviceSession;
+import com.ds.eventwish.data.model.User;
+import com.ds.eventwish.data.repository.UserRepository;
 import com.ds.eventwish.data.remote.FirestoreManager;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
@@ -190,12 +201,20 @@ public class SplashActivity extends AppCompatActivity {
     }
 
     private void trySilentSignIn() {
-        // First check if user explicitly signed out using SharedPreferences
-        boolean userAuthenticated = getSharedPreferences("auth_prefs", MODE_PRIVATE)
-            .getBoolean("user_authenticated", false);
+        // Get SharedPreferences
+        SharedPreferences prefs = getSharedPreferences("auth_prefs", MODE_PRIVATE);
+        
+        // Check if user explicitly signed out or access was revoked
+        boolean userAuthenticated = prefs.getBoolean("user_authenticated", false);
+        boolean accessRevoked = prefs.getBoolean("access_revoked", false);
             
-        if (!userAuthenticated) {
-            Log.d(TAG, "trySilentSignIn: User was explicitly signed out, showing sign-in button");
+        if (!userAuthenticated || accessRevoked) {
+            Log.d(TAG, "trySilentSignIn: User was explicitly signed out or access was revoked, showing sign-in button");
+            // Clear the access_revoked flag since we're now showing the sign-in button
+            if (accessRevoked) {
+                prefs.edit().putBoolean("access_revoked", false).apply();
+                Log.d(TAG, "trySilentSignIn: Cleared access_revoked flag");
+            }
             showSignInButton();
             return;
         }
@@ -219,16 +238,24 @@ public class SplashActivity extends AppCompatActivity {
                     showSignInButton();
                 });
         } else {
-            // No current user, try silent sign-in
-            authManager.trySilentSignIn()
-                .addOnSuccessListener(account -> {
-                    Log.d(TAG, "Silent sign-in successful");
-                    handleGoogleSignInAccount(Tasks.forResult(account));
-                })
-                .addOnFailureListener(e -> {
-                    Log.d(TAG, "Silent sign-in failed, showing sign-in button", e);
-                    showSignInButton();
-                });
+            // No current user, try silent sign-in only if access wasn't revoked
+            if (!accessRevoked) {
+                authManager.trySilentSignIn()
+                    .addOnSuccessListener(account -> {
+                        Log.d(TAG, "Silent sign-in successful");
+                        handleGoogleSignInAccount(Tasks.forResult(account));
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.d(TAG, "Silent sign-in failed, showing sign-in button", e);
+                        showSignInButton();
+                    });
+            } else {
+                // Access was revoked, show sign-in button
+                Log.d(TAG, "Access was revoked, showing sign-in button");
+                // Clear the flag since we're handling it
+                prefs.edit().putBoolean("access_revoked", false).apply();
+                showSignInButton();
+            }
         }
     }
 
@@ -471,37 +498,242 @@ public class SplashActivity extends AppCompatActivity {
                   ", Provider email: " + profile.getEmail());
         }
         
+        // Check for active sessions on other devices
+        checkForActiveSessions(user);
+    }
+    
+    /**
+     * Check for active sessions on other devices
+     * @param user Firebase user
+     */
+    private void checkForActiveSessions(FirebaseUser user) {
+        // Get UserRepository
+        UserRepository userRepository = UserRepository.getInstance(this);
+        
+        Log.d(TAG, "checkForActiveSessions: Checking for active sessions for user " + user.getUid());
+        
+        // Check for active sessions on other devices
+        userRepository.getUserSessions(user.getUid(), new UserRepository.SessionsCallback() {
+            @Override
+            public void onSessionsReceived(List<DeviceSession> sessions) {
+                // Check if there are sessions on other devices
+                String currentDeviceId = userRepository.getDeviceId();
+                List<DeviceSession> otherDeviceSessions = new ArrayList<>();
+                
+                Log.d(TAG, "checkForActiveSessions: Received " + sessions.size() + " sessions, current device ID: " + currentDeviceId);
+                
+                for (DeviceSession session : sessions) {
+                    // Skip current device
+                    if (!session.getDeviceId().equals(currentDeviceId)) {
+                        otherDeviceSessions.add(session);
+                        Log.d(TAG, "checkForActiveSessions: Found session on other device: " + 
+                              session.getDeviceId() + " (" + session.getDeviceName() + ")");
+                    } else {
+                        Log.d(TAG, "checkForActiveSessions: Found session on current device, skipping");
+                    }
+                }
+                
+                if (!otherDeviceSessions.isEmpty()) {
+                    // Found active sessions on other devices, show dialog
+                    Log.i(TAG, "checkForActiveSessions: Found " + otherDeviceSessions.size() + 
+                          " active sessions on other devices, showing dialog");
+                    runOnUiThread(() -> showActiveSessionsDialog(user, otherDeviceSessions));
+                } else {
+                    // No active sessions on other devices, proceed with sign-in
+                    Log.i(TAG, "checkForActiveSessions: No active sessions on other devices, proceeding with sign-in");
+                    completeSignIn(user);
+                }
+            }
+            
+            @Override
+            public void onNoSessions() {
+                // No active sessions, proceed with sign-in
+                Log.i(TAG, "checkForActiveSessions: No sessions found, proceeding with sign-in");
+                completeSignIn(user);
+            }
+            
+            @Override
+            public void onError(String errorMessage) {
+                // Error checking active sessions, proceed with sign-in
+                Log.e(TAG, "checkForActiveSessions: Error checking active sessions: " + errorMessage);
+                completeSignIn(user);
+            }
+        });
+    }
+    
+    /**
+     * Show dialog for active sessions on other devices
+     * @param user Firebase user
+     * @param sessions Active sessions on other devices
+     */
+    private void showActiveSessionsDialog(FirebaseUser user, List<DeviceSession> sessions) {
+        Log.d(TAG, "showActiveSessionsDialog: Showing dialog for " + sessions.size() + " active sessions");
+        
+        // Hide progress bar
+        loadingProgressBar.setVisibility(View.GONE);
+        
+        // Create dialog
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Account Already Signed In");
+        
+        // Create message
+        StringBuilder message = new StringBuilder();
+        message.append("Your account is already signed in on another device:\n\n");
+        
+        // Add device details
+        for (DeviceSession session : sessions) {
+            String deviceInfo = "Device: " + session.getDeviceName() + 
+                               ", Model: " + session.getDeviceModel() + 
+                               ", Last active: " + formatTimestamp(session.getLastActiveTimestamp().getTime());
+            Log.d(TAG, "showActiveSessionsDialog: Session details - " + deviceInfo);
+            
+            message.append("Device: ").append(session.getDeviceName()).append("\n");
+            message.append("Model: ").append(session.getDeviceModel()).append("\n");
+            message.append("Last active: ").append(formatTimestamp(session.getLastActiveTimestamp().getTime())).append("\n\n");
+        }
+        
+        message.append("Do you want to sign in on this device and sign out from other devices?");
+        
+        builder.setMessage(message.toString());
+        
+        // Add buttons
+        builder.setPositiveButton("Yes, Sign In Here", (dialog, which) -> {
+            Log.d(TAG, "showActiveSessionsDialog: User chose to sign in on this device and invalidate other sessions");
+            
+            // Show progress bar
+            loadingProgressBar.setVisibility(View.VISIBLE);
+            
+            // Invalidate sessions on other devices
+            UserRepository userRepository = UserRepository.getInstance(SplashActivity.this);
+            String deviceId = userRepository.getDeviceId();
+            
+            Log.d(TAG, "showActiveSessionsDialog: Invalidating sessions for user " + user.getUid() + 
+                  " from device " + deviceId);
+                  
+            userRepository.invalidateOtherSessions(user.getUid(), deviceId, new UserRepository.SimpleCallback() {
+                @Override
+                public void onSuccess() {
+                    // Proceed with sign-in
+                    Log.i(TAG, "showActiveSessionsDialog: Successfully invalidated other sessions");
+                    completeSignIn(user);
+                }
+                
+                @Override
+                public void onError(String errorMessage) {
+                    // Error invalidating sessions, proceed with sign-in anyway
+                    Log.e(TAG, "showActiveSessionsDialog: Error invalidating sessions: " + errorMessage);
+                    completeSignIn(user);
+                }
+            });
+        });
+        
+        builder.setNegativeButton("Cancel", (dialog, which) -> {
+            Log.d(TAG, "showActiveSessionsDialog: User cancelled sign-in");
+            
+            // Sign out from Firebase
+            FirebaseAuth.getInstance().signOut();
+            
+            // Sign out from Google
+            authManager.signOut(new AuthManager.SignOutCallback() {
+                @Override
+                public void onSignOutComplete() {
+                    Log.d(TAG, "showActiveSessionsDialog: Sign-out completed after user cancelled");
+                    // Show sign-in button
+                    showSignInButton();
+                }
+            });
+        });
+        
+        // Show dialog
+        AlertDialog dialog = builder.create();
+        dialog.setCancelable(false);
+        dialog.show();
+        
+        Log.d(TAG, "showActiveSessionsDialog: Dialog shown to user");
+    }
+    
+    /**
+     * Format timestamp to readable date
+     * @param timestamp Timestamp in milliseconds
+     * @return Formatted date string
+     */
+    private String formatTimestamp(long timestamp) {
+        // If timestamp is within the last 24 hours, show relative time
+        long now = System.currentTimeMillis();
+        long diff = now - timestamp;
+        
+        if (diff < 60 * 1000) {
+            // Less than a minute
+            return "Just now";
+        } else if (diff < 60 * 60 * 1000) {
+            // Less than an hour
+            long minutes = diff / (60 * 1000);
+            return minutes + " minute" + (minutes > 1 ? "s" : "") + " ago";
+        } else if (diff < 24 * 60 * 60 * 1000) {
+            // Less than a day
+            long hours = diff / (60 * 60 * 1000);
+            return hours + " hour" + (hours > 1 ? "s" : "") + " ago";
+        } else {
+            // More than a day, show date
+            SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault());
+            return sdf.format(new Date(timestamp));
+        }
+    }
+    
+    /**
+     * Complete sign-in process
+     * @param user Firebase user
+     */
+    private void completeSignIn(FirebaseUser user) {
+        Log.d(TAG, "completeSignIn: Starting sign-in completion process for user " + user.getUid());
+        
         // Sync user with MongoDB after successful Firebase authentication
         authManager.syncUserWithMongoDB(user)
             .addOnSuccessListener(mongoUser -> {
-                Log.d(TAG, "MongoDB sync successful - User: " + mongoUser.getUid());
+                Log.d(TAG, "completeSignIn: MongoDB sync successful - User: " + mongoUser.getUid() + 
+                          ", Display name: " + mongoUser.getDisplayName());
                 
                 // Store authentication state
                 getSharedPreferences("auth_prefs", MODE_PRIVATE)
                     .edit()
                     .putBoolean("user_authenticated", true)
+                    .putBoolean("access_revoked", false) // Clear access revoked flag
                     .apply();
+                
+                Log.d(TAG, "completeSignIn: Updated auth_prefs - user_authenticated=true, access_revoked=false");
                 
                 // Resume in-app messaging
                 resumeInAppMessaging();
                 
                 // Add a delay before navigating to main
-                new Handler().postDelayed(this::navigateToMain, 1000);
+                Log.d(TAG, "completeSignIn: Adding 1-second delay before navigating to main");
+                new Handler().postDelayed(() -> {
+                    Log.d(TAG, "completeSignIn: Delay completed, navigating to main");
+                    navigateToMain();
+                }, 1000);
             })
             .addOnFailureListener(e -> {
-                Log.w(TAG, "MongoDB sync failed, but continuing with Firebase auth", e);
+                Log.w(TAG, "completeSignIn: MongoDB sync failed, but continuing with Firebase auth", e);
                 
                 // Store authentication state anyway since Firebase auth was successful
                 getSharedPreferences("auth_prefs", MODE_PRIVATE)
                     .edit()
                     .putBoolean("user_authenticated", true)
+                    .putBoolean("access_revoked", false) // Clear access revoked flag
                     .apply();
+                
+                Log.d(TAG, "completeSignIn: Updated auth_prefs despite MongoDB sync failure - " +
+                          "user_authenticated=true, access_revoked=false");
                 
                 // Resume in-app messaging
                 resumeInAppMessaging();
                 
                 // Add a delay before navigating to main
-                new Handler().postDelayed(this::navigateToMain, 1000);
+                Log.d(TAG, "completeSignIn: Adding 1-second delay before navigating to main");
+                new Handler().postDelayed(() -> {
+                    Log.d(TAG, "completeSignIn: Delay completed, navigating to main");
+                    navigateToMain();
+                }, 1000);
             });
     }
 

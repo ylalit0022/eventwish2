@@ -51,4 +51,11 @@ router.post('/clicked/:id', sponsoredAdController.recordClick);
  */
 router.get('/stats/:id', verifyApiKey, sponsoredAdController.getAdStats);
 
+/**
+ * @route POST /api/sponsored-ads/:id/duplicate
+ * @description Create a duplicate copy of a sponsored ad
+ * @access Private (API key required)
+ */
+router.post('/:id/duplicate', verifyApiKey, sponsoredAdController.duplicateSponsoredAd);
+
 module.exports = router; 

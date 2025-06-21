@@ -39,3 +39,48 @@ exports.getFestivalsByCategory = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// Duplicate a festival
+exports.duplicateFestival = async (req, res) => {
+    try {
+        // Find the festival to duplicate
+        const originalFestival = await Festival.findById(req.params.id);
+        
+        if (!originalFestival) {
+            return res.status(404).json({
+                success: false,
+                message: 'Festival not found'
+            });
+        }
+        
+        // Convert to plain JavaScript object
+        const festivalData = originalFestival.toObject();
+        
+        // Remove fields that should not be duplicated
+        delete festivalData._id;
+        delete festivalData.createdAt;
+        delete festivalData.updatedAt;
+        delete festivalData.__v;
+        
+        // Modify fields as needed
+        festivalData.name = `${festivalData.name} (Copy)`;
+        festivalData.isActive = false; // Set status to inactive by default
+        
+        // Create new festival with duplicated data
+        const newFestival = new Festival(festivalData);
+        await newFestival.save();
+        
+        res.status(201).json({
+            success: true,
+            message: 'Festival duplicated successfully',
+            festival: newFestival
+        });
+    } catch (error) {
+        console.error('Error duplicating festival:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error duplicating festival',
+            error: error.message
+        });
+    }
+};

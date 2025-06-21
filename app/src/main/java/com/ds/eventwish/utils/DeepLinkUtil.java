@@ -8,8 +8,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
+
+import androidx.navigation.NavController;
+
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.data.repository.WishRepository;
@@ -31,6 +35,104 @@ public class DeepLinkUtil {
     private static final String APP_TEMPLATE_HOST = "template";
     
     private static final String PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.ds.eventwish";
+
+    /**
+     * Process a deep link URI and navigate to the appropriate destination
+     * @param context The context
+     * @param navController The NavController to use for navigation
+     * @param uri The URI to process
+     * @return true if the deep link was handled, false otherwise
+     */
+    public static boolean processDeepLink(Context context, NavController navController, Uri uri) {
+        if (context == null || navController == null || uri == null) {
+            Log.e(TAG, "processDeepLink: Missing required parameters");
+            return false;
+        }
+        
+        Log.d(TAG, "processDeepLink: Processing URI: " + uri.toString());
+        
+        String scheme = uri.getScheme();
+        String host = uri.getHost();
+        String path = uri.getPath();
+        
+        Log.d(TAG, "processDeepLink: Scheme=" + scheme + ", Host=" + host + ", Path=" + path);
+        
+        // Handle HTTP/HTTPS URLs
+        if ("http".equals(scheme) || "https".equals(scheme)) {
+            if (host != null && host.contains("eventwish2.onrender.com")) {
+                if (path != null) {
+                    if (path.startsWith(WEB_WISH_PATH)) {
+                        // Handle wish URL
+                        String shortCode = extractShortCode(uri);
+                        if (shortCode != null && !shortCode.isEmpty()) {
+                            Log.d(TAG, "processDeepLink: Navigating to ResourceFragment with shortCode=" + shortCode);
+                            Bundle args = new Bundle();
+                            args.putString("shortCode", shortCode);
+                            navController.navigate(R.id.resourceFragment, args);
+                            return true;
+                        }
+                    } else if (path.startsWith(WEB_FESTIVAL_PATH)) {
+                        // Handle festival URL
+                        String festivalId = extractShortCode(uri);
+                        if (festivalId != null && !festivalId.isEmpty()) {
+                            Log.d(TAG, "processDeepLink: Navigating to FestivalDetailFragment with festivalId=" + festivalId);
+                            Bundle args = new Bundle();
+                            args.putString("festivalId", festivalId);
+                            navController.navigate(R.id.navigation_festival_notification, args);
+                            return true;
+                        }
+                    } else if (path.startsWith(WEB_TEMPLATE_PATH)) {
+                        // Handle template URL
+                        String templateId = extractShortCode(uri);
+                        if (templateId != null && !templateId.isEmpty()) {
+                            Log.d(TAG, "processDeepLink: Navigating to TemplateDetailFragment with templateId=" + templateId);
+                            Bundle args = new Bundle();
+                            args.putString("templateId", templateId);
+                            navController.navigate(R.id.navigation_template_detail, args);
+                            return true;
+                        }
+                    }
+                }
+            }
+        } 
+        // Handle custom scheme URLs
+        else if (APP_SCHEME.equals(scheme)) {
+            if (APP_WISH_HOST.equals(host)) {
+                // Handle wish URL
+                String shortCode = uri.getLastPathSegment();
+                if (shortCode != null && !shortCode.isEmpty()) {
+                    Log.d(TAG, "processDeepLink: Navigating to ResourceFragment with shortCode=" + shortCode);
+                    Bundle args = new Bundle();
+                    args.putString("shortCode", shortCode);
+                    navController.navigate(R.id.resourceFragment, args);
+                    return true;
+                }
+            } else if (APP_FESTIVAL_HOST.equals(host)) {
+                // Handle festival URL
+                String festivalId = uri.getLastPathSegment();
+                if (festivalId != null && !festivalId.isEmpty()) {
+                    Log.d(TAG, "processDeepLink: Navigating to FestivalDetailFragment with festivalId=" + festivalId);
+                    Bundle args = new Bundle();
+                    args.putString("festivalId", festivalId);
+                    navController.navigate(R.id.navigation_festival_notification, args);
+                    return true;
+                }
+            } else if (APP_TEMPLATE_HOST.equals(host)) {
+                // Handle template URL
+                String templateId = uri.getLastPathSegment();
+                if (templateId != null && !templateId.isEmpty()) {
+                    Log.d(TAG, "processDeepLink: Navigating to TemplateDetailFragment with templateId=" + templateId);
+                    Bundle args = new Bundle();
+                    args.putString("templateId", templateId);
+                    navController.navigate(R.id.navigation_template_detail, args);
+                    return true;
+                }
+            }
+        }
+        
+        Log.e(TAG, "processDeepLink: Unhandled URI: " + uri.toString());
+        return false;
+    }
 
     /**
      * Extract the short code from a wish URI

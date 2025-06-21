@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -19,9 +19,21 @@ import {
   Tab,
   FormControlLabel,
   Switch,
-  Slider
+  Slider,
+  IconButton,
+  Card,
+  CardMedia,
+  Chip
 } from '@mui/material';
-import { createSponsoredAd, getUsers } from '../api';
+import {
+  Save as SaveIcon,
+  ArrowBack as ArrowBackIcon,
+  Cancel as CancelIcon,
+  Image as ImageIcon,
+  ContentCopy as ContentCopyIcon
+} from '@mui/icons-material';
+import { createSponsoredAd, getUsers, getSponsoredAd } from '../api';
+import { useSnackbar } from '../contexts/SnackbarContext';
 
 // Tab panel component
 function TabPanel(props) {
@@ -42,6 +54,9 @@ function TabPanel(props) {
 
 const SponsoredAdCreate = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { showSnackbar } = useSnackbar();
+  const fileInputRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
@@ -57,7 +72,7 @@ const SponsoredAdCreate = () => {
     status: true,
     start_date: new Date().toISOString().split('T')[0],
     end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
-    location: 'category_below',
+    location: 'home_top',
     priority: 5,
     title: 'Sponsored Ad',
     description: ''
@@ -101,6 +116,50 @@ const SponsoredAdCreate = () => {
 
     fetchUsers();
   }, []);
+
+  // Check for copy parameter in URL
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const copyAdId = searchParams.get('copy');
+    
+    if (copyAdId) {
+      const fetchAdForCopy = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          
+          const response = await getSponsoredAd(copyAdId);
+          
+          if (response.success) {
+            // Create a copy of the ad with a modified title to indicate it's a copy
+            const adData = response.sponsoredAd;
+            setAdData({
+              ...adData,
+              title: `${adData.title} (Copy)`,
+              id: undefined // Remove ID to ensure a new ad is created
+            });
+            
+            // Set preview image if available
+            if (adData.image_url) {
+              setAdData({ ...adData, image_url: adData.image_url });
+            }
+            
+            showSnackbar('Sponsored ad data loaded for copying. Please update details as needed.', 'info');
+          } else {
+            throw new Error(response.message || 'Failed to fetch sponsored ad for copying');
+          }
+        } catch (err) {
+          console.error('Error fetching sponsored ad for copy:', err);
+          setError('Failed to load sponsored ad for copying: ' + (err.message || 'Unknown error'));
+          showSnackbar('Failed to load sponsored ad for copying', 'error');
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      fetchAdForCopy();
+    }
+  }, [location.search, showSnackbar]);
 
   // Handle tab change
   const handleTabChange = (event, newValue) => {
@@ -165,6 +224,23 @@ const SponsoredAdCreate = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Handle file select
+  const handleFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
+  // Handle file change
+  const handleFileChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAdData({ ...adData, image_url: reader.result });
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -206,11 +282,48 @@ const SponsoredAdCreate = () => {
     }
   };
 
+  // Handle cancel
+  const handleCancel = () => {
+    navigate('/sponsored-ads');
+  };
+
   return (
     <Box sx={{ flexGrow: 1, p: 3 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Create Sponsored Ad
-      </Typography>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item>
+            <IconButton onClick={handleCancel}>
+              <ArrowBackIcon />
+            </IconButton>
+          </Grid>
+          <Grid item xs>
+            <Typography variant="h5">
+              {location.search.includes('copy=') ? 'Create Sponsored Ad Copy' : 'Create New Sponsored Ad'}
+            </Typography>
+          </Grid>
+          <Grid item>
+            <Button
+              variant="outlined"
+              color="secondary"
+              startIcon={<CancelIcon />}
+              onClick={handleCancel}
+              sx={{ mr: 1 }}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
+              onClick={handleSubmit}
+              disabled={loading || success}
+            >
+              {loading ? 'Creating...' : 'Create Sponsored Ad'}
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
       
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -451,6 +564,15 @@ const SponsoredAdCreate = () => {
           </Box>
         </form>
       </Paper>
+      
+      {/* Hidden file input */}
+      <input
+        type="file"
+        accept="image/*"
+        hidden
+        ref={fileInputRef}
+        onChange={handleFileChange}
+      />
     </Box>
   );
 };

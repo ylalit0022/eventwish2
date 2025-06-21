@@ -420,6 +420,18 @@ public class TemplateRepository {
                             
                             Log.d(TAG, "Fetched templates: " + (fetchedTemplates != null ? fetchedTemplates.size() : 0));
                             
+                            // Extract and update categories from the response
+                            Map<String, Integer> responseCategories = templateResponse.getCategories();
+                            if (responseCategories != null && !responseCategories.isEmpty()) {
+                                Log.d(TAG, "Updating categories from templates response: " + responseCategories.size());
+                                // Update categories on main thread
+                                AppExecutors.getInstance().mainThread().execute(() -> {
+                                    categories.setValue(responseCategories);
+                                    // Save to preferences for future use
+                                    saveCategoriesToPrefs(responseCategories);
+                                });
+                            }
+                            
                                         // Update pagination state
             hasMorePages = templateResponse.isHasMore();
                             
@@ -698,48 +710,74 @@ public class TemplateRepository {
      * @param callback Callback to receive the categories
      */
     public void getCategories(CategoriesCallback callback) {
+        Log.d(TAG, "Getting categories - checking existing data first");
+        
+        // First check if we have existing categories
+        Map<String, Integer> existingCategories = categories.getValue();
+        if (existingCategories != null && !existingCategories.isEmpty()) {
+            Log.d(TAG, "Using existing categories: " + existingCategories.size());
+            callback.onSuccess(existingCategories);
+            return;
+        }
+        
+        // If no categories exist, fetch from templates endpoint to get categories
+        Log.d(TAG, "No existing categories, fetching from templates endpoint");
+        
         // Create headers map
         Map<String, String> headers = new HashMap<>();
         headers.put("Content-Type", "application/json");
 
-        // Make API call to get categories
-        Call<List<JsonObject>> call = apiService.getCategories(headers);
-        call.enqueue(new Callback<List<JsonObject>>() {
+        // Make API call to get templates (which includes categories)
+        Call<TemplateResponse> call = apiService.getTemplates(1, 1); // Get minimal templates just for categories
+        call.enqueue(new Callback<TemplateResponse>() {
             @Override
-            public void onResponse(Call<List<JsonObject>> call, Response<List<JsonObject>> response) {
+            public void onResponse(Call<TemplateResponse> call, Response<TemplateResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    // Convert JsonObject list to Map<String, Integer>
-                    Map<String, Integer> categoryMap = new HashMap<>();
-                    for (JsonObject category : response.body()) {
-                        String name = category.get("name").getAsString();
-                        int count = category.get("count").getAsInt();
-                        categoryMap.put(name, count);
-                    }
+                    TemplateResponse templateResponse = response.body();
+                    Map<String, Integer> categoryMap = templateResponse.getCategories();
                     
-                    // Update categories immediately
-                    categories.postValue(categoryMap);
-                    callback.onSuccess(categoryMap);
-                } else {
-                    // Only use defaults if we have no categories
-                    if (categories.getValue() == null || categories.getValue().isEmpty()) {
+                    if (categoryMap != null && !categoryMap.isEmpty()) {
+                        Log.d(TAG, "Extracted categories from templates response: " + categoryMap.size());
+                        // Update categories immediately
+                        categories.postValue(categoryMap);
+                        // Save to preferences for future use
+                        saveCategoriesToPrefs(categoryMap);
+                        callback.onSuccess(categoryMap);
+                    } else {
+                        Log.d(TAG, "No categories in templates response, using defaults");
                         Map<String, Integer> defaultCats = new HashMap<>(defaultCategories);
                         categories.postValue(defaultCats);
                         callback.onSuccess(defaultCats);
+                    }
+                } else {
+                    Log.e(TAG, "Templates API failed for categories, using fallback");
+                    // Use existing categories as fallback, or defaults if none exist
+                    Map<String, Integer> existingCats = categories.getValue();
+                    if (existingCats != null && !existingCats.isEmpty()) {
+                        Log.d(TAG, "Using existing categories as fallback: " + existingCats.size());
+                        callback.onSuccess(existingCats);
                     } else {
-                        callback.onError("Failed to load categories");
+                        Log.d(TAG, "Using default categories as fallback");
+                        Map<String, Integer> defaultCats = new HashMap<>(defaultCategories);
+                        categories.postValue(defaultCats);
+                        callback.onSuccess(defaultCats);
                     }
                 }
             }
 
             @Override
-            public void onFailure(Call<List<JsonObject>> call, Throwable t) {
-                // Only use defaults if we have no categories
-                if (categories.getValue() == null || categories.getValue().isEmpty()) {
+            public void onFailure(Call<TemplateResponse> call, Throwable t) {
+                Log.e(TAG, "Templates API call failed for categories: " + t.getMessage());
+                // Use existing categories as fallback, or defaults if none exist
+                Map<String, Integer> existingCats = categories.getValue();
+                if (existingCats != null && !existingCats.isEmpty()) {
+                    Log.d(TAG, "Network failed, using existing categories: " + existingCats.size());
+                    callback.onSuccess(existingCats);
+                } else {
+                    Log.d(TAG, "Network failed, using default categories");
                     Map<String, Integer> defaultCats = new HashMap<>(defaultCategories);
                     categories.postValue(defaultCats);
                     callback.onSuccess(defaultCats);
-                } else {
-                    callback.onError(t.getMessage());
                 }
             }
         });

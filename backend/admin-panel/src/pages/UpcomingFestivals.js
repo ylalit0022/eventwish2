@@ -38,9 +38,10 @@ import {
   Delete as DeleteIcon,
   Search as SearchIcon,
   Refresh as RefreshIcon,
-  Celebration as FestivalIcon
+  Celebration as FestivalIcon,
+  ContentCopy as CopyIcon
 } from '@mui/icons-material';
-import { getFestivals, deleteFestival, toggleFestivalStatus } from '../api';
+import { getFestivals, deleteFestival, toggleFestivalStatus, duplicateFestival } from '../api';
 import { format } from 'date-fns';
 
 const UpcomingFestivals = () => {
@@ -253,6 +254,58 @@ const UpcomingFestivals = () => {
     navigate(`/upcoming-festivals/${id}`);
   };
 
+  // Handle copy click
+  const handleCopyClick = (festival) => {
+    if (!festival._id) {
+      console.error("handleCopyClick called with undefined ID");
+      setError('Failed to copy: Invalid festival ID');
+      return;
+    }
+    
+    // Use the new duplicate API function
+    try {
+      setLoading(true);
+      duplicateFestival(festival._id)
+        .then(response => {
+          if (response.success) {
+            // Show success message
+            setError(null);
+            
+            // Refresh the festivals list
+            fetchFestivals();
+            
+            // Show success message
+            setSnackbar({
+              open: true,
+              message: `Festival "${festival.name}" duplicated successfully`,
+              severity: 'success'
+            });
+          } else {
+            throw new Error(response.message || 'Failed to duplicate festival');
+          }
+        })
+        .catch(err => {
+          console.error('Error duplicating festival:', err);
+          setSnackbar({
+            open: true,
+            message: `Failed to duplicate festival: ${err.message || 'Unknown error'}`,
+            severity: 'error'
+          });
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } catch (err) {
+      console.error('Error duplicating festival:', err);
+      setSnackbar({
+        open: true,
+        message: `Failed to duplicate festival: ${err.message || 'Unknown error'}`,
+        severity: 'error'
+      });
+      setLoading(false);
+    }
+  };
+
   // Handle snackbar close
   const handleSnackbarClose = (event, reason) => {
     if (reason === 'clickaway') {
@@ -444,6 +497,14 @@ const UpcomingFestivals = () => {
                           color="primary"
                         >
                           <EditIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Copy">
+                        <IconButton 
+                          onClick={() => handleCopyClick(festival)}
+                          color="secondary"
+                        >
+                          <CopyIcon />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Delete">

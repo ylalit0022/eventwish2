@@ -32,7 +32,11 @@ import {
   Celebration as FestivalIcon,
   Info as InfoIcon,
   Contacts as ContactsIcon,
-  BrandingWatermark as SponsoredAdIcon
+  BrandingWatermark as SponsoredAdIcon,
+  Notifications as NotificationsIcon,
+  NotificationsActive as NotificationsActiveIcon,
+  Language as LanguageIcon,
+  Public as RegionIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -77,11 +81,23 @@ const MainLayout = () => {
     { text: 'Shared Wishes', icon: <SharedWishIcon />, path: '/shared-wishes' },
     { text: 'AdMob', icon: <AdMobIcon />, path: '/admob' },
     { text: 'Sponsored Ads', icon: <SponsoredAdIcon />, path: '/sponsored-ads' },
+    { text: 'Push Notifications', icon: <NotificationsIcon />, path: '/push-notifications' },
+    { text: 'Inactivity Notifications', icon: <NotificationsActiveIcon />, path: '/push-notifications/inactivity-settings' },
     { text: 'Category Icons', icon: <CategoryIcon />, path: '/category-icons' },
     { text: 'Upcoming Festivals', icon: <FestivalIcon />, path: '/upcoming-festivals' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
     { text: 'About', icon: <InfoIcon />, path: '/about' },
-    { text: 'Contacts', icon: <ContactsIcon />, path: '/contacts' }
+    { text: 'Contacts', icon: <ContactsIcon />, path: '/contacts' },
+    {
+      text: 'Languages',
+      icon: <LanguageIcon />,
+      path: '/languages'
+    },
+    {
+      text: 'Regions',
+      icon: <RegionIcon />,
+      path: '/regions'
+    }
   ];
 
   // Drawer content

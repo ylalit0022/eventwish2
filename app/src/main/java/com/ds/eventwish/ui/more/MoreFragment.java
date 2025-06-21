@@ -111,44 +111,77 @@ public class MoreFragment extends BaseFragment {
     }
     
     private void showSignOutConfirmationDialog() {
+        android.util.Log.d(TAG, "showSignOutConfirmationDialog: Showing sign-out confirmation dialog");
         new AlertDialog.Builder(requireContext())
             .setTitle("Sign Out")
             .setMessage("Are you sure you want to sign out?")
             .setPositiveButton("Yes", (dialog, which) -> {
+                android.util.Log.d(TAG, "showSignOutConfirmationDialog: User confirmed sign-out");
                 signOut();
             })
-            .setNegativeButton("No", null)
+            .setNegativeButton("No", (dialog, which) -> {
+                android.util.Log.d(TAG, "showSignOutConfirmationDialog: User cancelled sign-out");
+            })
             .show();
     }
     
     private void signOut() {
-        // Sign out from Firebase
-        FirebaseAuth.getInstance().signOut();
+        android.util.Log.d(TAG, "signOut: Starting sign-out process");
         
-        // Clear any local user data
-        if (getContext() != null) {
-            // Clear auth_prefs
-            getContext().getSharedPreferences("auth_prefs", 0)
-                .edit()
-                .putBoolean("user_authenticated", false)
-                .apply();
-            
-            // Also clear AuthStateManager
-            AuthStateManager.getInstance(requireContext()).clearAuthentication();
+        // Show loading indicator
+        View loadingOverlay = binding.loadingOverlay;
+        if (loadingOverlay != null) {
+            loadingOverlay.setVisibility(View.VISIBLE);
+            android.util.Log.d(TAG, "signOut: Showing loading overlay");
         }
         
-        // Show success message
-        Toast.makeText(requireContext(), "Signed out successfully", Toast.LENGTH_SHORT).show();
+        // Use AuthManager to sign out and revoke access
+        com.ds.eventwish.data.auth.AuthManager authManager = com.ds.eventwish.data.auth.AuthManager.getInstance();
+        android.util.Log.d(TAG, "signOut: Calling AuthManager.signOut()");
         
-        // Navigate to SplashActivity
-        Intent intent = new Intent(requireContext(), SplashActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
-        
-        // Finish current activity
-        if (getActivity() != null) {
-            getActivity().finish();
-        }
+        authManager.signOut(new com.ds.eventwish.data.auth.AuthManager.SignOutCallback() {
+            @Override
+            public void onSignOutComplete() {
+                android.util.Log.d(TAG, "signOut: AuthManager.signOut() completed");
+                
+                // Clear any local user data
+                if (getContext() != null) {
+                    // Clear auth_prefs
+                    android.util.Log.d(TAG, "signOut: Clearing auth_prefs");
+                    getContext().getSharedPreferences("auth_prefs", 0)
+                        .edit()
+                        .putBoolean("user_authenticated", false)
+                        .putBoolean("access_revoked", true) // Mark access as revoked
+                        .apply();
+                    
+                    // Also clear AuthStateManager
+                    android.util.Log.d(TAG, "signOut: Clearing AuthStateManager");
+                    AuthStateManager.getInstance(requireContext()).clearAuthentication();
+                }
+                
+                // Hide loading indicator
+                if (loadingOverlay != null) {
+                    loadingOverlay.setVisibility(View.GONE);
+                    android.util.Log.d(TAG, "signOut: Hiding loading overlay");
+                }
+                
+                // Show success message
+                android.util.Log.d(TAG, "signOut: Showing success toast");
+                Toast.makeText(requireContext(), "Signed out successfully", Toast.LENGTH_SHORT).show();
+                
+                // Navigate to SplashActivity
+                android.util.Log.d(TAG, "signOut: Navigating to SplashActivity");
+                Intent intent = new Intent(requireContext(), SplashActivity.class);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(intent);
+                
+                // Finish current activity
+                if (getActivity() != null) {
+                    android.util.Log.d(TAG, "signOut: Finishing current activity");
+                    getActivity().finish();
+                }
+            }
+        });
     }
 
     @Override

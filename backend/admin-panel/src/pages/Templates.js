@@ -40,13 +40,16 @@ import {
   Refresh as RefreshIcon,
   Star as StarIcon,
   FileUpload as FileUploadIcon,
-  FileDownload as FileDownloadIcon
+  FileDownload as FileDownloadIcon,
+  ContentCopy as CopyIcon
 } from '@mui/icons-material';
-import { getTemplates, deleteTemplate, toggleTemplateStatus, exportTemplatesCSV, importTemplatesCSV } from '../api';
+import { getTemplates, deleteTemplate, toggleTemplateStatus, exportTemplatesCSV, importTemplatesCSV, duplicateTemplate } from '../api';
+import { useSnackbar } from '../contexts/SnackbarContext';
 
 const Templates = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+  const { showSnackbar } = useSnackbar();
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -101,7 +104,28 @@ const Templates = () => {
       }
     } catch (err) {
       console.error('Error fetching templates:', err);
-      setError('Failed to load templates: ' + (err.message || 'Unknown error'));
+      
+      // Extract detailed error message
+      let errorMessage = 'Failed to load templates';
+      if (err.response) {
+        // Server responded with error status
+        if (err.response.status === 500) {
+          errorMessage = 'Server error while loading templates. Please try again later or contact support.';
+        } else if (err.response.data && err.response.data.message) {
+          errorMessage = err.response.data.message;
+        } else {
+          errorMessage = `Error (${err.response.status}): ${errorMessage}`;
+        }
+      } else if (err.message) {
+        errorMessage = `${errorMessage}: ${err.message}`;
+      }
+      
+      setError(errorMessage);
+      showSnackbar(errorMessage, 'error');
+      
+      // Set empty templates to avoid infinite loading
+      setTemplates([]);
+      setTotalItems(0);
     } finally {
       setLoading(false);
     }
@@ -168,6 +192,8 @@ const Templates = () => {
     
     try {
       setDeleteLoading(true);
+      setError(null);
+      
       const response = await deleteTemplate(templateToDelete._id);
       
       if (response.success) {
@@ -175,12 +201,30 @@ const Templates = () => {
         setTemplates(templates.filter(t => t._id !== templateToDelete._id));
         setDeleteDialogOpen(false);
         setTemplateToDelete(null);
+        showSnackbar(`Template "${templateToDelete.title}" deleted successfully`, 'success');
       } else {
         throw new Error(response.message || 'Failed to delete template');
       }
     } catch (err) {
       console.error(`Error deleting template ${templateToDelete._id}:`, err);
-      setError('Failed to delete template: ' + (err.message || 'Unknown error'));
+      
+      // Extract detailed error message
+      let errorMessage = 'Failed to delete template';
+      if (err.response) {
+        // Server responded with error status
+        if (err.response.status === 500) {
+          errorMessage = 'Server error while deleting template. Please try again later or contact support.';
+        } else if (err.response.data && err.response.data.message) {
+          errorMessage = err.response.data.message;
+        } else {
+          errorMessage = `Error (${err.response.status}): ${errorMessage}`;
+        }
+      } else if (err.message) {
+        errorMessage = `${errorMessage}: ${err.message}`;
+      }
+      
+      setError(errorMessage);
+      showSnackbar(errorMessage, 'error');
     } finally {
       setDeleteLoading(false);
     }
@@ -190,6 +234,7 @@ const Templates = () => {
   const handleStatusToggle = async (id) => {
     try {
       setStatusLoading(prev => ({ ...prev, [id]: true }));
+      setError(null);
       
       const response = await toggleTemplateStatus(id);
       
@@ -200,12 +245,33 @@ const Templates = () => {
             ? { ...template, status: response.template.status } 
             : template
         ));
+        
+        // Show success message
+        const statusText = response.template.status ? 'activated' : 'deactivated';
+        showSnackbar(`Template ${statusText} successfully`, 'success');
       } else {
         throw new Error(response.message || 'Failed to toggle template status');
       }
     } catch (err) {
       console.error(`Error toggling template status ${id}:`, err);
-      setError('Failed to toggle template status: ' + (err.message || 'Unknown error'));
+      
+      // Extract detailed error message
+      let errorMessage = 'Failed to toggle template status';
+      if (err.response) {
+        // Server responded with error status
+        if (err.response.status === 500) {
+          errorMessage = 'Server error while updating template status. Please try again later or contact support.';
+        } else if (err.response.data && err.response.data.message) {
+          errorMessage = err.response.data.message;
+        } else {
+          errorMessage = `Error (${err.response.status}): ${errorMessage}`;
+        }
+      } else if (err.message) {
+        errorMessage = `${errorMessage}: ${err.message}`;
+      }
+      
+      setError(errorMessage);
+      showSnackbar(errorMessage, 'error');
     } finally {
       setStatusLoading(prev => ({ ...prev, [id]: false }));
     }
@@ -215,8 +281,6 @@ const Templates = () => {
   const handleExportCSV = async () => {
     try {
       setError(null);
-      
-      // Show loading state
       setLoading(true);
       
       const filters = {};
@@ -226,17 +290,28 @@ const Templates = () => {
       
       console.log('Starting CSV export with filters:', filters);
       
-      // Add try-catch for more detailed error logging
-      try {
-        await exportTemplatesCSV(filters);
-        console.log('CSV export completed successfully');
-      } catch (exportError) {
-        console.error('Error exporting CSV:', exportError);
-        throw new Error(`Error exporting CSV: ${exportError.message || 'Unknown error'}`);
-      }
+      await exportTemplatesCSV(filters);
+      showSnackbar('Templates exported successfully', 'success');
     } catch (err) {
       console.error('Error exporting CSV:', err);
-      setError('Failed to export CSV: ' + (err.message || 'Unknown error'));
+      
+      // Extract detailed error message
+      let errorMessage = 'Failed to export CSV';
+      if (err.response) {
+        // Server responded with error status
+        if (err.response.status === 500) {
+          errorMessage = 'Server error while exporting templates. Please try again later or contact support.';
+        } else if (err.response.data && err.response.data.message) {
+          errorMessage = err.response.data.message;
+        } else {
+          errorMessage = `Error (${err.response.status}): ${errorMessage}`;
+        }
+      } else if (err.message) {
+        errorMessage = `${errorMessage}: ${err.message}`;
+      }
+      
+      setError(errorMessage);
+      showSnackbar(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
@@ -263,6 +338,7 @@ const Templates = () => {
     try {
       setImportLoading(true);
       setImportResults(null);
+      setError(null);
       
       const response = await importTemplatesCSV(file);
       
@@ -276,12 +352,32 @@ const Templates = () => {
         
         // Refresh templates list
         fetchTemplates();
+        
+        // Show success message
+        showSnackbar(`Templates imported successfully: ${response.created} created, ${response.updated} updated`, 'success');
       } else {
         throw new Error(response.message || 'Failed to import templates');
       }
     } catch (err) {
       console.error('Error importing CSV:', err);
-      setError('Failed to import CSV: ' + (err.message || 'Unknown error'));
+      
+      // Extract detailed error message
+      let errorMessage = 'Failed to import CSV';
+      if (err.response) {
+        // Server responded with error status
+        if (err.response.status === 500) {
+          errorMessage = 'Server error while importing templates. Please try again later or contact support.';
+        } else if (err.response.data && err.response.data.message) {
+          errorMessage = err.response.data.message;
+        } else {
+          errorMessage = `Error (${err.response.status}): ${errorMessage}`;
+        }
+      } else if (err.message) {
+        errorMessage = `${errorMessage}: ${err.message}`;
+      }
+      
+      setError(errorMessage);
+      showSnackbar(errorMessage, 'error');
     } finally {
       setImportLoading(false);
       // Reset file input
@@ -292,6 +388,7 @@ const Templates = () => {
   // Handle refresh
   const handleRefresh = () => {
     fetchTemplates();
+    showSnackbar('Refreshing templates list...', 'info');
   };
 
   // Handle create
@@ -302,6 +399,70 @@ const Templates = () => {
   // Handle edit
   const handleEditClick = (id) => {
     navigate(`/templates/${id}`);
+  };
+
+  // Handle copy
+  const handleCopyClick = (template) => {
+    if (!template._id) {
+      const errorMessage = 'Invalid template ID. Cannot copy this template.';
+      setError(errorMessage);
+      showSnackbar(errorMessage, 'error');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      duplicateTemplate(template._id)
+        .then(response => {
+          if (response.success) {
+            // Show success message
+            setError(null);
+            
+            // Refresh the templates list
+            fetchTemplates();
+            
+            // Show success message
+            showSnackbar(`Template "${template.title}" copied successfully`, 'success');
+          } else {
+            throw new Error(response.message || 'Failed to duplicate template');
+          }
+        })
+        .catch(err => {
+          console.error(`Error duplicating template ${template._id}:`, err);
+          
+          // Extract detailed error message
+          let errorMessage = 'Failed to duplicate template';
+          if (err.response) {
+            console.error('Error response:', err.response.data);
+            
+            if (err.response.status === 500) {
+              errorMessage = 'Server error while duplicating template. Please try again later or contact support.';
+            } else if (err.response.data && err.response.data.error) {
+              errorMessage = `${errorMessage}: ${err.response.data.error}`;
+            } else if (err.response.data && err.response.data.message) {
+              errorMessage = `${errorMessage}: ${err.response.data.message}`;
+            } else {
+              errorMessage = `Error (${err.response.status}): ${errorMessage}`;
+            }
+          } else if (err.message) {
+            errorMessage = `${errorMessage}: ${err.message}`;
+          }
+          
+          setError(errorMessage);
+          showSnackbar(errorMessage, 'error');
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } catch (err) {
+      console.error('Error initiating template duplication:', err);
+      const errorMessage = `Failed to duplicate template: ${err.message || 'Unknown error'}`;
+      setError(errorMessage);
+      showSnackbar(errorMessage, 'error');
+      setLoading(false);
+    }
   };
 
   if (loading && templates.length === 0) {
@@ -360,6 +521,13 @@ const Templates = () => {
         </Grid>
       </Grid>
 
+      {/* Error message */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
+
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
@@ -414,13 +582,6 @@ const Templates = () => {
           </Grid>
         </Grid>
       </Paper>
-
-      {/* Error message */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
 
       {/* Templates table */}
       <Paper>
@@ -483,6 +644,14 @@ const Templates = () => {
                         onClick={() => handleEditClick(template._id)}
                       >
                         <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton 
+                        size="small" 
+                        color="secondary"
+                        onClick={() => handleCopyClick(template)}
+                        title="Create a copy"
+                      >
+                        <CopyIcon fontSize="small" />
                       </IconButton>
                       <IconButton 
                         size="small" 

@@ -84,7 +84,7 @@ public class HomeViewModel extends ViewModel {
     private long lastCategoryChangeTime = 0;
     private static final long CATEGORY_CHANGE_THRESHOLD = 3000; // 3 seconds
 
-    private final MutableLiveData<Map<String, Integer>> categories = new MutableLiveData<>(new LinkedHashMap<>());
+    // Remove duplicate categories LiveData - use repository's LiveData directly
     private boolean categoriesLoaded = false; // Track if categories have been loaded
 
     // Add a field to track time of last end message display
@@ -159,7 +159,8 @@ public class HomeViewModel extends ViewModel {
      */
     public void loadCategories() {
         // If categories are already loaded, don't reload
-        if (categoriesLoaded && categories.getValue() != null && !categories.getValue().isEmpty()) {
+        Map<String, Integer> currentCategories = repository.getCategories().getValue();
+        if (categoriesLoaded && currentCategories != null && !currentCategories.isEmpty()) {
             Log.d(TAG, "Categories already loaded, skipping fetch");
             return;
         }
@@ -169,7 +170,6 @@ public class HomeViewModel extends ViewModel {
             @Override
             public void onSuccess(Map<String, Integer> categoryMap) {
                 repository.notifyCategoriesObservers();
-                categories.setValue(categoryMap);
                 categoriesLoaded = true; // Mark categories as loaded
                 Log.d(TAG, "Categories loaded successfully: " + categoryMap.size());
             }
@@ -666,6 +666,8 @@ public class HomeViewModel extends ViewModel {
      */
     public void forceReloadCategories() {
         categoriesLoaded = false;
+        // Clear any existing categories to force reload
+        Log.d(TAG, "Force reloading categories");
         loadCategories();
     }
 

@@ -8,25 +8,26 @@
     android:clickable="true"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background">
+    android:background="?attr/colorSurface">
 
     <!-- Loading View -->
     <FrameLayout
         android:id="@+id/loadingView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/surface_variant_light"
+        android:background="?attr/colorSurfaceVariant"
         android:visibility="gone"
         android:gravity="center"
         android:focusableInTouchMode="true"
         android:focusable="true"
         android:clickable="true">
 
-        <ProgressBar
+        <com.google.android.material.progressindicator.CircularProgressIndicator
             android:layout_gravity="center"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:indeterminateTint="?attr/colorPrimary"/>
+            android:indeterminate="true"
+            app:indicatorColor="?attr/colorPrimary"/>
     </FrameLayout>
 
     <!-- Content Layout -->
@@ -54,8 +55,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 app:cardCornerRadius="12dp"
-                app:cardElevation="4dp"
-                app:cardBackgroundColor="@color/surface"
+                app:cardElevation="2dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="?attr/colorOutlineVariant"
+                app:cardBackgroundColor="?attr/colorSurface"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent">
@@ -120,8 +123,10 @@
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     app:cardCornerRadius="12dp"
-                    app:cardElevation="4dp"
-                    app:cardBackgroundColor="@color/surface"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="1dp"
+                    app:strokeColor="?attr/colorOutlineVariant"
+                    app:cardBackgroundColor="?attr/colorSurface"
                     android:focusableInTouchMode="true"
                     android:focusable="true"
                     android:clickable="true">
@@ -140,16 +145,16 @@
                         android:id="@+id/webViewProgressContainer"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:background="@color/surface_variant_light"
+                        android:background="?attr/colorSurfaceVariant"
                         android:visibility="gone">
 
-                        <ProgressBar
+                        <com.google.android.material.progressindicator.CircularProgressIndicator
                             android:id="@+id/webViewProgress"
-                            android:layout_width="48dp"
-                            android:layout_height="48dp"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
                             android:layout_gravity="center"
-                            android:indeterminateTintMode="src_atop"
-                            android:indeterminateTint="?attr/colorPrimary"/>
+                            android:indeterminate="true"
+                            app:indicatorColor="?attr/colorPrimary"/>
                     </FrameLayout>
                 </com.google.android.material.card.MaterialCardView>
             </FrameLayout>
@@ -165,8 +170,8 @@
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="5dp"
-        app:backgroundTint="@color/share_button_enabled"
-        app:tint="@color/white"
+        app:backgroundTint="?attr/colorPrimary"
+        app:iconTint="?attr/colorOnPrimary"
         app:icon="@drawable/ic_share" />
 
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
@@ -177,8 +182,8 @@
         android:layout_margin="16dp"
         android:text="Customize"
         android:visibility="gone"
-        app:backgroundTint="@color/share_button_enabled"
-        app:tint="@color/white"
+        app:backgroundTint="?attr/colorPrimary"
+        app:iconTint="?attr/colorOnPrimary"
         app:icon="@drawable/ic_edit" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -189,11 +194,11 @@
         android:layout_marginStart="16dp"
         android:layout_marginBottom="5dp"
         android:src="@drawable/ic_back_arrow_transparent"
-        android:backgroundTint="@color/surface_variant_light"
+        android:backgroundTint="?attr/colorSurfaceVariant"
         app:borderWidth="0dp"
         app:elevation="2dp"
         android:layout_gravity="bottom|start"
         app:fabSize="mini"
-        app:tint="@color/text_primary" />
+        app:tint="?attr/colorOnSurfaceVariant" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

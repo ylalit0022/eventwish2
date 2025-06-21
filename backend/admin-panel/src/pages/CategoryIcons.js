@@ -33,9 +33,10 @@ import {
   Delete as DeleteIcon,
   Search as SearchIcon,
   Refresh as RefreshIcon,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ContentCopy as CopyIcon
 } from '@mui/icons-material';
-import { getCategoryIcons, deleteCategoryIcon, toggleCategoryIconStatus } from '../api';
+import { getCategoryIcons, deleteCategoryIcon, toggleCategoryIconStatus, duplicateCategoryIcon } from '../api';
 
 const CategoryIcons = () => {
   const navigate = useNavigate();
@@ -208,6 +209,57 @@ const CategoryIcons = () => {
     navigate(`/category-icons/${id}`);
   };
 
+  // Handle copy click
+  const handleCopyClick = (icon) => {
+    const iconId = icon._id || icon.id;
+    if (!iconId) {
+      console.error('Invalid category icon ID');
+      setError('Invalid category icon ID. Cannot copy this icon.');
+      return;
+    }
+    
+    // Use the new duplicate API function
+    try {
+      setLoading(true);
+      duplicateCategoryIcon(iconId)
+        .then(response => {
+          if (response.success) {
+            // Show success message
+            setError(null);
+            
+            // Refresh the category icons list
+            fetchCategoryIcons();
+            
+            // Optionally, show a success message
+            const successMessage = `Category icon "${icon.category}" copied successfully`;
+            setError(
+              <Alert severity="success" onClose={() => setError(null)}>
+                {successMessage}
+              </Alert>
+            );
+            
+            // Clear success message after 3 seconds
+            setTimeout(() => {
+              setError(null);
+            }, 3000);
+          } else {
+            throw new Error(response.message || 'Failed to duplicate category icon');
+          }
+        })
+        .catch(err => {
+          console.error('Error duplicating category icon:', err);
+          setError(`Failed to duplicate category icon: ${err.message || 'Unknown error'}`);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } catch (err) {
+      console.error('Error duplicating category icon:', err);
+      setError(`Failed to duplicate category icon: ${err.message || 'Unknown error'}`);
+      setLoading(false);
+    }
+  };
+
   return (
     <Box sx={{ width: '100%' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
@@ -357,6 +409,15 @@ const CategoryIcons = () => {
                           size="small"
                         >
                           <EditIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Copy">
+                        <IconButton 
+                          onClick={() => handleCopyClick(icon)}
+                          size="small"
+                          color="secondary"
+                        >
+                          <CopyIcon />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Delete">

@@ -1,6 +1,7 @@
 package com.ds.eventwish.ui;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
@@ -12,6 +13,7 @@ import android.widget.ProgressBar;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.navigation.NavController;
+import androidx.navigation.NavDestination;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.NavigationUI;
 import androidx.lifecycle.ViewModelProvider;
@@ -25,6 +27,7 @@ import com.google.android.material.navigation.NavigationBarView;
 import com.google.android.material.badge.BadgeDrawable;
 import com.ds.eventwish.databinding.ActivityMainBinding;
 import com.ds.eventwish.data.remote.TemplateInteractionManager;
+import com.ds.eventwish.utils.DeepLinkUtil;
 
 public class MainActivity extends AppCompatActivity implements NavigationBarView.OnItemSelectedListener {
     private static final String TAG = "MainActivity";
@@ -81,6 +84,44 @@ public class MainActivity extends AppCompatActivity implements NavigationBarView
 
         // Initialize native ad
         initializeNativeAd();
+        
+        // Handle deep link intent if present
+        handleIntent(getIntent());
+    }
+    
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        // Update the intent
+        setIntent(intent);
+        // Handle the new intent for deep linking
+        handleIntent(intent);
+    }
+    
+    private void handleIntent(Intent intent) {
+        if (intent == null) {
+            return;
+        }
+        
+        String action = intent.getAction();
+        Uri data = intent.getData();
+        
+        if (Intent.ACTION_VIEW.equals(action) && data != null) {
+            Log.d(TAG, "Deep link received: " + data.toString());
+            
+            // Use DeepLinkUtil to process the URI
+            if (navController != null) {
+                // Check if we're already on the ResourceFragment
+                NavDestination currentDestination = navController.getCurrentDestination();
+                if (currentDestination != null && currentDestination.getId() == R.id.resourceFragment) {
+                    // We're already on ResourceFragment, pop it from backstack before navigating
+                    navController.popBackStack(R.id.resourceFragment, true);
+                }
+                
+                // Process the deep link
+                DeepLinkUtil.processDeepLink(this, navController, data);
+            }
+        }
     }
 
     private void initializeNativeAd() {

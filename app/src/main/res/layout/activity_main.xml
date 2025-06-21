@@ -3,7 +3,8 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface">
 
     <!-- Native Ad Container -->
     <FrameLayout
@@ -16,12 +17,13 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <ProgressBar
+    <com.google.android.material.progressindicator.CircularProgressIndicator
         android:id="@+id/native_ad_loading"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
         android:visibility="gone"
+        android:indeterminate="true"
         app:layout_constraintTop_toTopOf="@id/native_ad_container"
         app:layout_constraintBottom_toBottomOf="@id/native_ad_container"
         app:layout_constraintStart_toStartOf="@id/native_ad_container"
@@ -41,14 +43,14 @@
         app:navGraph="@navigation/nav_graph" />
 
     <!-- Offline Message Banner -->
-    <TextView
+    <com.google.android.material.textview.MaterialTextView
         android:id="@+id/offlineMessage"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/purple_700"
+        android:background="?attr/colorErrorContainer"
         android:padding="8dp"
         android:text="@string/offline_message"
-        android:textColor="@android:color/white"
+        android:textColor="?attr/colorOnErrorContainer"
         android:textSize="14sp"
         android:gravity="center"
         android:visibility="gone"
@@ -61,8 +63,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="0dp"
-        android:background="@drawable/bottom_nav_background"
-        android:elevation="8dp"
+        android:background="?attr/colorSurfaceContainer"
+        android:elevation="0dp"
         android:paddingTop="8dp"
         android:paddingBottom="8dp"
         app:itemIconSize="24dp"
@@ -75,5 +77,5 @@
         app:menu="@menu/bottom_nav_menu"
         app:itemIconTint="@color/bottom_nav_item_color"
         app:itemTextColor="@color/bottom_nav_item_color"
-        app:itemRippleColor="@android:color/transparent"/>
+        app:itemRippleColor="?attr/colorPrimaryContainer"/>
 </androidx.constraintlayout.widget.ConstraintLayout>

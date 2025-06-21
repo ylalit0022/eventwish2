@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -16,18 +16,27 @@ import {
   MenuItem,
   FormHelperText,
   Snackbar,
-  InputAdornment
+  InputAdornment,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  FormLabel
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  Image as ImageIcon,
+  ContentCopy as ContentCopyIcon
 } from '@mui/icons-material';
-import { createCategoryIcon } from '../api';
+import { createCategoryIcon, getCategoryIcon } from '../api';
+import { useSnackbar } from '../contexts/SnackbarContext';
 
 const CategoryIconCreate = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { showSnackbar } = useSnackbar();
   
   const [categoryIcon, setCategoryIcon] = useState({
     id: '',
@@ -44,6 +53,46 @@ const CategoryIconCreate = () => {
   const [previewError, setPreviewError] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // Check for copy parameter in URL
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const copyIconId = searchParams.get('copy');
+    
+    if (copyIconId) {
+      const fetchIconForCopy = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          
+          const response = await getCategoryIcon(copyIconId);
+          
+          if (response.success) {
+            // Create a copy of the category icon with a modified category name to indicate it's a copy
+            const iconData = response.categoryIcon;
+            setCategoryIcon({
+              ...iconData,
+              category: `${iconData.category} (Copy)`,
+              _id: undefined, // Remove ID to ensure a new icon is created
+              id: undefined // Remove ID to ensure a new icon is created
+            });
+            
+            showSnackbar('Category icon data loaded for copying. Please update details as needed.', 'info');
+          } else {
+            throw new Error(response.message || 'Failed to fetch category icon for copying');
+          }
+        } catch (err) {
+          console.error('Error fetching category icon for copy:', err);
+          setError('Failed to load category icon for copying: ' + (err.message || 'Unknown error'));
+          showSnackbar('Failed to load category icon for copying', 'error');
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      fetchIconForCopy();
+    }
+  }, [location.search, showSnackbar]);
 
   // Handle field change
   const handleFieldChange = (field, value) => {
@@ -133,6 +182,7 @@ const CategoryIconCreate = () => {
     } catch (err) {
       console.error('Error creating category icon:', err);
       setError('Failed to create category icon: ' + (err.message || 'Unknown error'));
+      showSnackbar('Failed to create category icon', 'error');
     } finally {
       setLoading(false);
     }
@@ -165,7 +215,7 @@ const CategoryIconCreate = () => {
           <ArrowBackIcon />
         </IconButton>
         <Typography variant="h4" component="h1">
-          Create New Category Icon
+          {location.search.includes('copy=') ? 'Create Category Icon Copy' : 'Create New Category Icon'}
         </Typography>
         <Box sx={{ flexGrow: 1 }} />
         <Button

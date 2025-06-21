@@ -65,6 +65,7 @@ import android.content.SharedPreferences;
 import com.ds.eventwish.data.remote.FirestoreManager;
 import com.ds.eventwish.utils.EventNotificationManager;
 import com.ds.eventwish.data.auth.AuthManager;
+import com.google.android.material.color.DynamicColors;
 
 public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
@@ -102,7 +103,7 @@ public class EventWishApplication extends Application implements Configuration.P
 
     private static final long APP_OPEN_AD_RESET_INTERVAL = 3600000L; // 1 hour
     private static final long MAX_APP_OPEN_AD_RESET_INTERVAL = 24 * 3600000L; // 24 hours
-    private static final int MAX_RESET_ATTEMPTS = 5; // Maximum number of reset cycles before stopping
+    private static final int MAX_RESET_ATTEMPTS = 5; // Maximum number of reset attempts
     private final Handler adResetHandler = new Handler(Looper.getMainLooper());
     private int adResetAttempts = 0; // Track the number of reset attempts
     
@@ -146,6 +147,9 @@ public class EventWishApplication extends Application implements Configuration.P
     @Override
     public void onCreate() {
         super.onCreate();
+        
+        // Apply dynamic colors if available (Android 12+)
+        DynamicColors.applyToActivitiesIfAvailable(this);
         
         // Set application instance and context first
         instance = this;

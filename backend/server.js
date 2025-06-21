@@ -26,6 +26,8 @@ const loadBalancer = require('./config/loadBalancer');
 const swagger = require('./config/swagger');
 // Initialize Firebase Admin SDK
 require('./config/firebase');
+// Import job scheduler
+const jobScheduler = require('./jobs/scheduler');
 
 // Log environment variables for debugging (excluding sensitive ones)
 console.log('NODE_ENV:', process.env.NODE_ENV);
@@ -55,56 +57,57 @@ try {
     console.error('Error loading SharedWish model:', error);
 }
 
-// MongoDB Connection
-try {
-  console.log('Attempting to connect to MongoDB...');
-  
-  // Add a default MongoDB URI as a fallback
-  const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/eventwish';
-  console.log(`MongoDB URI (masked): ${mongoURI.replace(/mongodb(\+srv)?:\/\/([^:]+):([^@]+)@/, 'mongodb$1://***:***@')}`);
-  
-  mongoose.connect(mongoURI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => {
-    console.log('✅ MongoDB Connected');
-    logger.info('MongoDB Connected');
-  })
-  .catch((err) => {
-    console.error('❌ MongoDB Connection Error:', err.message);
-    logger.error('MongoDB Connection Error:', err);
-    console.log('⚠️ WARNING: Continuing without MongoDB connection. Some API endpoints may not work.');
-  });
-} catch (error) {
-  console.error('❌ Error in MongoDB connection setup:', error.message);
-  logger.error('Error in MongoDB connection setup:', error);
-  console.log('⚠️ WARNING: Continuing without MongoDB connection. Some API endpoints may not work.');
-}
+// Add the import for the root routes
+const rootRoutes = require('./routes/index');
 
-// Add global error handlers
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:');
-  console.error(err);
-  logger.error('Uncaught Exception:', err);
-  // Don't exit, try to keep the server running
-  console.log('EMERGENCY OVERRIDE: Continuing despite uncaught exception');
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  logger.error('Unhandled Rejection:', { reason, promise });
-  // Don't exit here to allow the application to continue running
-});
-
+// Add the root routes before other routes
 const app = express();
+app.use('/api', rootRoutes);
 
 // Configure trust proxy more securely for use with Render
 // Only trust the first proxy in the chain
 app.set('trust proxy', 1);
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // List of allowed origins
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3007',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001',
+      'http://127.0.0.1:3007'
+    ];
+    
+    // Check if the origin is allowed
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      // Allow all origins in development mode
+      if (process.env.NODE_ENV !== 'production') {
+        callback(null, true);
+      } else {
+        callback(null, origin); // Reflect the request origin
+      }
+    }
+  },
+  credentials: true, // Allow credentials
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Dev-Email', 'X-Dev-Admin', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control']
+}));
+
+// Log all incoming requests for debugging
+app.use((req, res, next) => {
+  console.log(`Incoming request: ${req.method} ${req.originalUrl} from ${req.ip}`);
+  console.log('Headers:', JSON.stringify(req.headers));
+  next();
+});
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -120,6 +123,10 @@ app.use(helmet({
       ],
       connectSrc: [
         "'self'",
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
         "https://*.firebaseio.com",
         "https://*.firebaseapp.com",
         "https://www.googleapis.com",
@@ -191,8 +198,23 @@ app.use('/api/', apiLimiter);
 // Serve static files from the backendUi directory
 app.use(express.static('backendUi'));
 
-// Serve static files from the admin-panel/build directory
+// Set proper MIME types for JavaScript files
+express.static.mime.define({'application/javascript': ['js']});
+
+// Serve static files from the admin-panel/build directory with proper MIME types
 app.use('/admin', express.static(path.join(__dirname, 'admin-panel/build')));
+
+// Serve bundle.js files with the correct MIME type
+app.get('/bundle*.js', (req, res) => {
+  const bundlePath = path.join(__dirname, 'admin-panel/build', req.path);
+  res.set('Content-Type', 'application/javascript');
+  res.sendFile(bundlePath);
+});
+
+// Serve favicon.ico
+app.get('/favicon.ico', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin-panel/build/favicon.ico'));
+});
 
 // Serve static files from the client-examples directory
 app.use('/client-examples', express.static('client-examples'));
@@ -312,6 +334,12 @@ try {
   try { app.use('/api/categoryIcons', require('./routes/categoryIcons')); console.log('✅ Loaded categoryIcons routes'); } 
   catch (e) { console.error('❌ Failed to load categoryIcons routes:', e.message); }
   
+  try { app.use('/api/languages', require('./routes/languages')); console.log('✅ Loaded languages routes'); } 
+  catch (e) { console.error('❌ Failed to load languages routes:', e.message); }
+  
+  try { app.use('/api/regions', require('./routes/regions')); console.log('✅ Loaded regions routes'); } 
+  catch (e) { console.error('❌ Failed to load regions routes:', e.message); }
+  
   try { app.use('/api/test/time', require('./routes/timeRoutes')); console.log('✅ Loaded timeRoutes routes'); } 
   catch (e) { console.error('❌ Failed to load timeRoutes routes:', e.message); }
   
@@ -414,7 +442,11 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Handle all admin panel routes
+// Handle all admin panel routes to serve the React app
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin-panel/build/index.html'));
+});
+
 app.get('/admin/*', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin-panel/build/index.html'));
 });
@@ -428,8 +460,31 @@ app.get(['/admin/assets/js/firebase-config.js', '/admin-react/js/firebase-config
   res.status(404).send('Firebase config file not found');
 });
 
+// Update the MongoDB connection error handling
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 5000 // 5 second timeout for MongoDB connection
+})
+.then(() => {
+  console.log('✅ MongoDB Connected');
+  
+  // Initialize scheduled jobs after successful MongoDB connection
+  require('./jobs/scheduler').initScheduledJobs();
+  console.log('✅ Scheduled jobs initialized');
+})
+.catch(err => {
+  console.error('❌ MongoDB Connection Error:', err.message);
+  if (err.name === 'MongoServerSelectionError') {
+    console.error('Details:', err.reason);
+  }
+  
+  // Continue running the server even if MongoDB fails to connect
+  console.warn('⚠️ Server running without MongoDB connection. Some features will be unavailable.');
+});
+
 // Start server
-const PORT = process.env.PORT || 3007;
+const PORT = process.env.PORT || 3001;
 let server; // Define server in global scope
 
 try {
@@ -456,6 +511,15 @@ try {
 // Graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM signal received: closing HTTP server');
+  
+  // Stop all scheduled jobs
+  try {
+    jobScheduler.stopAllJobs();
+    logger.info('Scheduled jobs stopped');
+  } catch (error) {
+    logger.error('Error stopping scheduled jobs:', error);
+  }
+  
   if (server) {
     server.close(() => {
       logger.info('HTTP server closed');

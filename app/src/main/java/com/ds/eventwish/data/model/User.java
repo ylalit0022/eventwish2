@@ -13,6 +13,11 @@ public class User {
     private String uid; // Firebase UID
     private String phoneNumber;
     private String deviceId;
+    private String deviceModel;
+    private String deviceName;
+    private String appVersion;
+    private String osVersion;
+    private long loginTimestamp;
     private String displayName;
     private String email;
     private String profilePhoto;
@@ -20,6 +25,9 @@ public class User {
     private long lastActive;
     private boolean isUnlocked;
     private long unlockExpiry;
+    
+    // Active sessions
+    private Map<String, DeviceSession> activeSessions = new HashMap<>();
     
     // Subscription details
     private Subscription subscription;
@@ -181,6 +189,119 @@ public class User {
         }
     }
     
+    // Nested class for device session
+    public static class DeviceSession {
+        private String deviceId;
+        private String deviceModel;
+        private String deviceName;
+        private String appVersion;
+        private String osVersion;
+        private long loginTimestamp;
+        private long lastActiveTimestamp;
+        private boolean isCurrentDevice;
+        
+        public DeviceSession() {
+            // Required empty constructor
+        }
+        
+        public DeviceSession(String deviceId, String deviceModel, String deviceName, 
+                           String appVersion, String osVersion) {
+            this.deviceId = deviceId;
+            this.deviceModel = deviceModel;
+            this.deviceName = deviceName;
+            this.appVersion = appVersion;
+            this.osVersion = osVersion;
+            this.loginTimestamp = System.currentTimeMillis();
+            this.lastActiveTimestamp = System.currentTimeMillis();
+            this.isCurrentDevice = false;
+        }
+        
+        public DeviceSession(String deviceId, String deviceModel, String deviceName, 
+                           String appVersion, String osVersion, Date loginTimestamp, 
+                           Date lastActiveTimestamp, boolean isCurrentDevice) {
+            this.deviceId = deviceId;
+            this.deviceModel = deviceModel;
+            this.deviceName = deviceName;
+            this.appVersion = appVersion;
+            this.osVersion = osVersion;
+            this.loginTimestamp = loginTimestamp != null ? loginTimestamp.getTime() : System.currentTimeMillis();
+            this.lastActiveTimestamp = lastActiveTimestamp != null ? lastActiveTimestamp.getTime() : System.currentTimeMillis();
+            this.isCurrentDevice = isCurrentDevice;
+        }
+        
+        public String getDeviceId() {
+            return deviceId;
+        }
+        
+        public void setDeviceId(String deviceId) {
+            this.deviceId = deviceId;
+        }
+        
+        public String getDeviceModel() {
+            return deviceModel;
+        }
+        
+        public void setDeviceModel(String deviceModel) {
+            this.deviceModel = deviceModel;
+        }
+        
+        public String getDeviceName() {
+            return deviceName;
+        }
+        
+        public void setDeviceName(String deviceName) {
+            this.deviceName = deviceName;
+        }
+        
+        public String getAppVersion() {
+            return appVersion;
+        }
+        
+        public void setAppVersion(String appVersion) {
+            this.appVersion = appVersion;
+        }
+        
+        public String getOsVersion() {
+            return osVersion;
+        }
+        
+        public void setOsVersion(String osVersion) {
+            this.osVersion = osVersion;
+        }
+        
+        public long getLoginTimestamp() {
+            return loginTimestamp;
+        }
+        
+        public void setLoginTimestamp(long loginTimestamp) {
+            this.loginTimestamp = loginTimestamp;
+        }
+        
+        public void setLoginTimestamp(Date loginTimestamp) {
+            this.loginTimestamp = loginTimestamp != null ? loginTimestamp.getTime() : System.currentTimeMillis();
+        }
+        
+        public long getLastActiveTimestamp() {
+            return lastActiveTimestamp;
+        }
+        
+        public void setLastActiveTimestamp(long lastActiveTimestamp) {
+            this.lastActiveTimestamp = lastActiveTimestamp;
+        }
+        
+        public void setLastActiveTimestamp(Date lastActiveTimestamp) {
+            this.lastActiveTimestamp = lastActiveTimestamp != null ? lastActiveTimestamp.getTime() : System.currentTimeMillis();
+        }
+        
+        public boolean isCurrentDevice() {
+            return isCurrentDevice;
+        }
+        
+        public void setCurrentDevice(boolean currentDevice) {
+            this.isCurrentDevice = currentDevice;
+        }
+    }
+    
     // Getters and setters
     public String getUid() {
         return uid;
@@ -204,6 +325,74 @@ public class User {
     
     public void setDeviceId(String deviceId) {
         this.deviceId = deviceId;
+    }
+    
+    public String getDeviceModel() {
+        return deviceModel;
+    }
+    
+    public void setDeviceModel(String deviceModel) {
+        this.deviceModel = deviceModel;
+    }
+    
+    public String getDeviceName() {
+        return deviceName;
+    }
+    
+    public void setDeviceName(String deviceName) {
+        this.deviceName = deviceName;
+    }
+    
+    public String getAppVersion() {
+        return appVersion;
+    }
+    
+    public void setAppVersion(String appVersion) {
+        this.appVersion = appVersion;
+    }
+    
+    public String getOsVersion() {
+        return osVersion;
+    }
+    
+    public void setOsVersion(String osVersion) {
+        this.osVersion = osVersion;
+    }
+    
+    public long getLoginTimestamp() {
+        return loginTimestamp;
+    }
+    
+    public void setLoginTimestamp(long loginTimestamp) {
+        this.loginTimestamp = loginTimestamp;
+    }
+    
+    public Map<String, DeviceSession> getActiveSessions() {
+        return activeSessions;
+    }
+    
+    public void setActiveSessions(Map<String, DeviceSession> activeSessions) {
+        this.activeSessions = activeSessions;
+    }
+    
+    public void addDeviceSession(String deviceId, DeviceSession session) {
+        if (this.activeSessions == null) {
+            this.activeSessions = new HashMap<>();
+        }
+        this.activeSessions.put(deviceId, session);
+    }
+    
+    public DeviceSession getDeviceSession(String deviceId) {
+        if (this.activeSessions == null) {
+            return null;
+        }
+        return this.activeSessions.get(deviceId);
+    }
+    
+    public void removeDeviceSession(String deviceId) {
+        if (this.activeSessions != null) {
+            this.activeSessions.remove(deviceId);
+        }
     }
     
     public String getDisplayName() {

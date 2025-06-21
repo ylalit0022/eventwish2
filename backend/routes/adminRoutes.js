@@ -18,6 +18,9 @@ const Festival = require('../models/Festival');
 const About = require('../models/About');
 const Contact = require('../models/Contact');
 const SponsoredAd = require('../models/SponsoredAd');
+const PushNotification = require('../models/PushNotification');
+const categoryIconController = require('../controllers/categoryIconController');
+const sponsoredAdController = require('../controllers/sponsoredAdController');
 
 // Configure multer for file uploads
 const upload = multer({
@@ -941,7 +944,9 @@ router.get('/templates/:id', verifyFirebaseToken, async (req, res) => {
     
     const { id } = req.params;
     
-    const template = await Template.findById(id);
+    const template = await Template.findById(id)
+      .populate('language')
+      .populate('region');
     
     if (!template) {
       return res.status(404).json({
@@ -1048,36 +1053,128 @@ router.put('/templates/:id', verifyFirebaseToken, async (req, res) => {
     
     const { id } = req.params;
     
-    // Find and update template
-    const template = await Template.findByIdAndUpdate(
-      id,
-      req.body,
-      { new: true, runValidators: true }
-    );
+    // Validate and sanitize the data
+    const templateData = { ...req.body };
     
-    if (!template) {
-      return res.status(404).json({
-        success: false,
-        message: 'Template not found'
-      });
+    // Handle ObjectId references - remove null/empty values instead of converting to empty strings
+    if (templateData.language === null || templateData.language === '') {
+      console.log('Removing null/empty language field');
+      delete templateData.language;
+    } else if (templateData.language !== undefined && typeof templateData.language !== 'string') {
+      console.log('Converting language field from', typeof templateData.language, 'to string:', templateData.language);
+      templateData.language = String(templateData.language);
     }
     
-    logger.info(`Admin updated template ${id}`, { 
-      admin: req.adminInfo.email,
-      role: req.adminInfo.role
+    if (templateData.region === null || templateData.region === '') {
+      console.log('Removing null/empty region field');
+      delete templateData.region;
+    } else if (templateData.region !== undefined && typeof templateData.region !== 'string') {
+      console.log('Converting region field from', typeof templateData.region, 'to string:', templateData.region);
+      templateData.region = String(templateData.region);
+    }
+    
+    if (templateData.variationOf === null || templateData.variationOf === '') {
+      console.log('Removing null/empty variationOf field');
+      delete templateData.variationOf;
+    } else if (templateData.variationOf !== undefined && typeof templateData.variationOf !== 'string') {
+      console.log('Converting variationOf field from', typeof templateData.variationOf, 'to string:', templateData.variationOf);
+      templateData.variationOf = String(templateData.variationOf);
+    }
+    
+    // Ensure relatedTemplates are strings and remove null/empty values
+    if (templateData.relatedTemplates && Array.isArray(templateData.relatedTemplates)) {
+      templateData.relatedTemplates = templateData.relatedTemplates
+        .filter(id => id !== null && id !== undefined && id !== '')
+        .map(id => typeof id === 'string' ? id : String(id));
+      
+      console.log('Filtered and processed relatedTemplates:', templateData.relatedTemplates);
+    }
+    
+    // Log the data being sent to MongoDB for debugging
+    console.log(`Template update data for ${id}:`, { 
+      language: templateData.language,
+      languageType: typeof templateData.language,
+      region: templateData.region,
+      regionType: typeof templateData.region,
+      variationOf: templateData.variationOf,
+      variationOfType: typeof templateData.variationOf
     });
     
-    res.status(200).json({
-      success: true,
-      message: 'Template updated successfully',
-      template
-    });
+    try {
+      // Find and update template
+      const template = await Template.findByIdAndUpdate(
+        id,
+        templateData,
+        { new: true, runValidators: true }
+      );
+      
+      if (!template) {
+        return res.status(404).json({
+          success: false,
+          message: 'Template not found'
+        });
+      }
+      
+      logger.info(`Admin updated template ${id}`, { 
+        admin: req.adminInfo.email,
+        role: req.adminInfo.role
+      });
+      
+      res.status(200).json({
+        success: true,
+        message: 'Template updated successfully',
+        template
+      });
+    } catch (updateError) {
+      console.error('MongoDB update error details:', updateError);
+      
+      // Check for specific MongoDB error types
+      if (updateError.name === 'CastError') {
+        console.error('Cast error details:', {
+          kind: updateError.kind,
+          path: updateError.path,
+          value: updateError.value,
+          reason: updateError.reason
+        });
+        return res.status(400).json({
+          success: false,
+          message: `Invalid data format for field: ${updateError.path}`,
+          error: updateError.message
+        });
+      }
+      
+      if (updateError.name === 'ValidationError') {
+        const validationErrors = Object.keys(updateError.errors).reduce((acc, key) => {
+          acc[key] = updateError.errors[key].message;
+          return acc;
+        }, {});
+        
+        console.error('Validation error details:', validationErrors);
+        
+        return res.status(400).json({
+          success: false,
+          message: 'Validation error',
+          errors: validationErrors
+        });
+      }
+      
+      // Re-throw to be caught by the outer catch
+      throw updateError;
+    }
   } catch (error) {
     logger.error(`Error updating template: ${error.message}`, { error });
+    console.error('Full error object:', error);
+    
+    // Try to extract more specific error details
+    let errorMessage = error.message;
+    if (error.codeName) {
+      errorMessage = `${error.codeName}: ${errorMessage}`;
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Server error updating template',
-      error: error.message
+      error: errorMessage
     });
   }
 });
@@ -4808,6 +4905,2078 @@ router.patch('/sponsored-ads/:id/toggle-status', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error toggling sponsored ad status',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/push-notifications
+ * @desc    Get all push notifications with pagination, sorting and filtering
+ * @access  Admin only
+ */
+router.get('/push-notifications', verifyFirebaseToken, verifyAdmin, async (req, res) => {
+  try {
+    console.log('🔍 GET /api/admin/push-notifications - Request received');
+    console.log('MongoDB connection state:', mongoose.connection.readyState);
+    // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+    
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+    
+    // Sorting parameters
+    const sortField = req.query.sort || 'createdAt';
+    const sortOrder = req.query.order === 'asc' ? 1 : -1;
+    const sort = { [sortField]: sortOrder };
+    
+    // Filtering parameters
+    const filter = {};
+    
+    // Filter by status
+    if (req.query.status) {
+      filter.status = req.query.status;
+    }
+    
+    // Filter by type
+    if (req.query.type) {
+      filter.type = req.query.type;
+    }
+    
+    // Filter by topic
+    if (req.query.topic) {
+      filter.topic = req.query.topic;
+    }
+    
+    // Filter by search query (on title, body)
+    if (req.query.q) {
+      const searchQuery = req.query.q;
+      filter.$or = [
+        { title: { $regex: searchQuery, $options: 'i' } },
+        { body: { $regex: searchQuery, $options: 'i' } }
+      ];
+    }
+    
+    console.log('MongoDB query:', { filter, sort, skip, limit });
+    
+    // Check if PushNotification model exists
+    console.log('PushNotification model exists:', !!PushNotification);
+    
+    // Check PushNotification collection
+    try {
+      const collections = await mongoose.connection.db.listCollections().toArray();
+      const collectionNames = collections.map(c => c.name);
+      console.log('Available collections:', collectionNames);
+      console.log('PushNotification collection exists:', collectionNames.includes('pushnotifications'));
+    } catch (collError) {
+      console.error('Error checking collections:', collError);
+    }
+    
+    // Execute query with pagination and filters
+    const notifications = await PushNotification.find(filter)
+      .sort(sort)
+      .skip(skip)
+      .limit(limit);
+    
+    console.log(`Found ${notifications.length} notifications`);
+    
+    // Get total count for pagination
+    const totalNotifications = await PushNotification.countDocuments(filter);
+    const totalPages = Math.ceil(totalNotifications / limit);
+    
+    console.log(`Total notifications: ${totalNotifications}, Total pages: ${totalPages}`);
+    
+    logger.info(`Admin push notifications list retrieved by ${req.adminInfo.email}`, {
+      page,
+      limit,
+      totalNotifications,
+      filters: JSON.stringify(filter)
+    });
+    
+    res.status(200).json({
+      success: true,
+      notifications,
+      pagination: {
+        total: totalNotifications,
+        page,
+        limit,
+        totalPages
+      }
+    });
+  } catch (error) {
+    console.error(`❌ Error retrieving push notifications:`, error);
+    logger.error(`Error retrieving push notifications: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error retrieving push notifications',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/push-notifications/stats
+ * @desc    Get push notification statistics
+ * @access  Admin only
+ */
+router.get('/push-notifications/stats', verifyFirebaseToken, verifyAdmin, async (req, res) => {
+  try {
+    console.log('🔍 GET /api/admin/push-notifications/stats - Request received');
+    console.log('MongoDB connection state:', mongoose.connection.readyState);
+    
+    // Get counts of notifications by status
+    const total = await PushNotification.countDocuments();
+    console.log(`Total notifications count: ${total}`);
+    
+    const sent = await PushNotification.countDocuments({ status: 'SENT' });
+    console.log(`Sent notifications count: ${sent}`);
+    
+    const pending = await PushNotification.countDocuments({ 
+      status: { $in: ['DRAFT', 'SCHEDULED'] } 
+    });
+    console.log(`Pending notifications count: ${pending}`);
+    
+    const failed = await PushNotification.countDocuments({ status: 'FAILED' });
+    console.log(`Failed notifications count: ${failed}`);
+    
+    // Calculate success rate
+    let successRate = 0;
+    if (sent + failed > 0) {
+      successRate = Math.round((sent / (sent + failed)) * 100);
+    }
+    console.log(`Success rate: ${successRate}%`);
+    
+    // Get recent notifications for trends
+    const recentNotifications = await PushNotification.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select('title type status stats.total stats.success stats.failure');
+    
+    console.log(`Recent notifications count: ${recentNotifications.length}`);
+    
+    logger.info(`Admin retrieved push notification stats`, { 
+      admin: req.adminInfo.email
+    });
+    
+    res.status(200).json({
+      success: true,
+      stats: {
+        total,
+        sent,
+        pending,
+        failed,
+        successRate
+      },
+      recentNotifications
+    });
+  } catch (error) {
+    console.error(`❌ Error getting push notification stats:`, error);
+    logger.error(`Error getting push notification stats: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Error getting push notification stats',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/push-notifications/topics
+ * @desc    Get all topics with subscriber counts
+ * @access  Admin only
+ */
+router.get('/push-notifications/topics', verifyFirebaseToken, verifyAdmin, async (req, res) => {
+  try {
+    console.log('🔍 GET /api/admin/push-notifications/topics - Request received');
+    console.log('MongoDB connection state:', mongoose.connection.readyState);
+    
+    // Check if User model exists
+    console.log('User model exists:', !!User);
+    
+    // Check User collection
+    try {
+      const collections = await mongoose.connection.db.listCollections().toArray();
+      const collectionNames = collections.map(c => c.name);
+      console.log('Available collections:', collectionNames);
+      console.log('User collection exists:', collectionNames.includes('users'));
+    } catch (collError) {
+      console.error('Error checking collections:', collError);
+    }
+    
+    // Aggregate to get unique topics and counts
+    const topics = await User.aggregate([
+      // Unwind the fcmTokens array
+      { $unwind: "$fcmTokens" },
+      // Unwind the subscribedTopics array within each fcmToken
+      { $unwind: "$fcmTokens.subscribedTopics" },
+      // Group by topic and count
+      { 
+        $group: { 
+          _id: "$fcmTokens.subscribedTopics", 
+          subscriberCount: { $sum: 1 } 
+        } 
+      },
+      // Format the output
+      { 
+        $project: { 
+          _id: 0, 
+          name: "$_id", 
+          subscriberCount: 1 
+        } 
+      },
+      // Sort by subscriber count descending
+      { $sort: { subscriberCount: -1 } }
+    ]);
+    
+    console.log(`Found ${topics.length} topics`);
+    console.log('Topics data:', topics);
+    
+    logger.info(`Admin retrieved topics with counts`, { 
+      admin: req.adminInfo.email,
+      topicCount: topics.length
+    });
+    
+    res.status(200).json({
+      success: true,
+      topics
+    });
+  } catch (error) {
+    console.error(`❌ Error getting topics with counts:`, error);
+    logger.error(`Error getting topics with counts: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Error getting topics with counts',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/push-notifications/:id
+ * @desc    Get a single push notification by ID
+ * @access  Admin only
+ */
+router.get('/push-notifications/:id', verifyFirebaseToken, verifyAdmin, async (req, res) => {
+  try {
+    const notification = await PushNotification.findById(req.params.id);
+    
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Push notification not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      notification
+    });
+  } catch (error) {
+    logger.error(`Error retrieving push notification: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error retrieving push notification',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/push-notifications
+ * @desc    Create a new push notification
+ * @access  Admin only
+ */
+router.post('/push-notifications', verifyFirebaseToken, verifyAdmin, async (req, res) => {
+  try {
+    const { title, body, imageUrl, data, type, topic, targetUserIds, scheduledFor } = req.body;
+    
+    // Validate required fields
+    if (!title || !body || !type) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title, body, and type are required fields'
+      });
+    }
+    
+    // Validate type-specific fields
+    if (type === 'TOPIC' && !topic) {
+      return res.status(400).json({
+        success: false,
+        message: 'Topic is required for TOPIC type notifications'
+      });
+    }
+    
+    if (type === 'PERSONALIZED' && (!targetUserIds || !targetUserIds.length)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Target user IDs are required for PERSONALIZED type notifications'
+      });
+    }
+    
+    // Create new notification
+    const notification = new PushNotification({
+      title,
+      body,
+      imageUrl,
+      data: data || {},
+      type,
+      topic: type === 'TOPIC' ? topic : null,
+      targetUserIds: type === 'PERSONALIZED' ? targetUserIds : [],
+      status: scheduledFor ? 'SCHEDULED' : 'DRAFT',
+      scheduledFor,
+      createdBy: req.adminInfo.email
+    });
+    
+    await notification.save();
+    
+    logger.info(`Push notification created by ${req.adminInfo.email}`, {
+      notificationId: notification._id,
+      type,
+      status: notification.status
+    });
+    
+    res.status(201).json({
+      success: true,
+      notification
+    });
+  } catch (error) {
+    logger.error(`Error creating push notification: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error creating push notification',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/push-notifications/:id
+ * @desc    Update a push notification
+ * @access  Admin only
+ */
+router.put('/push-notifications/:id', verifyFirebaseToken, verifyAdmin, async (req, res) => {
+  try {
+    const { title, body, imageUrl, data, type, topic, targetUserIds, scheduledFor, status } = req.body;
+    
+    // Find notification
+    const notification = await PushNotification.findById(req.params.id);
+    
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Push notification not found'
+      });
+    }
+    
+    // Only allow updating if not already sent
+    if (notification.status === 'SENT') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot update a notification that has already been sent'
+      });
+    }
+    
+    // Update fields
+    if (title) notification.title = title;
+    if (body) notification.body = body;
+    if (imageUrl !== undefined) notification.imageUrl = imageUrl;
+    if (data) notification.data = data;
+    
+    // Update type-specific fields
+    if (type) {
+      notification.type = type;
+      
+      if (type === 'TOPIC') {
+        if (!topic) {
+          return res.status(400).json({
+            success: false,
+            message: 'Topic is required for TOPIC type notifications'
+          });
+        }
+        notification.topic = topic;
+        notification.targetUserIds = [];
+      } else if (type === 'PERSONALIZED') {
+        if (!targetUserIds || !targetUserIds.length) {
+          return res.status(400).json({
+            success: false,
+            message: 'Target user IDs are required for PERSONALIZED type notifications'
+          });
+        }
+        notification.targetUserIds = targetUserIds;
+        notification.topic = null;
+      } else {
+        // BULK type
+        notification.topic = null;
+        notification.targetUserIds = [];
+      }
+    }
+    
+    // Update scheduling
+    if (scheduledFor !== undefined) {
+      notification.scheduledFor = scheduledFor;
+      if (scheduledFor && notification.status === 'DRAFT') {
+        notification.status = 'SCHEDULED';
+      }
+    }
+    
+    // Update status if provided
+    if (status) {
+      // Only allow certain status transitions
+      const validTransitions = {
+        'DRAFT': ['SCHEDULED', 'SENDING'],
+        'SCHEDULED': ['DRAFT', 'SENDING'],
+        'SENDING': ['SENT', 'FAILED'],
+        'FAILED': ['DRAFT', 'SCHEDULED', 'SENDING']
+      };
+      
+      if (!validTransitions[notification.status] || !validTransitions[notification.status].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid status transition from ${notification.status} to ${status}`
+        });
+      }
+      
+      notification.status = status;
+    }
+    
+    await notification.save();
+    
+    logger.info(`Push notification updated by ${req.adminInfo.email}`, {
+      notificationId: notification._id,
+      status: notification.status
+    });
+    
+    res.status(200).json({
+      success: true,
+      notification
+    });
+  } catch (error) {
+    logger.error(`Error updating push notification: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating push notification',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   DELETE /api/admin/push-notifications/:id
+ * @desc    Delete a push notification
+ * @access  Admin only
+ */
+router.delete('/push-notifications/:id', verifyFirebaseToken, verifyAdmin, async (req, res) => {
+  try {
+    const notification = await PushNotification.findById(req.params.id);
+    
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Push notification not found'
+      });
+    }
+    
+    // Only allow deleting if not already sent
+    if (notification.status === 'SENT') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete a notification that has already been sent'
+      });
+    }
+    
+    await notification.deleteOne();
+    
+    logger.info(`Push notification deleted by ${req.adminInfo.email}`, {
+      notificationId: req.params.id
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Push notification deleted successfully'
+    });
+  } catch (error) {
+    logger.error(`Error deleting push notification: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error deleting push notification',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/push-notifications/:id/send
+ * @desc    Send a push notification immediately
+ * @access  Admin only
+ */
+router.post('/push-notifications/:id/send', verifyFirebaseToken, verifyAdmin, async (req, res) => {
+  try {
+    const notification = await PushNotification.findById(req.params.id);
+    
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Push notification not found'
+      });
+    }
+    
+    // Only allow sending if in DRAFT or SCHEDULED status
+    if (!['DRAFT', 'SCHEDULED'].includes(notification.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot send notification in ${notification.status} status`
+      });
+    }
+    
+    // Update status to SENDING
+    notification.status = 'SENDING';
+    await notification.save();
+    
+    // Process notification in background
+    processNotification(notification._id, req.adminInfo.email)
+      .then(() => {
+        logger.info(`Push notification processing completed for ${notification._id}`);
+      })
+      .catch(error => {
+        logger.error(`Error processing notification ${notification._id}: ${error.message}`, { error });
+      });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Push notification sending started',
+      notification
+    });
+  } catch (error) {
+    logger.error(`Error sending push notification: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error sending push notification',
+      error: error.message
+    });
+  }
+});
+
+// Helper function to process notifications
+async function processNotification(notificationId, adminEmail) {
+  const pushNotificationService = require('../services/pushNotificationService');
+  
+  try {
+    // Get notification
+    const notification = await PushNotification.findById(notificationId);
+    if (!notification) {
+      logger.error(`Notification not found for processing: ${notificationId}`);
+      return;
+    }
+    
+    let tokens = [];
+    let result;
+    
+    // Get tokens based on notification type
+    switch (notification.type) {
+      case 'BULK':
+        tokens = await pushNotificationService.getAllTokens();
+        break;
+      case 'TOPIC':
+        // For topics, we can either send directly to topic or get tokens subscribed to topic
+        result = await pushNotificationService.sendToTopic(notification.topic, {
+          title: notification.title,
+          body: notification.body,
+          imageUrl: notification.imageUrl
+        }, notification.data);
+        
+        // Update notification status
+        notification.status = result.success ? 'SENT' : 'FAILED';
+        notification.sentAt = new Date();
+        await notification.save();
+        
+        logger.info(`Topic notification sent: ${notification._id}`, { 
+          result,
+          topic: notification.topic
+        });
+        
+        return;
+      case 'PERSONALIZED':
+        tokens = await pushNotificationService.getTokensByUsers(notification.targetUserIds);
+        break;
+    }
+    
+    // If no tokens found
+    if (!tokens.length) {
+      notification.status = 'FAILED';
+      notification.stats = {
+        total: 0,
+        success: 0,
+        failure: 0
+      };
+      notification.sentAt = new Date();
+      await notification.save();
+      
+      logger.warn(`No tokens found for notification: ${notification._id}`);
+      return;
+    }
+    
+    // Send to tokens
+    result = await pushNotificationService.sendToTokens(tokens, {
+      title: notification.title,
+      body: notification.body,
+      imageUrl: notification.imageUrl
+    }, notification.data);
+    
+    // Update notification status and stats
+    notification.status = result.success ? 'SENT' : 'FAILED';
+    notification.stats = {
+      total: tokens.length,
+      success: result.successCount || 0,
+      failure: result.failureCount || 0
+    };
+    notification.sentAt = new Date();
+    await notification.save();
+    
+    logger.info(`Push notification processed: ${notification._id}`, { 
+      type: notification.type,
+      tokens: tokens.length,
+      success: result.successCount,
+      failure: result.failureCount
+    });
+  } catch (error) {
+    logger.error(`Error processing notification ${notificationId}: ${error.message}`, { error });
+    
+    // Update notification status to FAILED
+    try {
+      await PushNotification.findByIdAndUpdate(notificationId, {
+        status: 'FAILED',
+        sentAt: new Date()
+      });
+    } catch (updateError) {
+      logger.error(`Error updating notification status: ${updateError.message}`);
+    }
+  }
+}
+
+/**
+ * @route   POST /api/admin/push-notifications/personalized
+ * @desc    Create and send personalized notifications with placeholders
+ * @access  Admin only
+ */
+router.post('/push-notifications/personalized', verifyFirebaseToken, verifyAdmin, async (req, res) => {
+  try {
+    const { title, body, imageUrl, deepLink, targetUserIds, personalizationKeys, scheduledFor, notificationType = 'GENERAL', data = {} } = req.body;
+    
+    // Validate required fields
+    if (!title || !body || !targetUserIds || !Array.isArray(targetUserIds) || targetUserIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields',
+        error: 'title, body, and targetUserIds are required'
+      });
+    }
+    
+    // Validate personalization keys if provided
+    if (personalizationKeys && (!Array.isArray(personalizationKeys) || personalizationKeys.some(k => typeof k !== 'string'))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid personalization keys',
+        error: 'personalizationKeys must be an array of strings'
+      });
+    }
+    
+    // Extract personalization keys from title and body if not provided
+    const extractedKeys = [];
+    const placeholderRegex = /\{\{([^}]+)\}\}/g;
+    let match;
+    
+    // Extract from title
+    while ((match = placeholderRegex.exec(title)) !== null) {
+      extractedKeys.push(match[1]);
+    }
+    
+    // Extract from body
+    placeholderRegex.lastIndex = 0; // Reset regex index
+    while ((match = placeholderRegex.exec(body)) !== null) {
+      extractedKeys.push(match[1]);
+    }
+    
+    // Use provided keys or extracted keys
+    const finalPersonalizationKeys = personalizationKeys || [...new Set(extractedKeys)];
+    
+    // Create notification
+    const notification = new PushNotification({
+      title,
+      body,
+      imageUrl,
+      deepLink,
+      type: 'PERSONALIZED',
+      notificationType,
+      personalizationKeys: finalPersonalizationKeys,
+      targetUserIds,
+      status: scheduledFor ? 'SCHEDULED' : 'DRAFT',
+      scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
+      createdBy: req.user.email,
+      data
+    });
+    
+    await notification.save();
+    
+    logger.info(`Admin created personalized notification: ${notification._id}`, {
+      admin: req.user.email,
+      notificationId: notification._id
+    });
+    
+    // Send immediately if no schedule is set
+    if (!scheduledFor) {
+      const pushNotificationService = require('../services/pushNotificationService');
+      
+      // Process in background to avoid timeout
+      processNotification(notification._id, req.user.email);
+      
+      res.status(201).json({
+        success: true,
+        message: 'Personalized notification created and sending started',
+        notification
+      });
+    } else {
+      res.status(201).json({
+        success: true,
+        message: 'Personalized notification scheduled',
+        notification
+      });
+    }
+  } catch (error) {
+    logger.error(`Error creating personalized notification: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error creating personalized notification',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/push-notifications/preview-personalized
+ * @desc    Preview a personalized notification with sample data
+ * @access  Admin only
+ */
+router.post('/push-notifications/preview-personalized', verifyFirebaseToken, verifyAdmin, async (req, res) => {
+  try {
+    const { title, body, personalizationKeys } = req.body;
+    
+    // Validate required fields
+    if (!title || !body) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields',
+        error: 'title and body are required'
+      });
+    }
+    
+    const pushNotificationService = require('../services/pushNotificationService');
+    
+    // Create sample user data for preview
+    const sampleUserData = {
+      _id: 'sample-user-id',
+      displayName: 'Sample User',
+      email: 'sample@example.com',
+      preferredLanguage: 'English',
+      lastOnline: new Date().toISOString(),
+      categories: [
+        { category: 'Birthday', visitCount: 5 },
+        { category: 'Wedding', visitCount: 3 }
+      ],
+      favorites: ['template-1', 'template-2'],
+      topicSubscriptions: ['birthday', 'wedding']
+    };
+    
+    // Add custom sample data for provided personalization keys
+    if (personalizationKeys && Array.isArray(personalizationKeys)) {
+      personalizationKeys.forEach(key => {
+        if (!sampleUserData[key]) {
+          sampleUserData[key] = `Sample ${key}`;
+        }
+      });
+    }
+    
+    // Process placeholders
+    const processedTitle = pushNotificationService.processPlaceholders(title, sampleUserData);
+    const processedBody = pushNotificationService.processPlaceholders(body, sampleUserData);
+    
+    res.status(200).json({
+      success: true,
+      preview: {
+        title: processedTitle,
+        body: processedBody,
+        originalTitle: title,
+        originalBody: body,
+        sampleUserData
+      }
+    });
+  } catch (error) {
+    logger.error(`Error previewing personalized notification: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error previewing personalized notification',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/push-notifications/inactivity
+ * @desc    Manually trigger inactivity notifications
+ * @access  Admin only
+ */
+router.post('/push-notifications/inactivity', verifyFirebaseToken, verifyAdmin, async (req, res) => {
+  try {
+    const { inactivityThresholdDays = 3 } = req.body;
+    
+    // Validate inactivityThresholdDays
+    if (isNaN(inactivityThresholdDays) || inactivityThresholdDays < 1) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid inactivityThresholdDays parameter',
+        error: 'inactivityThresholdDays must be a positive number'
+      });
+    }
+    
+    const inactivityNotificationsJob = require('../jobs/inactivityNotifications');
+    
+    // Process in background to avoid timeout
+    const jobPromise = inactivityNotificationsJob.runInactivityNotificationsJob({
+      inactivityThresholdDays,
+      forceRun: true,
+      triggeredBy: req.user.email
+    });
+    
+    // Respond immediately
+    res.status(200).json({
+      success: true,
+      message: 'Inactivity notifications job started',
+      inactivityThresholdDays
+    });
+    
+    // Log result when job completes
+    jobPromise.then(result => {
+      logger.info(`Inactivity notifications job completed: ${result.userCount || 0} users processed`, {
+        admin: req.user.email,
+        result
+      });
+    }).catch(error => {
+      logger.error(`Error in inactivity notifications job: ${error.message}`, { error });
+    });
+    
+  } catch (error) {
+    logger.error(`Error triggering inactivity notifications: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error triggering inactivity notifications',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/push-notifications/user-segments
+ * @desc    Get user segments for targeting notifications
+ * @access  Admin only
+ */
+router.get('/push-notifications/user-segments', verifyFirebaseToken, verifyAdmin, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    
+    // Get counts by activity level
+    const now = new Date();
+    const oneDayAgo = new Date(now);
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+    
+    const threeDaysAgo = new Date(now);
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    // Get active users in different time periods
+    const activeToday = await User.countDocuments({ lastOnline: { $gte: oneDayAgo } });
+    const activeThreeDays = await User.countDocuments({ lastOnline: { $gte: threeDaysAgo } });
+    const activeSevenDays = await User.countDocuments({ lastOnline: { $gte: sevenDaysAgo } });
+    const activeThirtyDays = await User.countDocuments({ lastOnline: { $gte: thirtyDaysAgo } });
+    const totalUsers = await User.countDocuments();
+    
+    // Get inactive users eligible for notifications
+    const inactiveThreeDays = await User.countDocuments({ 
+      lastOnline: { $lt: threeDaysAgo },
+      isBlocked: false,
+      'pushPreferences.allowPersonalPush': true,
+      muteNotificationsUntil: { $lt: new Date() }
+    });
+    
+    // Get users by topic subscriptions
+    const topicCounts = await User.aggregate([
+      { $unwind: '$topicSubscriptions' },
+      { $group: { _id: '$topicSubscriptions', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+    
+    // Get users by preferred language
+    const languageCounts = await User.aggregate([
+      { $group: { _id: '$preferredLanguage', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    
+    // Get users by top categories
+    const categoryCounts = await User.aggregate([
+      { $unwind: '$categories' },
+      { $group: { _id: '$categories.category', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+    
+    res.status(200).json({
+      success: true,
+      segments: {
+        activity: {
+          activeToday,
+          activeThreeDays,
+          activeSevenDays,
+          activeThirtyDays,
+          inactiveThreeDays,
+          totalUsers
+        },
+        topics: topicCounts.map(topic => ({
+          name: topic._id,
+          count: topic.count
+        })),
+        languages: languageCounts.map(lang => ({
+          name: lang._id || 'Not Set',
+          count: lang.count
+        })),
+        categories: categoryCounts.map(cat => ({
+          name: cat._id,
+          count: cat.count
+        }))
+      }
+    });
+  } catch (error) {
+    logger.error(`Error getting user segments: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error getting user segments',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/push-notifications/inactivity-config
+ * @desc    Get inactivity notification configuration
+ * @access  Admin only
+ */
+router.get('/push-notifications/inactivity-config', verifyFirebaseToken, verifyAdmin, async (req, res) => {
+  try {
+    const inactivityNotificationsJob = require('../jobs/inactivityNotifications');
+    const config = await inactivityNotificationsJob.getInactivityConfig();
+    
+    res.status(200).json({
+      success: true,
+      config
+    });
+  } catch (error) {
+    logger.error(`Error getting inactivity notification config: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error getting inactivity notification config',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/push-notifications/inactivity-config
+ * @desc    Update inactivity notification configuration
+ * @access  Admin only
+ */
+router.put('/push-notifications/inactivity-config', verifyFirebaseToken, verifyAdmin, async (req, res) => {
+  try {
+    const { 
+      inactivityThresholdDays, 
+      isAutomaticSendEnabled, 
+      automaticSendHour,
+      notificationTitle,
+      notificationBody
+    } = req.body;
+    
+    // Validate input
+    if (inactivityThresholdDays !== undefined && (isNaN(inactivityThresholdDays) || inactivityThresholdDays < 1)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid inactivityThresholdDays parameter',
+        error: 'inactivityThresholdDays must be a positive number'
+      });
+    }
+    
+    if (automaticSendHour !== undefined && (isNaN(automaticSendHour) || automaticSendHour < 0 || automaticSendHour > 23)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid automaticSendHour parameter',
+        error: 'automaticSendHour must be between 0 and 23'
+      });
+    }
+    
+    // Build update object with only provided fields
+    const updateData = {};
+    if (inactivityThresholdDays !== undefined) updateData.inactivityThresholdDays = inactivityThresholdDays;
+    if (isAutomaticSendEnabled !== undefined) updateData.isAutomaticSendEnabled = isAutomaticSendEnabled;
+    if (automaticSendHour !== undefined) updateData.automaticSendHour = automaticSendHour;
+    if (notificationTitle !== undefined) updateData.notificationTitle = notificationTitle;
+    if (notificationBody !== undefined) updateData.notificationBody = notificationBody;
+    
+    const inactivityNotificationsJob = require('../jobs/inactivityNotifications');
+    const updatedConfig = await inactivityNotificationsJob.updateInactivityConfig(
+      updateData, 
+      req.user.email
+    );
+    
+    // If automatic send hour was updated, restart the job with new schedule
+    if (automaticSendHour !== undefined) {
+      const scheduler = require('../jobs/scheduler');
+      await scheduler.startInactivityNotificationsJob();
+      logger.info(`Inactivity notifications job rescheduled by ${req.user.email}`);
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Inactivity notification configuration updated',
+      config: updatedConfig
+    });
+  } catch (error) {
+    logger.error(`Error updating inactivity notification config: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating inactivity notification config',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/diagnostics/mongodb
+ * @desc    Check MongoDB connection status and collections
+ * @access  Admin only
+ */
+router.get('/diagnostics/mongodb', async (req, res) => {
+  console.log('🔍 GET /api/admin/diagnostics/mongodb - Request received');
+  
+  // Set a timeout for MongoDB operations
+  const OPERATION_TIMEOUT = 3000; // 3 seconds timeout
+  
+  // Function to create a timeout promise
+  const createTimeout = (ms) => {
+    return new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`Operation timed out after ${ms}ms`)), ms);
+    });
+  };
+  
+  // Check MongoDB connection state
+  const connectionState = mongoose.connection.readyState;
+  const connectionStateText = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  }[connectionState] || 'unknown';
+  
+  console.log(`MongoDB connection state: ${connectionState} (${connectionStateText})`);
+  
+  // Basic response with connection state
+  const response = {
+    success: true,
+    mongodb: {
+      connectionState,
+      connectionStateText,
+      dbName: mongoose.connection.name || 'Unknown',
+      dbHost: mongoose.connection.host || 'Unknown',
+      collections: [],
+      collectionStatus: {},
+      documentCounts: {}
+    },
+    models: {
+      pushNotification: {
+        exists: !!PushNotification,
+        schema: {}
+      },
+      user: {
+        exists: !!User
+      }
+    }
+  };
+  
+  // If not connected, return early with connection state only
+  if (connectionState !== 1) {
+    response.warning = 'MongoDB is not connected';
+    return res.status(200).json(response);
+  }
+  
+  try {
+    // Get collection information with timeout
+    try {
+      const collections = await Promise.race([
+        mongoose.connection.db.listCollections().toArray(),
+        createTimeout(OPERATION_TIMEOUT)
+      ]);
+      
+      response.mongodb.collections = collections.map(c => c.name);
+      console.log('Collections retrieved successfully:', response.mongodb.collections);
+      
+      // Check for specific collections
+      const requiredCollections = [
+        'pushnotifications',
+        'users',
+        'templates',
+        'festivals',
+        'admobs',
+        'sponsored_ads'
+      ];
+      
+      // Set collection status
+      requiredCollections.forEach(collection => {
+        response.mongodb.collectionStatus[collection] = response.mongodb.collections.includes(collection);
+      });
+      
+      // Count documents in important collections (with individual timeouts)
+      await Promise.all(requiredCollections.map(async (collection) => {
+        if (response.mongodb.collectionStatus[collection]) {
+          try {
+            const count = await Promise.race([
+              mongoose.connection.db.collection(collection).countDocuments(),
+              createTimeout(OPERATION_TIMEOUT)
+            ]);
+            response.mongodb.documentCounts[collection] = count;
+          } catch (countError) {
+            console.error(`Error counting documents in ${collection}:`, countError);
+            response.mongodb.documentCounts[collection] = 'Timeout counting documents';
+          }
+        } else {
+          response.mongodb.documentCounts[collection] = 'Collection not found';
+        }
+      }));
+    } catch (collError) {
+      console.error('Error or timeout retrieving collections:', collError);
+      response.warning = 'Timed out retrieving collections';
+    }
+    
+    // Get push notification model schema (with timeout)
+    if (PushNotification) {
+      try {
+        const schema = PushNotification.schema.paths;
+        const schemaInfo = {};
+        
+        Object.keys(schema).forEach(path => {
+          schemaInfo[path] = {
+            type: schema[path].instance,
+            required: schema[path].isRequired || false
+          };
+        });
+        
+        response.models.pushNotification.schema = schemaInfo;
+      } catch (schemaError) {
+        console.error('Error getting PushNotification schema:', schemaError);
+        response.models.pushNotification.schemaError = 'Error retrieving schema';
+      }
+    }
+    
+    logger.info(`Admin checked MongoDB diagnostics`, { 
+      admin: req.adminInfo?.email || 'unknown'
+    });
+    
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error('❌ Error checking MongoDB diagnostics:', error);
+    logger.error(`Error checking MongoDB diagnostics: ${error.message}`, { error });
+    
+    return res.status(500).json({
+      success: false,
+      message: 'Error checking MongoDB diagnostics',
+      error: error.message,
+      errorType: error.name || 'unknown',
+      mongodb: {
+        connectionState: mongoose.connection.readyState,
+        connectionStateText: {
+          0: 'disconnected',
+          1: 'connected',
+          2: 'connecting',
+          3: 'disconnecting'
+        }[mongoose.connection.readyState] || 'unknown'
+      }
+    });
+  }
+});
+
+// Add a simple health check endpoint
+router.get('/health', (req, res) => {
+  try {
+    // Check MongoDB connection state
+    const connectionState = mongoose.connection.readyState;
+    const connectionStateText = {
+      0: 'disconnected',
+      1: 'connected',
+      2: 'connecting',
+      3: 'disconnecting'
+    }[connectionState] || 'unknown';
+    
+    res.status(200).json({
+      success: true,
+      message: 'API is healthy',
+      mongodb: {
+        connected: connectionState === 1,
+        connectionState,
+        connectionStateText
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error in health check endpoint:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error checking API health',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/sponsored-ads/:id/force-update
+ * @desc    Update a sponsored ad bypassing date validation
+ * @access  Admin only
+ */
+router.put('/sponsored-ads/:id/force-update', async (req, res) => {
+  try {
+    // Check if we're in development mode
+    const isDevelopment = process.env.NODE_ENV === 'development' || process.env.SKIP_AUTH === 'true';
+    
+    // Skip auth verification in development mode
+    if (!isDevelopment) {
+      // Verify Firebase token
+      if (!req.headers.authorization || !req.headers.authorization.startsWith('Bearer ')) {
+        return res.status(401).json({
+          success: false,
+          message: 'No Firebase token provided',
+          error: 'AUTH_TOKEN_MISSING'
+        });
+      }
+      
+      // Check admin role
+      const { getAdminRole } = require('../config/adminConfig');
+      if (!req.user || !req.user.email || !getAdminRole(req.user.email)) {
+        return res.status(403).json({
+          success: false,
+          message: 'User is not authorized for admin access',
+          error: 'AUTH_ADMIN_REQUIRED'
+        });
+      }
+    } else {
+      // In development mode, set mock admin info
+      req.adminInfo = {
+        email: 'dev@example.com',
+        role: 'superAdmin'
+      };
+    }
+    
+    const { id } = req.params;
+    
+    // Log the ID for debugging
+    console.log(`Received PUT request for sponsored ad ID (force update): ${id}`);
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid sponsored ad ID'
+      });
+    }
+    
+    // Get the existing ad first
+    const existingAd = await SponsoredAd.findById(id);
+    
+    if (!existingAd) {
+      return res.status(404).json({
+        success: false,
+        message: 'Sponsored ad not found'
+      });
+    }
+    
+    // Extract dates from the request body
+    const { start_date, end_date } = req.body;
+    
+    // Ensure end date is after start date
+    const startDate = start_date ? new Date(start_date) : existingAd.start_date;
+    let endDate = end_date ? new Date(end_date) : existingAd.end_date;
+    
+    // If end date is not after start date, set it to 2 days after start date
+    if (endDate <= startDate) {
+      endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 2);
+    }
+    
+    // Update the request body with fixed dates
+    const updatedData = {
+      ...req.body,
+      start_date: startDate,
+      end_date: endDate
+    };
+    
+    // Use findByIdAndUpdate with runValidators: false to bypass validation
+    const updatedSponsoredAd = await SponsoredAd.findByIdAndUpdate(
+      id,
+      updatedData,
+      { new: true, runValidators: false }
+    );
+    
+    if (!updatedSponsoredAd) {
+      return res.status(404).json({
+        success: false,
+        message: 'Sponsored ad not found'
+      });
+    }
+    
+    if (req.adminInfo) {
+      logger.info(`Admin force updated sponsored ad: ${updatedSponsoredAd.title}`, {
+        admin: req.adminInfo.email,
+        id
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Sponsored ad updated successfully',
+      sponsoredAd: updatedSponsoredAd
+    });
+  } catch (error) {
+    logger.error(`Error force updating sponsored ad: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating sponsored ad',
+      error: error.message
+    });
+  }
+});
+
+// Language routes
+/**
+ * @route   GET /api/admin/languages
+ * @desc    Get all languages
+ * @access  Admin only
+ */
+router.get('/languages', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    // Get all languages from the main language router
+    const Language = require('../models/Language');
+    
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    
+    // Sorting parameters
+    const sortField = req.query.sort || 'displayOrder';
+    const sortOrder = req.query.order === 'asc' ? 1 : -1;
+    const sort = { [sortField]: sortOrder };
+    
+    // Filtering parameters
+    const filter = {};
+    
+    // Filter by search query
+    if (req.query.search) {
+      filter.$or = [
+        { code: { $regex: req.query.search, $options: 'i' } },
+        { name: { $regex: req.query.search, $options: 'i' } },
+        { nativeName: { $regex: req.query.search, $options: 'i' } }
+      ];
+    }
+    
+    // Get languages with pagination
+    const languages = await Language.find(filter)
+      .sort(sort)
+      .skip(skip)
+      .limit(limit);
+    
+    // Get total count for pagination
+    const total = await Language.countDocuments(filter);
+    
+    res.status(200).json({
+      success: true,
+      data: languages,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      limit
+    });
+  } catch (error) {
+    logger.error(`Error fetching languages: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching languages',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/languages/:code
+ * @desc    Get a language by code
+ * @access  Admin only
+ */
+router.get('/languages/:code', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    const Language = require('../models/Language');
+    const language = await Language.findOne({ code: req.params.code });
+    
+    if (!language) {
+      return res.status(404).json({
+        success: false,
+        message: 'Language not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: language
+    });
+  } catch (error) {
+    logger.error(`Error fetching language: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching language',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/languages
+ * @desc    Create a new language
+ * @access  Admin only
+ */
+router.post('/languages', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    const Language = require('../models/Language');
+    
+    // Validate required fields
+    if (!req.body.code || !req.body.name || !req.body.nativeName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields',
+        error: 'code, name, and nativeName are required'
+      });
+    }
+    
+    // Check if language already exists
+    const existingLanguage = await Language.findOne({ code: req.body.code });
+    if (existingLanguage) {
+      return res.status(400).json({
+        success: false,
+        message: `Language with code ${req.body.code} already exists`
+      });
+    }
+    
+    // Create new language
+    const language = new Language({
+      code: req.body.code,
+      name: req.body.name,
+      nativeName: req.body.nativeName,
+      isRTL: req.body.isRTL || false,
+      isActive: req.body.isActive !== undefined ? req.body.isActive : true,
+      displayOrder: req.body.displayOrder || 0
+    });
+    
+    await language.save();
+    
+    res.status(201).json({
+      success: true,
+      message: 'Language created successfully',
+      data: language
+    });
+  } catch (error) {
+    logger.error(`Error creating language: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error creating language',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/languages/:code
+ * @desc    Update a language
+ * @access  Admin only
+ */
+router.put('/languages/:code', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    const Language = require('../models/Language');
+    
+    // Find language
+    const language = await Language.findOne({ code: req.params.code });
+    
+    if (!language) {
+      return res.status(404).json({
+        success: false,
+        message: 'Language not found'
+      });
+    }
+    
+    // Update language fields
+    if (req.body.name) language.name = req.body.name;
+    if (req.body.nativeName) language.nativeName = req.body.nativeName;
+    if (req.body.isRTL !== undefined) language.isRTL = req.body.isRTL;
+    if (req.body.isActive !== undefined) language.isActive = req.body.isActive;
+    if (req.body.displayOrder !== undefined) language.displayOrder = req.body.displayOrder;
+    
+    await language.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Language updated successfully',
+      data: language
+    });
+  } catch (error) {
+    logger.error(`Error updating language: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating language',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   DELETE /api/admin/languages/:code
+ * @desc    Delete a language
+ * @access  Admin only
+ */
+router.delete('/languages/:code', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    const Language = require('../models/Language');
+    
+    // Find language
+    const language = await Language.findOne({ code: req.params.code });
+    
+    if (!language) {
+      return res.status(404).json({
+        success: false,
+        message: 'Language not found'
+      });
+    }
+    
+    // Check if language is in use by templates
+    const Template = require('../models/Template');
+    const templatesUsingLanguage = await Template.countDocuments({ language: language._id });
+    
+    if (templatesUsingLanguage > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete language that is used by ${templatesUsingLanguage} templates`
+      });
+    }
+    
+    // Delete language
+    await Language.deleteOne({ code: req.params.code });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Language deleted successfully'
+    });
+  } catch (error) {
+    logger.error(`Error deleting language: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error deleting language',
+      error: error.message
+    });
+  }
+});
+
+// Region routes
+/**
+ * @route   GET /api/admin/regions
+ * @desc    Get all regions
+ * @access  Admin only
+ */
+router.get('/regions', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    // Get all regions from the main region router
+    const Region = require('../models/Region');
+    
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    
+    // Sorting parameters
+    const sortField = req.query.sort || 'displayOrder';
+    const sortOrder = req.query.order === 'asc' ? 1 : -1;
+    const sort = { [sortField]: sortOrder };
+    
+    // Filtering parameters
+    const filter = {};
+    
+    // Filter by search query
+    if (req.query.search) {
+      filter.$or = [
+        { code: { $regex: req.query.search, $options: 'i' } },
+        { name: { $regex: req.query.search, $options: 'i' } },
+        { continent: { $regex: req.query.search, $options: 'i' } }
+      ];
+    }
+    
+    // Get regions with pagination
+    const regions = await Region.find(filter)
+      .sort(sort)
+      .skip(skip)
+      .limit(limit);
+    
+    // Get total count for pagination
+    const total = await Region.countDocuments(filter);
+    
+    res.status(200).json({
+      success: true,
+      data: regions,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      limit
+    });
+  } catch (error) {
+    logger.error(`Error fetching regions: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching regions',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/regions/continent/:continent
+ * @desc    Get regions by continent
+ * @access  Admin only
+ */
+router.get('/regions/continent/:continent', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    const Region = require('../models/Region');
+    const regions = await Region.find({ 
+      continent: req.params.continent,
+      isActive: true
+    }).sort({ displayOrder: 1 });
+    
+    res.status(200).json({
+      success: true,
+      data: regions
+    });
+  } catch (error) {
+    logger.error(`Error fetching regions by continent: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching regions by continent',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/admin/regions/:code
+ * @desc    Get a region by code
+ * @access  Admin only
+ */
+router.get('/regions/:code', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    const Region = require('../models/Region');
+    const region = await Region.findOne({ code: req.params.code });
+    
+    if (!region) {
+      return res.status(404).json({
+        success: false,
+        message: 'Region not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: region
+    });
+  } catch (error) {
+    logger.error(`Error fetching region: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching region',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/regions
+ * @desc    Create a new region
+ * @access  Admin only
+ */
+router.post('/regions', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    const Region = require('../models/Region');
+    
+    // Validate required fields
+    if (!req.body.code || !req.body.name || !req.body.continent) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields',
+        error: 'code, name, and continent are required'
+      });
+    }
+    
+    // Check if region already exists
+    const existingRegion = await Region.findOne({ code: req.body.code });
+    if (existingRegion) {
+      return res.status(400).json({
+        success: false,
+        message: `Region with code ${req.body.code} already exists`
+      });
+    }
+    
+    // Create new region
+    const region = new Region({
+      code: req.body.code,
+      name: req.body.name,
+      continent: req.body.continent,
+      flagIcon: req.body.flagIcon || '',
+      isActive: req.body.isActive !== undefined ? req.body.isActive : true,
+      displayOrder: req.body.displayOrder || 0,
+      localization: req.body.localization || {}
+    });
+    
+    await region.save();
+    
+    res.status(201).json({
+      success: true,
+      message: 'Region created successfully',
+      data: region
+    });
+  } catch (error) {
+    logger.error(`Error creating region: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error creating region',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/regions/:code
+ * @desc    Update a region
+ * @access  Admin only
+ */
+router.put('/regions/:code', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    const Region = require('../models/Region');
+    
+    // Find region
+    const region = await Region.findOne({ code: req.params.code });
+    
+    if (!region) {
+      return res.status(404).json({
+        success: false,
+        message: 'Region not found'
+      });
+    }
+    
+    // Update region fields
+    if (req.body.name) region.name = req.body.name;
+    if (req.body.continent) region.continent = req.body.continent;
+    if (req.body.flagIcon !== undefined) region.flagIcon = req.body.flagIcon;
+    if (req.body.isActive !== undefined) region.isActive = req.body.isActive;
+    if (req.body.displayOrder !== undefined) region.displayOrder = req.body.displayOrder;
+    if (req.body.localization) region.localization = req.body.localization;
+    
+    await region.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Region updated successfully',
+      data: region
+    });
+  } catch (error) {
+    logger.error(`Error updating region: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating region',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   DELETE /api/admin/regions/:code
+ * @desc    Delete a region
+ * @access  Admin only
+ */
+router.delete('/regions/:code', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    const Region = require('../models/Region');
+    
+    // Find region
+    const region = await Region.findOne({ code: req.params.code });
+    
+    if (!region) {
+      return res.status(404).json({
+        success: false,
+        message: 'Region not found'
+      });
+    }
+    
+    // Check if region is in use by templates
+    const Template = require('../models/Template');
+    const templatesUsingRegion = await Template.countDocuments({ region: region._id });
+    
+    if (templatesUsingRegion > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete region that is used by ${templatesUsingRegion} templates`
+      });
+    }
+    
+    // Delete region
+    await Region.deleteOne({ code: req.params.code });
+    
+    res.status(200).json({
+      success: true,
+      message: 'Region deleted successfully'
+    });
+  } catch (error) {
+    logger.error(`Error deleting region: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error deleting region',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route POST /api/admin/category-icons/:id/duplicate
+ * @desc Duplicate a category icon
+ * @access Admin only
+ */
+router.post('/category-icons/:id/duplicate', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    // Call the controller function
+    await categoryIconController.duplicateCategoryIcon(req, res);
+    
+  } catch (error) {
+    logger.error(`Error duplicating category icon: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error duplicating category icon',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/admin/sponsored-ads/:id/duplicate
+ * @desc    Create a duplicate copy of a sponsored ad
+ * @access  Admin only
+ */
+router.post('/sponsored-ads/:id/duplicate', verifyFirebaseToken, async (req, res) => {
+  try {
+    // Verify admin status first
+    const { getAdminRole } = require('../config/adminConfig');
+    const userEmail = req.user.email;
+    const adminRole = getAdminRole(userEmail);
+    
+    if (!adminRole) {
+      return res.status(403).json({
+        success: false,
+        message: 'User is not authorized for admin access'
+      });
+    }
+    
+    // Add admin info to request
+    req.adminInfo = {
+      email: userEmail,
+      role: adminRole
+    };
+    
+    // Call the controller function
+    await sponsoredAdController.duplicateSponsoredAd(req, res);
+    
+  } catch (error) {
+    logger.error(`Error duplicating sponsored ad: ${error.message}`, { error });
+    res.status(500).json({
+      success: false,
+      message: 'Server error duplicating sponsored ad',
       error: error.message
     });
   }

@@ -3,7 +3,8 @@ const router = express.Router();
 const { 
     getTemplates, 
     getTemplatesByCategory, 
-    getTemplateById 
+    getTemplateById,
+    duplicateTemplate
 } = require('../controllers/templateController');
 const recommendationService = require('../services/recommendationService');
 const logger = require('../utils/logger');
@@ -44,6 +45,9 @@ router.get('/recommendations/:deviceId', async (req, res) => {
         });
     }
 });
+
+// Duplicate a template
+router.post('/:id/duplicate', duplicateTemplate);
 
 // Get template by ID
 router.get('/:id', getTemplateById);

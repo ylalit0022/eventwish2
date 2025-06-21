@@ -9,7 +9,7 @@
     android:layout_marginVertical="4dp"
     app:cardCornerRadius="12dp"
     app:cardElevation="2dp"
-    app:strokeColor="#EEEEEE"
+    app:strokeColor="?attr/colorOutlineVariant"
     app:strokeWidth="1dp">
 
     <LinearLayout
@@ -24,14 +24,14 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <ImageView
+            <com.google.android.material.imageview.ShapeableImageView
                 android:id="@+id/categoryIcon"
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:padding="4dp"
                 android:background="@drawable/circle_background"
                 android:src="@drawable/ic_festival"
-                app:tint="@color/colorPrimary" />
+                app:tint="?attr/colorPrimary" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -40,27 +40,27 @@
                 android:layout_marginStart="12dp"
                 android:orientation="vertical">
 
-                <TextView
+                <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/festivalName"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@android:color/black"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     tools:text="Holi Festival" />
 
-                <TextView
+                <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/categoryTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:textColor="#757575"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="14sp"
                     tools:text="Festival Category" />
 
             </LinearLayout>
 
-            <TextView
+            <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/festivalDate"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -68,18 +68,18 @@
                 android:background="@drawable/date_background"
                 android:paddingHorizontal="12dp"
                 android:paddingVertical="6dp"
-                android:textColor="@color/colorPrimary"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="14sp"
                 android:textStyle="bold"
                 tools:text="Mar 5, 2025" />
         </LinearLayout>
 
-        <TextView
+        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/festivalDescription"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:textColor="#616161"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="14sp"
             android:lineSpacingExtra="4dp"
             tools:text="Festival of Colors celebrating the arrival of spring and the eternal love of Radha and Krishna. Join in the festivities with colors and joy." />

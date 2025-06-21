@@ -2,9 +2,13 @@ package com.ds.eventwish.data.repository;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.provider.Settings;
 import android.util.Log;
+import android.os.Handler;
+import android.os.Looper;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -12,24 +16,37 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
 import com.ds.eventwish.data.auth.AuthManager;
-import com.ds.eventwish.data.model.response.BaseResponse;
+import com.ds.eventwish.data.local.AppDatabase;
+import com.ds.eventwish.data.local.dao.CategoryClickDao;
+import com.ds.eventwish.data.local.dao.UserDao;
+import com.ds.eventwish.data.local.entity.CategoryClickEntity;
+import com.ds.eventwish.data.local.entity.UserEntity;
+import com.ds.eventwish.data.model.DeviceSession;
+import com.ds.eventwish.data.model.User;
+import com.ds.eventwish.data.model.response.ApiResponse;
+import com.ds.eventwish.data.model.response.SessionsResponse;
 import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.data.remote.ApiService;
-import com.google.android.gms.tasks.OnCompleteListener;
+import com.ds.eventwish.util.AppExecutors;
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.TaskCompletionSource;
 import com.google.android.gms.tasks.Tasks;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -37,11 +54,13 @@ import retrofit2.Response;
 
 import com.ds.eventwish.data.local.AppDatabase;
 import com.ds.eventwish.data.local.dao.CategoryClickDao;
-import com.ds.eventwish.data.local.dao.UserDao;
 import com.ds.eventwish.data.local.entity.CategoryClickEntity;
 import com.ds.eventwish.data.local.entity.UserEntity;
 import com.ds.eventwish.data.model.User;
 import com.ds.eventwish.util.AppExecutors;
+import com.ds.eventwish.utils.AuthStateManager;
+
+import java.io.IOException;
 
 /**
  * Repository class for managing user registration and activity tracking
@@ -102,7 +121,7 @@ public class UserRepository {
             
             // Initialize ApiClient
             ApiClient.init(context);
-            this.apiService = ApiClient.getInstance();
+            this.apiService = ApiClient.getClient();
         } catch (Exception e) {
             Log.e(TAG, "Error initializing ApiClient: " + e.getMessage());
         }
@@ -637,96 +656,290 @@ public class UserRepository {
     }
 
     /**
-     * Sync user data with MongoDB after successful Firebase authentication
+     * Check if there are active sessions on other devices
+     * @param userId User ID
+     * @param callback Callback to receive result
+     */
+    public void checkActiveSessionsOnOtherDevices(String userId, ActiveSessionsCallback callback) {
+        if (userId == null || userId.isEmpty()) {
+            Log.e(TAG, "checkActiveSessionsOnOtherDevices: User ID is null or empty");
+            callback.onError("User ID is null or empty");
+            return;
+        }
+        
+        // Get current device ID
+        final String currentDeviceId = getDeviceId();
+        Log.d(TAG, "checkActiveSessionsOnOtherDevices: Checking sessions for user " + userId + " from device " + currentDeviceId);
+        
+        authManager.getIdToken(new AuthManager.TokenCallback() {
+            @Override
+            public void onTokenReceived(String token) {
+                String authToken = "Bearer " + token;
+                Log.d(TAG, "checkActiveSessionsOnOtherDevices: Got auth token, making API call");
+                
+                Call<ApiResponse<SessionsResponse>> call = apiService.getUserSessions(userId, authToken);
+                call.enqueue(new Callback<ApiResponse<SessionsResponse>>() {
+                    @Override
+                    public void onResponse(@NonNull Call<ApiResponse<SessionsResponse>> call, 
+                                           @NonNull Response<ApiResponse<SessionsResponse>> response) {
+                        if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                            SessionsResponse sessionsResponse = response.body().getData();
+                            if (sessionsResponse != null && sessionsResponse.getSessions() != null) {
+                                // Convert to map of device ID -> DeviceSession
+                                Map<String, DeviceSession> sessionsMap = new HashMap<>();
+                                boolean hasOtherActiveSessions = false;
+                                
+                                Log.d(TAG, "checkActiveSessionsOnOtherDevices: Got " + sessionsResponse.getSessions().size() + " sessions");
+                                
+                                for (DeviceSession session : sessionsResponse.getSessions()) {
+                                    String deviceId = session.getDeviceId();
+                                    // Skip current device
+                                    if (!deviceId.equals(currentDeviceId)) {
+                                        sessionsMap.put(deviceId, session);
+                                        hasOtherActiveSessions = true;
+                                        Log.d(TAG, "checkActiveSessionsOnOtherDevices: Found other session on device " + 
+                                              deviceId + " (" + session.getDeviceName() + ")");
+                                    }
+                                }
+                                
+                                if (hasOtherActiveSessions) {
+                                    Log.i(TAG, "checkActiveSessionsOnOtherDevices: Found " + sessionsMap.size() + 
+                                          " active sessions on other devices");
+                                    callback.onActiveSessions(sessionsMap);
+                                } else {
+                                    Log.i(TAG, "checkActiveSessionsOnOtherDevices: No active sessions on other devices");
+                                    callback.onNoActiveSessions();
+                                }
+                            } else {
+                                Log.i(TAG, "checkActiveSessionsOnOtherDevices: No sessions data available");
+                                callback.onNoActiveSessions();
+                            }
+                        } else {
+                            // If the endpoint doesn't exist yet, consider it as no active sessions
+                            if (response.code() == 404) {
+                                Log.w(TAG, "checkActiveSessionsOnOtherDevices: API endpoint not found (404)");
+                                callback.onNoActiveSessions();
+                            } else {
+                                String errorMessage = "Failed to check active sessions: HTTP " + response.code();
+                                Log.e(TAG, errorMessage);
+                                callback.onError(errorMessage);
+                            }
+                        }
+                    }
+                    
+                    @Override
+                    public void onFailure(@NonNull Call<ApiResponse<SessionsResponse>> call, @NonNull Throwable t) {
+                        Log.e(TAG, "Error checking active sessions", t);
+                        callback.onError("Network error: " + t.getMessage());
+                    }
+                });
+            }
+            
+            @Override
+            public void onError(String errorMessage) {
+                Log.e(TAG, "checkActiveSessionsOnOtherDevices: Authentication error: " + errorMessage);
+                callback.onError("Authentication error: " + errorMessage);
+            }
+        });
+    }
+    
+    /**
+     * Callback for active sessions check
+     */
+    public interface ActiveSessionsCallback {
+        void onActiveSessions(Map<String, DeviceSession> sessions);
+        void onNoActiveSessions();
+        void onError(String errorMessage);
+    }
+    
+    /**
+     * Invalidate sessions on other devices
+     * @param userId User ID
+     * @param deviceId Current device ID
+     * @param callback Callback to receive result
+     */
+    public void invalidateOtherSessions(String userId, String deviceId, SimpleCallback callback) {
+        if (userId == null || userId.isEmpty()) {
+            Log.e(TAG, "invalidateOtherSessions: User ID is null or empty");
+            callback.onError("User ID is null or empty");
+            return;
+        }
+        
+        if (deviceId == null || deviceId.isEmpty()) {
+            Log.e(TAG, "invalidateOtherSessions: Device ID is null or empty");
+            callback.onError("Device ID is null or empty");
+            return;
+        }
+
+        Log.d(TAG, "invalidateOtherSessions: Invalidating other sessions for user " + userId + " from device " + deviceId);
+        
+        authManager.getIdToken(new AuthManager.TokenCallback() {
+            @Override
+            public void onTokenReceived(String token) {
+                String authToken = "Bearer " + token;
+                Log.d(TAG, "invalidateOtherSessions: Got auth token, making API call");
+                
+                Map<String, String> body = new HashMap<>();
+                body.put("deviceId", deviceId);
+                
+                Call<ApiResponse<Void>> call = apiService.invalidateOtherSessions(userId, body, authToken);
+                call.enqueue(new Callback<ApiResponse<Void>>() {
+                    @Override
+                    public void onResponse(@NonNull Call<ApiResponse<Void>> call, 
+                                           @NonNull Response<ApiResponse<Void>> response) {
+                        if (response.isSuccessful()) {
+                            Log.i(TAG, "invalidateOtherSessions: Successfully invalidated other sessions");
+                            callback.onSuccess();
+                        } else {
+                            // If the endpoint doesn't exist yet, consider it as success
+                            if (response.code() == 404) {
+                                Log.w(TAG, "invalidateOtherSessions: API endpoint not found (404), treating as success");
+                                callback.onSuccess();
+                            } else {
+                                String errorMessage = "Failed to invalidate sessions: HTTP " + response.code();
+                                Log.e(TAG, errorMessage);
+                                callback.onError(errorMessage);
+                            }
+                        }
+                    }
+                    
+                    @Override
+                    public void onFailure(@NonNull Call<ApiResponse<Void>> call, @NonNull Throwable t) {
+                        Log.e(TAG, "Error invalidating sessions", t);
+                        callback.onError("Network error: " + t.getMessage());
+                    }
+                });
+            }
+            
+            @Override
+            public void onError(String errorMessage) {
+                Log.e(TAG, "invalidateOtherSessions: Authentication error: " + errorMessage);
+                callback.onError("Authentication error: " + errorMessage);
+            }
+        });
+    }
+    
+    /**
+     * Simple callback interface
+     */
+    public interface SimpleCallback {
+        void onSuccess();
+        void onError(String errorMessage);
+    }
+    
+    /**
+     * Create a new DeviceSession object for the current device
+     * @return User.DeviceSession object
+     */
+    private User.DeviceSession createDeviceSession() {
+        String deviceModel = Build.MODEL;
+        String deviceName = getDeviceName();
+        String appVersion = getAppVersion();
+        String osVersion = Build.VERSION.RELEASE;
+        
+        return new User.DeviceSession(
+                getDeviceId(),
+                deviceModel,
+                deviceName,
+                appVersion,
+                osVersion,
+                new Date(), // loginTimestamp
+                new Date(), // lastActiveTimestamp
+                true // isCurrentDevice
+        );
+    }
+    
+    /**
+     * Sync user data with MongoDB
      * @param firebaseUser Firebase user object
-     * @return Task representing the operation
+     * @return Task with User object
      */
     public Task<User> syncUserWithMongoDB(FirebaseUser firebaseUser) {
         if (firebaseUser == null) {
             return Tasks.forException(new IllegalArgumentException("Firebase user cannot be null"));
         }
-
-        Log.d(TAG, "Syncing user with MongoDB: " + firebaseUser.getUid());
-
-        // Create a TaskCompletionSource to convert from Retrofit callback to Task
-        TaskCompletionSource<User> taskCompletionSource = new TaskCompletionSource<>();
-
-        // Get device ID
-        final String deviceId = getDeviceId();
-
-        // Force refresh the token to make sure it's valid
-        firebaseUser.getIdToken(true)
-            .addOnSuccessListener(getTokenResult -> {
-                String token = getTokenResult.getToken();
-                Log.d(TAG, "Got fresh Firebase token for MongoDB sync: " + 
-                      (token.length() > 10 ? token.substring(0, 10) + "..." : "invalid") +
-                      ", token length: " + token.length());
-                
-                String authToken = "Bearer " + token;
-
-                // Create data map for MongoDB update
+        
+        final TaskCompletionSource<User> taskCompletionSource = new TaskCompletionSource<>();
+        
+        // Get auth token
+        authManager.getIdToken(new AuthManager.TokenCallback() {
+            @Override
+            public void onTokenReceived(String token) {
+                // Create user data map
                 Map<String, Object> userData = new HashMap<>();
                 userData.put("uid", firebaseUser.getUid());
+                userData.put("displayName", firebaseUser.getDisplayName());
+                userData.put("email", firebaseUser.getEmail());
+                userData.put("phoneNumber", firebaseUser.getPhoneNumber());
+                userData.put("photoURL", firebaseUser.getPhotoUrl() != null ? 
+                        firebaseUser.getPhotoUrl().toString() : null);
+                
+                // Add device info
+                String deviceId = getDeviceId();
                 userData.put("deviceId", deviceId);
-                userData.put("displayName", firebaseUser.getDisplayName() != null ? firebaseUser.getDisplayName() : "");
-                userData.put("email", firebaseUser.getEmail() != null ? firebaseUser.getEmail() : "");
-                userData.put("profilePhoto", firebaseUser.getPhotoUrl() != null ? firebaseUser.getPhotoUrl().toString() : "");
-                userData.put("lastOnline", System.currentTimeMillis());
-
-                // Use a background thread for the network operation
-                AppExecutors.getInstance().networkIO().execute(() -> {
-                    try {
-                        // First try the profile update endpoint
-                        Call<JsonObject> call = apiService.updateUserProfile(userData, authToken);
-                        Response<JsonObject> response = call.execute();
-
+                userData.put("deviceModel", Build.MODEL);
+                userData.put("deviceName", getDeviceName());
+                userData.put("appVersion", getAppVersion());
+                userData.put("osVersion", Build.VERSION.RELEASE);
+                userData.put("loginTimestamp", System.currentTimeMillis());
+                
+                // Add subscription data with valid planLevel to avoid MongoDB validation error
+                Map<String, Object> subscriptionData = new HashMap<>();
+                subscriptionData.put("planLevel", "BASIC");
+                subscriptionData.put("isActive", false);
+                subscriptionData.put("plan", "");
+                userData.put("subscription", subscriptionData);
+                
+                // Create auth header
+                String authHeader = "Bearer " + token;
+                
+                // Create or update user in MongoDB
+                Call<JsonObject> call = apiService.updateUserProfile(userData, authHeader);
+                call.enqueue(new Callback<JsonObject>() {
+                    @Override
+                    public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
                         if (response.isSuccessful() && response.body() != null) {
-                            Log.d(TAG, "Successfully updated user profile in MongoDB");
-                            JsonObject responseBody = response.body();
-                            
-                            // If response doesn't have user data, create it from Firebase user
-                            if (!responseBody.has("user")) {
-                                JsonObject userObj = new JsonObject();
-                                userObj.addProperty("uid", firebaseUser.getUid());
-                                userObj.addProperty("email", firebaseUser.getEmail());
-                                userObj.addProperty("displayName", firebaseUser.getDisplayName());
-                                if (firebaseUser.getPhotoUrl() != null) {
-                                    userObj.addProperty("profilePhoto", firebaseUser.getPhotoUrl().toString());
-                                }
-                                responseBody.add("user", userObj);
+                            try {
+                                // Parse user from response
+                                User user = createUserFromJsonObject(response.body());
+                                
+                                // Add current device session
+                                User.DeviceSession session = createDeviceSession();
+                                user.addDeviceSession(getDeviceId(), session);
+                                
+                                // Store device info in SharedPreferences
+                                storeCurrentDeviceInfo(deviceId, firebaseUser.getUid());
+                                
+                                // Cache user data
+                                cacheUserData(user);
+                                
+                                // Complete the task
+                                taskCompletionSource.setResult(user);
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error parsing user data", e);
+                                tryAlternativeAuthMethods(firebaseUser, userData, authHeader, taskCompletionSource);
                             }
-
-                            // Create User object from response
-                            User user = createUserFromJsonObject(responseBody);
-                            
-                            // Cache the user data locally
-                            cacheUserData(user);
-                            
-                            // Set the current user ID
-                            setCurrentUserId(firebaseUser.getUid());
-
-                            // Complete the task with the user object
-                            taskCompletionSource.setResult(user);
                         } else {
-                            // Log detailed error information for debugging
-                            String errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
-                            Log.e(TAG, "Failed to update user profile in MongoDB: HTTP " + response.code() + 
-                                  ", message: " + errorBody);
-
-                            // Try alternative approach if profile update fails
-                            tryAlternativeAuthMethods(firebaseUser, userData, authToken, taskCompletionSource);
+                            Log.e(TAG, "Error creating/updating user: " + response.code());
+                            tryAlternativeAuthMethods(firebaseUser, userData, authHeader, taskCompletionSource);
                         }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error syncing with MongoDB", e);
-                        tryAlternativeAuthMethods(firebaseUser, userData, authToken, taskCompletionSource);
+                    }
+                    
+                    @Override
+                    public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable t) {
+                        Log.e(TAG, "Network error creating/updating user", t);
+                        tryAlternativeAuthMethods(firebaseUser, userData, authHeader, taskCompletionSource);
                     }
                 });
-            })
-            .addOnFailureListener(e -> {
-                Log.e(TAG, "Error getting authentication token", e);
-                taskCompletionSource.setException(e);
-            });
-
+            }
+            
+            @Override
+            public void onError(String errorMessage) {
+                Log.e(TAG, "Error getting ID token: " + errorMessage);
+                tryAlternativeAuthMethods(firebaseUser, null, null, taskCompletionSource);
+            }
+        });
+        
         return taskCompletionSource.getTask();
     }
 
@@ -735,57 +948,72 @@ public class UserRepository {
      */
     private void tryAlternativeAuthMethods(FirebaseUser firebaseUser, Map<String, Object> userData, 
                                          String authToken, TaskCompletionSource<User> taskCompletionSource) {
-        try {
-            // Try the /auth endpoint which handles first-time authentication
-            Call<JsonObject> authCall = apiService.authenticateWithFirebase(userData);
-            Response<JsonObject> authResponse = authCall.execute();
-
-            if (authResponse.isSuccessful() && authResponse.body() != null) {
-                Log.d(TAG, "Successfully authenticated with Firebase in MongoDB");
-                JsonObject responseBody = authResponse.body();
-
-                // Check if this is a new user
-                boolean isNewUser = responseBody.has("isNewUser") && 
-                                   responseBody.get("isNewUser").getAsBoolean();
+        // Run on background thread to avoid NetworkOnMainThreadException
+        AppExecutors.getInstance().networkIO().execute(() -> {
+            try {
+                Log.d(TAG, "tryAlternativeAuthMethods: Trying alternative authentication for user " + firebaseUser.getUid());
                 
-                Log.d(TAG, isNewUser ? "This is a new user" : "This is an existing user");
-
-                // Create User object from response
-                User user = createUserFromJsonObject(responseBody);
+                // Create minimal user data without subscription to avoid validation errors
+                Map<String, Object> minimalUserData = new HashMap<>();
+                minimalUserData.put("uid", firebaseUser.getUid());
+                minimalUserData.put("displayName", firebaseUser.getDisplayName());
+                minimalUserData.put("email", firebaseUser.getEmail());
+                minimalUserData.put("phoneNumber", firebaseUser.getPhoneNumber());
+                minimalUserData.put("profilePhoto", firebaseUser.getPhotoUrl() != null ? firebaseUser.getPhotoUrl().toString() : null);
                 
-                // Cache the user data locally
-                cacheUserData(user);
+                // Add device info
+                minimalUserData.put("deviceId", getDeviceId());
+                minimalUserData.put("deviceModel", Build.MODEL);
+                minimalUserData.put("deviceName", getDeviceName());
+                minimalUserData.put("appVersion", getAppVersion());
+                minimalUserData.put("osVersion", Build.VERSION.RELEASE);
+                minimalUserData.put("loginTimestamp", System.currentTimeMillis());
                 
-                // Set the current user ID
-                setCurrentUserId(firebaseUser.getUid());
-
-                // Complete the task with the user object
-                taskCompletionSource.setResult(user);
-            } else {
-                // For 404 errors, this is likely because the endpoint doesn't exist yet
-                if (authResponse.code() == 404) {
-                    Log.w(TAG, "MongoDB endpoint not found (404). This is non-critical and can be ignored.");
+                Log.d(TAG, "tryAlternativeAuthMethods: Attempting authenticateWithFirebase with minimal data");
+                
+                // Try authenticateWithFirebase endpoint
+                Response<JsonObject> response = apiService.authenticateWithFirebase(minimalUserData).execute();
+                
+                if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "tryAlternativeAuthMethods: authenticateWithFirebase successful");
+                    JsonObject jsonResponse = response.body();
                     
-                    // Create a basic user object from Firebase data
-                    User user = createUserFromFirebaseUser(firebaseUser);
-                    taskCompletionSource.setResult(user);
-                } else {
-                    Log.e(TAG, "Failed to authenticate with Firebase in MongoDB: HTTP " + 
-                          authResponse.code() + ", message: " + 
-                          (authResponse.errorBody() != null ? authResponse.errorBody().string() : "No error body"));
-                    
-                    // Create a basic user object from Firebase data as fallback
-                    User user = createUserFromFirebaseUser(firebaseUser);
-                    taskCompletionSource.setResult(user);
+                    if (jsonResponse.has("success") && jsonResponse.get("success").getAsBoolean()) {
+                        // Parse user data from response
+                        User user = parseUserFromResponse(jsonResponse, firebaseUser);
+                        
+                        // Complete the task on main thread
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            taskCompletionSource.setResult(user);
+                        });
+                        return;
+                    }
                 }
+                
+                Log.w(TAG, "tryAlternativeAuthMethods: authenticateWithFirebase failed, response: " + 
+                      (response.body() != null ? response.body().toString() : "null"));
+                
+                // If all methods fail, create a minimal user object
+                User fallbackUser = createFallbackUser(firebaseUser);
+                
+                // Complete the task on main thread
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    Log.d(TAG, "tryAlternativeAuthMethods: Using fallback user");
+                    taskCompletionSource.setResult(fallbackUser);
+                });
+                
+            } catch (Exception e) {
+                Log.e(TAG, "Error trying alternate authentication approach", e);
+                
+                // Create fallback user on error
+                User fallbackUser = createFallbackUser(firebaseUser);
+                
+                // Complete the task on main thread
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    taskCompletionSource.setResult(fallbackUser);
+                });
             }
-        } catch (Exception authError) {
-            Log.e(TAG, "Error trying alternate authentication approach", authError);
-            
-            // Create a basic user object from Firebase data as fallback
-            User user = createUserFromFirebaseUser(firebaseUser);
-            taskCompletionSource.setResult(user);
-        }
+        });
     }
 
     /**
@@ -798,8 +1026,107 @@ public class UserRepository {
         user.setEmail(firebaseUser.getEmail());
         user.setProfilePhoto(firebaseUser.getPhotoUrl() != null ? firebaseUser.getPhotoUrl().toString() : null);
         user.setDeviceId(getDeviceId());
+        user.setDeviceModel(Build.MANUFACTURER + " " + Build.MODEL);
+        user.setDeviceName(getDeviceName());
+        user.setAppVersion(getAppVersion());
+        user.setOsVersion("Android " + Build.VERSION.RELEASE);
         user.setLastActive(System.currentTimeMillis());
+        user.setLoginTimestamp(System.currentTimeMillis());
+        
+        // Create a device session
+        User.DeviceSession session = new User.DeviceSession(
+            getDeviceId(),
+            Build.MANUFACTURER + " " + Build.MODEL,
+            getDeviceName(),
+            getAppVersion(),
+            "Android " + Build.VERSION.RELEASE
+        );
+        
+        // Add the device session to the user
+        user.addDeviceSession(getDeviceId(), session);
+        
+        // Store current device info
+        storeCurrentDeviceInfo(getDeviceId(), firebaseUser.getUid());
+        
+        // Update session activity in the background
+        if (firebaseUser.getUid() != null) {
+            updateSessionActivity(firebaseUser.getUid(), getDeviceId(), new SimpleCallback() {
+                @Override
+                public void onSuccess() {
+                    Log.d(TAG, "Session activity updated successfully");
+                }
+                
+                @Override
+                public void onError(String errorMessage) {
+                    Log.e(TAG, "Failed to update session activity: " + errorMessage);
+                }
+            });
+        }
+        
         return user;
+    }
+    
+    /**
+     * Get device name (manufacturer + model)
+     * @return Device name string
+     */
+    private String getDeviceName() {
+        String manufacturer = Build.MANUFACTURER;
+        String model = Build.MODEL;
+        
+        if (model.startsWith(manufacturer)) {
+            return capitalize(model);
+        }
+        
+        return capitalize(manufacturer) + " " + model;
+    }
+    
+    /**
+     * Capitalize first letter of string
+     * @param s String to capitalize
+     * @return Capitalized string
+     */
+    private String capitalize(String s) {
+        if (s == null || s.length() == 0) {
+            return "";
+        }
+        
+        char first = s.charAt(0);
+        if (Character.isUpperCase(first)) {
+            return s;
+        } else {
+            return Character.toUpperCase(first) + s.substring(1);
+        }
+    }
+    
+    /**
+     * Get app version
+     * @return App version string
+     */
+    private String getAppVersion() {
+        try {
+            return context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionName;
+        } catch (Exception e) {
+            return "Unknown";
+        }
+    }
+    
+    /**
+     * Store current device information
+     * @param deviceId Device ID
+     * @param userId User ID
+     */
+    private void storeCurrentDeviceInfo(String deviceId, String userId) {
+        SharedPreferences devicePrefs = context.getSharedPreferences("device_info", Context.MODE_PRIVATE);
+        devicePrefs.edit()
+            .putString("current_device_id", deviceId)
+            .putString("current_user_id", userId)
+            .putString("device_model", Build.MANUFACTURER + " " + Build.MODEL)
+            .putString("device_name", getDeviceName())
+            .putString("os_version", "Android " + Build.VERSION.RELEASE)
+            .putString("app_version", getAppVersion())
+            .putLong("last_login", System.currentTimeMillis())
+            .apply();
     }
 
     /**
@@ -1042,5 +1369,208 @@ public class UserRepository {
                 Log.e(TAG, "Error getting authentication token", e);
                 // Note: We don't post null here to avoid overwriting cached data
             });
+    }
+
+    /**
+     * Get user's active sessions
+     * @param userId User ID
+     * @param callback Callback to receive result
+     */
+    public void getUserSessions(String userId, SessionsCallback callback) {
+        if (userId == null || userId.isEmpty()) {
+            callback.onError("User ID is null or empty");
+            return;
+        }
+
+        authManager.getIdToken(new AuthManager.TokenCallback() {
+            @Override
+            public void onTokenReceived(String token) {
+                String authToken = "Bearer " + token;
+                
+                Call<ApiResponse<SessionsResponse>> call = apiService.getUserSessions(userId, authToken);
+                call.enqueue(new Callback<ApiResponse<SessionsResponse>>() {
+                    @Override
+                    public void onResponse(@NonNull Call<ApiResponse<SessionsResponse>> call, 
+                                           @NonNull Response<ApiResponse<SessionsResponse>> response) {
+                        if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                            SessionsResponse sessionsResponse = response.body().getData();
+                            if (sessionsResponse != null && sessionsResponse.getSessions() != null 
+                                    && !sessionsResponse.getSessions().isEmpty()) {
+                                callback.onSessionsReceived(sessionsResponse.getSessions());
+                            } else {
+                                callback.onNoSessions();
+                            }
+                        } else {
+                            // If the endpoint doesn't exist yet, consider it as no sessions
+                            if (response.code() == 404) {
+                                callback.onNoSessions();
+                            } else {
+                                String errorMessage = "Failed to get sessions: HTTP " + response.code();
+                                Log.e(TAG, errorMessage);
+                                callback.onError(errorMessage);
+                            }
+                        }
+                    }
+                    
+                    @Override
+                    public void onFailure(@NonNull Call<ApiResponse<SessionsResponse>> call, @NonNull Throwable t) {
+                        Log.e(TAG, "Error getting sessions", t);
+                        callback.onError("Network error: " + t.getMessage());
+                    }
+                });
+            }
+            
+            @Override
+            public void onError(String errorMessage) {
+                callback.onError("Authentication error: " + errorMessage);
+            }
+        });
+    }
+
+    /**
+     * Update activity timestamp for a device session
+     * @param userId Firebase UID
+     * @param deviceId Device ID
+     * @param callback Callback to handle the result
+     */
+    public void updateSessionActivity(String userId, String deviceId, SimpleCallback callback) {
+        if (apiService == null) {
+            Log.e(TAG, "updateSessionActivity: API service not initialized");
+            callback.onError("API service not initialized");
+            return;
+        }
+
+        if (userId == null || userId.isEmpty()) {
+            Log.e(TAG, "updateSessionActivity: User ID is required");
+            callback.onError("User ID is required");
+            return;
+        }
+
+        if (deviceId == null || deviceId.isEmpty()) {
+            Log.e(TAG, "updateSessionActivity: Device ID is required");
+            callback.onError("Device ID is required");
+            return;
+        }
+
+        // Use AppExecutors to perform network operation on background thread
+        AppExecutors.getInstance().networkIO().execute(() -> {
+            try {
+                // Create auth header with token
+                authManager.getIdToken(new AuthManager.TokenCallback() {
+                    @Override
+                    public void onTokenReceived(String token) {
+                        String authToken = "Bearer " + token;
+
+                        // Create request body with only deviceId
+                        Map<String, Object> requestBody = new HashMap<>();
+                        requestBody.put("deviceId", deviceId);
+                        
+                        // Log the request
+                        Log.d(TAG, "updateSessionActivity: Updating session activity for user " + userId + " on device " + deviceId);
+
+                        // Make API call
+                        Call<ApiResponse<Void>> call = apiService.updateSessionActivity(userId, requestBody, authToken);
+                        call.enqueue(new Callback<ApiResponse<Void>>() {
+                            @Override
+                            public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
+                                if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                                    Log.d(TAG, "updateSessionActivity: Session activity updated successfully");
+                                    callback.onSuccess();
+                                } else {
+                                    String errorBody = null;
+                                    try {
+                                        if (response.errorBody() != null) {
+                                            errorBody = response.errorBody().string();
+                                        }
+                                    } catch (IOException e) {
+                                        Log.e(TAG, "updateSessionActivity: Error reading error body", e);
+                                    }
+                                    
+                                    if (response.body() != null) {
+                                        Log.e(TAG, "updateSessionActivity: " + response.body().toString());
+                                        callback.onError(response.body().getMessage());
+                                    } else {
+                                        Log.e(TAG, "updateSessionActivity: " + errorBody);
+                                        callback.onError("Error updating session activity: " + response.code());
+                                    }
+                                }
+                            }
+
+                            @Override
+                            public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                                Log.e(TAG, "updateSessionActivity: Network error", t);
+                                callback.onError("Network error: " + t.getMessage());
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onError(String errorMessage) {
+                        Log.e(TAG, "updateSessionActivity: Failed to get ID token: " + errorMessage);
+                        callback.onError("Failed to get authentication token: " + errorMessage);
+                    }
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "updateSessionActivity: Exception", e);
+                callback.onError("Exception: " + e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * Callback interface for session operations
+     */
+    public interface SessionsCallback {
+        void onSessionsReceived(List<DeviceSession> sessions);
+        void onNoSessions();
+        void onError(String errorMessage);
+    }
+
+    /**
+     * Parse user data from API response
+     */
+    private User parseUserFromResponse(JsonObject jsonResponse, FirebaseUser firebaseUser) {
+        try {
+            if (jsonResponse.has("user")) {
+                JsonObject userObject = jsonResponse.getAsJsonObject("user");
+                return createUserFromJsonObject(userObject);
+            } else {
+                // If no user object in response, create from Firebase data
+                return createFallbackUser(firebaseUser);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error parsing user from response", e);
+            return createFallbackUser(firebaseUser);
+        }
+    }
+    
+    /**
+     * Create a fallback user object from Firebase user data
+     */
+    private User createFallbackUser(FirebaseUser firebaseUser) {
+        User user = new User();
+        user.setUid(firebaseUser.getUid());
+        user.setDisplayName(firebaseUser.getDisplayName());
+        user.setEmail(firebaseUser.getEmail());
+        user.setPhoneNumber(firebaseUser.getPhoneNumber());
+        user.setProfilePhoto(firebaseUser.getPhotoUrl() != null ? firebaseUser.getPhotoUrl().toString() : null);
+        user.setDeviceId(getDeviceId());
+        user.setDeviceModel(Build.MODEL);
+        user.setDeviceName(getDeviceName());
+        user.setAppVersion(getAppVersion());
+        user.setOsVersion(Build.VERSION.RELEASE);
+        user.setLoginTimestamp(System.currentTimeMillis());
+        user.setLastActive(System.currentTimeMillis());
+        user.setCoins(0);
+        user.setUnlocked(false);
+        user.setUnlockExpiry(0);
+        
+        // Create a basic subscription with valid planLevel
+        User.Subscription subscription = new User.Subscription();
+        subscription.setPlan("BASIC");
+        subscription.setActive(false);
+        user.setSubscription(subscription);
+        
+        return user;
     }
 } 

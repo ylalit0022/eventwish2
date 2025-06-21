@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Grid, Paper, Typography, Box, CircularProgress, Card, CardContent, Alert, IconButton, Collapse } from '@mui/material';
+import { Grid, Paper, Typography, Box, CircularProgress, Card, CardContent, Alert, IconButton, Collapse, CardActions, Button } from '@mui/material';
 import { Bar, Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { getDashboardStats } from '../api';
-import { Close as CloseIcon } from '@mui/icons-material';
+import { Close as CloseIcon, Language as LanguageIcon, Public as RegionIcon } from '@mui/icons-material';
+import { Link } from 'react-router-dom';
 
 // Register ChartJS components
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
@@ -268,6 +269,46 @@ const Dashboard = () => {
               </Paper>
             </Grid>
           </Grid>
+        </Grid>
+      </Grid>
+
+      {/* New Cards */}
+      <Grid container spacing={3} sx={{ mt: 4 }}>
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={2}>
+                <LanguageIcon color="primary" fontSize="large" sx={{ mr: 1 }} />
+                <Typography variant="h5" component="h2">
+                  Languages
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                Manage language options for templates and regions. Add new languages, edit existing ones, or deactivate unused languages.
+              </Typography>
+            </CardContent>
+            <CardActions>
+              <Button size="small" component={Link} to="/admin/languages">Manage Languages</Button>
+            </CardActions>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={2}>
+                <RegionIcon color="primary" fontSize="large" sx={{ mr: 1 }} />
+                <Typography variant="h5" component="h2">
+                  Regions
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                Manage geographic regions for templates. Add new regions, edit existing ones, or configure localized names.
+              </Typography>
+            </CardContent>
+            <CardActions>
+              <Button size="small" component={Link} to="/admin/regions">Manage Regions</Button>
+            </CardActions>
+          </Card>
         </Grid>
       </Grid>
     </Box>

@@ -1,0 +1,83 @@
+:root {
+    --theme-color-primary: #A1C9A5; /* Sage Green */
+    --theme-color-secondary: #E0E4D5; /* Off-white */
+    --theme-color-surface: #1A1C19; /* Very Dark Green-Gray */
+    --theme-color-on-surface: #E2E3DE;
+    --theme-color-on-surface-variant: #C2C8BD;
+    --theme-color-background: #000000; /* Black */
+}
+
+body {
+    margin: 0;
+    padding: 24px;
+    font-family: 'Lato', sans-serif;
+    background-color: var(--theme-color-background);
+    color: var(--theme-color-on-surface);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+.wish-card {
+    background-color: var(--theme-color-surface);
+    border-radius: 4px;
+    padding: 24px;
+    max-width: 500px;
+    width: 100%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    border: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.card-header {
+    text-align: center;
+}
+
+.card-header .icon {
+    font-size: 3rem;
+}
+
+.card-header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--theme-color-primary);
+    margin: 0;
+}
+
+.card-body {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: var(--theme-color-on-surface-variant);
+    text-align: center;
+}
+
+.card-body .recipient-name {
+    font-weight: 400;
+    color: var(--theme-color-on-surface);
+}
+
+.card-footer {
+    text-align: center;
+    font-size: 1.1rem;
+    padding-top: 16px;
+    border-top: 1px solid #333;
+}
+
+.card-footer .sender-name {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    color: var(--theme-color-primary);
+}
+
+p {
+    margin: 0 0 8px 0;
+}
+
+p:last-child {
+    margin-bottom: 0;
+} 

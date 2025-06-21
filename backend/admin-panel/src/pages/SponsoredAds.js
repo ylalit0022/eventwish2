@@ -39,12 +39,15 @@ import {
   Search as SearchIcon,
   Refresh as RefreshIcon,
   Link as LinkIcon,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ContentCopy as CopyIcon
 } from '@mui/icons-material';
-import { getSponsoredAds, deleteSponsoredAd, toggleSponsoredAdStatus } from '../api';
+import { getSponsoredAds, deleteSponsoredAd, toggleSponsoredAdStatus, api } from '../api';
+import { useSnackbar } from '../contexts/SnackbarContext';
 
 const SponsoredAds = () => {
   const navigate = useNavigate();
+  const { showSnackbar } = useSnackbar();
   const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -59,7 +62,6 @@ const SponsoredAds = () => {
   const [adToDelete, setAdToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState({});
-  const [successMessage, setSuccessMessage] = useState('');
 
   // Location options based on enum in SponsoredAd model
   const locationOptions = [
@@ -135,10 +137,14 @@ const SponsoredAds = () => {
       // Handle authentication errors
       if (err.response && err.response.status === 401) {
         setError('Authentication error: Please log in again to continue');
+        showSnackbar('Authentication error: Please log in again to continue', 'error');
       } else if (err.response && err.response.status === 403) {
         setError('Permission denied: You do not have access to view sponsored ads');
+        showSnackbar('Permission denied: You do not have access to view sponsored ads', 'error');
       } else {
-        setError('Failed to load sponsored ads: ' + (err.message || 'Unknown error'));
+        const errorMessage = 'Failed to load sponsored ads: ' + (err.message || 'Unknown error');
+        setError(errorMessage);
+        showSnackbar(errorMessage, 'error');
       }
       
       // Set empty ads to avoid infinite loading
@@ -211,18 +217,15 @@ const SponsoredAds = () => {
         setAds(ads.filter(ad => ad.id !== adToDelete.id));
         setDeleteDialogOpen(false);
         setAdToDelete(null);
-        setSuccessMessage('Sponsored ad deleted successfully');
-        
-        // Hide success message after 3 seconds
-        setTimeout(() => {
-          setSuccessMessage('');
-        }, 3000);
+        showSnackbar('Sponsored ad deleted successfully', 'success');
       } else {
         throw new Error(response.message || 'Failed to delete sponsored ad');
       }
     } catch (err) {
       console.error(`Error deleting sponsored ad ${adToDelete.id}:`, err);
-      setError('Failed to delete sponsored ad: ' + (err.message || 'Unknown error'));
+      const errorMessage = 'Failed to delete sponsored ad: ' + (err.message || 'Unknown error');
+      setError(errorMessage);
+      showSnackbar(errorMessage, 'error');
     } finally {
       setDeleteLoading(false);
     }
@@ -243,18 +246,15 @@ const SponsoredAds = () => {
             : ad
         ));
         
-        setSuccessMessage('Status updated successfully');
-        
-        // Hide success message after 3 seconds
-        setTimeout(() => {
-          setSuccessMessage('');
-        }, 3000);
+        showSnackbar('Status updated successfully', 'success');
       } else {
         throw new Error(response.message || 'Failed to toggle sponsored ad status');
       }
     } catch (err) {
       console.error(`Error toggling sponsored ad status ${id}:`, err);
-      setError('Failed to toggle sponsored ad status: ' + (err.message || 'Unknown error'));
+      const errorMessage = 'Failed to toggle sponsored ad status: ' + (err.message || 'Unknown error');
+      setError(errorMessage);
+      showSnackbar(errorMessage, 'error');
     } finally {
       setStatusLoading(prev => ({ ...prev, [id]: false }));
     }
@@ -273,6 +273,68 @@ const SponsoredAds = () => {
   // Handle edit
   const handleEditClick = (id) => {
     navigate(`/sponsored-ads/${id}`);
+  };
+
+  // Handle copy
+  const handleCopyClick = (ad) => {
+    if (!ad.id) {
+      setError('Invalid ad ID. Cannot copy this ad.');
+      showSnackbar('Invalid ad ID. Cannot copy this ad.', 'error');
+      return;
+    }
+    
+    // Use the new duplicate API function
+    try {
+      setLoading(true);
+      setError(null); // Clear any previous errors
+      
+      // Direct API call to bypass any potential caching issues
+      api.post(`/admin/sponsored-ads/${ad.id}/duplicate`)
+        .then(response => {
+          if (response.data.success) {
+            // Show success message
+            setError(null);
+            
+            // Refresh the ads list
+            fetchAds();
+            
+            // Show success message
+            showSnackbar(`Sponsored ad "${ad.title}" duplicated successfully`, 'success');
+          } else {
+            throw new Error(response.data.message || 'Failed to duplicate sponsored ad');
+          }
+        })
+        .catch(err => {
+          console.error(`Error duplicating sponsored ad ${ad.id}:`, err);
+          
+          // Extract detailed error message from response if available
+          let errorMessage = 'Failed to duplicate sponsored ad';
+          if (err.response) {
+            console.error('Error response:', err.response.data);
+            if (err.response.data && err.response.data.error) {
+              errorMessage += `: ${err.response.data.error}`;
+            } else if (err.response.data && err.response.data.message) {
+              errorMessage += `: ${err.response.data.message}`;
+            } else {
+              errorMessage += ` (Status: ${err.response.status})`;
+            }
+          } else if (err.message) {
+            errorMessage += `: ${err.message}`;
+          }
+          
+          setError(errorMessage);
+          showSnackbar(errorMessage, 'error');
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } catch (err) {
+      console.error('Error initiating sponsored ad duplication:', err);
+      const errorMessage = `Failed to duplicate sponsored ad: ${err.message || 'Unknown error'}`;
+      setError(errorMessage);
+      showSnackbar(errorMessage, 'error');
+      setLoading(false);
+    }
   };
 
   // Render loading state
@@ -309,13 +371,6 @@ const SponsoredAds = () => {
           </IconButton>
         </Grid>
       </Grid>
-
-      {/* Success message */}
-      {successMessage && (
-        <Alert severity="success" sx={{ mb: 3 }}>
-          {successMessage}
-        </Alert>
-      )}
 
       {/* Error message */}
       {error && (
@@ -480,6 +535,14 @@ const SponsoredAds = () => {
                         onClick={() => handleEditClick(ad.id)}
                       >
                         <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton 
+                        color="secondary" 
+                        size="small"
+                        onClick={() => handleCopyClick(ad)}
+                        title="Create a copy"
+                      >
+                        <CopyIcon fontSize="small" />
                       </IconButton>
                       <IconButton 
                         color="error" 

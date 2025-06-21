@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -20,12 +20,17 @@ import {
 } from '@mui/material';
 import {
   Save as SaveIcon,
-  ArrowBack as ArrowBackIcon
+  ArrowBack as ArrowBackIcon,
+  Cancel as CancelIcon,
+  ContentCopy as ContentCopyIcon
 } from '@mui/icons-material';
-import { createFestival, getCategoryIcons } from '../api';
+import { createFestival, getCategoryIcons, getUpcomingFestival } from '../api';
+import { useSnackbar } from '../contexts/SnackbarContext';
 
 const UpcomingFestivalCreate = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { showSnackbar } = useSnackbar();
   const [festival, setFestival] = useState({
     name: '',
     slug: '',
@@ -45,6 +50,45 @@ const UpcomingFestivalCreate = () => {
     message: '',
     severity: 'success'
   });
+
+  // Check for copy parameter in URL
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const copyFestivalId = searchParams.get('copy');
+    
+    if (copyFestivalId) {
+      const fetchFestivalForCopy = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          
+          const response = await getUpcomingFestival(copyFestivalId);
+          
+          if (response.success) {
+            // Create a copy of the festival with a modified name to indicate it's a copy
+            const festivalData = response.festival;
+            setFestival({
+              ...festivalData,
+              name: `${festivalData.name} (Copy)`,
+              _id: undefined // Remove ID to ensure a new festival is created
+            });
+            
+            showSnackbar('Festival data loaded for copying. Please update details as needed.', 'info');
+          } else {
+            throw new Error(response.message || 'Failed to fetch festival for copying');
+          }
+        } catch (err) {
+          console.error('Error fetching festival for copy:', err);
+          setError('Failed to load festival for copying: ' + (err.message || 'Unknown error'));
+          showSnackbar('Failed to load festival for copying', 'error');
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      fetchFestivalForCopy();
+    }
+  }, [location.search, showSnackbar]);
 
   // Fetch category icons for dropdown
   useEffect(() => {
@@ -158,28 +202,49 @@ const UpcomingFestivalCreate = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
+  // Handle cancel
+  const handleCancel = () => {
+    navigate('/upcoming-festivals');
+  };
+
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ flexGrow: 1, p: 3 }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <IconButton onClick={() => navigate('/upcoming-festivals')} sx={{ mr: 1 }}>
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant="h4" component="h1">
-            Create New Festival
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
-          onClick={handleSave}
-          disabled={loading}
-        >
-          Save
-        </Button>
-      </Box>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item>
+            <IconButton onClick={handleCancel}>
+              <ArrowBackIcon />
+            </IconButton>
+          </Grid>
+          <Grid item xs>
+            <Typography variant="h5">
+              {location.search.includes('copy=') ? 'Create Festival Copy' : 'Create New Festival'}
+            </Typography>
+          </Grid>
+          <Grid item>
+            <Button
+              variant="outlined"
+              color="secondary"
+              startIcon={<CancelIcon />}
+              onClick={handleCancel}
+              sx={{ mr: 1 }}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
+              onClick={handleSave}
+              disabled={loading}
+            >
+              Create Festival
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
 
       {/* Error alert */}
       {error && (

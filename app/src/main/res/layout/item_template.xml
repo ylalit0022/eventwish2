@@ -8,16 +8,16 @@
     android:clipToPadding="false"
     android:animateLayoutChanges="false">
 
-    <androidx.cardview.widget.CardView
+    <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:cardCornerRadius="8dp"
-        app:cardElevation="4dp"
+        app:cardElevation="2dp"
         app:cardUseCompatPadding="true"
         android:clickable="true"
         android:focusable="true"
-        android:foreground="@drawable/ad_ripple_effect"
+        app:rippleColor="?attr/colorPrimaryContainer"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -32,7 +32,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
-                <ImageView
+                <com.google.android.material.imageview.ShapeableImageView
                     android:id="@+id/template_image"
                     android:layout_width="match_parent"
                     android:layout_height="180dp"
@@ -53,12 +53,12 @@
                     android:layout_gravity="top|end"
                     android:orientation="vertical">
                     
-                    <TextView
+                    <com.google.android.material.textview.MaterialTextView
                         android:id="@+id/newBadge"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="NEW"
-                        android:textColor="?attr/colorOnPrimary"
+                        android:textColor="?attr/colorOnSecondary"
                         android:background="?attr/colorSecondary"
                         android:paddingStart="8dp"
                         android:paddingEnd="8dp"
@@ -79,14 +79,14 @@
                         android:visibility="gone"
                         tools:visibility="visible">
                         
-                        <ImageView
+                        <com.google.android.material.imageview.ShapeableImageView
                             android:layout_width="18dp"
                             android:layout_height="18dp"
                             android:src="@drawable/ic_star"
                             android:contentDescription="Recommended star icon"
                             android:layout_marginEnd="4dp" />
                             
-                        <TextView
+                        <com.google.android.material.textview.MaterialTextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="RECOMMENDED"
@@ -105,7 +105,7 @@
                     android:padding="12dp"
                     android:background="@drawable/gradient_overlay_bottom">
 
-                    <TextView
+                    <com.google.android.material.textview.MaterialTextView
                         android:id="@+id/titleText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -122,7 +122,7 @@
                         android:orientation="horizontal"
                         android:layout_marginTop="4dp">
                         
-                        <ImageView
+                        <com.google.android.material.imageview.ShapeableImageView
                             android:id="@+id/categoryIcon"
                             android:layout_width="16dp"
                             android:layout_height="16dp"
@@ -131,9 +131,9 @@
                             android:contentDescription="Category icon"
                             android:visibility="visible"
                             android:alpha="0.9"
-                            android:tint="#FFFFFF" />
+                            app:tint="#FFFFFF" />
                             
-                        <TextView
+                        <com.google.android.material.textview.MaterialTextView
                             android:id="@+id/categoryText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
@@ -163,7 +163,7 @@
                     android:layout_weight="1"
                     android:orientation="horizontal">
                     
-                    <ImageView
+                    <com.google.android.material.imageview.ShapeableImageView
                         android:id="@+id/likeIcon"
                         android:layout_width="32dp"
                         android:layout_height="32dp"
@@ -174,20 +174,20 @@
                         android:focusable="true"
                         android:background="?attr/selectableItemBackgroundBorderless" />
                         
-                    <TextView
+                    <com.google.android.material.textview.MaterialTextView
                         android:id="@+id/likeCountText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="14sp"
                         android:textStyle="bold"
                         android:gravity="center_vertical"
-                        android:textColor="?android:attr/textColorSecondary"
+                        android:textColor="?attr/colorOnSurfaceVariant"
                         android:layout_marginStart="4dp"
                         android:layout_gravity="center_vertical"
                         tools:text="12" />
                 </LinearLayout>
 
-                <ImageView
+                <com.google.android.material.imageview.ShapeableImageView
                     android:id="@+id/favoriteIcon"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
@@ -198,19 +198,19 @@
                     android:focusable="true"
                     android:background="?attr/selectableItemBackgroundBorderless" />
                     
-                <TextView
+                <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/favoriteCountText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textSize="14sp"
                     android:textStyle="bold"
                     android:gravity="center_vertical"
-                    android:textColor="?android:attr/textColorSecondary"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:layout_marginStart="4dp"
                     android:layout_marginEnd="4dp"
                     android:layout_gravity="center_vertical"
                     tools:text="8" />
             </LinearLayout>
         </LinearLayout>
-    </androidx.cardview.widget.CardView>
+    </com.google.android.material.card.MaterialCardView>
 </androidx.constraintlayout.widget.ConstraintLayout>

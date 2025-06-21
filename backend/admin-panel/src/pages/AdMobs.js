@@ -37,7 +37,8 @@ import {
   Delete as DeleteIcon,
   Search as SearchIcon,
   Refresh as RefreshIcon,
-  MonetizationOn as AdIcon
+  MonetizationOn as AdIcon,
+  ContentCopy as CopyIcon
 } from '@mui/icons-material';
 import { getAdMobs, deleteAdMob, toggleAdMobStatus } from '../api';
 
@@ -252,6 +253,19 @@ const AdMobs = () => {
     navigate(`/admob/${id}`);
   };
 
+  // Handle copy
+  const handleCopyClick = (ad) => {
+    const adId = ad._id || ad.id;
+    
+    if (!adId || adId === 'undefined' || adId === 'null') {
+      console.error('Invalid AdMob ID in handleCopyClick');
+      setError('Invalid AdMob ID. Cannot copy this ad.');
+      return;
+    }
+    
+    navigate(`/admob/create?copy=${adId}`);
+  };
+
   if (loading && adMobs.length === 0) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -424,6 +438,13 @@ const AdMobs = () => {
                             onClick={() => handleEditClick(ad._id || ad.id)}
                           >
                             <EditIcon />
+                          </IconButton>
+                          <IconButton
+                            color="secondary"
+                            onClick={() => handleCopyClick(ad)}
+                            title="Create a copy"
+                          >
+                            <CopyIcon />
                           </IconButton>
                           <IconButton
                             color="error"

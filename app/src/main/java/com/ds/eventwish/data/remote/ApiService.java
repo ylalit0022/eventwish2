@@ -7,8 +7,10 @@ import com.ds.eventwish.data.model.Festival;
 import com.ds.eventwish.data.model.SharedWish;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.model.User;
+import com.ds.eventwish.data.model.response.ApiResponse;
 import com.ds.eventwish.data.model.response.BaseResponse;
 import com.ds.eventwish.data.model.response.CategoryIconResponse;
+import com.ds.eventwish.data.model.response.SessionsResponse;
 import com.ds.eventwish.data.model.response.TemplateResponse;
 import com.ds.eventwish.data.model.response.WishResponse;
 import com.ds.eventwish.data.model.ServerTimeResponse;
@@ -799,6 +801,62 @@ public interface ApiService {
     @GET("users/{uid}")
     Call<JsonObject> getUserByUid(
         @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+    
+    // Session management endpoints
+    
+    /**
+     * Get user's active sessions
+     * @param uid User ID (Firebase UID)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with active sessions
+     */
+    @GET("users/{uid}/sessions")
+    Call<ApiResponse<SessionsResponse>> getUserSessions(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+    
+    /**
+     * Invalidate all other sessions except current one
+     * @param uid User ID (Firebase UID)
+     * @param body Request body containing deviceId
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
+     */
+    @POST("users/{uid}/sessions/invalidate")
+    Call<ApiResponse<Void>> invalidateOtherSessions(
+        @Path("uid") String uid,
+        @Body Map<String, String> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+    
+    /**
+     * Remove a specific device session
+     * @param uid User ID (Firebase UID)
+     * @param deviceId Device ID to remove
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
+     */
+    @DELETE("users/{uid}/sessions/{deviceId}")
+    Call<ApiResponse<Void>> removeDeviceSession(
+        @Path("uid") String uid,
+        @Path("deviceId") String deviceId,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+    
+    /**
+     * Update activity timestamp for a device session
+     * @param uid User ID (Firebase UID)
+     * @param body Request body containing deviceId
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
+     */
+    @POST("users/{uid}/sessions/update")
+    Call<ApiResponse<Void>> updateSessionActivity(
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
         @retrofit2.http.Header("Authorization") String authToken
     );
 }

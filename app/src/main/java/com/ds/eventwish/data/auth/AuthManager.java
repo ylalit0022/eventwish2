@@ -2,6 +2,7 @@ package com.ds.eventwish.data.auth;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.util.Log;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -14,6 +15,7 @@ import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.common.api.CommonStatusCodes;
 import com.google.android.gms.common.api.Status;
 import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.TaskCompletionSource;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.FirebaseAuth;
@@ -116,7 +118,7 @@ public class AuthManager {
     }
 
     /**
-     * Sign out
+     * Sign out and revoke access
      */
     public Task<Void> signOut() {
         if (!isInitialized) {
@@ -124,19 +126,56 @@ public class AuthManager {
             return Tasks.forException(new IllegalStateException("AuthManager not initialized"));
         }
 
-        Log.d(TAG, "signOut: signing out");
+        Log.d(TAG, "signOut: signing out and revoking access");
         
         // First sign out from Firebase
         auth.signOut();
         
-        // Then sign out from Google
-        return googleSignInClient.signOut()
+        // Create a TaskCompletionSource to combine both operations
+        TaskCompletionSource<Void> combinedTask = new TaskCompletionSource<>();
+        
+        // First revoke access to ensure Google account picker will show next time
+        googleSignInClient.revokeAccess()
             .addOnSuccessListener(aVoid -> {
-                Log.d(TAG, "signOut: success");
+                Log.d(TAG, "revokeAccess: success");
+                
+                // Store revocation status in SharedPreferences
+                if (applicationContext != null) {
+                    applicationContext.getSharedPreferences("auth_prefs", android.content.Context.MODE_PRIVATE)
+                        .edit()
+                        .putBoolean("access_revoked", true)
+                        .apply();
+                }
+                
+                // Then sign out from Google
+                googleSignInClient.signOut()
+                    .addOnSuccessListener(signOutResult -> {
+                        Log.d(TAG, "signOut: success");
+                        combinedTask.setResult(null);
+                    })
+                    .addOnFailureListener(signOutError -> {
+                        Log.e(TAG, "signOut: failure", signOutError);
+                        // Even if signOut fails, we've already revoked access, so consider it a success
+                        combinedTask.setResult(null);
+                    });
             })
             .addOnFailureListener(e -> {
-                Log.e(TAG, "signOut: failure", e);
+                Log.e(TAG, "revokeAccess: failure", e);
+                
+                // If revoke fails, try regular sign out as fallback
+                googleSignInClient.signOut()
+                    .addOnSuccessListener(signOutResult -> {
+                        Log.d(TAG, "signOut fallback: success");
+                        combinedTask.setResult(null);
+                    })
+                    .addOnFailureListener(signOutError -> {
+                        Log.e(TAG, "signOut fallback: failure", signOutError);
+                        combinedTask.setException(signOutError);
+                    });
             });
+            
+        // Return the combined task
+        return combinedTask.getTask();
     }
 
     /**
@@ -279,5 +318,120 @@ public class AuthManager {
                     throw new Exception("Failed to refresh token", task.getException());
                 }
             });
+    }
+
+    /**
+     * Interface for token callbacks
+     */
+    public interface TokenCallback {
+        void onTokenReceived(String token);
+        void onError(String errorMessage);
+    }
+    
+    /**
+     * Interface for sign-out callbacks
+     */
+    public interface SignOutCallback {
+        void onSignOutComplete();
+    }
+    
+    /**
+     * Sign out the current user
+     * @param callback Callback to be invoked when sign out is complete
+     */
+    public void signOut(final SignOutCallback callback) {
+        Log.d(TAG, "signOut: Starting sign-out process");
+        if (googleSignInClient != null) {
+            Log.d(TAG, "signOut: Revoking Google access");
+            // First revoke access to ensure account picker shows next time
+            googleSignInClient.revokeAccess()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        Log.d(TAG, "signOut: Successfully revoked Google access");
+                    } else {
+                        Log.w(TAG, "signOut: Failed to revoke Google access", task.getException());
+                    }
+                    
+                    // Then sign out from Google
+                    Log.d(TAG, "signOut: Signing out from Google");
+                    googleSignInClient.signOut()
+                        .addOnCompleteListener(signOutTask -> {
+                            if (signOutTask.isSuccessful()) {
+                                Log.d(TAG, "signOut: Successfully signed out from Google");
+                            } else {
+                                Log.w(TAG, "signOut: Failed to sign out from Google", signOutTask.getException());
+                            }
+                            
+                            // Finally sign out from Firebase
+                            Log.d(TAG, "signOut: Signing out from Firebase");
+                            auth.signOut();
+                            
+                            // Clear local auth state
+                            clearAuthState();
+                            
+                            Log.i(TAG, "signOut: Sign-out process completed");
+                            callback.onSignOutComplete();
+                        });
+                });
+        } else {
+            Log.w(TAG, "signOut: googleSignInClient is null, skipping Google sign-out");
+            // Just sign out from Firebase
+            auth.signOut();
+            
+            // Clear local auth state
+            clearAuthState();
+            
+            Log.i(TAG, "signOut: Sign-out process completed (Firebase only)");
+            callback.onSignOutComplete();
+        }
+    }
+    
+    /**
+     * Get ID token with callback
+     * @param callback Callback to receive token or error
+     */
+    public void getIdToken(TokenCallback callback) {
+        FirebaseUser user = auth.getCurrentUser();
+        if (user == null) {
+            Log.e(TAG, "getIdToken: No user signed in");
+            callback.onError("No user signed in");
+            return;
+        }
+        
+        Log.d(TAG, "getIdToken: Getting ID token for user " + user.getUid());
+        user.getIdToken(true)
+            .addOnSuccessListener(getTokenResult -> {
+                String token = getTokenResult.getToken();
+                if (token != null) {
+                    Log.d(TAG, "getIdToken: Successfully got token (length: " + token.length() + ")");
+                    callback.onTokenReceived(token);
+                } else {
+                    Log.e(TAG, "getIdToken: Token is null");
+                    callback.onError("Failed to get token: Token is null");
+                }
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "getIdToken: Failed to get token", e);
+                callback.onError("Failed to get token: " + e.getMessage());
+            });
+    }
+    
+    /**
+     * Clear authentication state
+     */
+    private void clearAuthState() {
+        Log.d(TAG, "clearAuthState: Clearing authentication state");
+        // Clear any cached tokens or auth state
+        if (applicationContext != null) {
+            SharedPreferences prefs = applicationContext.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE);
+            prefs.edit()
+                .putBoolean("user_authenticated", false)
+                .putBoolean("access_revoked", true) // Flag to prevent silent sign-in
+                .apply();
+            
+            Log.d(TAG, "clearAuthState: Authentication state cleared, access_revoked flag set to true");
+        } else {
+            Log.w(TAG, "clearAuthState: Context is null, couldn't clear auth state");
+        }
     }
 } 

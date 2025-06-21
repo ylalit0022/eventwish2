@@ -8,41 +8,43 @@
     android:layout_marginHorizontal="16dp"
     android:layout_marginVertical="4dp"
     app:cardCornerRadius="8dp"
-    app:cardElevation="2dp">
+    app:cardElevation="1dp"
+    app:strokeWidth="1dp"
+    app:strokeColor="?attr/colorOutlineVariant">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="16dp">
 
-        <ImageView
+        <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/priorityIndicator"
             android:layout_width="16dp"
             android:layout_height="16dp"
             android:src="@drawable/ic_priority"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:tint="@color/accent" />
+            app:tint="?attr/colorPrimary" />
 
-        <TextView
+        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/textTitle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:textColor="@color/text_primary"
+            android:textColor="?attr/colorOnSurface"
             android:layout_marginStart="8dp"
             android:layout_marginEnd="8dp"
             app:layout_constraintStart_toEndOf="@id/priorityIndicator"
             app:layout_constraintEnd_toStartOf="@id/buttonDelete"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <TextView
+        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/textDateTime"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:textSize="14sp"
-            android:textColor="@color/text_secondary"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:layout_marginTop="4dp"
             android:layout_marginStart="8dp"
             android:layout_marginEnd="8dp"
@@ -50,7 +52,7 @@
             app:layout_constraintEnd_toStartOf="@id/buttonDelete"
             app:layout_constraintTop_toBottomOf="@id/textTitle" />
 
-        <ImageView
+        <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/repeatIndicator"
             android:layout_width="16dp"
             android:layout_height="16dp"
@@ -59,14 +61,14 @@
             android:layout_marginTop="4dp"
             app:layout_constraintStart_toStartOf="@id/priorityIndicator"
             app:layout_constraintTop_toBottomOf="@id/textDateTime"
-            app:tint="@color/accent" />
+            app:tint="?attr/colorPrimary" />
 
-        <TextView
+        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/textRepeatInfo"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:textSize="12sp"
-            android:textColor="@color/text_secondary"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:layout_marginStart="8dp"
             android:layout_marginEnd="8dp"
             android:visibility="gone"
@@ -75,14 +77,16 @@
             app:layout_constraintTop_toTopOf="@id/repeatIndicator"
             app:layout_constraintBottom_toBottomOf="@id/repeatIndicator" />
 
-        <ImageButton
+        <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/buttonDelete"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="8dp"
             android:src="@drawable/ic_delete"
-            android:tint="@color/accent"
+            app:tint="?attr/colorError"
+            android:clickable="true"
+            android:focusable="true"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent" />

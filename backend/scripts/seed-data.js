@@ -2,6 +2,9 @@ const mongoose = require('mongoose');
 const CategoryIcon = require('../models/CategoryIcon');
 const Festival = require('../models/Festival');
 const Template = require('../models/Template');
+const Language = require('../models/Language');
+const Region = require('../models/Region');
+const seedLanguagesRegions = require('./seed-languages-regions');
 const dotenv = require('dotenv');
 
 // Load environment variables
@@ -46,8 +49,20 @@ async function seedData() {
       console.log('Already connected to MongoDB');
     }
 
+    // First, seed languages and regions
+    console.log('Seeding languages and regions...');
+    const { languages, regions } = await seedLanguagesRegions();
+    
+    // Get default language (English) and region (Global)
+    const defaultLanguage = languages.find(lang => lang.code === 'en');
+    const defaultRegion = regions.find(region => region.code === 'GLOBAL');
+    
+    if (!defaultLanguage || !defaultRegion) {
+      throw new Error('Default language or region not found!');
+    }
+
     // Clear existing data
-    console.log('Clearing existing data...');
+    console.log('Clearing existing template data...');
     await CategoryIcon.deleteMany({});
     await Festival.deleteMany({});
     await Template.deleteMany({});
@@ -63,7 +78,7 @@ async function seedData() {
       categoryToIconId[icon.category] = icon._id;
     });
 
-    // Create templates with references to category icons
+    // Create templates with references to category icons, languages, and regions
     console.log('Creating templates...');
     const templates = [
       {
@@ -74,7 +89,9 @@ async function seedData() {
         jsContent: 'console.log("Birthday template loaded");',
         previewUrl: 'https://example.com/previews/birthday_basic.png',
         status: true,
-        categoryIcon: categoryToIconId['birthday']
+        categoryIcon: categoryToIconId['birthday'],
+        language: defaultLanguage._id,
+        region: defaultRegion._id
       },
       {
         title: 'Wedding Elegant',
@@ -84,7 +101,9 @@ async function seedData() {
         jsContent: 'console.log("Wedding template loaded");',
         previewUrl: 'https://example.com/previews/wedding_elegant.png',
         status: true,
-        categoryIcon: categoryToIconId['wedding']
+        categoryIcon: categoryToIconId['wedding'],
+        language: defaultLanguage._id,
+        region: defaultRegion._id
       },
       {
         title: 'Anniversary Gold',
@@ -94,7 +113,9 @@ async function seedData() {
         jsContent: 'console.log("Anniversary template loaded");',
         previewUrl: 'https://example.com/previews/anniversary_gold.png',
         status: true,
-        categoryIcon: categoryToIconId['anniversary']
+        categoryIcon: categoryToIconId['anniversary'],
+        language: defaultLanguage._id,
+        region: defaultRegion._id
       },
       {
         title: 'Holiday Cheer',
@@ -104,7 +125,9 @@ async function seedData() {
         jsContent: 'console.log("Holiday template loaded");',
         previewUrl: 'https://example.com/previews/holiday_cheer.png',
         status: true,
-        categoryIcon: categoryToIconId['holiday']
+        categoryIcon: categoryToIconId['holiday'],
+        language: defaultLanguage._id,
+        region: defaultRegion._id
       },
       {
         title: 'Graduation Caps',
@@ -114,7 +137,9 @@ async function seedData() {
         jsContent: 'console.log("Graduation template loaded");',
         previewUrl: 'https://example.com/previews/graduation_caps.png',
         status: true,
-        categoryIcon: categoryToIconId['graduation']
+        categoryIcon: categoryToIconId['graduation'],
+        language: defaultLanguage._id,
+        region: defaultRegion._id
       }
     ];
 
@@ -188,24 +213,25 @@ async function seedData() {
     const insertedFestivals = await Festival.insertMany(festivals);
     console.log(`Inserted ${insertedFestivals.length} festivals`);
 
-    console.log('Seeding completed successfully!');
-    return true; // Return true to indicate success
+    console.log('Data seeding completed successfully!');
   } catch (error) {
     console.error('Error seeding data:', error);
-    return false; // Return false to indicate failure
-  } finally {
-    // Close MongoDB connection only if we opened it and if this script is run directly
-    if (mongoose.connection.readyState === 1 && require.main === module) {
-      await mongoose.connection.close();
-      console.log('MongoDB connection closed');
-    }
+    throw error;
   }
 }
 
-// Export the function
-module.exports = seedData;
-
-// Run the seed function only if this file is executed directly
+// If this script is run directly (not imported)
 if (require.main === module) {
-  seedData();
+  seedData()
+    .then(() => {
+      console.log('Seeding completed');
+      mongoose.connection.close();
+    })
+    .catch(err => {
+      console.error('Error in seeding process:', err);
+      mongoose.connection.close();
+    });
+} else {
+  // Export for use in other scripts
+  module.exports = seedData;
 } 

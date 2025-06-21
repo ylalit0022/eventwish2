@@ -570,4 +570,6 @@
     <string name="notification_channel_events_desc">Notifications for upcoming events and festivals</string>
 
     <string name="more_profile">Profile</string>
+
+    <string name="back_button_description">Back</string>
 </resources>

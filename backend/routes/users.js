@@ -13,7 +13,18 @@ const recommendationService = require('../services/recommendationService');
  */
 router.post('/profile', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
     try {
-        const { uid, displayName, email, profilePhoto, lastOnline } = req.body;
+        const { 
+            uid, 
+            displayName, 
+            email, 
+            profilePhoto, 
+            lastOnline,
+            deviceId,
+            deviceModel,
+            deviceName,
+            appVersion,
+            osVersion
+        } = req.body;
         
         // Find user by uid only
         let user = await User.findOne({ uid });
@@ -26,6 +37,31 @@ router.post('/profile', validateFirebaseUid, verifyFirebaseToken, async (req, re
             if (displayName) user.displayName = displayName;
             if (email) user.email = email;
             if (profilePhoto) user.profilePhoto = profilePhoto;
+            
+            // Update device info if provided
+            if (deviceId) user.deviceId = deviceId;
+            if (deviceModel) user.deviceModel = deviceModel;
+            if (deviceName) user.deviceName = deviceName;
+            if (appVersion) user.appVersion = appVersion;
+            if (osVersion) user.osVersion = osVersion;
+            
+            // Update login timestamp
+            user.loginTimestamp = Date.now();
+            
+            // Track device session if device info is provided
+            if (deviceId) {
+                try {
+                    await user.addDeviceSession({
+                        deviceId,
+                        deviceModel,
+                        deviceName,
+                        appVersion,
+                        osVersion
+                    });
+                } catch (sessionError) {
+                    logger.warn(`Failed to add device session for user ${uid}: ${sessionError.message}`);
+                }
+            }
             
             await user.save();
             
@@ -42,12 +78,34 @@ router.post('/profile', validateFirebaseUid, verifyFirebaseToken, async (req, re
                 displayName: displayName || null,
                 email: email || null,
                 profilePhoto: profilePhoto || null,
+                deviceId: deviceId || null,
+                deviceModel: deviceModel || null,
+                deviceName: deviceName || null,
+                appVersion: appVersion || null,
+                osVersion: osVersion || null,
                 lastOnline: lastOnline || Date.now(),
+                loginTimestamp: Date.now(),
                 created: Date.now(),
                 categories: []
             });
             
             await user.save();
+            
+            // Track device session if device info is provided
+            if (deviceId) {
+                try {
+                    await user.addDeviceSession({
+                        deviceId,
+                        deviceModel,
+                        deviceName,
+                        appVersion,
+                        osVersion
+                    });
+                } catch (sessionError) {
+                    logger.warn(`Failed to add device session for new user ${uid}: ${sessionError.message}`);
+                }
+            }
+            
             logger.info(`New user profile created: UID: ${uid}`);
             
             return res.status(201).json({
@@ -73,7 +131,17 @@ router.post('/profile', validateFirebaseUid, verifyFirebaseToken, async (req, re
  */
 router.post('/register', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
     try {
-        const { uid, displayName, email, profilePhoto } = req.body;
+        const { 
+            uid, 
+            displayName, 
+            email, 
+            profilePhoto,
+            deviceId,
+            deviceModel,
+            deviceName,
+            appVersion,
+            osVersion
+        } = req.body;
         
         // Find user by uid
         let user = await User.findOne({ uid });
@@ -81,13 +149,36 @@ router.post('/register', validateFirebaseUid, verifyFirebaseToken, async (req, r
         if (user) {
             // User already exists, update lastOnline
             user.lastOnline = Date.now();
+            user.loginTimestamp = Date.now();
             
             // Update profile info if provided
             if (displayName) user.displayName = displayName;
             if (email) user.email = email;
             if (profilePhoto) user.profilePhoto = profilePhoto;
             
+            // Update device info if provided
+            if (deviceId) user.deviceId = deviceId;
+            if (deviceModel) user.deviceModel = deviceModel;
+            if (deviceName) user.deviceName = deviceName;
+            if (appVersion) user.appVersion = appVersion;
+            if (osVersion) user.osVersion = osVersion;
+            
             await user.save();
+            
+            // Track device session if device info is provided
+            if (deviceId) {
+                try {
+                    await user.addDeviceSession({
+                        deviceId,
+                        deviceModel,
+                        deviceName,
+                        appVersion,
+                        osVersion
+                    });
+                } catch (sessionError) {
+                    logger.warn(`Failed to add device session for existing user ${uid}: ${sessionError.message}`);
+                }
+            }
             
             logger.info(`Existing user logged in: UID: ${uid}`);
             return res.status(200).json({
@@ -103,12 +194,34 @@ router.post('/register', validateFirebaseUid, verifyFirebaseToken, async (req, r
             displayName: displayName || null,
             email: email || null,
             profilePhoto: profilePhoto || null,
+            deviceId: deviceId || null,
+            deviceModel: deviceModel || null,
+            deviceName: deviceName || null,
+            appVersion: appVersion || null,
+            osVersion: osVersion || null,
             lastOnline: Date.now(),
+            loginTimestamp: Date.now(),
             created: Date.now(),
             categories: []
         });
         
         await user.save();
+        
+        // Track device session if device info is provided
+        if (deviceId) {
+            try {
+                await user.addDeviceSession({
+                    deviceId,
+                    deviceModel,
+                    deviceName,
+                    appVersion,
+                    osVersion
+                });
+            } catch (sessionError) {
+                logger.warn(`Failed to add device session for new registered user ${uid}: ${sessionError.message}`);
+            }
+        }
+        
         logger.info(`New user registered: UID: ${uid}`);
         
         res.status(201).json({
@@ -1151,7 +1264,14 @@ router.put('/:deviceId/link-firebase', async (req, res) => {
  */
 router.post('/auth', validateFirebaseUid, async (req, res) => {
     try {
-        const { uid, deviceId } = req.body;
+        const { 
+            uid, 
+            deviceId,
+            deviceModel,
+            deviceName,
+            appVersion,
+            osVersion
+        } = req.body;
         
         if (!uid) {
             return res.status(400).json({
@@ -1163,11 +1283,61 @@ router.post('/auth', validateFirebaseUid, async (req, res) => {
         // Check if user exists by UID
         let user = await User.findOne({ uid });
         let isNewUser = false;
+        let hasActiveSessions = false;
+        let otherActiveSessions = [];
         
         if (user) {
-            // User exists, update last online
+            // User exists, update last online and login timestamp
             user.lastOnline = Date.now();
+            user.loginTimestamp = Date.now();
+            
+            // Update device info if provided
+            if (deviceId) user.deviceId = deviceId;
+            if (deviceModel) user.deviceModel = deviceModel;
+            if (deviceName) user.deviceName = deviceName;
+            if (appVersion) user.appVersion = appVersion;
+            if (osVersion) user.osVersion = osVersion;
+            
             await user.save();
+            
+            // Check if there are other active sessions
+            if (user.activeSessions && user.activeSessions.size > 0) {
+                // Check if this device is not in the active sessions or if there are other sessions
+                if (!deviceId || !user.activeSessions.has(deviceId) || user.activeSessions.size > 1) {
+                    hasActiveSessions = true;
+                    
+                    // Collect other active sessions for the response
+                    for (const [sessionDeviceId, session] of user.activeSessions.entries()) {
+                        if (sessionDeviceId !== deviceId) {
+                            otherActiveSessions.push({
+                                deviceId: sessionDeviceId,
+                                deviceModel: session.deviceModel,
+                                deviceName: session.deviceName,
+                                appVersion: session.appVersion,
+                                osVersion: session.osVersion,
+                                loginTimestamp: session.loginTimestamp,
+                                lastActiveTimestamp: session.lastActiveTimestamp
+                            });
+                        }
+                    }
+                }
+            }
+            
+            // Track device session if device info is provided
+            if (deviceId) {
+                try {
+                    await user.addDeviceSession({
+                        deviceId,
+                        deviceModel,
+                        deviceName,
+                        appVersion,
+                        osVersion
+                    });
+                } catch (sessionError) {
+                    logger.warn(`Failed to add device session for existing user ${uid}: ${sessionError.message}`);
+                }
+            }
+            
             logger.info(`Existing user authenticated: UID ${uid}`);
         } else {
             // Check if there's a user with the provided deviceId
@@ -1178,7 +1348,28 @@ router.post('/auth', validateFirebaseUid, async (req, res) => {
                     // Link existing device user with Firebase UID
                     deviceUser.uid = uid;
                     deviceUser.lastOnline = Date.now();
+                    deviceUser.loginTimestamp = Date.now();
+                    
+                    // Update device info if provided
+                    if (deviceModel) deviceUser.deviceModel = deviceModel;
+                    if (deviceName) deviceUser.deviceName = deviceName;
+                    if (appVersion) deviceUser.appVersion = appVersion;
+                    if (osVersion) deviceUser.osVersion = osVersion;
+                    
                     await deviceUser.save();
+                    
+                    // Track device session
+                    try {
+                        await deviceUser.addDeviceSession({
+                            deviceId,
+                            deviceModel,
+                            deviceName,
+                            appVersion,
+                            osVersion
+                        });
+                    } catch (sessionError) {
+                        logger.warn(`Failed to add device session for linked user ${uid}: ${sessionError.message}`);
+                    }
                     
                     user = deviceUser;
                     logger.info(`Linked device ID ${deviceId} with Firebase UID ${uid}`);
@@ -1188,11 +1379,30 @@ router.post('/auth', validateFirebaseUid, async (req, res) => {
                     user = new User({
                         uid,
                         deviceId: deviceId || null,
+                        deviceModel: deviceModel || null,
+                        deviceName: deviceName || null,
+                        appVersion: appVersion || null,
+                        osVersion: osVersion || null,
                         lastOnline: Date.now(),
+                        loginTimestamp: Date.now(),
                         created: Date.now()
                     });
                     
                     await user.save();
+                    
+                    // Track device session
+                    try {
+                        await user.addDeviceSession({
+                            deviceId,
+                            deviceModel,
+                            deviceName,
+                            appVersion,
+                            osVersion
+                        });
+                    } catch (sessionError) {
+                        logger.warn(`Failed to add device session for new user ${uid}: ${sessionError.message}`);
+                    }
+                    
                     logger.info(`New user created with UID ${uid} and deviceId ${deviceId || 'null'}`);
                 }
             } else {
@@ -1201,6 +1411,7 @@ router.post('/auth', validateFirebaseUid, async (req, res) => {
                 user = new User({
                     uid,
                     lastOnline: Date.now(),
+                    loginTimestamp: Date.now(),
                     created: Date.now()
                 });
                 
@@ -1209,17 +1420,24 @@ router.post('/auth', validateFirebaseUid, async (req, res) => {
             }
         }
         
-        // Return user data and new user flag
+        // Return user data, new user flag, and active sessions info
         res.status(200).json({
             success: true,
             isNewUser,
+            hasActiveSessions,
+            otherActiveSessions,
             user: {
                 uid: user.uid,
                 deviceId: user.deviceId,
+                deviceModel: user.deviceModel,
+                deviceName: user.deviceName,
+                appVersion: user.appVersion,
+                osVersion: user.osVersion,
                 displayName: user.displayName,
                 email: user.email,
                 profilePhoto: user.profilePhoto,
                 lastOnline: user.lastOnline,
+                loginTimestamp: user.loginTimestamp,
                 created: user.created,
                 subscription: user.subscription,
                 pushPreferences: user.pushPreferences,
@@ -1921,6 +2139,192 @@ router.get('/:uid/notifications/status', validateFirebaseUid, verifyFirebaseToke
                 res.status(500).json({
             success: false,
             message: 'Server error retrieving notification status',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   GET /api/users/:uid/sessions
+ * @desc    Get active sessions for a user
+ * @access  Private
+ */
+router.get('/:uid/sessions', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        
+        // Find user by uid
+        let user = await User.findOne({ uid });
+        
+        if (!user) {
+            logger.warn(`Sessions requested for non-existent user: UID ${uid}`);
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Convert Map to array for response
+        const sessions = [];
+        if (user.activeSessions) {
+            for (const [deviceId, session] of user.activeSessions.entries()) {
+                sessions.push({
+                    deviceId,
+                    deviceModel: session.deviceModel,
+                    deviceName: session.deviceName,
+                    appVersion: session.appVersion,
+                    osVersion: session.osVersion,
+                    loginTimestamp: session.loginTimestamp,
+                    lastActiveTimestamp: session.lastActiveTimestamp,
+                    isCurrentDevice: deviceId === req.body.deviceId
+                });
+            }
+        }
+        
+        res.status(200).json({
+            success: true,
+            sessions
+        });
+    } catch (error) {
+        logger.error(`Get sessions error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error retrieving sessions',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   POST /api/users/:uid/sessions/invalidate
+ * @desc    Invalidate all other sessions except current one
+ * @access  Private
+ */
+router.post('/:uid/sessions/invalidate', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { deviceId } = req.body;
+        
+        if (!deviceId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Device ID is required'
+            });
+        }
+        
+        // Find user by uid
+        let user = await User.findOne({ uid });
+        
+        if (!user) {
+            logger.warn(`Session invalidation attempted for non-existent user: UID ${uid}`);
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Invalidate other sessions
+        await user.invalidateOtherSessions(deviceId);
+        
+        logger.info(`User ${uid} invalidated all other sessions except ${deviceId}`);
+        
+        res.status(200).json({
+            success: true,
+            message: 'All other sessions invalidated successfully'
+        });
+    } catch (error) {
+        logger.error(`Session invalidation error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error invalidating sessions',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   DELETE /api/users/:uid/sessions/:deviceId
+ * @desc    Remove a specific device session
+ * @access  Private
+ */
+router.delete('/:uid/sessions/:deviceId', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid, deviceId } = req.params;
+        
+        // Find user by uid
+        let user = await User.findOne({ uid });
+        
+        if (!user) {
+            logger.warn(`Session removal attempted for non-existent user: UID ${uid}`);
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Remove the session
+        await user.removeDeviceSession(deviceId);
+        
+        logger.info(`User ${uid} removed session for device ${deviceId}`);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Session removed successfully'
+        });
+    } catch (error) {
+        logger.error(`Session removal error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error removing session',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   POST /api/users/:uid/sessions/update
+ * @desc    Update activity timestamp for a device session
+ * @access  Private
+ */
+router.post('/:uid/sessions/update', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { deviceId } = req.body;
+        
+        if (!deviceId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Device ID is required'
+            });
+        }
+        
+        // Find user by uid
+        let user = await User.findOne({ uid });
+        
+        if (!user) {
+            logger.warn(`Session update attempted for non-existent user: UID ${uid}`);
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Update session activity
+        await user.updateDeviceSessionActivity(deviceId);
+        
+        // Also update user's lastOnline
+        user.lastOnline = Date.now();
+        await user.save();
+        
+        res.status(200).json({
+            success: true,
+            message: 'Session activity updated successfully'
+        });
+    } catch (error) {
+        logger.error(`Session activity update error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error updating session activity',
             error: error.message
         });
     }

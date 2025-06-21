@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -19,16 +19,21 @@ import {
 } from '@mui/material';
 import {
   Save as SaveIcon,
-  ArrowBack as BackIcon
+  ArrowBack as BackIcon,
+  Cancel as CancelIcon,
+  ContentCopy as ContentCopyIcon
 } from '@mui/icons-material';
-import { createAdMob } from '../api';
+import { createAdMob, getAdMob } from '../api';
+import { useSnackbar } from '../contexts/SnackbarContext';
 
 const AdMobCreate = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { showSnackbar } = useSnackbar();
   const [formData, setFormData] = useState({
     adName: '',
     adUnitCode: '',
-    adType: '',
+    adType: 'BANNER',
     status: true,
     targetingPriority: 1,
     displaySettings: {
@@ -43,6 +48,46 @@ const AdMobCreate = () => {
   const [error, setError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
   const [adTypes] = useState(['Banner', 'Interstitial', 'Rewarded', 'Native', 'App Open', 'Video']);
+
+  // Check for copy parameter in URL
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const copyAdId = searchParams.get('copy');
+    
+    if (copyAdId) {
+      const fetchAdForCopy = async () => {
+        try {
+          setSaving(true);
+          setError(null);
+          
+          const response = await getAdMob(copyAdId);
+          
+          if (response.success) {
+            // Create a copy of the ad with a modified name to indicate it's a copy
+            const adData = response.adMob;
+            setFormData(prev => ({
+              ...prev,
+              adName: `${adData.adName} (Copy)`,
+              _id: undefined, // Remove ID to ensure a new ad is created
+              id: undefined // Remove ID to ensure a new ad is created
+            }));
+            
+            showSnackbar('AdMob data loaded for copying. Please update details as needed.', 'info');
+          } else {
+            throw new Error(response.message || 'Failed to fetch AdMob for copying');
+          }
+        } catch (err) {
+          console.error('Error fetching AdMob for copy:', err);
+          setError('Failed to load AdMob for copying: ' + (err.message || 'Unknown error'));
+          showSnackbar('Failed to load AdMob for copying', 'error');
+        } finally {
+          setSaving(false);
+        }
+      };
+      
+      fetchAdForCopy();
+    }
+  }, [location.search, showSnackbar]);
 
   // Handle form field change
   const handleFieldChange = (field, value) => {
@@ -120,13 +165,15 @@ const AdMobCreate = () => {
           const adId = response.data._id || response.data.id;
           if (adId) {
             console.log('Successfully created AdMob ad with ID:', adId);
-            navigate(`/admob/${adId}`);
+            showSnackbar('AdMob created successfully', 'success');
+            navigate('/admob');
             return;
           }
         }
         
         // If we can't get the ID, just go back to the list
         console.log('Created AdMob ad but could not get ID, redirecting to list');
+        showSnackbar('Created AdMob ad but could not get ID, redirecting to list', 'info');
         navigate('/admob');
       } else {
         throw new Error(response.message || 'Failed to create AdMob ad');
@@ -144,37 +191,55 @@ const AdMobCreate = () => {
       } else {
         setError('Failed to create AdMob ad: ' + (err.message || 'Unknown error'));
       }
+      showSnackbar('Failed to create AdMob', 'error');
     } finally {
       setSaving(false);
     }
   };
 
+  // Handle cancel
+  const handleCancel = () => {
+    navigate('/admob');
+  };
+
   return (
     <Box sx={{ flexGrow: 1, p: 3 }}>
       {/* Header */}
-      <Grid container spacing={2} alignItems="center" sx={{ mb: 3 }}>
-        <Grid item>
-          <IconButton onClick={() => navigate('/admob')} color="primary">
-            <BackIcon />
-          </IconButton>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item>
+            <IconButton onClick={handleCancel}>
+              <BackIcon />
+            </IconButton>
+          </Grid>
+          <Grid item xs>
+            <Typography variant="h5">
+              {location.search.includes('copy=') ? 'Create AdMob Copy' : 'Create New AdMob'}
+            </Typography>
+          </Grid>
+          <Grid item>
+            <Button
+              variant="outlined"
+              color="secondary"
+              startIcon={<CancelIcon />}
+              onClick={handleCancel}
+              sx={{ mr: 1 }}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? 'Creating...' : 'Create AdMob'}
+            </Button>
+          </Grid>
         </Grid>
-        <Grid item xs>
-          <Typography variant="h4" component="h1">
-            Create AdMob Ad
-          </Typography>
-        </Grid>
-        <Grid item>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<SaveIcon />}
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? <CircularProgress size={24} /> : 'Save'}
-          </Button>
-        </Grid>
-      </Grid>
+      </Paper>
 
       {/* Error message */}
       {error && (
