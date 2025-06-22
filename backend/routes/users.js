@@ -1741,91 +1741,115 @@ router.put('/:uid/favorites/:templateId', validateFirebaseUid, verifyFirebaseTok
                 errors: validation.errors
             });
         }
-        
-        // Start a transaction for data consistency
-        const session = await mongoose.startSession();
-        
-        try {
-            await session.withTransaction(async () => {
-        // Find user by uid
-                const user = await User.findOne({ uid }).session(session);
-        
-        if (!user) {
-                    throw new Error('User not found');
-                }
-                
-                // Verify template exists
-                const template = await Template.findById(templateId).session(session);
-                if (!template) {
-                    throw new Error('Template not found');
-        }
-        
-        // Initialize favorites array if it doesn't exist
-        if (!user.favorites) {
-            user.favorites = [];
-        }
-        
-        // Check if template is already in favorites
-                const isAlreadyFavorited = user.favorites.some(id => id.toString() === templateId.toString());
-                
-                if (!isAlreadyFavorited) {
-            // Add to favorites
-            user.favorites.push(templateId);
+
+        // Set a timeout for the entire operation
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Operation timeout')), 10000); // 10 second timeout
+        });
+
+        const operationPromise = (async () => {
+            // Start a transaction for data consistency with timeout
+            const session = await mongoose.startSession();
             
-            // Add to engagement log
-            if (!user.engagementLog) {
-                user.engagementLog = [];
-            }
+            try {
+                return await session.withTransaction(async () => {
+                    // Find user by uid
+                    const user = await User.findOne({ uid }).session(session);
             
-            user.engagementLog.push({
-                action: 'FAV',
-                templateId,
-                timestamp: Date.now()
-            });
-            
-            // Update last active template
-            user.lastActiveTemplate = templateId;
-            user.lastActionOnTemplate = 'FAV';
-            
-            // Update last online
-            user.lastOnline = Date.now();
-            
-                    // Save user first
-                    await user.save({ session });
+                    if (!user) {
+                        throw new Error('User not found');
+                    }
                     
-                    // Increment template favorite count
-                    await safeUpdateTemplateCounts(templateId, { favorites: 1 }, session);
+                    // Verify template exists (with timeout)
+                    const template = await Template.findById(templateId).session(session);
+                    if (!template) {
+                        throw new Error('Template not found');
+                    }
             
-            // Invalidate recommendations
-            await recommendationService.invalidateUserRecommendations(uid);
+                    // Initialize favorites array if it doesn't exist
+                    if (!user.favorites) {
+                        user.favorites = [];
+                    }
             
-            logger.info(`User ${uid} added template ${templateId} to favorites`);
-            
-            return res.status(200).json({
-                success: true,
-                        message: 'Template added to favorites successfully',
-                        data: {
-                            templateId,
-                            isFavorited: true,
-                            totalFavorites: user.favorites.length
+                    // Check if template is already in favorites
+                    const isAlreadyFavorited = user.favorites.some(id => id.toString() === templateId.toString());
+                    
+                    if (!isAlreadyFavorited) {
+                        // Add to favorites
+                        user.favorites.push(templateId);
+                        
+                        // Add to engagement log
+                        if (!user.engagementLog) {
+                            user.engagementLog = [];
                         }
-            });
-        } else {
-            // Template already in favorites
-            return res.status(200).json({
-                success: true,
-                message: 'Template already in favorites',
-                        data: {
+                        
+                        user.engagementLog.push({
+                            action: 'FAV',
                             templateId,
-                            isFavorited: true,
-                            totalFavorites: user.favorites.length
+                            timestamp: Date.now()
+                        });
+                        
+                        // Update last active template
+                        user.lastActiveTemplate = templateId;
+                        user.lastActionOnTemplate = 'FAV';
+                        
+                        // Update last online
+                        user.lastOnline = Date.now();
+                        
+                        // Save user first
+                        await user.save({ session });
+                        
+                        // Try to increment template favorite count, but don't fail if template update fails
+                        try {
+                            await safeUpdateTemplateCounts(templateId, { favorites: 1 }, session);
+                        } catch (templateUpdateError) {
+                            logger.warn(`Failed to update template favorite count for ${templateId}: ${templateUpdateError.message}`);
+                            // Continue anyway - user favorite was saved
                         }
-                    });
-                }
-            });
-        } finally {
-            await session.endSession();
-        }
+                        
+                        // Try to invalidate recommendations, but don't fail if it doesn't work
+                        try {
+                            await recommendationService.invalidateUserRecommendations(uid);
+                        } catch (recError) {
+                            logger.warn(`Failed to invalidate recommendations for ${uid}: ${recError.message}`);
+                            // Continue anyway
+                        }
+                        
+                        logger.info(`User ${uid} added template ${templateId} to favorites`);
+                        
+                        return res.status(200).json({
+                            success: true,
+                            message: 'Template added to favorites successfully',
+                            data: {
+                                templateId,
+                                isFavorited: true,
+                                totalFavorites: user.favorites.length
+                            }
+                        });
+                    } else {
+                        // Template already in favorites
+                        return res.status(200).json({
+                            success: true,
+                            message: 'Template already in favorites',
+                            data: {
+                                templateId,
+                                isFavorited: true,
+                                totalFavorites: user.favorites.length
+                            }
+                        });
+                    }
+                }, {
+                    readConcern: { level: 'majority' },
+                    writeConcern: { w: 'majority' },
+                    maxTimeMS: 8000 // 8 second transaction timeout
+                });
+            } finally {
+                await session.endSession();
+            }
+        })();
+
+        // Race between operation and timeout
+        return await Promise.race([operationPromise, timeoutPromise]);
     }, 'Add favorite', res, uid);
 });
 
@@ -1847,81 +1871,97 @@ router.delete('/:uid/favorites/:templateId', validateFirebaseUid, verifyFirebase
                 errors: validation.errors
             });
         }
-        
-        // Start a transaction for data consistency
-        const session = await mongoose.startSession();
-        
-        try {
-            await session.withTransaction(async () => {
-        // Find user by uid
-                const user = await User.findOne({ uid }).session(session);
-        
-        if (!user) {
-                    throw new Error('User not found');
-        }
-        
-        // Check if user has favorites
-        if (!user.favorites || user.favorites.length === 0) {
-            return res.status(200).json({
-                success: true,
-                message: 'No favorites to remove',
-                        data: {
-                            templateId,
-                            isFavorited: false,
-                            totalFavorites: 0
+
+        // Set a timeout for the entire operation
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Operation timeout')), 10000); // 10 second timeout
+        });
+
+        const operationPromise = (async () => {
+            // Start a transaction for data consistency with timeout
+            const session = await mongoose.startSession();
+            
+            try {
+                return await session.withTransaction(async () => {
+                    // Find user by uid
+                    const user = await User.findOne({ uid }).session(session);
+            
+                    if (!user) {
+                        throw new Error('User not found');
+                    }
+            
+                    // Check if user has favorites
+                    if (!user.favorites || user.favorites.length === 0) {
+                        return res.status(200).json({
+                            success: true,
+                            message: 'No favorites to remove',
+                            data: {
+                                templateId,
+                                isFavorited: false,
+                                totalFavorites: 0
+                            }
+                        });
+                    }
+            
+                    // Remove template from favorites
+                    const initialCount = user.favorites.length;
+                    user.favorites = user.favorites.filter(id => id.toString() !== templateId.toString());
+            
+                    // Check if anything was removed
+                    if (user.favorites.length < initialCount) {
+                        // Add to engagement log
+                        if (!user.engagementLog) {
+                            user.engagementLog = [];
                         }
-            });
-        }
-        
-        // Remove template from favorites
-        const initialCount = user.favorites.length;
-        user.favorites = user.favorites.filter(id => id.toString() !== templateId.toString());
-        
-        // Check if anything was removed
-        if (user.favorites.length < initialCount) {
-            // Add to engagement log
-            if (!user.engagementLog) {
-                user.engagementLog = [];
-            }
-            
-            user.engagementLog.push({
-                action: 'UNFAV',
-                templateId,
-                timestamp: Date.now()
-            });
-            
-            // Update last active template
-            user.lastActiveTemplate = templateId;
-            user.lastActionOnTemplate = 'UNFAV';
-            
-            // Update last online
-            user.lastOnline = Date.now();
-            
-                    // Save user first
-                    await user.save({ session });
-                    
-                    // Decrement template favorite count
-                    await safeUpdateTemplateCounts(templateId, { favorites: -1 }, session);
-            
-            // Invalidate recommendations
-            await recommendationService.invalidateUserRecommendations(uid);
-            
-            logger.info(`User ${uid} removed template ${templateId} from favorites`);
-            
-            return res.status(200).json({
-                success: true,
-                        message: 'Template removed from favorites successfully',
-                        data: {
+                        
+                        user.engagementLog.push({
+                            action: 'UNFAV',
                             templateId,
-                            isFavorited: false,
-                            totalFavorites: user.favorites.length
+                            timestamp: Date.now()
+                        });
+                        
+                        // Update last active template
+                        user.lastActiveTemplate = templateId;
+                        user.lastActionOnTemplate = 'UNFAV';
+                        
+                        // Update last online
+                        user.lastOnline = Date.now();
+                        
+                        // Save user first
+                        await user.save({ session });
+                        
+                        // Try to decrement template favorite count, but don't fail if template update fails
+                        try {
+                            await safeUpdateTemplateCounts(templateId, { favorites: -1 }, session);
+                        } catch (templateUpdateError) {
+                            logger.warn(`Failed to update template favorite count for ${templateId}: ${templateUpdateError.message}`);
+                            // Continue anyway - user unfavorite was saved
                         }
-            });
-        } else {
-            // Template not in favorites
-            return res.status(200).json({
-                success: true,
-                        message: 'Template was not in favorites',
+                        
+                        // Try to invalidate recommendations, but don't fail if it doesn't work
+                        try {
+                            await recommendationService.invalidateUserRecommendations(uid);
+                        } catch (recError) {
+                            logger.warn(`Failed to invalidate recommendations for ${uid}: ${recError.message}`);
+                            // Continue anyway
+                        }
+                        
+                        logger.info(`User ${uid} removed template ${templateId} from favorites`);
+                        
+                        return res.status(200).json({
+                            success: true,
+                            message: 'Template removed from favorites successfully',
+                            data: {
+                                templateId,
+                                isFavorited: false,
+                                totalFavorites: user.favorites.length
+                            }
+                        });
+                    } else {
+                        // Template not in favorites
+                        return res.status(200).json({
+                            success: true,
+                            message: 'Template was not in favorites',
                         data: {
                             templateId,
                             isFavorited: false,
@@ -4058,6 +4098,44 @@ router.delete('/:uid', verifyFirebaseToken, async (req, res) => {
             success: false,
             message: 'Server error',
             error: error.message
+        });
+    }
+});
+
+/**
+ * @route   GET /api/users/health/template-interactions
+ * @desc    Health check for template interaction endpoints
+ * @access  Public
+ */
+router.get('/health/template-interactions', async (req, res) => {
+    try {
+        // Test database connection
+        const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+        
+        // Test basic Template model access
+        const templateCount = await Template.countDocuments().maxTimeMS(5000);
+        
+        // Test basic User model access
+        const userCount = await User.countDocuments().maxTimeMS(5000);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Template interaction endpoints are healthy',
+            data: {
+                database: dbStatus,
+                templateCount: templateCount,
+                userCount: userCount,
+                timestamp: new Date().toISOString(),
+                server: 'eventwish-backend'
+            }
+        });
+    } catch (error) {
+        logger.error('Template interaction health check failed:', error);
+        res.status(503).json({
+            success: false,
+            message: 'Template interaction endpoints are unhealthy',
+            error: error.message,
+            timestamp: new Date().toISOString()
         });
     }
 });
