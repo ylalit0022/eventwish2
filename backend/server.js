@@ -202,7 +202,38 @@ app.use(express.static('backendUi'));
 express.static.mime.define({'application/javascript': ['js']});
 
 // Serve static files from the admin-panel/build directory with proper MIME types
-app.use('/admin', express.static(path.join(__dirname, 'admin-panel/build')));
+const adminBuildPath = path.join(__dirname, 'admin-panel/build');
+if (fs.existsSync(adminBuildPath)) {
+  app.use('/admin', express.static(adminBuildPath));
+  console.log('✅ Admin panel static files served from:', adminBuildPath);
+} else {
+  console.log('⚠️  Admin panel build directory not found at:', adminBuildPath);
+  // Serve a simple fallback for admin routes
+  app.get('/admin*', (req, res) => {
+    res.status(503).send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Admin Panel - Building</title>
+        <style>
+          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+          .container { max-width: 600px; margin: 0 auto; }
+          .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 2s linear infinite; margin: 20px auto; }
+          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Admin Panel</h1>
+          <div class="spinner"></div>
+          <p>The admin panel is currently being built. Please wait a few minutes and refresh the page.</p>
+          <p>If this message persists, please contact the administrator.</p>
+        </div>
+      </body>
+      </html>
+    `);
+  });
+}
 
 // Serve bundle.js files with the correct MIME type
 app.get('/bundle*.js', (req, res) => {

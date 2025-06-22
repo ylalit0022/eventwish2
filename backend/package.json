@@ -5,6 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "build": "cd admin-panel && npm install && npm run build",
+    "postinstall": "npm run build",
     "dev": "nodemon server.js",
     "dev:no-auth": "cross-env NODE_ENV=production SKIP_AUTH=false nodemon server.js",
     "test": "jest --runInBand",
