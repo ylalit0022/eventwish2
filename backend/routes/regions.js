@@ -8,8 +8,8 @@ const {
     updateRegion,
     deleteRegion
 } = require('../controllers/regionController');
-const { verifyFirebaseToken } = require('../middlewares/authMiddleware');
-const { isAdmin } = require('../middlewares/adminMiddleware');
+const { verifyFirebaseToken } = require('../middleware/authMiddleware');
+const { verifyAdmin } = require('../middleware/authMiddleware');
 
 // Public routes
 router.get('/', getAllRegions);
@@ -17,8 +17,8 @@ router.get('/continent/:continent', getRegionsByContinent);
 router.get('/:code', getRegionByCode);
 
 // Admin routes - protected
-router.post('/', verifyFirebaseToken, isAdmin, createRegion);
-router.put('/:code', verifyFirebaseToken, isAdmin, updateRegion);
-router.delete('/:code', verifyFirebaseToken, isAdmin, deleteRegion);
+router.post('/', verifyFirebaseToken, verifyAdmin(), createRegion);
+router.put('/:code', verifyFirebaseToken, verifyAdmin(), updateRegion);
+router.delete('/:code', verifyFirebaseToken, verifyAdmin(), deleteRegion);
 
 module.exports = router; 

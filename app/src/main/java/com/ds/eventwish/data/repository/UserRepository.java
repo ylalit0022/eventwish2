@@ -875,7 +875,7 @@ public class UserRepository {
         cacheUserData(user);
         
         // Complete the task immediately with the created user
-        taskCompletionSource.setResult(user);
+                    taskCompletionSource.setResult(user);
         
         // Optionally try to sync with backend in the background (non-blocking)
         AppExecutors.getInstance().networkIO().execute(() -> {
@@ -916,7 +916,7 @@ public class UserRepository {
                         public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
                             if (response.isSuccessful()) {
                                 Log.d(TAG, "Background sync successful for user: " + firebaseUser.getUid());
-                            } else {
+                } else {
                                 Log.w(TAG, "Background sync failed: " + response.code());
                             }
                         }

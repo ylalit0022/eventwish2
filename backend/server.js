@@ -470,7 +470,7 @@ mongoose.connect(process.env.MONGODB_URI, {
   console.log('✅ MongoDB Connected');
   
   // Initialize scheduled jobs after successful MongoDB connection
-  require('./jobs/scheduler').initScheduledJobs();
+  require('./jobs/scheduler').initializeJobs();
   console.log('✅ Scheduled jobs initialized');
 })
 .catch(err => {
