@@ -242,7 +242,7 @@ router.post('/register', validateFirebaseUid, verifyFirebaseToken, async (req, r
             deviceName: deviceName || null,
             appVersion: appVersion || null,
             osVersion: osVersion || null,
-            lastOnline: Date.now(),
+            lastOnline: lastOnline || Date.now(),
             loginTimestamp: Date.now(),
             created: Date.now(),
             categories: []
@@ -945,12 +945,12 @@ router.get('/:uid/templates/favorites', async (req, res) => {
     try {
         const uid = req.params.uid;
         
-        // Find user by uid
-        let user = await User.findOne({ uid }).populate('favorites');
+        // Find user by uid (don't populate, just get the IDs)
+        let user = await User.findOne({ uid });
         
         // For backward compatibility, try deviceId fallback
         if (!user) {
-            user = await User.findOne({ deviceId: uid }).populate('favorites');
+            user = await User.findOne({ deviceId: uid });
             
             if (!user) {
                 logger.warn(`Favorites requested for non-existent user: UID ${uid}`);
@@ -963,9 +963,14 @@ router.get('/:uid/templates/favorites', async (req, res) => {
             logger.info(`Found user by deviceId fallback for favorites: ${uid}`);
         }
         
+        // Convert ObjectIds to strings for the response
+        const favoriteIds = (user.favorites || []).map(id => id.toString());
+        
+        logger.info(`Returning ${favoriteIds.length} favorite template IDs for user ${uid}`);
+        
         res.status(200).json({
             success: true,
-            favorites: user.favorites || []
+            favorites: favoriteIds
         });
     } catch (error) {
         logger.error(`Get favorites error: ${error.message}`);
@@ -986,12 +991,12 @@ router.get('/:uid/templates/likes', async (req, res) => {
     try {
         const uid = req.params.uid;
         
-        // Find user by uid
-        let user = await User.findOne({ uid }).populate('likes');
+        // Find user by uid (don't populate, just get the IDs)
+        let user = await User.findOne({ uid });
         
         // For backward compatibility, try deviceId fallback
         if (!user) {
-            user = await User.findOne({ deviceId: uid }).populate('likes');
+            user = await User.findOne({ deviceId: uid });
             
             if (!user) {
                 logger.warn(`Likes requested for non-existent user: UID ${uid}`);
@@ -1004,9 +1009,14 @@ router.get('/:uid/templates/likes', async (req, res) => {
             logger.info(`Found user by deviceId fallback for likes: ${uid}`);
         }
         
+        // Convert ObjectIds to strings for the response
+        const likeIds = (user.likes || []).map(id => id.toString());
+        
+        logger.info(`Returning ${likeIds.length} liked template IDs for user ${uid}`);
+        
         res.status(200).json({
             success: true,
-            likes: user.likes || []
+            likes: likeIds
         });
     } catch (error) {
         logger.error(`Get likes error: ${error.message}`);

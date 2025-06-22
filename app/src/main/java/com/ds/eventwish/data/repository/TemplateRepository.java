@@ -2489,12 +2489,18 @@ public class TemplateRepository {
             return;
         }
         
+        Log.d(TAG, "Fetching user likes from server for userId: " + userId);
+        
         // Use enqueue instead of execute to avoid NetworkOnMainThreadException
         apiService.getUserLikes(userId, authToken).enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                Log.d(TAG, "getUserLikes response code: " + response.code());
+                
                 if (response.isSuccessful() && response.body() != null) {
                     JsonObject body = response.body();
+                    Log.d(TAG, "getUserLikes response body: " + body.toString());
+                    
                     if (body.has("likes") && body.get("likes").isJsonArray()) {
                         // Process on background thread to avoid blocking UI
                         AppExecutors.getInstance().diskIO().execute(() -> {
@@ -2522,12 +2528,21 @@ public class TemplateRepository {
                             }
                         });
                     } else {
-                        Log.w(TAG, "Invalid response format for user likes");
+                        Log.w(TAG, "Invalid response format for user likes - missing 'likes' array or not an array");
+                        Log.w(TAG, "Response body: " + body.toString());
                     }
                 } else {
+                    String errorBody = "";
+                    try {
+                        if (response.errorBody() != null) {
+                            errorBody = response.errorBody().string();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error reading error body", e);
+                    }
+                    
                     Log.w(TAG, "Failed to fetch user likes from server: " + 
-                          (response.code() + " - " + (response.errorBody() != null ? 
-                           response.errorBody().toString() : "Unknown error")));
+                          response.code() + " - " + errorBody);
                 }
             }
             
@@ -2549,12 +2564,18 @@ public class TemplateRepository {
             return;
         }
         
+        Log.d(TAG, "Fetching user favorites from server for userId: " + userId);
+        
         // Use enqueue instead of execute to avoid NetworkOnMainThreadException
         apiService.getUserFavorites(userId, authToken).enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                Log.d(TAG, "getUserFavorites response code: " + response.code());
+                
                 if (response.isSuccessful() && response.body() != null) {
                     JsonObject body = response.body();
+                    Log.d(TAG, "getUserFavorites response body: " + body.toString());
+                    
                     if (body.has("favorites") && body.get("favorites").isJsonArray()) {
                         // Process on background thread to avoid blocking UI
                         AppExecutors.getInstance().diskIO().execute(() -> {
@@ -2582,12 +2603,21 @@ public class TemplateRepository {
                             }
                         });
                     } else {
-                        Log.w(TAG, "Invalid response format for user favorites");
+                        Log.w(TAG, "Invalid response format for user favorites - missing 'favorites' array or not an array");
+                        Log.w(TAG, "Response body: " + body.toString());
                     }
                 } else {
+                    String errorBody = "";
+                    try {
+                        if (response.errorBody() != null) {
+                            errorBody = response.errorBody().string();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error reading error body", e);
+                    }
+                    
                     Log.w(TAG, "Failed to fetch user favorites from server: " + 
-                          (response.code() + " - " + (response.errorBody() != null ? 
-                           response.errorBody().toString() : "Unknown error")));
+                          response.code() + " - " + errorBody);
                 }
             }
             
