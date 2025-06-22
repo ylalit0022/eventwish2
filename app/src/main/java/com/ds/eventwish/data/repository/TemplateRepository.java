@@ -13,6 +13,7 @@ import androidx.lifecycle.MutableLiveData;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.model.response.TemplateResponse;
 import com.ds.eventwish.data.db.AppDatabase;
+import com.ds.eventwish.data.db.TemplateDao;
 import com.ds.eventwish.data.remote.ApiService;
 import com.ds.eventwish.data.remote.FirestoreManager;
 import com.ds.eventwish.utils.AppExecutors;
@@ -2468,6 +2469,9 @@ public class TemplateRepository {
                         
                         // Fetch favorites from server
                         fetchUserFavoritesFromServer(userId, authToken);
+                        
+                        // Fetch share counts from server for live updates
+                        fetchShareCountsFromServer(authToken);
                     })
                     .addOnFailureListener(e -> {
                         Log.e(TAG, "Failed to get authentication token for template state sync", e);
@@ -2626,6 +2630,135 @@ public class TemplateRepository {
                 Log.e(TAG, "Error fetching user favorites from server", t);
             }
         });
+    }
+    
+    /**
+     * Fetch share counts from server for live updates
+     * @param authToken Firebase authentication token
+     */
+    private void fetchShareCountsFromServer(String authToken) {
+        if (authToken == null) {
+            Log.e(TAG, "Cannot fetch share counts: authToken is null");
+            return;
+        }
+        
+        Log.d(TAG, "Fetching share counts from server");
+        
+        // Get current templates to fetch counts for
+        List<Template> currentTemplates = templates.getValue();
+        if (currentTemplates == null || currentTemplates.isEmpty()) {
+            Log.d(TAG, "No templates to fetch share counts for");
+            return;
+        }
+        
+        // Use enqueue instead of execute to avoid NetworkOnMainThreadException
+        apiService.getTemplates(1, Math.min(50, currentTemplates.size())).enqueue(new Callback<TemplateResponse>() {
+            @Override
+            public void onResponse(Call<TemplateResponse> call, Response<TemplateResponse> response) {
+                Log.d(TAG, "getTemplates for share counts response code: " + response.code());
+                
+                if (response.isSuccessful() && response.body() != null) {
+                    TemplateResponse body = response.body();
+                    
+                    if (body.getTemplates() != null && !body.getTemplates().isEmpty()) {
+                        // Process on background thread to avoid blocking UI
+                        AppExecutors.getInstance().diskIO().execute(() -> {
+                            try {
+                                List<Template> serverTemplates = body.getTemplates();
+                                Map<String, Long> shareCountMap = new HashMap<>();
+                                
+                                for (Template serverTemplate : serverTemplates) {
+                                    if (serverTemplate.getId() != null) {
+                                        shareCountMap.put(serverTemplate.getId(), serverTemplate.getShareCount());
+                                    }
+                                }
+                                
+                                // Update local templates with new share counts
+                                updateTemplateShareCounts(shareCountMap);
+                                
+                                Log.d(TAG, "Synced share counts for " + shareCountMap.size() + " templates from server");
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error processing share counts response", e);
+                            }
+                        });
+                    } else {
+                        Log.w(TAG, "No templates in share counts response");
+                    }
+                } else {
+                    String errorBody = "";
+                    try {
+                        if (response.errorBody() != null) {
+                            errorBody = response.errorBody().string();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error reading error body", e);
+                    }
+                    
+                    Log.w(TAG, "Failed to fetch share counts from server: " + 
+                          response.code() + " - " + errorBody);
+                }
+            }
+            
+            @Override
+            public void onFailure(Call<TemplateResponse> call, Throwable t) {
+                Log.e(TAG, "Network error fetching share counts from server", t);
+            }
+        });
+    }
+    
+    /**
+     * Update local template share counts with server data
+     * @param shareCountMap Map of template ID to share count
+     */
+    private void updateTemplateShareCounts(Map<String, Long> shareCountMap) {
+        if (shareCountMap == null || shareCountMap.isEmpty()) {
+            return;
+        }
+        
+        // Update in-memory templates
+        List<Template> currentTemplates = templates.getValue();
+        if (currentTemplates != null) {
+            boolean hasUpdates = false;
+            List<Template> updatedTemplates = new ArrayList<>();
+            
+            for (Template template : currentTemplates) {
+                Template updatedTemplate = new Template(template); // Create a copy
+                if (shareCountMap.containsKey(template.getId())) {
+                    long newShareCount = shareCountMap.get(template.getId());
+                    if (updatedTemplate.getShareCount() != newShareCount) {
+                        updatedTemplate.setShareCount(newShareCount);
+                        hasUpdates = true;
+                        Log.d(TAG, "Updated share count for template " + template.getId() + 
+                              " from " + template.getShareCount() + " to " + newShareCount);
+                    }
+                }
+                updatedTemplates.add(updatedTemplate);
+            }
+            
+            if (hasUpdates) {
+                // Update LiveData on main thread
+                AppExecutors.getInstance().mainThread().execute(() -> {
+                    templates.setValue(updatedTemplates);
+                });
+                
+                // Update Room database
+                AppExecutors.getInstance().diskIO().execute(() -> {
+                    try {
+                        if (appDatabase != null) {
+                            TemplateDao templateDao = appDatabase.templateDao();
+                            for (Template template : updatedTemplates) {
+                                if (shareCountMap.containsKey(template.getId())) {
+                                    templateDao.updateShareCount(template.getId(), shareCountMap.get(template.getId()));
+                                }
+                            }
+                            Log.d(TAG, "Updated share counts in Room database");
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error updating share counts in Room database", e);
+                    }
+                });
+            }
+        }
     }
 
     /**

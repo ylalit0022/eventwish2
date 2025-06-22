@@ -2521,4 +2521,1193 @@ router.post('/:uid/sessions/update', validateFirebaseUid, verifyFirebaseToken, a
     }
 });
 
+// =============================================================================
+// COMPREHENSIVE USER CRUD OPERATIONS BASED ON SCHEMA FIELDS
+// =============================================================================
+
+/**
+ * @route   GET /api/users/:uid/complete
+ * @desc    Get complete user profile with all fields
+ * @access  Private
+ */
+router.get('/:uid/complete', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        
+        const user = await User.findOne({ uid })
+            .populate('likes', 'name imageUrl category')
+            .populate('favorites', 'name imageUrl category')
+            .populate('recentTemplatesUsed', 'name imageUrl category')
+            .populate('lastActiveTemplate', 'name imageUrl category');
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        res.status(200).json({
+            success: true,
+            data: user
+        });
+    } catch (error) {
+        logger.error(`Get complete user error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+// =============================================================================
+// DEVICE & SESSION MANAGEMENT
+// =============================================================================
+
+/**
+ * @route   POST /api/users/:uid/device-sessions
+ * @desc    Add or update device session
+ * @access  Private
+ */
+router.post('/:uid/device-sessions', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { deviceId, deviceModel, deviceName, appVersion, osVersion } = req.body;
+        
+        if (!deviceId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Device ID is required'
+            });
+        }
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        await user.addDeviceSession({
+            deviceId,
+            deviceModel: deviceModel || 'Unknown',
+            deviceName: deviceName || 'Unknown Device',
+            appVersion: appVersion || 'Unknown',
+            osVersion: osVersion || 'Unknown'
+        });
+        
+        res.status(200).json({
+            success: true,
+            message: 'Device session added successfully',
+            activeSessions: user.activeSessions
+        });
+    } catch (error) {
+        logger.error(`Add device session error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   DELETE /api/users/:uid/device-sessions/:deviceId
+ * @desc    Remove device session
+ * @access  Private
+ */
+router.delete('/:uid/device-sessions/:deviceId', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid, deviceId } = req.params;
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        await user.removeDeviceSession(deviceId);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Device session removed successfully'
+        });
+    } catch (error) {
+        logger.error(`Remove device session error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   PUT /api/users/:uid/device-sessions/:deviceId/activity
+ * @desc    Update device session activity
+ * @access  Private
+ */
+router.put('/:uid/device-sessions/:deviceId/activity', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid, deviceId } = req.params;
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        await user.updateDeviceSessionActivity(deviceId);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Device session activity updated'
+        });
+    } catch (error) {
+        logger.error(`Update device session activity error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+// =============================================================================
+// SUBSCRIPTION MANAGEMENT
+// =============================================================================
+
+/**
+ * @route   PUT /api/users/:uid/subscription
+ * @desc    Update user subscription details
+ * @access  Private
+ */
+router.put('/:uid/subscription', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const subscriptionData = req.body;
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Update subscription fields
+        if (!user.subscription) {
+            user.subscription = {};
+        }
+        
+        Object.assign(user.subscription, subscriptionData);
+        await user.save();
+        
+        res.status(200).json({
+            success: true,
+            message: 'Subscription updated successfully',
+            subscription: user.subscription
+        });
+    } catch (error) {
+        logger.error(`Update subscription error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   POST /api/users/:uid/subscription-history
+ * @desc    Add subscription history entry
+ * @access  Private
+ */
+router.post('/:uid/subscription-history', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { plan, startedAt, endedAt } = req.body;
+        
+        if (!plan || !startedAt || !endedAt) {
+            return res.status(400).json({
+                success: false,
+                message: 'Plan, startedAt, and endedAt are required'
+            });
+        }
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        if (!user.subscriptionHistory) {
+            user.subscriptionHistory = [];
+        }
+        
+        user.subscriptionHistory.push({
+            plan,
+            startedAt: new Date(startedAt),
+            endedAt: new Date(endedAt)
+        });
+        
+        await user.save();
+        
+        res.status(200).json({
+            success: true,
+            message: 'Subscription history added successfully',
+            subscriptionHistory: user.subscriptionHistory
+        });
+    } catch (error) {
+        logger.error(`Add subscription history error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   PUT /api/users/:uid/subscription-offer
+ * @desc    Update user subscription offer
+ * @access  Private
+ */
+router.put('/:uid/subscription-offer', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const offerData = req.body;
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        user.subscriptionOffer = offerData;
+        await user.save();
+        
+        res.status(200).json({
+            success: true,
+            message: 'Subscription offer updated successfully',
+            subscriptionOffer: user.subscriptionOffer
+        });
+    } catch (error) {
+        logger.error(`Update subscription offer error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+// =============================================================================
+// AI USAGE MANAGEMENT
+// =============================================================================
+
+/**
+ * @route   PUT /api/users/:uid/ai-usage
+ * @desc    Update AI usage data
+ * @access  Private
+ */
+router.put('/:uid/ai-usage', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { monthlyGenerationCount, quota, recentPrompts, stylePreferences } = req.body;
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        if (!user.aiUsage) {
+            user.aiUsage = {};
+        }
+        
+        if (monthlyGenerationCount !== undefined) {
+            user.aiUsage.monthlyGenerationCount = monthlyGenerationCount;
+            user.aiUsage.lastGenerationAt = new Date();
+        }
+        
+        if (quota !== undefined) user.aiUsage.quota = quota;
+        if (recentPrompts) user.aiUsage.recentPrompts = recentPrompts;
+        if (stylePreferences) user.aiUsage.stylePreferences = stylePreferences;
+        
+        await user.save();
+        
+        res.status(200).json({
+            success: true,
+            message: 'AI usage updated successfully',
+            aiUsage: user.aiUsage
+        });
+    } catch (error) {
+        logger.error(`Update AI usage error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   POST /api/users/:uid/ai-usage/increment
+ * @desc    Increment AI generation count
+ * @access  Private
+ */
+router.post('/:uid/ai-usage/increment', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { prompt, style } = req.body;
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        if (!user.aiUsage) {
+            user.aiUsage = {
+                monthlyGenerationCount: 0,
+                quota: 5,
+                recentPrompts: [],
+                stylePreferences: []
+            };
+        }
+        
+        // Check quota
+        if (user.aiUsage.monthlyGenerationCount >= user.aiUsage.quota) {
+            return res.status(403).json({
+                success: false,
+                message: 'AI generation quota exceeded',
+                quota: user.aiUsage.quota,
+                used: user.aiUsage.monthlyGenerationCount
+            });
+        }
+        
+        // Increment count
+        user.aiUsage.monthlyGenerationCount += 1;
+        user.aiUsage.lastGenerationAt = new Date();
+        
+        // Add prompt to recent prompts (keep last 10)
+        if (prompt) {
+            if (!user.aiUsage.recentPrompts) user.aiUsage.recentPrompts = [];
+            user.aiUsage.recentPrompts.unshift(prompt);
+            if (user.aiUsage.recentPrompts.length > 10) {
+                user.aiUsage.recentPrompts = user.aiUsage.recentPrompts.slice(0, 10);
+            }
+        }
+        
+        // Track style preference
+        if (style) {
+            if (!user.aiUsage.stylePreferences) user.aiUsage.stylePreferences = [];
+            if (!user.aiUsage.stylePreferences.includes(style)) {
+                user.aiUsage.stylePreferences.push(style);
+            }
+        }
+        
+        await user.save();
+        
+        res.status(200).json({
+            success: true,
+            message: 'AI generation count incremented',
+            aiUsage: user.aiUsage,
+            remaining: user.aiUsage.quota - user.aiUsage.monthlyGenerationCount
+        });
+    } catch (error) {
+        logger.error(`Increment AI usage error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+// =============================================================================
+// CATEGORY VISITS MANAGEMENT
+// =============================================================================
+
+/**
+ * @route   POST /api/users/:uid/categories/visit
+ * @desc    Record category visit
+ * @access  Private
+ */
+router.post('/:uid/categories/visit', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { category, source = 'direct' } = req.body;
+        
+        if (!category) {
+            return res.status(400).json({
+                success: false,
+                message: 'Category is required'
+            });
+        }
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        await user.visitCategory(category, source);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Category visit recorded',
+            categories: user.categories
+        });
+    } catch (error) {
+        logger.error(`Record category visit error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   GET /api/users/:uid/categories/stats
+ * @desc    Get category visit statistics
+ * @access  Private
+ */
+router.get('/:uid/categories/stats', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Calculate category statistics
+        const categoryStats = user.categories.map(cat => ({
+            category: cat.category,
+            visitCount: cat.visitCount,
+            lastVisit: cat.visitDate,
+            source: cat.source
+        })).sort((a, b) => b.visitCount - a.visitCount);
+        
+        const totalVisits = categoryStats.reduce((sum, cat) => sum + cat.visitCount, 0);
+        const mostVisited = categoryStats[0] || null;
+        const recentVisits = categoryStats
+            .sort((a, b) => new Date(b.lastVisit) - new Date(a.lastVisit))
+            .slice(0, 5);
+        
+        res.status(200).json({
+            success: true,
+            data: {
+                categories: categoryStats,
+                summary: {
+                    totalCategories: categoryStats.length,
+                    totalVisits,
+                    mostVisited,
+                    recentVisits
+                }
+            }
+        });
+    } catch (error) {
+        logger.error(`Get category stats error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+// =============================================================================
+// TEMPLATE AFFINITY MANAGEMENT
+// =============================================================================
+
+/**
+ * @route   PUT /api/users/:uid/template-affinity
+ * @desc    Update template affinity scores
+ * @access  Private
+ */
+router.put('/:uid/template-affinity', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { tag, score = 1 } = req.body;
+        
+        if (!tag) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tag is required'
+            });
+        }
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        await user.updateTemplateAffinity(tag, score);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Template affinity updated',
+            templateAffinity: user.templateAffinity
+        });
+    } catch (error) {
+        logger.error(`Update template affinity error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   GET /api/users/:uid/template-affinity/top
+ * @desc    Get top template affinities
+ * @access  Private
+ */
+router.get('/:uid/template-affinity/top', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { limit = 10 } = req.query;
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        const topAffinities = user.templateAffinity
+            .sort((a, b) => b.score - a.score)
+            .slice(0, parseInt(limit));
+        
+        res.status(200).json({
+            success: true,
+            data: topAffinities
+        });
+    } catch (error) {
+        logger.error(`Get top template affinity error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+// =============================================================================
+// IGNORED TEMPLATES MANAGEMENT
+// =============================================================================
+
+/**
+ * @route   POST /api/users/:uid/ignored-templates
+ * @desc    Add template to ignored list
+ * @access  Private
+ */
+router.post('/:uid/ignored-templates', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { templateId, score = 1 } = req.body;
+        
+        if (!templateId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Template ID is required'
+            });
+        }
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        await user.ignoreTemplate(templateId, score);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Template added to ignored list',
+            ignoredTemplates: user.ignoredTemplates
+        });
+    } catch (error) {
+        logger.error(`Add ignored template error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   DELETE /api/users/:uid/ignored-templates/:templateId
+ * @desc    Remove template from ignored list
+ * @access  Private
+ */
+router.delete('/:uid/ignored-templates/:templateId', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid, templateId } = req.params;
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        user.ignoredTemplates = user.ignoredTemplates.filter(
+            ignored => ignored.templateId.toString() !== templateId
+        );
+        
+        await user.save();
+        
+        res.status(200).json({
+            success: true,
+            message: 'Template removed from ignored list'
+        });
+    } catch (error) {
+        logger.error(`Remove ignored template error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+// =============================================================================
+// DRAFTS MANAGEMENT
+// =============================================================================
+
+/**
+ * @route   POST /api/users/:uid/drafts
+ * @desc    Save or update draft
+ * @access  Private
+ */
+router.post('/:uid/drafts', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { templateId, html } = req.body;
+        
+        if (!templateId || !html) {
+            return res.status(400).json({
+                success: false,
+                message: 'Template ID and HTML content are required'
+            });
+        }
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        await user.saveDraft(templateId, html);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Draft saved successfully',
+            drafts: user.drafts
+        });
+    } catch (error) {
+        logger.error(`Save draft error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   GET /api/users/:uid/drafts
+ * @desc    Get user's drafts
+ * @access  Private
+ */
+router.get('/:uid/drafts', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        
+        const user = await User.findOne({ uid }).populate('drafts.templateId', 'name imageUrl category');
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        res.status(200).json({
+            success: true,
+            data: user.drafts
+        });
+    } catch (error) {
+        logger.error(`Get drafts error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   DELETE /api/users/:uid/drafts/:templateId
+ * @desc    Delete specific draft
+ * @access  Private
+ */
+router.delete('/:uid/drafts/:templateId', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid, templateId } = req.params;
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        await user.deleteDraft(templateId);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Draft deleted successfully'
+        });
+    } catch (error) {
+        logger.error(`Delete draft error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+// =============================================================================
+// FCM TOKENS MANAGEMENT
+// =============================================================================
+
+/**
+ * @route   POST /api/users/:uid/fcm-tokens
+ * @desc    Add or update FCM token
+ * @access  Private
+ */
+router.post('/:uid/fcm-tokens', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { token, platform = 'android' } = req.body;
+        
+        if (!token) {
+            return res.status(400).json({
+                success: false,
+                message: 'FCM token is required'
+            });
+        }
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        await user.addFcmToken(token, platform);
+        
+        res.status(200).json({
+            success: true,
+            message: 'FCM token added successfully',
+            fcmTokens: user.fcmTokens
+        });
+    } catch (error) {
+        logger.error(`Add FCM token error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   DELETE /api/users/:uid/fcm-tokens/:token
+ * @desc    Remove FCM token
+ * @access  Private
+ */
+router.delete('/:uid/fcm-tokens/:token', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid, token } = req.params;
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        await user.removeFcmToken(token);
+        
+        res.status(200).json({
+            success: true,
+            message: 'FCM token removed successfully'
+        });
+    } catch (error) {
+        logger.error(`Remove FCM token error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   POST /api/users/:uid/fcm-tokens/:token/topics/subscribe
+ * @desc    Subscribe FCM token to topics
+ * @access  Private
+ */
+router.post('/:uid/fcm-tokens/:token/topics/subscribe', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid, token } = req.params;
+        const { topics } = req.body;
+        
+        if (!topics || !Array.isArray(topics)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Topics array is required'
+            });
+        }
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Subscribe to each topic
+        for (const topic of topics) {
+            await user.subscribeTokenToTopic(token, topic);
+        }
+        
+        res.status(200).json({
+            success: true,
+            message: 'Subscribed to topics successfully',
+            fcmTokens: user.fcmTokens
+        });
+    } catch (error) {
+        logger.error(`Subscribe to topics error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+// =============================================================================
+// CACHED HOME FEED MANAGEMENT
+// =============================================================================
+
+/**
+ * @route   PUT /api/users/:uid/cached-feed
+ * @desc    Update cached home feed
+ * @access  Private
+ */
+router.put('/:uid/cached-feed', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { feedData } = req.body;
+        
+        if (!feedData || !Array.isArray(feedData)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Feed data array is required'
+            });
+        }
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        user.cachedHomeFeed = feedData;
+        user.homeFeedLastGeneratedAt = new Date();
+        await user.save();
+        
+        res.status(200).json({
+            success: true,
+            message: 'Cached feed updated successfully',
+            cachedHomeFeed: user.cachedHomeFeed,
+            lastGenerated: user.homeFeedLastGeneratedAt
+        });
+    } catch (error) {
+        logger.error(`Update cached feed error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   GET /api/users/:uid/cached-feed
+ * @desc    Get cached home feed
+ * @access  Private
+ */
+router.get('/:uid/cached-feed', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        res.status(200).json({
+            success: true,
+            data: {
+                cachedHomeFeed: user.cachedHomeFeed || [],
+                lastGenerated: user.homeFeedLastGeneratedAt,
+                isStale: user.homeFeedLastGeneratedAt && 
+                        (Date.now() - user.homeFeedLastGeneratedAt.getTime()) > (24 * 60 * 60 * 1000) // 24 hours
+            }
+        });
+    } catch (error) {
+        logger.error(`Get cached feed error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+// =============================================================================
+// BLOCK MANAGEMENT (Admin Operations)
+// =============================================================================
+
+/**
+ * @route   PUT /api/users/:uid/block
+ * @desc    Block a user (Admin only)
+ * @access  Private (Admin)
+ */
+router.put('/:uid/block', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { reason, expiresAt, notes } = req.body;
+        const adminUid = req.user.uid; // From Firebase token
+        
+        // TODO: Add admin verification middleware
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        await user.blockUser(
+            adminUid,
+            reason || 'Blocked by administrator',
+            expiresAt ? new Date(expiresAt) : null,
+            notes || ''
+        );
+        
+        res.status(200).json({
+            success: true,
+            message: 'User blocked successfully',
+            blockInfo: user.blockInfo
+        });
+    } catch (error) {
+        logger.error(`Block user error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   PUT /api/users/:uid/unblock
+ * @desc    Unblock a user (Admin only)
+ * @access  Private (Admin)
+ */
+router.put('/:uid/unblock', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        
+        // TODO: Add admin verification middleware
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        await user.unblockUser();
+        
+        res.status(200).json({
+            success: true,
+            message: 'User unblocked successfully'
+        });
+    } catch (error) {
+        logger.error(`Unblock user error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+// =============================================================================
+// BULK OPERATIONS
+// =============================================================================
+
+/**
+ * @route   POST /api/users/:uid/bulk-update
+ * @desc    Bulk update multiple user fields
+ * @access  Private
+ */
+router.post('/:uid/bulk-update', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const updateData = req.body;
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Update allowed fields
+        const allowedFields = [
+            'displayName', 'email', 'profilePhoto', 'preferredTheme', 
+            'preferredLanguage', 'timezone', 'pushPreferences', 
+            'topicSubscriptions', 'muteNotificationsUntil'
+        ];
+        
+        for (const field of allowedFields) {
+            if (updateData[field] !== undefined) {
+                user[field] = updateData[field];
+            }
+        }
+        
+        await user.save();
+        
+        res.status(200).json({
+            success: true,
+            message: 'User updated successfully',
+            user: {
+                uid: user.uid,
+                displayName: user.displayName,
+                email: user.email,
+                profilePhoto: user.profilePhoto,
+                preferredTheme: user.preferredTheme,
+                preferredLanguage: user.preferredLanguage,
+                timezone: user.timezone,
+                pushPreferences: user.pushPreferences,
+                topicSubscriptions: user.topicSubscriptions,
+                muteNotificationsUntil: user.muteNotificationsUntil
+            }
+        });
+    } catch (error) {
+        logger.error(`Bulk update user error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   DELETE /api/users/:uid
+ * @desc    Delete user account (GDPR compliance)
+ * @access  Private
+ */
+router.delete('/:uid', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Remove user from all templates' likes and favorites
+        await Template.updateMany(
+            { $or: [{ likes: uid }, { favorites: uid }] },
+            { $pull: { likes: uid, favorites: uid } }
+        );
+        
+        // Delete user document
+        await User.findOneAndDelete({ uid });
+        
+        logger.info(`User account deleted: ${uid}`);
+        
+        res.status(200).json({
+            success: true,
+            message: 'User account deleted successfully'
+        });
+    } catch (error) {
+        logger.error(`Delete user error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
 module.exports = router; 

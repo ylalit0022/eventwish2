@@ -126,8 +126,10 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
         private final CardView cardView;
         private final ImageView likeIcon;
         private final ImageView favoriteIcon;
+        private final ImageView shareIcon;
         private final TextView likeCountText;
         private final TextView favoriteCountText;
+        private final TextView shareCountText;
 
         public TemplateViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -140,8 +142,10 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
             cardView = itemView.findViewById(R.id.cardView);
             likeIcon = itemView.findViewById(R.id.likeIcon);
             favoriteIcon = itemView.findViewById(R.id.favoriteIcon);
+            shareIcon = itemView.findViewById(R.id.shareIcon);
             likeCountText = itemView.findViewById(R.id.likeCountText);
             favoriteCountText = itemView.findViewById(R.id.favoriteCountText);
+            shareCountText = itemView.findViewById(R.id.shareCountText);
         }
         
         public void bind(Template template, Set<String> recommendedIds, Set<String> newIds, TemplateClickListener listener) {
@@ -247,6 +251,14 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
                 }
             });
             
+            // Update share count display
+            updateShareState(template);
+            
+            // Share icon is display-only, no click interaction needed
+            shareIcon.setOnClickListener(null);
+            shareIcon.setClickable(false);
+            shareIcon.setFocusable(false);
+            
             // Set up card click listener
             cardView.setOnClickListener(v -> {
                 if (listener != null) {
@@ -296,13 +308,9 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
                 likeIcon.setColorFilter(null);
             }
             
-            // Update count text
-            if (likeCount > 0) {
-                likeCountText.setVisibility(View.VISIBLE);
-                likeCountText.setText(NumberFormatter.formatCount(likeCount));
-            } else {
-                likeCountText.setVisibility(View.GONE);
-            }
+            // Update count text - always show count, even if 0
+            likeCountText.setVisibility(View.VISIBLE);
+            likeCountText.setText(NumberFormatter.formatCount(likeCount));
         }
         
         // Helper method to update favorite state
@@ -313,13 +321,9 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
                 favoriteIcon.setImageResource(R.drawable.ic_bookmark_outline);
             }
             
-            // Update count text
-            if (favoriteCount > 0) {
-                favoriteCountText.setVisibility(View.VISIBLE);
-                favoriteCountText.setText(NumberFormatter.formatCount(favoriteCount));
-            } else {
-                favoriteCountText.setVisibility(View.GONE);
-            }
+            // Update count text - always show count, even if 0
+            favoriteCountText.setVisibility(View.VISIBLE);
+            favoriteCountText.setText(NumberFormatter.formatCount(favoriteCount));
         }
         
         private void animateLikeButton(boolean liked) {
@@ -345,6 +349,29 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
                     .setDuration(100)
                     .withEndAction(() -> 
                         favoriteIcon.animate()
+                                .scaleX(1.0f)
+                                .scaleY(1.0f)
+                                .setDuration(100)
+                                .start())
+                    .start();
+        }
+        
+        // Helper method to update share state
+        private void updateShareState(Template template) {
+            long shareCount = template.getShareCount();
+            // Update count text - always show count, even if 0
+            shareCountText.setVisibility(View.VISIBLE);
+            shareCountText.setText(template.getFormattedShareCount());
+        }
+        
+        private void animateShareButton() {
+            // Scale animation
+            shareIcon.animate()
+                    .scaleX(1.2f)
+                    .scaleY(1.2f)
+                    .setDuration(100)
+                    .withEndAction(() -> 
+                        shareIcon.animate()
                                 .scaleX(1.0f)
                                 .scaleY(1.0f)
                                 .setDuration(100)

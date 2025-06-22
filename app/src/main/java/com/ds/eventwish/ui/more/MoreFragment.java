@@ -154,6 +154,10 @@ public class MoreFragment extends BaseFragment {
                         .putBoolean("access_revoked", true) // Mark access as revoked
                         .apply();
                     
+                    // Clear template-related user data
+                    android.util.Log.d(TAG, "signOut: Clearing template user data");
+                    clearTemplateUserData();
+                    
                     // Also clear AuthStateManager
                     android.util.Log.d(TAG, "signOut: Clearing AuthStateManager");
                     AuthStateManager.getInstance(requireContext()).clearAuthentication();
@@ -182,6 +186,39 @@ public class MoreFragment extends BaseFragment {
                 }
             }
         });
+    }
+    
+    private void clearTemplateUserData() {
+        try {
+            // Clear template repository SharedPreferences
+            android.content.SharedPreferences templatePrefs = requireContext()
+                .getSharedPreferences("template_repository_prefs", android.content.Context.MODE_PRIVATE);
+            templatePrefs.edit().clear().apply();
+            
+            // Clear template cache SharedPreferences
+            android.content.SharedPreferences cachePrefs = requireContext()
+                .getSharedPreferences("template_cache", android.content.Context.MODE_PRIVATE);
+            cachePrefs.edit().clear().apply();
+            
+            // Clear template detail SharedPreferences
+            android.content.SharedPreferences detailPrefs = requireContext()
+                .getSharedPreferences("template_prefs", android.content.Context.MODE_PRIVATE);
+            detailPrefs.edit().clear().apply();
+            
+            // Clear Room database
+            new Thread(() -> {
+                try {
+                    com.ds.eventwish.data.db.AppDatabase.getInstance(requireContext()).clearAllTables();
+                    android.util.Log.d(TAG, "clearTemplateUserData: Cleared Room database");
+                } catch (Exception e) {
+                    android.util.Log.e(TAG, "clearTemplateUserData: Error clearing Room database", e);
+                }
+            }).start();
+            
+            android.util.Log.d(TAG, "clearTemplateUserData: Cleared all template user data");
+        } catch (Exception e) {
+            android.util.Log.e(TAG, "clearTemplateUserData: Error clearing template data", e);
+        }
     }
 
     @Override

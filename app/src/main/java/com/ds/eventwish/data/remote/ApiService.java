@@ -583,19 +583,7 @@ public interface ApiService {
         @Body Map<String, Object> body
     );
     
-    /**
-     * Update user subscription status
-     * @param uid User ID (Firebase UID)
-     * @param body Subscription details
-     * @param authToken Firebase authentication token (for Authorization header)
-     * @return Response with updated user data
-     */
-    @PUT("users/{uid}/subscription")
-    Call<JsonObject> updateUserSubscription(
-        @Path("uid") String uid,
-        @Body Map<String, Object> body,
-        @retrofit2.http.Header("Authorization") String authToken
-    );
+
     
     /**
      * Update user push notification preferences
@@ -832,19 +820,7 @@ public interface ApiService {
         @retrofit2.http.Header("Authorization") String authToken
     );
     
-    /**
-     * Remove a specific device session
-     * @param uid User ID (Firebase UID)
-     * @param deviceId Device ID to remove
-     * @param authToken Firebase authentication token (for Authorization header)
-     * @return Response indicating success or failure
-     */
-    @DELETE("users/{uid}/sessions/{deviceId}")
-    Call<ApiResponse<Void>> removeDeviceSession(
-        @Path("uid") String uid,
-        @Path("deviceId") String deviceId,
-        @retrofit2.http.Header("Authorization") String authToken
-    );
+
     
     /**
      * Update activity timestamp for a device session
@@ -855,6 +831,544 @@ public interface ApiService {
      */
     @POST("users/{uid}/sessions/update")
     Call<ApiResponse<Void>> updateSessionActivity(
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    // =============================================================================
+    // COMPREHENSIVE USER CRUD OPERATIONS BASED ON SCHEMA FIELDS
+    // =============================================================================
+
+    /**
+     * Get complete user profile with all fields
+     * @param uid User ID (Firebase UID)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with complete user data
+     */
+    @GET("users/{uid}/complete")
+    Call<ApiResponse<User>> getCompleteUserProfile(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    // =============================================================================
+    // DEVICE & SESSION MANAGEMENT
+    // =============================================================================
+
+    /**
+     * Add or update device session
+     * @param uid User ID (Firebase UID)
+     * @param body Device session data
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with active sessions
+     */
+    @POST("users/{uid}/device-sessions")
+    Call<JsonObject> addDeviceSession(
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Remove device session
+     * @param uid User ID (Firebase UID)
+     * @param deviceId Device ID to remove
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
+     */
+    @DELETE("users/{uid}/device-sessions/{deviceId}")
+    Call<JsonObject> removeDeviceSession(
+        @Path("uid") String uid,
+        @Path("deviceId") String deviceId,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Update device session activity
+     * @param uid User ID (Firebase UID)
+     * @param deviceId Device ID
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
+     */
+    @PUT("users/{uid}/device-sessions/{deviceId}/activity")
+    Call<JsonObject> updateDeviceSessionActivity(
+        @Path("uid") String uid,
+        @Path("deviceId") String deviceId,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    // =============================================================================
+    // SUBSCRIPTION MANAGEMENT
+    // =============================================================================
+
+    /**
+     * Update user subscription details
+     * @param uid User ID (Firebase UID)
+     * @param subscriptionData Subscription details
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with updated subscription
+     */
+    @PUT("users/{uid}/subscription")
+    Call<JsonObject> updateSubscription(
+        @Path("uid") String uid,
+        @Body Map<String, Object> subscriptionData,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Add subscription history entry
+     * @param uid User ID (Firebase UID)
+     * @param body Subscription history data
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with subscription history
+     */
+    @POST("users/{uid}/subscription-history")
+    Call<JsonObject> addSubscriptionHistory(
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Update user subscription offer
+     * @param uid User ID (Firebase UID)
+     * @param offerData Subscription offer details
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with updated offer
+     */
+    @PUT("users/{uid}/subscription-offer")
+    Call<JsonObject> updateSubscriptionOffer(
+        @Path("uid") String uid,
+        @Body Map<String, Object> offerData,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    // =============================================================================
+    // AI USAGE MANAGEMENT
+    // =============================================================================
+
+    /**
+     * Update AI usage data
+     * @param uid User ID (Firebase UID)
+     * @param body AI usage data
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with updated AI usage
+     */
+    @PUT("users/{uid}/ai-usage")
+    Call<JsonObject> updateAIUsage(
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Increment AI generation count
+     * @param uid User ID (Firebase UID)
+     * @param body Request body containing prompt and style
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with updated AI usage and remaining quota
+     */
+    @POST("users/{uid}/ai-usage/increment")
+    Call<JsonObject> incrementAIUsage(
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    // =============================================================================
+    // CATEGORY VISITS MANAGEMENT
+    // =============================================================================
+
+    /**
+     * Record category visit
+     * @param uid User ID (Firebase UID)
+     * @param body Category visit data
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with updated categories
+     */
+    @POST("users/{uid}/categories/visit")
+    Call<JsonObject> recordCategoryVisit(
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Get category visit statistics
+     * @param uid User ID (Firebase UID)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with category statistics
+     */
+    @GET("users/{uid}/categories/stats")
+    Call<JsonObject> getCategoryStats(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    // =============================================================================
+    // TEMPLATE AFFINITY MANAGEMENT
+    // =============================================================================
+
+    /**
+     * Update template affinity scores
+     * @param uid User ID (Firebase UID)
+     * @param body Template affinity data (tag, score)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with updated template affinity
+     */
+    @PUT("users/{uid}/template-affinity")
+    Call<JsonObject> updateTemplateAffinity(
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Get top template affinities
+     * @param uid User ID (Firebase UID)
+     * @param limit Number of top affinities to return
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with top template affinities
+     */
+    @GET("users/{uid}/template-affinity/top")
+    Call<JsonObject> getTopTemplateAffinities(
+        @Path("uid") String uid,
+        @Query("limit") int limit,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    // =============================================================================
+    // IGNORED TEMPLATES MANAGEMENT
+    // =============================================================================
+
+    /**
+     * Add template to ignored list
+     * @param uid User ID (Firebase UID)
+     * @param body Template ignore data (templateId, score)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with updated ignored templates
+     */
+    @POST("users/{uid}/ignored-templates")
+    Call<JsonObject> addIgnoredTemplate(
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Remove template from ignored list
+     * @param uid User ID (Firebase UID)
+     * @param templateId Template ID to remove from ignored list
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
+     */
+    @DELETE("users/{uid}/ignored-templates/{templateId}")
+    Call<JsonObject> removeIgnoredTemplate(
+        @Path("uid") String uid,
+        @Path("templateId") String templateId,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    // =============================================================================
+    // DRAFTS MANAGEMENT
+    // =============================================================================
+
+    /**
+     * Save or update draft
+     * @param uid User ID (Firebase UID)
+     * @param body Draft data (templateId, html)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with updated drafts
+     */
+    @POST("users/{uid}/drafts")
+    Call<JsonObject> saveDraft(
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Get user's drafts
+     * @param uid User ID (Firebase UID)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with user's drafts
+     */
+    @GET("users/{uid}/drafts")
+    Call<JsonObject> getUserDrafts(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Delete specific draft
+     * @param uid User ID (Firebase UID)
+     * @param templateId Template ID of the draft to delete
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
+     */
+    @DELETE("users/{uid}/drafts/{templateId}")
+    Call<JsonObject> deleteDraft(
+        @Path("uid") String uid,
+        @Path("templateId") String templateId,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    // =============================================================================
+    // FCM TOKENS MANAGEMENT
+    // =============================================================================
+
+    /**
+     * Add or update FCM token
+     * @param uid User ID (Firebase UID)
+     * @param body FCM token data (token, platform)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with updated FCM tokens
+     */
+    @POST("users/{uid}/fcm-tokens")
+    Call<JsonObject> addFCMToken(
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Remove FCM token
+     * @param uid User ID (Firebase UID)
+     * @param token FCM token to remove
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
+     */
+    @DELETE("users/{uid}/fcm-tokens/{token}")
+    Call<JsonObject> removeFCMToken(
+        @Path("uid") String uid,
+        @Path("token") String token,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Subscribe FCM token to topics
+     * @param uid User ID (Firebase UID)
+     * @param token FCM token
+     * @param body Topics data
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with updated FCM tokens
+     */
+    @POST("users/{uid}/fcm-tokens/{token}/topics/subscribe")
+    Call<JsonObject> subscribeFCMTokenToTopics(
+        @Path("uid") String uid,
+        @Path("token") String token,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    // =============================================================================
+    // CACHED HOME FEED MANAGEMENT
+    // =============================================================================
+
+    /**
+     * Update cached home feed
+     * @param uid User ID (Firebase UID)
+     * @param body Feed data
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with updated cached feed
+     */
+    @PUT("users/{uid}/cached-feed")
+    Call<JsonObject> updateCachedHomeFeed(
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Get cached home feed
+     * @param uid User ID (Firebase UID)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with cached feed data
+     */
+    @GET("users/{uid}/cached-feed")
+    Call<JsonObject> getCachedHomeFeed(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    // =============================================================================
+    // BLOCK MANAGEMENT (Admin Operations)
+    // =============================================================================
+
+    /**
+     * Block a user (Admin only)
+     * @param uid User ID (Firebase UID)
+     * @param body Block data (reason, expiresAt, notes)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with block info
+     */
+    @PUT("users/{uid}/block")
+    Call<JsonObject> blockUser(
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Unblock a user (Admin only)
+     * @param uid User ID (Firebase UID)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
+     */
+    @PUT("users/{uid}/unblock")
+    Call<JsonObject> unblockUser(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    // =============================================================================
+    // BULK OPERATIONS
+    // =============================================================================
+
+    /**
+     * Bulk update multiple user fields
+     * @param uid User ID (Firebase UID)
+     * @param updateData Multiple fields to update
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with updated user data
+     */
+    @POST("users/{uid}/bulk-update")
+    Call<JsonObject> bulkUpdateUser(
+        @Path("uid") String uid,
+        @Body Map<String, Object> updateData,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Delete user account (GDPR compliance)
+     * @param uid User ID (Firebase UID)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
+     */
+    @DELETE("users/{uid}")
+    Call<JsonObject> deleteUserAccount(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    // =============================================================================
+    // ADVANCED USER QUERIES
+    // =============================================================================
+
+    /**
+     * Get user analytics data
+     * @param uid User ID (Firebase UID)
+     * @param startDate Start date for analytics (optional)
+     * @param endDate End date for analytics (optional)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with user analytics
+     */
+    @GET("users/{uid}/analytics")
+    Call<JsonObject> getUserAnalytics(
+        @Path("uid") String uid,
+        @Query("startDate") String startDate,
+        @Query("endDate") String endDate,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Get user activity timeline
+     * @param uid User ID (Firebase UID)
+     * @param limit Number of activities to return
+     * @param offset Offset for pagination
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with activity timeline
+     */
+    @GET("users/{uid}/activity-timeline")
+    Call<JsonObject> getUserActivityTimeline(
+        @Path("uid") String uid,
+        @Query("limit") int limit,
+        @Query("offset") int offset,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Search users (Admin only)
+     * @param query Search query
+     * @param filters Search filters
+     * @param page Page number
+     * @param limit Items per page
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with search results
+     */
+    @GET("users/search")
+    Call<JsonObject> searchUsers(
+        @Query("q") String query,
+        @QueryMap Map<String, Object> filters,
+        @Query("page") int page,
+        @Query("limit") int limit,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Export user data (GDPR compliance)
+     * @param uid User ID (Firebase UID)
+     * @param format Export format (json, csv, xml)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with exported data
+     */
+    @GET("users/{uid}/export")
+    Call<JsonObject> exportUserData(
+        @Path("uid") String uid,
+        @Query("format") String format,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Get user subscription eligibility
+     * @param uid User ID (Firebase UID)
+     * @param planLevel Plan level to check (BASIC, PREMIUM, PRO)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with eligibility information
+     */
+    @GET("users/{uid}/subscription/eligibility")
+    Call<JsonObject> getSubscriptionEligibility(
+        @Path("uid") String uid,
+        @Query("planLevel") String planLevel,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Apply pricing rule to user
+     * @param uid User ID (Firebase UID)
+     * @param body Pricing rule application data
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with applied pricing
+     */
+    @POST("users/{uid}/pricing-rule/apply")
+    Call<JsonObject> applyPricingRule(
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Get user's viewed templates map
+     * @param uid User ID (Firebase UID)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with viewed templates map
+     */
+    @GET("users/{uid}/viewed-templates")
+    Call<JsonObject> getViewedTemplatesMap(
+        @Path("uid") String uid,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Update user's viewed templates map
+     * @param uid User ID (Firebase UID)
+     * @param body Viewed templates data
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
+     */
+    @PUT("users/{uid}/viewed-templates")
+    Call<JsonObject> updateViewedTemplatesMap(
         @Path("uid") String uid,
         @Body Map<String, Object> body,
         @retrofit2.http.Header("Authorization") String authToken

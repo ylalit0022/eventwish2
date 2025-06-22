@@ -30,7 +30,7 @@ import com.ds.eventwish.data.local.dao.AdUnitDao;
         Category.class,
         AdUnitEntity.class
     },
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters({
@@ -79,7 +79,7 @@ public abstract class AppDatabase extends RoomDatabase {
                     Log.d(TAG, "Database opened");
                 }
             })
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .fallbackToDestructiveMigration() // Only during development
             .build();
     }
@@ -139,6 +139,41 @@ public abstract class AppDatabase extends RoomDatabase {
             database.execSQL("CREATE INDEX IF NOT EXISTS `index_templates_lastUpdated` ON `templates` (`lastUpdated`)");
             database.execSQL("CREATE INDEX IF NOT EXISTS `index_templates_isLiked` ON `templates` (`isLiked`)");
             database.execSQL("CREATE INDEX IF NOT EXISTS `index_templates_isFavorited` ON `templates` (`isFavorited`)");
+        }
+    };
+
+    private static final Migration MIGRATION_3_4 = new Migration(3, 4) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            Log.d(TAG, "Migrating database from version 3 to 4 - adding shareCount column");
+            
+            try {
+                // Check if shareCount column already exists
+                android.database.Cursor cursor = database.query("PRAGMA table_info(templates)");
+                boolean shareCountExists = false;
+                
+                while (cursor.moveToNext()) {
+                    String columnName = cursor.getString(1); // Column name is at index 1
+                    if ("shareCount".equals(columnName)) {
+                        shareCountExists = true;
+                        break;
+                    }
+                }
+                cursor.close();
+                
+                if (!shareCountExists) {
+                    // Add shareCount column only if it doesn't exist
+                    database.execSQL("ALTER TABLE `templates` ADD COLUMN `shareCount` INTEGER NOT NULL DEFAULT 0");
+                    Log.d(TAG, "Added shareCount column to templates table");
+                } else {
+                    Log.d(TAG, "shareCount column already exists, skipping addition");
+                }
+                
+                Log.d(TAG, "Migration 3->4 completed successfully");
+            } catch (Exception e) {
+                Log.e(TAG, "Error during migration 3->4", e);
+                throw e;
+            }
         }
     };
 } 

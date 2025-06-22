@@ -83,6 +83,9 @@ public interface TemplateDao {
     @Query("UPDATE templates SET likeCount = :likeCount WHERE id = :templateId")
     void updateLikeCount(String templateId, int likeCount);
 
+    @Query("UPDATE templates SET shareCount = :shareCount WHERE id = :templateId")
+    void updateShareCount(String templateId, long shareCount);
+
     @Query("SELECT isLiked FROM templates WHERE id = :templateId")
     LiveData<Boolean> getLikeState(String templateId);
 

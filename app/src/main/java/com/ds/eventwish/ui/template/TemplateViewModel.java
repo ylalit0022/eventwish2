@@ -127,7 +127,9 @@ public class TemplateViewModel extends AndroidViewModel {
             dataTemplate.getPreviewUrl(),
             dataTemplate.isLiked(),
             dataTemplate.isFavorited(),
-            dataTemplate.getLikeCount()
+            dataTemplate.getLikeCount(),
+            dataTemplate.getFavoriteCount(),
+            dataTemplate.getShareCount()
         );
     }
 

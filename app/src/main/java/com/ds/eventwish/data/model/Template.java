@@ -53,8 +53,15 @@ public class Template {
     private String categoryId;
     
     private String previewUrl;
+    
+    @SerializedName("likes")
     private long likeCount;
+    
+    @SerializedName("favorites") 
     private long favoriteCount;
+    
+    @SerializedName("sharedCount")
+    private long shareCount;
     
     @ColumnInfo(name = "isLiked")
     private boolean isLiked;
@@ -98,6 +105,7 @@ public class Template {
         this.previewUrl = previewUrl;
         this.likeCount = 0;
         this.favoriteCount = 0;
+        this.shareCount = 0;
         this.isLiked = false;
         this.isFavorited = false;
         this.lastUpdated = new Date();
@@ -126,6 +134,27 @@ public class Template {
         // Ensure counts are never negative
         this.likeCount = Math.max(0L, likeCount);
         this.favoriteCount = Math.max(0L, favoriteCount);
+    }
+
+    @Ignore
+    public Template(Template other) {
+        this.id = other.id;
+        this.title = other.title;
+        this.categoryId = other.categoryId;
+        this.previewUrl = other.previewUrl;
+        this.likeCount = other.likeCount;
+        this.favoriteCount = other.favoriteCount;
+        this.shareCount = other.shareCount;
+        this.isLiked = other.isLiked;
+        this.isFavorited = other.isFavorited;
+        this.lastUpdated = other.lastUpdated;
+        this.likeChanged = other.likeChanged;
+        this.favoriteChanged = other.favoriteChanged;
+        this.htmlContent = other.htmlContent;
+        this.cssContent = other.cssContent;
+        this.jsContent = other.jsContent;
+        this.recommended = other.recommended;
+        this.createdAt = other.createdAt;
     }
 
     // Getters and setters
@@ -168,6 +197,20 @@ public class Template {
      */
     public String getFormattedFavoriteCount() {
         return NumberFormatter.formatCount(favoriteCount);
+    }
+
+    public long getShareCount() { return shareCount; }
+    public void setShareCount(long shareCount) { 
+        // Ensure count is never negative
+        this.shareCount = Math.max(0L, shareCount); 
+    }
+    
+    /**
+     * Get formatted share count (e.g., 1K, 1.2K, 1M)
+     * @return Formatted share count as a string
+     */
+    public String getFormattedShareCount() {
+        return NumberFormatter.formatCount(shareCount);
     }
 
     public boolean isLiked() { return isLiked; }
@@ -238,6 +281,7 @@ public class Template {
         Template template = (Template) o;
         return likeCount == template.likeCount &&
                favoriteCount == template.favoriteCount &&
+               shareCount == template.shareCount &&
                isLiked == template.isLiked &&
                isFavorited == template.isFavorited &&
                likeChanged == template.likeChanged &&
@@ -256,7 +300,7 @@ public class Template {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, title, categoryId, previewUrl, likeCount, favoriteCount, 
+        return Objects.hash(id, title, categoryId, previewUrl, likeCount, favoriteCount, shareCount,
                           isLiked, isFavorited, lastUpdated, likeChanged, favoriteChanged,
                           htmlContent, cssContent, jsContent, recommended, createdAt);
     }

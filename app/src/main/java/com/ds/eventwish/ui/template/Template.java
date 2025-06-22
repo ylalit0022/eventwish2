@@ -16,12 +16,13 @@ public class Template {
     private boolean isFavorited;
     private long likeCount;
     private long favoriteCount;
+    private long shareCount;
     
     /**
      * Constructor for a template
      */
     public Template(String id, String name, String categoryId, String imageUrl) {
-        this(id, name, categoryId, imageUrl, false, false, 0L, 0L);
+        this(id, name, categoryId, imageUrl, false, false, 0L, 0L, 0L);
     }
     
     /**
@@ -37,11 +38,11 @@ public class Template {
      */
     public Template(String id, String name, String categoryId, String imageUrl, 
                    boolean isLiked, boolean isFavorited, long likeCount) {
-        this(id, name, categoryId, imageUrl, isLiked, isFavorited, likeCount, 0L);
+        this(id, name, categoryId, imageUrl, isLiked, isFavorited, likeCount, 0L, 0L);
     }
     
     /**
-     * Constructor for a template with interaction state and favorite count
+     * Constructor for a template with interaction state and counts
      *
      * @param id The template ID
      * @param name The template name
@@ -51,9 +52,10 @@ public class Template {
      * @param isFavorited Whether the template is favorited by the user
      * @param likeCount The number of likes for this template
      * @param favoriteCount The number of favorites for this template
+     * @param shareCount The number of shares for this template
      */
     public Template(String id, String name, String categoryId, String imageUrl, 
-                   boolean isLiked, boolean isFavorited, long likeCount, long favoriteCount) {
+                   boolean isLiked, boolean isFavorited, long likeCount, long favoriteCount, long shareCount) {
         this.id = id;
         this.name = name;
         this.categoryId = categoryId;
@@ -62,6 +64,7 @@ public class Template {
         this.isFavorited = isFavorited;
         this.likeCount = Math.max(0, likeCount);
         this.favoriteCount = Math.max(0, favoriteCount);
+        this.shareCount = Math.max(0, shareCount);
     }
     
     /**
@@ -192,6 +195,33 @@ public class Template {
      */
     public void setFavoriteCount(long count) {
         this.favoriteCount = Math.max(0, count);
+    }
+
+    /**
+     * Get the number of shares for this template
+     *
+     * @return The share count
+     */
+    public long getShareCount() {
+        return shareCount;
+    }
+
+    /**
+     * Get the formatted share count (e.g., 1K, 10K, 1M)
+     *
+     * @return The formatted share count as a string
+     */
+    public String getFormattedShareCount() {
+        return NumberFormatter.formatCount(shareCount);
+    }
+
+    /**
+     * Set the number of shares for this template
+     *
+     * @param count The new share count
+     */
+    public void setShareCount(long count) {
+        this.shareCount = Math.max(0, count);
     }
 
     @Override

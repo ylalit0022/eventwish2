@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
 import com.ds.eventwish.R;
+import com.ds.eventwish.data.model.Template;
 import com.bumptech.glide.Glide;
 import java.util.List;
 
@@ -76,9 +77,17 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
             // No payload, do a full rebind
             onBindViewHolder(holder, position);
         } else {
-            // Has payload, only update like/favorite state
-            Template template = getItem(position);
-            holder.updateInteractionState(template);
+            // Has payload, perform optimized partial update
+            Object payload = payloads.get(0);
+            if (payload instanceof Template) {
+                // Update only interaction states with the new template data
+                Template updatedTemplate = (Template) payload;
+                holder.updateInteractionState(updatedTemplate);
+            } else {
+                // Fallback to full binding if payload is unexpected
+                Template template = getItem(position);
+                holder.updateInteractionState(template);
+            }
         }
     }
     
@@ -90,10 +99,13 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
         private final TextView templateName;
         private final ImageView likeIcon;
         private final ImageView favoriteIcon;
+        private final ImageView shareIcon;
         private final TextView likeCountText;
         private final TextView favoriteCountText;
+        private final TextView shareCountText;
         private long lastLikeClickTime = 0;
         private long lastFavoriteClickTime = 0;
+        private long lastShareClickTime = 0;
         
         public TemplateViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -101,8 +113,10 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
             templateName = itemView.findViewById(R.id.titleText);
             likeIcon = itemView.findViewById(R.id.likeIcon);
             favoriteIcon = itemView.findViewById(R.id.favoriteIcon);
+            shareIcon = itemView.findViewById(R.id.shareIcon);
             likeCountText = itemView.findViewById(R.id.likeCountText);
             favoriteCountText = itemView.findViewById(R.id.favoriteCountText);
+            shareCountText = itemView.findViewById(R.id.shareCountText);
         }
         
         public void bind(Template template, OnTemplateInteractionListener listener) {
@@ -140,16 +154,14 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
                     // Disable button temporarily to prevent double-clicks
                     likeIcon.setEnabled(false);
                     
-                    // Update UI immediately for better feedback
+                    // Update UI immediately for better feedback (without modifying template)
                     boolean newLikeState = !template.isLiked();
-                    template.setLiked(newLikeState);
                     likeIcon.setImageResource(newLikeState ? R.drawable.ic_heart_filled : R.drawable.ic_heart_outline);
                     
-                    // Update count immediately
+                    // Update count display immediately
                     long currentCount = Math.max(0, template.getLikeCount());
                     long newCount = newLikeState ? Math.max(1, currentCount + 1) : Math.max(0, currentCount - 1);
-                    template.setLikeCount(newCount);
-                    likeCountText.setText(template.getFormattedLikeCount());
+                    likeCountText.setText(String.valueOf(newCount));
                     
                     // Add animation for visual feedback
                     likeIcon.startAnimation(AnimationUtils.loadAnimation(likeIcon.getContext(), 
@@ -189,15 +201,13 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
                     // Disable button temporarily to prevent double-clicks
                     favoriteIcon.setEnabled(false);
                     
-                    // Update UI immediately for better feedback
+                    // Update UI immediately for better feedback (without modifying template)
                     boolean newFavoriteState = !template.isFavorited();
-                    template.setFavorited(newFavoriteState);
                     favoriteIcon.setImageResource(newFavoriteState ? R.drawable.ic_bookmark_filled : R.drawable.ic_bookmark_outline);
                     
-                    // Update count immediately
+                    // Update count display immediately
                     long currentCount = Math.max(0, template.getFavoriteCount());
                     long newCount = newFavoriteState ? Math.max(1, currentCount + 1) : Math.max(0, currentCount - 1);
-                    template.setFavoriteCount(newCount);
                     favoriteCountText.setText(String.valueOf(newCount));
                     
                     // Add animation for visual feedback
@@ -213,6 +223,18 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
                     }, 500);
                 }
             });
+            
+            // Set up share count display
+            long shareCount = template.getShareCount();
+            Log.d(TAG, "Setting up share count for template: " + template.getId() + 
+                  ", count: " + shareCount);
+            
+            shareCountText.setText(template.getFormattedShareCount());
+            
+            // Share icon is display-only, no click interaction needed
+            shareIcon.setOnClickListener(null);
+            shareIcon.setClickable(false);
+            shareIcon.setFocusable(false);
             
             // Set click listener for the whole item
             itemView.setOnClickListener(v -> {
@@ -258,9 +280,14 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
             // Always update the count as it might have changed even if the state didn't
             favoriteCountText.setText(template.getFormattedFavoriteCount());
             
+            // Update share count
+            long shareCount = Math.max(0, template.getShareCount());
+            shareCountText.setText(template.getFormattedShareCount());
+            
             Log.d(TAG, "Partially updated template " + template.getId() + 
                 " interaction state - Liked: " + isLiked + " (" + likeCount + "), " +
-                "Favorited: " + isFavorited + " (" + favoriteCount + ")");
+                "Favorited: " + isFavorited + " (" + favoriteCount + "), " +
+                "Shared: " + shareCount);
         }
     }
     
@@ -276,25 +303,42 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
             
             @Override
             public boolean areContentsTheSame(@NonNull Template oldItem, @NonNull Template newItem) {
-                // Compare all properties except like/favorite status and like count
-                // This ensures that like/favorite changes don't trigger position changes
-                return oldItem.getName().equals(newItem.getName()) &&
+                // Compare only core properties, NOT interaction states
+                // This prevents full rebinding when only like/favorite states change
+                boolean corePropertiesSame = oldItem.getName().equals(newItem.getName()) &&
                     oldItem.getImageUrl().equals(newItem.getImageUrl()) &&
-                    oldItem.getCategoryId().equals(newItem.getCategoryId()) &&
-                    // Include like/favorite state to detect changes for payload
-                    oldItem.isLiked() == newItem.isLiked() &&
+                    oldItem.getCategoryId().equals(newItem.getCategoryId());
+                
+                // If core properties are different, full rebind is needed
+                if (!corePropertiesSame) {
+                    return false;
+                }
+                
+                // If core properties are same but interaction states differ, use payload
+                boolean interactionStatesSame = oldItem.isLiked() == newItem.isLiked() &&
                     oldItem.isFavorited() == newItem.isFavorited() &&
-                    oldItem.getLikeCount() == newItem.getLikeCount();
+                    oldItem.getLikeCount() == newItem.getLikeCount() &&
+                    oldItem.getFavoriteCount() == newItem.getFavoriteCount() &&
+                    oldItem.getShareCount() == newItem.getShareCount();
+                
+                // Return true only if everything is the same (no update needed)
+                // Return false if interaction states differ (will trigger getChangePayload)
+                return interactionStatesSame;
             }
             
             @Override
             public Object getChangePayload(@NonNull Template oldItem, @NonNull Template newItem) {
-                // Return a payload when only like/favorite state changes
-                // This allows partial rebinding for better performance
-                if (oldItem.isLiked() != newItem.isLiked() ||
-                    oldItem.isFavorited() != newItem.isFavorited() ||
-                    oldItem.getLikeCount() != newItem.getLikeCount()) {
-                    return true; // Just a marker that only interaction states changed
+                // Create a specific payload for interaction state changes
+                // This allows for optimized partial rebinding
+                boolean likeChanged = oldItem.isLiked() != newItem.isLiked() || 
+                                    oldItem.getLikeCount() != newItem.getLikeCount();
+                boolean favoriteChanged = oldItem.isFavorited() != newItem.isFavorited() || 
+                                        oldItem.getFavoriteCount() != newItem.getFavoriteCount();
+                boolean shareChanged = oldItem.getShareCount() != newItem.getShareCount();
+                
+                if (likeChanged || favoriteChanged || shareChanged) {
+                    // Return the new template as payload for partial update
+                    return newItem;
                 }
                 return null; // Default behavior for full rebinding
             }
