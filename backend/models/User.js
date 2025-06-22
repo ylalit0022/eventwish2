@@ -48,7 +48,7 @@ const SubscriptionSchema = new Schema({
     },
     planLevel: {
         type: String,
-        enum: ['BASIC', 'PREMIUM', 'PRO', 'NONE'],
+        enum: ['BASIC', 'PREMIUM', 'PRO', 'NONE', ''],
         default: 'NONE'
     },
 
@@ -338,11 +338,6 @@ const UserSchema = new Schema({
         type: BlockInfoSchema,
         default: null
     },
-    subscription: SubscriptionSchema,
-    adsAllowed: { 
-        type: Boolean, 
-        default: true 
-    }, // false if premium/no-ads user
     pushPreferences: {
         allowFestivalPush: { 
             type: Boolean, 

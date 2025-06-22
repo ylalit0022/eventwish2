@@ -340,6 +340,16 @@ templateSchema.virtual('weeklyTrendingScore').get(function() {
 
 // Pre-save middleware to ensure ObjectId references are strings
 templateSchema.pre('save', function(next) {
+    // Log count changes for debugging
+    if (this.isModified('likes') || this.isModified('favorites') || this.isModified('sharedCount')) {
+        console.log(`Template ${this._id} count update:`, {
+            likes: this.likes,
+            favorites: this.favorites,
+            sharedCount: this.sharedCount,
+            modifiedFields: this.modifiedPaths()
+        });
+    }
+    
     // Ensure language is a string if it exists
     if (this.language !== null && this.language !== undefined) {
         if (typeof this.language !== 'string') {
@@ -391,9 +401,29 @@ templateSchema.pre('save', function(next) {
     next();
 });
 
+// Post-save middleware to log successful count updates
+templateSchema.post('save', function(doc) {
+    if (doc.isModified && (doc.isModified('likes') || doc.isModified('favorites') || doc.isModified('sharedCount'))) {
+        console.log(`Template ${doc._id} count update completed:`, {
+            likes: doc.likes,
+            favorites: doc.favorites,
+            sharedCount: doc.sharedCount
+        });
+    }
+});
+
 // Pre-findOneAndUpdate hook to handle null/empty values for ObjectId fields
 templateSchema.pre('findOneAndUpdate', function(next) {
     const update = this.getUpdate();
+    
+    // Log count increment operations
+    if (update && update.$inc) {
+        console.log(`Template findOneAndUpdate with $inc operation:`, {
+            filter: this.getFilter(),
+            increment: update.$inc,
+            operation: 'findOneAndUpdate'
+        });
+    }
     
     // Handle ObjectId references - remove null/empty values
     if (update) {

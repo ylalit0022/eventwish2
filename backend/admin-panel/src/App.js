@@ -10,7 +10,6 @@ import { SnackbarProvider } from './contexts/SnackbarContext';
 
 // Layouts
 import MainLayout from './layouts/MainLayout';
-import AdminLayout from './layouts/AdminLayout';
 
 // Components
 import PrivateRoute from './components/PrivateRoute';
@@ -81,61 +80,78 @@ function App() {
                 {/* Public routes */}
                 <Route path="/login" element={<Login />} />
                 
-                {/* Protected routes */}
+                {/* Protected routes - ALL admin pages use MainLayout with sidebar */}
                 <Route element={<PrivateRoute />}>
                   <Route element={<MainLayout />}>
+                    {/* Dashboard routes */}
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/dashboard" element={<Dashboard />} />
+                    
+                    {/* User management */}
                     <Route path="/users" element={<Users />} />
                     <Route path="/users/:uid" element={<UserDetail />} />
+                    
+                    {/* Template management */}
                     <Route path="/templates" element={<Templates />} />
                     <Route path="/templates/create" element={<TemplateCreate />} />
                     <Route path="/templates/:id" element={<TemplateDetail />} />
+                    
+                    {/* Shared wishes */}
                     <Route path="/shared-wishes" element={<SharedWishes />} />
                     <Route path="/shared-wishes/:id" element={<SharedWishDetail />} />
+                    
+                    {/* AdMob management */}
                     <Route path="/admob" element={<AdMobs />} />
                     <Route path="/admob/create" element={<AdMobCreate />} />
                     <Route path="/admob/:id" element={<AdMobDetail />} />
+                    
+                    {/* Category icons */}
                     <Route path="/category-icons" element={<CategoryIcons />} />
                     <Route path="/category-icons/create" element={<CategoryIconCreate />} />
                     <Route path="/category-icons/:id" element={<CategoryIconDetail />} />
+                    
+                    {/* Festivals */}
                     <Route path="/upcoming-festivals" element={<UpcomingFestivals />} />
                     <Route path="/upcoming-festivals/create" element={<UpcomingFestivalCreate />} />
                     <Route path="/upcoming-festivals/:id" element={<UpcomingFestivalDetail />} />
-                    <Route path="/settings" element={<h1>Settings Page</h1>} />
-                    <Route path="/about" element={<Abouts />} />
-                    <Route path="/about/create" element={<AboutCreate />} />
-                    <Route path="/about/:id" element={<AboutDetail />} />
-                    <Route path="/contacts" element={<Contacts />} />
-                    <Route path="/contacts/create" element={<ContactCreate />} />
-                    <Route path="/contacts/:id" element={<ContactDetail />} />
+                    
+                    {/* Sponsored Ads */}
                     <Route path="/sponsored-ads" element={<SponsoredAds />} />
                     <Route path="/sponsored-ads/create" element={<SponsoredAdCreate />} />
                     <Route path="/sponsored-ads/:id" element={<SponsoredAdDetail />} />
+                    
+                    {/* Push Notifications */}
                     <Route path="/push-notifications" element={<PushNotifications />} />
                     <Route path="/push-notifications/create" element={<PushNotificationCreate />} />
                     <Route path="/push-notifications/:id" element={<PushNotificationDetail />} />
                     <Route path="/push-notifications/inactivity-settings" element={<InactivityNotificationSettings />} />
                     
-                    {/* Language Routes */}
+                    {/* About pages */}
+                    <Route path="/about" element={<Abouts />} />
+                    <Route path="/about/create" element={<AboutCreate />} />
+                    <Route path="/about/:id" element={<AboutDetail />} />
+                    
+                    {/* Contacts */}
+                    <Route path="/contacts" element={<Contacts />} />
+                    <Route path="/contacts/create" element={<ContactCreate />} />
+                    <Route path="/contacts/:id" element={<ContactDetail />} />
+                    
+                    {/* Languages */}
                     <Route path="/languages" element={<Languages />} />
                     <Route path="/languages/create" element={<LanguageCreate />} />
                     <Route path="/languages/:code" element={<LanguageDetail />} />
                     
-                    {/* Region Routes */}
+                    {/* Regions */}
                     <Route path="/regions" element={<Regions />} />
                     <Route path="/regions/create" element={<RegionCreate />} />
                     <Route path="/regions/:code" element={<RegionDetail />} />
+                    
+                    {/* Settings */}
+                    <Route path="/settings" element={<h1>Settings Page</h1>} />
                   </Route>
                 </Route>
                 
-                {/* Admin routes */}
-                <Route path="/" element={<PrivateRoute><AdminLayout /></PrivateRoute>}>
-                  <Route index element={<Dashboard />} />
-                  <Route path="dashboard" element={<Dashboard />} />
-                </Route>
-                
-                {/* Default route */}
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                {/* Fallback routes */}
                 <Route path="*" element={<Navigate to="/login" />} />
               </Routes>
             </Router>
@@ -146,4 +162,5 @@ function App() {
   );
 }
 
+export default App; 
 export default App; 

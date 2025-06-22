@@ -173,6 +173,10 @@ public class Template {
 
     public long getLikeCount() { return likeCount; }
     public void setLikeCount(long likeCount) { 
+        // Log the count change for debugging
+        if (this.likeCount != likeCount) {
+            Log.d("Template", "Template " + getId() + " like count changed: " + this.likeCount + " -> " + likeCount);
+        }
         // Ensure count is never negative
         this.likeCount = Math.max(0L, likeCount); 
     }
@@ -187,6 +191,10 @@ public class Template {
 
     public long getFavoriteCount() { return favoriteCount; }
     public void setFavoriteCount(long favoriteCount) { 
+        // Log the count change for debugging
+        if (this.favoriteCount != favoriteCount) {
+            Log.d("Template", "Template " + getId() + " favorite count changed: " + this.favoriteCount + " -> " + favoriteCount);
+        }
         // Ensure count is never negative
         this.favoriteCount = Math.max(0L, favoriteCount); 
     }
@@ -201,6 +209,10 @@ public class Template {
 
     public long getShareCount() { return shareCount; }
     public void setShareCount(long shareCount) { 
+        // Log the count change for debugging
+        if (this.shareCount != shareCount) {
+            Log.d("Template", "Template " + getId() + " share count changed: " + this.shareCount + " -> " + shareCount);
+        }
         // Ensure count is never negative
         this.shareCount = Math.max(0L, shareCount); 
     }
@@ -215,12 +227,20 @@ public class Template {
 
     public boolean isLiked() { return isLiked; }
     public void setLiked(boolean liked) { 
+        // Log the state change for debugging
+        if (this.isLiked != liked) {
+            Log.d("Template", "Template " + getId() + " liked state changed: " + this.isLiked + " -> " + liked);
+        }
         this.isLiked = liked;
         this.likeChanged = true;
     }
 
     public boolean isFavorited() { return isFavorited; }
     public void setFavorited(boolean favorited) { 
+        // Log the state change for debugging
+        if (this.isFavorited != favorited) {
+            Log.d("Template", "Template " + getId() + " favorited state changed: " + this.isFavorited + " -> " + favorited);
+        }
         this.isFavorited = favorited;
         this.favoriteChanged = true;
     }

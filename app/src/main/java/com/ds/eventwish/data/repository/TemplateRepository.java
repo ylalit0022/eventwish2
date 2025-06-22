@@ -1225,22 +1225,50 @@ public class TemplateRepository {
                                             boolean success = result.has("success") && 
                                                 result.get("success").getAsBoolean();
                                             
+                                            Log.d(TAG, "Like API response for template " + templateId + ": success=" + success + 
+                                                  ", response=" + result.toString());
+                                            
                                             if (success) {
+                                                // Check if response contains updated counts
+                                                if (result.has("data")) {
+                                                    JsonObject data = result.getAsJsonObject("data");
+                                                    if (data.has("templateCounts")) {
+                                                        JsonObject templateCounts = data.getAsJsonObject("templateCounts");
+                                                        if (templateCounts.has("likes")) {
+                                                            long serverLikeCount = templateCounts.get("likes").getAsLong();
+                                                            Log.d(TAG, "Server returned updated like count for template " + templateId + ": " + serverLikeCount);
+                                                            
+                                                            // Update the template with server count
+                                                            updateTemplateCountFromServer(templateId, serverLikeCount, null, null);
+                                                        }
+                                                    }
+                                                }
+                                                
                                                 // Update Room database with the new state
                                                 updateRoomState(templateId, newState, null);
                                                 
                                                 // Set task result
                                                 tcs.setResult(true);
+                                                Log.d(TAG, "Like operation completed successfully for template " + templateId);
                                                 return;
                                             }
                                         } catch (Exception e) {
-                                            Log.e(TAG, "Error parsing like response", e);
+                                            Log.e(TAG, "Error parsing like response for template " + templateId, e);
                                         }
                                     }
                                     
                                     // If we got here, something went wrong
-                                    Log.e(TAG, "Like operation failed - status code: " + 
+                                    Log.e(TAG, "Like operation failed for template " + templateId + " - status code: " + 
                                         response.code() + ", message: " + response.message());
+                                    
+                                    if (response.errorBody() != null) {
+                                        try {
+                                            String errorBody = response.errorBody().string();
+                                            Log.e(TAG, "Like API error body: " + errorBody);
+                                        } catch (Exception e) {
+                                            Log.e(TAG, "Failed to read error body", e);
+                                        }
+                                    }
                                     
                                     // Return result but don't revert the UI change
                                     // The user already sees the change, and we've stored it locally
@@ -1252,7 +1280,7 @@ public class TemplateRepository {
                             public void onFailure(Call<JsonObject> call, Throwable t) {
                                 // Process failure on background thread
                                 AppExecutors.getInstance().diskIO().execute(() -> {
-                                    Log.e(TAG, "Failed to toggle like: " + t.getMessage(), t);
+                                    Log.e(TAG, "Failed to toggle like for template " + templateId + ": " + t.getMessage(), t);
                                     
                                     // Return result but don't revert the UI change
                                     // The user already sees the change, and we've stored it locally
@@ -1335,22 +1363,50 @@ public class TemplateRepository {
                                             boolean success = result.has("success") && 
                                                 result.get("success").getAsBoolean();
                                             
+                                            Log.d(TAG, "Favorite API response for template " + templateId + ": success=" + success + 
+                                                  ", response=" + result.toString());
+                                            
                                             if (success) {
+                                                // Check if response contains updated counts
+                                                if (result.has("data")) {
+                                                    JsonObject data = result.getAsJsonObject("data");
+                                                    if (data.has("templateCounts")) {
+                                                        JsonObject templateCounts = data.getAsJsonObject("templateCounts");
+                                                        if (templateCounts.has("favorites")) {
+                                                            long serverFavoriteCount = templateCounts.get("favorites").getAsLong();
+                                                            Log.d(TAG, "Server returned updated favorite count for template " + templateId + ": " + serverFavoriteCount);
+                                                            
+                                                            // Update the template with server count
+                                                            updateTemplateCountFromServer(templateId, null, serverFavoriteCount, null);
+                                                        }
+                                                    }
+                                                }
+                                                
                                                 // Update Room database with the new state
                                                 updateRoomState(templateId, null, newState);
                                                 
                                                 // Set task result
                                                 tcs.setResult(true);
+                                                Log.d(TAG, "Favorite operation completed successfully for template " + templateId);
                                                 return;
                                             }
                                         } catch (Exception e) {
-                                            Log.e(TAG, "Error parsing favorite response", e);
+                                            Log.e(TAG, "Error parsing favorite response for template " + templateId, e);
                                         }
                                     }
                                     
                                     // If we got here, something went wrong
-                                    Log.e(TAG, "Favorite operation failed - status code: " + 
+                                    Log.e(TAG, "Favorite operation failed for template " + templateId + " - status code: " + 
                                         response.code() + ", message: " + response.message());
+                                    
+                                    if (response.errorBody() != null) {
+                                        try {
+                                            String errorBody = response.errorBody().string();
+                                            Log.e(TAG, "Favorite API error body: " + errorBody);
+                                        } catch (Exception e) {
+                                            Log.e(TAG, "Failed to read error body", e);
+                                        }
+                                    }
                                     
                                     // Return result but don't revert the UI change
                                     // The user already sees the change, and we've stored it locally
@@ -1362,7 +1418,7 @@ public class TemplateRepository {
                             public void onFailure(Call<JsonObject> call, Throwable t) {
                                 // Process failure on background thread
                                 AppExecutors.getInstance().diskIO().execute(() -> {
-                                    Log.e(TAG, "Failed to toggle favorite: " + t.getMessage(), t);
+                                    Log.e(TAG, "Failed to toggle favorite for template " + templateId + ": " + t.getMessage(), t);
                                     
                                     // Return result but don't revert the UI change
                                     // The user already sees the change, and we've stored it locally
@@ -1391,31 +1447,27 @@ public class TemplateRepository {
      * @param isFavorited Favorite state or null if not changing
      */
     private void updateRoomState(String templateId, Boolean isLiked, Boolean isFavorited) {
-        if (templateId == null || (isLiked == null && isFavorited == null) || appDatabase == null) {
-            return;
-        }
-        
-        // Always use background thread for database operations
+        // Update Room database on background thread
         AppExecutors.getInstance().diskIO().execute(() -> {
             try {
-                // First check if the template exists
-                Template template = appDatabase.templateDao().getTemplateByIdSync(templateId);
+                Template existingTemplate = appDatabase.templateDao().getTemplateByIdSync(templateId);
                 
-                if (template != null) {
-                    // Update like state if provided
+                if (existingTemplate != null) {
+                    // Template exists in database, update the states
+                    Log.d(TAG, "Updating existing template in Room database: " + templateId);
+                    
                     if (isLiked != null) {
                         appDatabase.templateDao().updateLikeState(templateId, isLiked);
                         Log.d(TAG, "Updated like state in Room database: templateId=" + templateId + ", isLiked=" + isLiked);
                     }
                     
-                    // Update favorite state if provided
                     if (isFavorited != null) {
                         appDatabase.templateDao().updateFavoriteState(templateId, isFavorited);
                         Log.d(TAG, "Updated favorite state in Room database: templateId=" + templateId + ", isFavorited=" + isFavorited);
                     }
                 } else {
                     // Template doesn't exist in database yet, try to fetch it from API and save
-                    Log.d(TAG, "Template " + templateId + " not found in database, fetching from API");
+                    Log.d(TAG, "Template " + templateId + " not found in Room database, fetching from API");
                     
                     try {
                         // Synchronous API call on background thread is OK
@@ -1424,30 +1476,86 @@ public class TemplateRepository {
                         if (response.isSuccessful() && response.body() != null) {
                             Template fetchedTemplate = response.body();
                             
-                            // Set the states before saving
+                            // CRITICAL: Preserve the current user interaction states that were just set locally
+                            // Don't let the API response override the user's current action
                             if (isLiked != null) {
                                 fetchedTemplate.setLiked(isLiked);
+                                Log.d(TAG, "Preserving user like state: " + isLiked + " for template " + templateId);
                             }
                             
                             if (isFavorited != null) {
                                 fetchedTemplate.setFavorited(isFavorited);
+                                Log.d(TAG, "Preserving user favorite state: " + isFavorited + " for template " + templateId);
                             }
                             
-                            // Save to database
+                            // Save to database with preserved states
                             appDatabase.templateDao().insert(fetchedTemplate);
-                            Log.d(TAG, "Fetched and saved template " + templateId + " to database with states");
+                            Log.d(TAG, "Fetched and saved template " + templateId + " to Room database with preserved user states");
+                            
+                            // Update the in-memory list to ensure UI consistency
+                            // This prevents the "database not found" scenario from overriding user actions
+                            AppExecutors.getInstance().mainThread().execute(() -> {
+                                updateTemplateInMemoryList(templateId, isLiked, isFavorited, fetchedTemplate);
+                            });
+                            
                         } else {
-                            Log.w(TAG, "Failed to fetch template " + templateId + " from API: " + 
+                            Log.w(TAG, "Failed to fetch template " + templateId + " from API for Room database: " + 
                                   (response.errorBody() != null ? response.errorBody().string() : "Unknown error"));
                         }
                     } catch (Exception e) {
-                        Log.e(TAG, "Error fetching template " + templateId + " from API", e);
+                        Log.e(TAG, "Error fetching template " + templateId + " from API for Room database", e);
                     }
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error updating Room state for template " + templateId, e);
             }
         });
+    }
+
+    /**
+     * Update template in the in-memory list to ensure consistency after Room database operations
+     */
+    private void updateTemplateInMemoryList(String templateId, Boolean isLiked, Boolean isFavorited, Template fetchedTemplate) {
+        List<Template> currentTemplates = templates.getValue();
+        if (currentTemplates == null) {
+            Log.d(TAG, "Current templates list is null, cannot update in-memory list");
+            return;
+        }
+        
+        // Find and update the template in the current list
+        List<Template> updatedTemplates = new ArrayList<>();
+        boolean found = false;
+        
+        for (Template template : currentTemplates) {
+            if (templateId.equals(template.getId())) {
+                // Use the fetched template but preserve the user interaction states
+                if (isLiked != null) {
+                    fetchedTemplate.setLiked(isLiked);
+                }
+                if (isFavorited != null) {
+                    fetchedTemplate.setFavorited(isFavorited);
+                }
+                
+                // Update other fields from the fetched template (counts, etc.) but preserve user states
+                template.setLikeCount(fetchedTemplate.getLikeCount());
+                template.setFavoriteCount(fetchedTemplate.getFavoriteCount());
+                template.setShareCount(fetchedTemplate.getShareCount());
+                
+                // Keep the user interaction states as they were set locally
+                // template.setLiked() and template.setFavorited() are already set from local update
+                
+                Log.d(TAG, "Updated template " + templateId + " in memory list with server data while preserving user states");
+                found = true;
+            }
+            updatedTemplates.add(template);
+        }
+        
+        if (found) {
+            templates.postValue(updatedTemplates);
+            Log.d(TAG, "Posted updated template list after Room database sync");
+        } else {
+            Log.d(TAG, "Template " + templateId + " not found in current list during Room sync update");
+        }
     }
 
     /**
@@ -1470,54 +1578,66 @@ public class TemplateRepository {
         for (Template template : currentTemplates) {
             // Check if this is the template we need to update
             if (templateId.equals(template.getId())) {
+                Log.d(TAG, "Found template " + templateId + " for local state update. Current state - liked: " + 
+                      template.isLiked() + " (count: " + template.getLikeCount() + "), favorited: " + 
+                      template.isFavorited() + " (count: " + template.getFavoriteCount() + ")");
+                
                 // Only update the specific fields that changed
                 if (isLiked != null) {
                     // Save previous state to determine if this is a change
                     boolean previousState = template.isLiked();
+                    long currentCount = template.getLikeCount();
                     
                     // Update liked state
                     template.setLiked(isLiked);
                     
                     // Only update count if state actually changed
                     if (previousState != isLiked) {
-                        // Get current count, ensuring it's at least 0
-                        long currentCount = Math.max(0L, template.getLikeCount());
-                        
-                        // Calculate new count based on the new state, not the delta
-                        // If liked, ensure at least 1; if unliked, ensure at least 0
-                        long newCount = isLiked ? 
-                            Math.max(1L, currentCount + 1L) : 
-                            Math.max(0L, currentCount - 1L);
+                        // Calculate new count based on the action
+                        long newCount;
+                        if (isLiked) {
+                            // User liked the template - increment count
+                            newCount = Math.max(1L, currentCount + 1L);
+                        } else {
+                            // User unliked the template - decrement count (but never below 0)
+                            newCount = Math.max(0L, currentCount - 1L);
+                        }
                         
                         template.setLikeCount(newCount);
-                        Log.d(TAG, "Locally updated template " + templateId + 
-                              " like state to " + isLiked + 
-                              " with count: " + newCount);
+                        Log.d(TAG, "Updated template " + templateId + " like state: " + previousState + " -> " + isLiked + 
+                              ", count: " + currentCount + " -> " + newCount);
+                    } else {
+                        Log.d(TAG, "Template " + templateId + " like state unchanged: " + isLiked + 
+                              " (count remains: " + currentCount + ")");
                     }
                 }
                 
                 if (isFavorited != null) {
                     // Save previous state to determine if this is a change
                     boolean previousState = template.isFavorited();
+                    long currentCount = template.getFavoriteCount();
                     
                     // Update favorited state
                     template.setFavorited(isFavorited);
                     
                     // Only update count if state actually changed
                     if (previousState != isFavorited) {
-                        // Get current count, ensuring it's at least 0
-                        long currentCount = Math.max(0L, template.getFavoriteCount());
-                        
-                        // Calculate new count based on the new state, not the delta
-                        // If favorited, ensure at least 1; if unfavorited, ensure at least 0
-                        long newCount = isFavorited ? 
-                            Math.max(1L, currentCount + 1L) : 
-                            Math.max(0L, currentCount - 1L);
+                        // Calculate new count based on the action
+                        long newCount;
+                        if (isFavorited) {
+                            // User favorited the template - increment count
+                            newCount = Math.max(1L, currentCount + 1L);
+                        } else {
+                            // User unfavorited the template - decrement count (but never below 0)
+                            newCount = Math.max(0L, currentCount - 1L);
+                        }
                         
                         template.setFavoriteCount(newCount);
-                        Log.d(TAG, "Locally updated template " + templateId + 
-                              " favorite state to " + isFavorited + 
-                              " with count: " + newCount);
+                        Log.d(TAG, "Updated template " + templateId + " favorite state: " + previousState + " -> " + isFavorited + 
+                              ", count: " + currentCount + " -> " + newCount);
+                    } else {
+                        Log.d(TAG, "Template " + templateId + " favorite state unchanged: " + isFavorited + 
+                              " (count remains: " + currentCount + ")");
                     }
                 }
                 
@@ -1536,7 +1656,18 @@ public class TemplateRepository {
                   (isLiked != null ? ", liked: " + isLiked : "") + 
                   (isFavorited != null ? ", favorited: " + isFavorited : ""));
         } else {
-            Log.w(TAG, "Template " + templateId + " not found in current list, state not updated locally");
+            Log.w(TAG, "Template " + templateId + " not found in current list for local state update. List size: " + 
+                  currentTemplates.size());
+            
+            // Log all template IDs in the current list for debugging
+            StringBuilder templateIds = new StringBuilder("Current template IDs: ");
+            for (int i = 0; i < Math.min(5, currentTemplates.size()); i++) {
+                templateIds.append(currentTemplates.get(i).getId()).append(", ");
+            }
+            if (currentTemplates.size() > 5) {
+                templateIds.append("... (").append(currentTemplates.size() - 5).append(" more)");
+            }
+            Log.d(TAG, templateIds.toString());
         }
     }
 
@@ -2488,71 +2619,67 @@ public class TemplateRepository {
      * @param authToken Firebase authentication token
      */
     private void fetchUserLikesFromServer(String userId, String authToken) {
-        if (userId == null || authToken == null) {
-            Log.e(TAG, "Cannot fetch user likes: userId or authToken is null");
-            return;
-        }
+        Call<JsonObject> call = apiService.getUserLikes(userId, authToken);
         
-        Log.d(TAG, "Fetching user likes from server for userId: " + userId);
-        
-        // Use enqueue instead of execute to avoid NetworkOnMainThreadException
-        apiService.getUserLikes(userId, authToken).enqueue(new Callback<JsonObject>() {
+        call.enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
                 Log.d(TAG, "getUserLikes response code: " + response.code());
                 
                 if (response.isSuccessful() && response.body() != null) {
-                    JsonObject body = response.body();
-                    Log.d(TAG, "getUserLikes response body: " + body.toString());
-                    
-                    if (body.has("likes") && body.get("likes").isJsonArray()) {
-                        // Process on background thread to avoid blocking UI
-                        AppExecutors.getInstance().diskIO().execute(() -> {
-                            try {
-                                JsonArray likesArray = body.getAsJsonArray("likes");
-                                Set<String> likedTemplateIds = new HashSet<>();
-                                
-                                for (JsonElement element : likesArray) {
-                                    if (element.isJsonPrimitive()) {
-                                        likedTemplateIds.add(element.getAsString());
-                                        // Store the like action locally
-                                        storeLikeActionLocally(element.getAsString(), userId, true);
-                                    }
-                                }
-                                
-                                Log.d(TAG, "Synced " + likedTemplateIds.size() + " liked templates from server");
-                                
-                                // Store the complete set in SharedPreferences
-                                if (applicationContext != null) {
-                                    SharedPreferences prefs = applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-                                    prefs.edit().putStringSet("liked_" + userId, likedTemplateIds).apply();
-                                }
-                            } catch (Exception e) {
-                                Log.e(TAG, "Error processing user likes response", e);
-                            }
-                        });
-                    } else {
-                        Log.w(TAG, "Invalid response format for user likes - missing 'likes' array or not an array");
-                        Log.w(TAG, "Response body: " + body.toString());
-                    }
-                } else {
-                    String errorBody = "";
                     try {
-                        if (response.errorBody() != null) {
-                            errorBody = response.errorBody().string();
+                        JsonObject body = response.body();
+                        if (body.has("likes") && body.get("likes").isJsonArray()) {
+                            JsonArray likesArray = body.getAsJsonArray("likes");
+                            Set<String> serverLikedTemplateIds = new HashSet<>();
+                            
+                            for (JsonElement element : likesArray) {
+                                if (element.isJsonPrimitive()) {
+                                    serverLikedTemplateIds.add(element.getAsString());
+                                }
+                            }
+                            
+                            Log.d(TAG, "Server likes fetched: " + serverLikedTemplateIds.size() + " templates");
+                            
+                            // Update local storage with server data
+                            AppExecutors.getInstance().diskIO().execute(() -> {
+                                SharedPreferences prefs = applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+                                SharedPreferences.Editor editor = prefs.edit();
+                                
+                                // Save server likes to local storage
+                                Set<String> localLikes = new HashSet<>(serverLikedTemplateIds);
+                                editor.putStringSet("liked_templates_" + userId, localLikes);
+                                editor.apply();
+                                
+                                Log.d(TAG, "Updated local storage with " + localLikes.size() + " server likes");
+                            });
                         }
                     } catch (Exception e) {
-                        Log.e(TAG, "Error reading error body", e);
+                        Log.e(TAG, "Error parsing user likes response", e);
+                    }
+                } else {
+                    // Handle 404 or other errors gracefully
+                    if (response.code() == 404) {
+                        Log.w(TAG, "User likes endpoint not available (404). Using local storage only.");
+                        Log.w(TAG, "Backend routes may need to be deployed or fixed.");
+                    } else {
+                        try {
+                            String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+                            Log.w(TAG, "Failed to fetch user likes from server: " + response.code() + " - " + errorBody);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error reading error body", e);
+                        }
                     }
                     
-                    Log.w(TAG, "Failed to fetch user likes from server: " + 
-                          response.code() + " - " + errorBody);
+                    // Continue with local storage when server fails
+                    Log.d(TAG, "Continuing with local storage for likes due to server error");
                 }
             }
             
             @Override
             public void onFailure(Call<JsonObject> call, Throwable t) {
-                Log.e(TAG, "Error fetching user likes from server", t);
+                Log.e(TAG, "Network error fetching user likes: " + t.getMessage(), t);
+                Log.d(TAG, "Continuing with local storage for likes due to network error");
             }
         });
     }
@@ -2563,71 +2690,67 @@ public class TemplateRepository {
      * @param authToken Firebase authentication token
      */
     private void fetchUserFavoritesFromServer(String userId, String authToken) {
-        if (userId == null || authToken == null) {
-            Log.e(TAG, "Cannot fetch user favorites: userId or authToken is null");
-            return;
-        }
+        Call<JsonObject> call = apiService.getUserFavorites(userId, authToken);
         
-        Log.d(TAG, "Fetching user favorites from server for userId: " + userId);
-        
-        // Use enqueue instead of execute to avoid NetworkOnMainThreadException
-        apiService.getUserFavorites(userId, authToken).enqueue(new Callback<JsonObject>() {
+        call.enqueue(new Callback<JsonObject>() {
             @Override
             public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
                 Log.d(TAG, "getUserFavorites response code: " + response.code());
                 
                 if (response.isSuccessful() && response.body() != null) {
-                    JsonObject body = response.body();
-                    Log.d(TAG, "getUserFavorites response body: " + body.toString());
-                    
-                    if (body.has("favorites") && body.get("favorites").isJsonArray()) {
-                        // Process on background thread to avoid blocking UI
-                        AppExecutors.getInstance().diskIO().execute(() -> {
-                            try {
-                                JsonArray favoritesArray = body.getAsJsonArray("favorites");
-                                Set<String> favoritedTemplateIds = new HashSet<>();
-                                
-                                for (JsonElement element : favoritesArray) {
-                                    if (element.isJsonPrimitive()) {
-                                        favoritedTemplateIds.add(element.getAsString());
-                                        // Store the favorite action locally
-                                        storeFavoriteActionLocally(element.getAsString(), userId, true);
-                                    }
-                                }
-                                
-                                Log.d(TAG, "Synced " + favoritedTemplateIds.size() + " favorited templates from server");
-                                
-                                // Store the complete set in SharedPreferences
-                                if (applicationContext != null) {
-                                    SharedPreferences prefs = applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-                                    prefs.edit().putStringSet("favorited_" + userId, favoritedTemplateIds).apply();
-                                }
-                            } catch (Exception e) {
-                                Log.e(TAG, "Error processing user favorites response", e);
-                            }
-                        });
-                    } else {
-                        Log.w(TAG, "Invalid response format for user favorites - missing 'favorites' array or not an array");
-                        Log.w(TAG, "Response body: " + body.toString());
-                    }
-                } else {
-                    String errorBody = "";
                     try {
-                        if (response.errorBody() != null) {
-                            errorBody = response.errorBody().string();
+                        JsonObject body = response.body();
+                        if (body.has("favorites") && body.get("favorites").isJsonArray()) {
+                            JsonArray favoritesArray = body.getAsJsonArray("favorites");
+                            Set<String> serverFavoritedTemplateIds = new HashSet<>();
+                            
+                            for (JsonElement element : favoritesArray) {
+                                if (element.isJsonPrimitive()) {
+                                    serverFavoritedTemplateIds.add(element.getAsString());
+                                }
+                            }
+                            
+                            Log.d(TAG, "Server favorites fetched: " + serverFavoritedTemplateIds.size() + " templates");
+                            
+                            // Update local storage with server data
+                            AppExecutors.getInstance().diskIO().execute(() -> {
+                                SharedPreferences prefs = applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+                                SharedPreferences.Editor editor = prefs.edit();
+                                
+                                // Save server favorites to local storage
+                                Set<String> localFavorites = new HashSet<>(serverFavoritedTemplateIds);
+                                editor.putStringSet("favorited_templates_" + userId, localFavorites);
+                                editor.apply();
+                                
+                                Log.d(TAG, "Updated local storage with " + localFavorites.size() + " server favorites");
+                            });
                         }
                     } catch (Exception e) {
-                        Log.e(TAG, "Error reading error body", e);
+                        Log.e(TAG, "Error parsing user favorites response", e);
+                    }
+                } else {
+                    // Handle 404 or other errors gracefully
+                    if (response.code() == 404) {
+                        Log.w(TAG, "User favorites endpoint not available (404). Using local storage only.");
+                        Log.w(TAG, "Backend routes may need to be deployed or fixed.");
+                    } else {
+                        try {
+                            String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+                            Log.w(TAG, "Failed to fetch user favorites from server: " + response.code() + " - " + errorBody);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error reading error body", e);
+                        }
                     }
                     
-                    Log.w(TAG, "Failed to fetch user favorites from server: " + 
-                          response.code() + " - " + errorBody);
+                    // Continue with local storage when server fails
+                    Log.d(TAG, "Continuing with local storage for favorites due to server error");
                 }
             }
             
             @Override
             public void onFailure(Call<JsonObject> call, Throwable t) {
-                Log.e(TAG, "Error fetching user favorites from server", t);
+                Log.e(TAG, "Network error fetching user favorites: " + t.getMessage(), t);
+                Log.d(TAG, "Continuing with local storage for favorites due to network error");
             }
         });
     }
@@ -2957,5 +3080,63 @@ public class TemplateRepository {
             Log.e(TAG, "Error reading favorite actions from SharedPreferences", e);
         }
         return favoriteActions;
+    }
+
+    /**
+     * Update template counts from server response
+     * @param templateId Template ID to update
+     * @param likeCount Server like count (null if not updating)
+     * @param favoriteCount Server favorite count (null if not updating)
+     * @param shareCount Server share count (null if not updating)
+     */
+    private void updateTemplateCountFromServer(String templateId, Long likeCount, Long favoriteCount, Long shareCount) {
+        if (templateId == null) {
+            Log.w(TAG, "Cannot update template count from server: templateId is null");
+            return;
+        }
+        
+        List<Template> currentTemplates = templates.getValue();
+        if (currentTemplates == null) {
+            Log.w(TAG, "Cannot update template count from server: current templates list is null");
+            return;
+        }
+        
+        // Create a copy of the list to avoid modification issues
+        List<Template> updatedTemplates = new ArrayList<>();
+        boolean found = false;
+        
+        for (Template template : currentTemplates) {
+            if (templateId.equals(template.getId())) {
+                Log.d(TAG, "Updating template " + templateId + " counts from server. Current counts - likes: " + 
+                      template.getLikeCount() + ", favorites: " + template.getFavoriteCount() + ", shares: " + template.getShareCount());
+                
+                // Update counts if provided by server
+                if (likeCount != null) {
+                    template.setLikeCount(likeCount);
+                    Log.d(TAG, "Updated like count from server: " + likeCount);
+                }
+                
+                if (favoriteCount != null) {
+                    template.setFavoriteCount(favoriteCount);
+                    Log.d(TAG, "Updated favorite count from server: " + favoriteCount);
+                }
+                
+                if (shareCount != null) {
+                    template.setShareCount(shareCount);
+                    Log.d(TAG, "Updated share count from server: " + shareCount);
+                }
+                
+                found = true;
+            }
+            
+            updatedTemplates.add(template);
+        }
+        
+        if (found) {
+            templates.postValue(updatedTemplates);
+            Log.d(TAG, "Posted updated template counts from server for template " + templateId);
+        } else {
+            Log.w(TAG, "Template " + templateId + " not found for server count update");
+        }
     }
 }

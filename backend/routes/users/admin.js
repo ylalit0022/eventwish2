@@ -1,0 +1,187 @@
+const express = require('express');
+const router = express.Router();
+const User = require('../../models/User');
+const Template = require('../../models/Template');
+const logger = require('../../utils/logger');
+const { verifyFirebaseToken } = require('../../middleware/auth');
+
+/**
+ * @route   PUT /api/users/:uid/block
+ * @desc    Block a user (Admin only)
+ * @access  Private (Admin)
+ */
+router.put('/:uid/block', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { reason, expiresAt, notes } = req.body;
+        const adminUid = req.user.uid; // From Firebase token
+        
+        // TODO: Add admin verification middleware
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        await user.blockUser(
+            adminUid,
+            reason || 'Blocked by administrator',
+            expiresAt ? new Date(expiresAt) : null,
+            notes || ''
+        );
+        
+        res.status(200).json({
+            success: true,
+            message: 'User blocked successfully',
+            blockInfo: user.blockInfo
+        });
+    } catch (error) {
+        logger.error(`Block user error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   PUT /api/users/:uid/unblock
+ * @desc    Unblock a user (Admin only)
+ * @access  Private (Admin)
+ */
+router.put('/:uid/unblock', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        
+        // TODO: Add admin verification middleware
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        await user.unblockUser();
+        
+        res.status(200).json({
+            success: true,
+            message: 'User unblocked successfully'
+        });
+    } catch (error) {
+        logger.error(`Unblock user error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   POST /api/users/:uid/bulk-update
+ * @desc    Bulk update multiple user fields
+ * @access  Private
+ */
+router.post('/:uid/bulk-update', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const updateData = req.body;
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Update allowed fields
+        const allowedFields = [
+            'displayName', 'email', 'profilePhoto', 'preferredTheme', 
+            'preferredLanguage', 'timezone', 'pushPreferences', 
+            'topicSubscriptions', 'muteNotificationsUntil'
+        ];
+        
+        for (const field of allowedFields) {
+            if (updateData[field] !== undefined) {
+                user[field] = updateData[field];
+            }
+        }
+        
+        await user.save();
+        
+        res.status(200).json({
+            success: true,
+            message: 'User updated successfully',
+            user: {
+                uid: user.uid,
+                displayName: user.displayName,
+                email: user.email,
+                profilePhoto: user.profilePhoto,
+                preferredTheme: user.preferredTheme,
+                preferredLanguage: user.preferredLanguage,
+                timezone: user.timezone,
+                pushPreferences: user.pushPreferences,
+                topicSubscriptions: user.topicSubscriptions,
+                muteNotificationsUntil: user.muteNotificationsUntil
+            }
+        });
+    } catch (error) {
+        logger.error(`Bulk update user error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @route   DELETE /api/users/:uid
+ * @desc    Delete user account (GDPR compliance)
+ * @access  Private
+ */
+router.delete('/:uid', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        
+        const user = await User.findOne({ uid });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Remove user from all templates' likes and favorites
+        await Template.updateMany(
+            { $or: [{ likes: uid }, { favorites: uid }] },
+            { $pull: { likes: uid, favorites: uid } }
+        );
+        
+        // Delete user document
+        await User.findOneAndDelete({ uid });
+        
+        logger.info(`User account deleted: ${uid}`);
+        
+        res.status(200).json({
+            success: true,
+            message: 'User account deleted successfully'
+        });
+    } catch (error) {
+        logger.error(`Delete user error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+module.exports = router; 

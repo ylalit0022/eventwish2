@@ -384,7 +384,7 @@ try {
   try { app.use('/api/share', require('./routes/share')); console.log('✅ Loaded share routes'); } 
   catch (e) { console.error('❌ Failed to load share routes:', e.message); }
   
-  try { app.use('/api/users', require('./routes/users')); console.log('✅ Loaded users routes'); } 
+  try { app.use('/api/users', require('./routes/users')); console.log('✅ Loaded users routes (refactored)'); } 
   catch (e) { console.error('❌ Failed to load users routes:', e.message); }
   
   try { app.use('/api/sponsored-ads', require('./routes/sponsoredAds')); console.log('✅ Loaded sponsoredAds routes'); } 

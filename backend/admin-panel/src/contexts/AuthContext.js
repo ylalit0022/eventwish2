@@ -19,30 +19,59 @@ export const AuthProvider = ({ children }) => {
   // Check for development login on component mount
   useEffect(() => {
     const checkDevLogin = () => {
-      if (isDevelopment && localStorage.getItem('devMode') === 'true') {
-        console.log("Restoring development login session");
+      if (isDevelopment) {
+        // Check if dev mode is enabled
+        const devModeEnabled = localStorage.getItem('devMode') === 'true';
         
-        // Create a mock user
-        const mockUser = {
-          uid: 'dev-user-id',
-          email: 'ylalit0022@gmail.com', // Use your email
-          displayName: 'Development User',
-          photoURL: null,
-          getIdToken: () => Promise.resolve('dev-token')
-        };
-        
-        // Set the mock user
-        setCurrentUser(mockUser);
-        
-        // Set admin info directly
-        setAdminInfo({
-          isAdmin: true,
-          role: 'superAdmin'
-        });
-        
-        console.log("Development login session restored");
-        setLoading(false);
-        return true;
+        if (devModeEnabled) {
+          console.log("Development mode: Restoring dev login session");
+          
+          // Create a mock user
+          const mockUser = {
+            uid: 'dev-admin-uid',
+            email: 'ylalit0022@gmail.com', // Use your admin email
+            displayName: 'Development Admin',
+            photoURL: null,
+            getIdToken: () => Promise.resolve('dev-token')
+          };
+          
+          // Set the mock user
+          setCurrentUser(mockUser);
+          
+          // Set admin info directly for development
+          setAdminInfo({
+            isAdmin: true,
+            role: 'superAdmin',
+            email: 'ylalit0022@gmail.com'
+          });
+          
+          console.log("Development login session restored");
+          setLoading(false);
+          return true;
+        } else {
+          // Enable dev mode automatically in development
+          console.log("Development mode: Auto-enabling dev mode");
+          localStorage.setItem('devMode', 'true');
+          
+          const mockUser = {
+            uid: 'dev-admin-uid',
+            email: 'ylalit0022@gmail.com',
+            displayName: 'Development Admin',
+            photoURL: null,
+            getIdToken: () => Promise.resolve('dev-token')
+          };
+          
+          setCurrentUser(mockUser);
+          setAdminInfo({
+            isAdmin: true,
+            role: 'superAdmin',
+            email: 'ylalit0022@gmail.com'
+          });
+          
+          console.log("Development mode: Auto-login successful");
+          setLoading(false);
+          return true;
+        }
       }
       return false;
     };
@@ -205,16 +234,16 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       setLoading(true);
-      console.log("Using development login...");
+      console.log("Development mode: Using dev login...");
       
       // Set dev mode flag in localStorage
       localStorage.setItem('devMode', 'true');
       
       // Create a mock user
       const mockUser = {
-        uid: 'dev-user-id',
-        email: 'ylalit0022@gmail.com', // Use your email
-        displayName: 'Development User',
+        uid: 'dev-admin-uid',
+        email: 'ylalit0022@gmail.com', // Use your admin email
+        displayName: 'Development Admin',
         photoURL: null,
         getIdToken: () => Promise.resolve('dev-token')
       };
@@ -222,10 +251,11 @@ export const AuthProvider = ({ children }) => {
       // Set the mock user
       setCurrentUser(mockUser);
       
-      // Set admin info directly
+      // Set admin info directly for development
       setAdminInfo({
         isAdmin: true,
-        role: 'superAdmin'
+        role: 'superAdmin',
+        email: 'ylalit0022@gmail.com'
       });
       
       console.log("Development login successful");
