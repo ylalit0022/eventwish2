@@ -210,6 +210,25 @@ public class EventWishApplication extends Application implements Configuration.P
                             .addOnFailureListener(e -> 
                                 Log.e(TAG, "Failed to sync user profile with MongoDB", e));
                         
+                        // Sync template states (likes/favorites) across devices
+                        try {
+                            if (templateRepository != null) {
+                                templateRepository.syncTemplateStatesAtStartup(user.getUid());
+                                Log.d(TAG, "Template states sync initiated for user: " + user.getUid());
+                            } else {
+                                Log.w(TAG, "TemplateRepository not initialized, delaying template sync");
+                                // Delay template sync until repository is initialized
+                                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                                    if (templateRepository != null) {
+                                        templateRepository.syncTemplateStatesAtStartup(user.getUid());
+                                        Log.d(TAG, "Delayed template states sync initiated for user: " + user.getUid());
+                                    }
+                                }, 2000); // 2 second delay
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error initiating template states sync", e);
+                        }
+                        
                         // Log additional debug info about user auth state
                         user.getIdToken(true)
                             .addOnSuccessListener(tokenResult -> {
@@ -894,6 +913,17 @@ public class EventWishApplication extends Application implements Configuration.P
             // Create a new ad impression session if coming from background
             if (adSessionManager != null) {
                 adSessionManager.createNewSession();
+            }
+            
+            // Sync template states when app comes to foreground for cross-device sync
+            try {
+                com.google.firebase.auth.FirebaseUser currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+                if (currentUser != null && templateRepository != null) {
+                    templateRepository.syncTemplateStatesAtStartup(currentUser.getUid());
+                    Log.d(TAG, "Template states sync triggered on app foreground for user: " + currentUser.getUid());
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error syncing template states on app foreground", e);
             }
             
             wasInBackground = false;

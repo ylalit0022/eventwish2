@@ -87,8 +87,8 @@ public class TemplateRepository {
     private AppDatabase appDatabase;
 
     // Constants for template state sync 
-    private static final long MIN_SYNC_INTERVAL_MS = 30000; // 30 seconds between syncs
-    private static final long SERVER_SYNC_INTERVAL_MS = 300000; // 5 minutes between server syncs
+    private static final long MIN_SYNC_INTERVAL_MS = 15000; // 15 seconds between syncs (reduced for better UX)
+    private static final long SERVER_SYNC_INTERVAL_MS = 120000; // 2 minutes between server syncs (reduced for cross-device sync)
     private long lastSyncTimestamp = 0;
     private long lastServerSyncTimestamp = 0;
 
