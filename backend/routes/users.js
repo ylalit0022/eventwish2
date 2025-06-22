@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Template = require('../models/Template');
 const logger = require('../utils/logger');
 const { validateDeviceId, validateFirebaseUid } = require('../middleware/validators');
 const { verifyFirebaseToken, optionalFirebaseAuth } = require('../middleware/auth');
@@ -607,6 +608,19 @@ router.post('/engagement', validateFirebaseUid, verifyFirebaseToken, async (req,
                         timestamp: timestamp || Date.now()
                     });
                     
+                    // Increment template share count
+                    try {
+                        await Template.findByIdAndUpdate(
+                            templateId,
+                            { $inc: { sharedCount: 1 } },
+                            { new: true, upsert: false }
+                        );
+                        logger.info(`Incremented shares count for template ${templateId}`);
+                    } catch (templateError) {
+                        logger.error(`Failed to increment shares count for template ${templateId}: ${templateError.message}`);
+                        // Continue with user processing even if template update fails
+                    }
+                    
                     // Add to recent templates
                     if (!user.recentTemplatesUsed) user.recentTemplatesUsed = [];
                     
@@ -756,8 +770,20 @@ router.post('/engagement/sync', validateFirebaseUid, verifyFirebaseToken, async 
                         timestamp: timestamp || Date.now()
                     });
                     
-                    // For template use, add to recent templates
+                    // For template use, add to recent templates and increment share count
                     if (type === 3) {
+                        // Increment template share count
+                        try {
+                            await Template.findByIdAndUpdate(
+                                templateId,
+                                { $inc: { sharedCount: 1 } },
+                                { new: true, upsert: false }
+                            );
+                            logger.info(`Incremented shares count for template ${templateId} (batch sync)`);
+                        } catch (templateError) {
+                            logger.error(`Failed to increment shares count for template ${templateId} (batch sync): ${templateError.message}`);
+                        }
+                        
                         if (!user.recentTemplatesUsed) user.recentTemplatesUsed = [];
                         
                         // Remove template if already in list
@@ -786,8 +812,21 @@ router.post('/engagement/sync', validateFirebaseUid, verifyFirebaseToken, async 
                     
                     // Add to likes if not already there
                     if (!user.likes) user.likes = [];
-                    if (!user.likes.some(id => id.toString() === templateId.toString())) {
+                    const wasNotLiked = !user.likes.some(id => id.toString() === templateId.toString());
+                    if (wasNotLiked) {
                         user.likes.push(templateId);
+                        
+                        // Increment template like count only if it wasn't already liked
+                        try {
+                            await Template.findByIdAndUpdate(
+                                templateId,
+                                { $inc: { likes: 1 } },
+                                { new: true, upsert: false }
+                            );
+                            logger.info(`Incremented likes count for template ${templateId} (batch sync)`);
+                        } catch (templateError) {
+                            logger.error(`Failed to increment likes count for template ${templateId} (batch sync): ${templateError.message}`);
+                        }
                     }
                     
                     // Add to engagement log
@@ -810,8 +849,21 @@ router.post('/engagement/sync', validateFirebaseUid, verifyFirebaseToken, async 
                     
                     // Add to favorites if not already there
                     if (!user.favorites) user.favorites = [];
-                    if (!user.favorites.some(id => id.toString() === templateId.toString())) {
+                    const wasNotFavorited = !user.favorites.some(id => id.toString() === templateId.toString());
+                    if (wasNotFavorited) {
                         user.favorites.push(templateId);
+                        
+                        // Increment template favorite count only if it wasn't already favorited
+                        try {
+                            await Template.findByIdAndUpdate(
+                                templateId,
+                                { $inc: { favorites: 1 } },
+                                { new: true, upsert: false }
+                            );
+                            logger.info(`Incremented favorites count for template ${templateId} (batch sync)`);
+                        } catch (templateError) {
+                            logger.error(`Failed to increment favorites count for template ${templateId} (batch sync): ${templateError.message}`);
+                        }
                     }
                     
                     // Add to engagement log
@@ -1587,6 +1639,19 @@ router.put('/:uid/favorites/:templateId', validateFirebaseUid, verifyFirebaseTok
             // Update last online
             user.lastOnline = Date.now();
             
+            // Increment template favorite count
+            try {
+                await Template.findByIdAndUpdate(
+                    templateId,
+                    { $inc: { favorites: 1 } },
+                    { new: true, upsert: false }
+                );
+                logger.info(`Incremented favorites count for template ${templateId}`);
+            } catch (templateError) {
+                logger.error(`Failed to increment favorites count for template ${templateId}: ${templateError.message}`);
+                // Continue with user save even if template update fails
+            }
+            
             await user.save();
             
             // Invalidate recommendations
@@ -1670,6 +1735,19 @@ router.delete('/:uid/favorites/:templateId', validateFirebaseUid, verifyFirebase
             // Update last online
             user.lastOnline = Date.now();
             
+            // Decrement template favorite count
+            try {
+                await Template.findByIdAndUpdate(
+                    templateId,
+                    { $inc: { favorites: -1 } },
+                    { new: true, upsert: false }
+                );
+                logger.info(`Decremented favorites count for template ${templateId}`);
+            } catch (templateError) {
+                logger.error(`Failed to decrement favorites count for template ${templateId}: ${templateError.message}`);
+                // Continue with user save even if template update fails
+            }
+            
             await user.save();
             
             // Invalidate recommendations
@@ -1747,6 +1825,19 @@ router.put('/:uid/likes/:templateId', validateFirebaseUid, verifyFirebaseToken, 
             
             // Update last online
             user.lastOnline = Date.now();
+            
+            // Increment template like count
+            try {
+                await Template.findByIdAndUpdate(
+                    templateId,
+                    { $inc: { likes: 1 } },
+                    { new: true, upsert: false }
+                );
+                logger.info(`Incremented likes count for template ${templateId}`);
+            } catch (templateError) {
+                logger.error(`Failed to increment likes count for template ${templateId}: ${templateError.message}`);
+                // Continue with user save even if template update fails
+            }
             
             await user.save();
             
@@ -1830,6 +1921,19 @@ router.delete('/:uid/likes/:templateId', validateFirebaseUid, verifyFirebaseToke
             
             // Update last online
             user.lastOnline = Date.now();
+            
+            // Decrement template like count
+            try {
+                await Template.findByIdAndUpdate(
+                    templateId,
+                    { $inc: { likes: -1 } },
+                    { new: true, upsert: false }
+                );
+                logger.info(`Decremented likes count for template ${templateId}`);
+            } catch (templateError) {
+                logger.error(`Failed to decrement likes count for template ${templateId}: ${templateError.message}`);
+                // Continue with user save even if template update fails
+            }
             
             await user.save();
             
