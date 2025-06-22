@@ -57,6 +57,8 @@ import java.util.Set;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Custom view for displaying sponsored ads in the UI with improved state handling
@@ -133,6 +135,14 @@ public class SponsoredAdView extends FrameLayout {
     
     // Add a new field to track if we're waiting for initial ad
     private boolean initialAdLoaded = false;
+    
+    // Track when last refreshed
+    private long lastAdRefreshTime = 0;
+    private static final long MAX_CACHE_LIFETIME_MS = TimeUnit.MINUTES.toMillis(5); // Refresh every 5 minutes at most
+    
+    // Error recovery throttling
+    private static final long ERROR_RECOVERY_THROTTLE_MS = TimeUnit.MINUTES.toMillis(2); // Minimum 2 minutes between error recovery attempts
+    private long lastErrorRecoveryTime = 0;
     
     // Enum to represent the different states of the view
     private enum ViewState {
@@ -473,12 +483,22 @@ public class SponsoredAdView extends FrameLayout {
                     setVisibility(GONE);
                     initialAdLoaded = true; // Mark as loaded so we don't show placeholders
                     
-                    // Try to force refresh when we get an error in case status changed
-                    handler.postDelayed(() -> {
-                        if (viewModel != null) {
-                            viewModel.forceRefreshAds();
-                        }
-                    }, 5000); // Wait 5 seconds before retrying
+                    // Try to force refresh when we get an error, but with throttling
+                    long currentTime = System.currentTimeMillis();
+                    if (currentTime - lastErrorRecoveryTime > ERROR_RECOVERY_THROTTLE_MS) {
+                        Log.d(TAG, "Scheduling error recovery refresh for location: " + location);
+                        lastErrorRecoveryTime = currentTime;
+                        
+                        handler.postDelayed(() -> {
+                            if (viewModel != null) {
+                                viewModel.forceRefreshAds();
+                            }
+                        }, 5000); // Wait 5 seconds before retrying
+                    } else {
+                        Log.d(TAG, "Error recovery throttled for location: " + location + 
+                              ", last recovery was " + TimeUnit.MILLISECONDS.toMinutes(currentTime - lastErrorRecoveryTime) + 
+                              " minutes ago");
+                    }
                 }
             });
         } catch (IllegalStateException e) {

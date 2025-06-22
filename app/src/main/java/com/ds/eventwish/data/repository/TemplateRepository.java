@@ -2093,7 +2093,14 @@ public class TemplateRepository {
                             
                             for (JsonElement element : likesArray) {
                                 if (element.isJsonPrimitive()) {
+                                    // Handle case where likes are template IDs
                                     likedTemplateIds.add(element.getAsString());
+                                } else if (element.isJsonObject()) {
+                                    // Handle case where likes are Template objects
+                                    JsonObject templateObj = element.getAsJsonObject();
+                                    if (templateObj.has("_id")) {
+                                        likedTemplateIds.add(templateObj.get("_id").getAsString());
+                                    }
                                 }
                             }
                             
@@ -2212,7 +2219,14 @@ public class TemplateRepository {
                                 
                                 for (JsonElement element : favoritesArray) {
                                     if (element.isJsonPrimitive()) {
+                                        // Handle case where favorites are template IDs
                                         favoritedTemplateIds.add(element.getAsString());
+                                    } else if (element.isJsonObject()) {
+                                        // Handle case where favorites are Template objects
+                                        JsonObject templateObj = element.getAsJsonObject();
+                                        if (templateObj.has("_id")) {
+                                            favoritedTemplateIds.add(templateObj.get("_id").getAsString());
+                                        }
                                     }
                                 }
                                 
@@ -2653,7 +2667,14 @@ public class TemplateRepository {
                             
                             for (JsonElement element : likesArray) {
                                 if (element.isJsonPrimitive()) {
+                                    // Handle case where likes are template IDs
                                     serverLikedTemplateIds.add(element.getAsString());
+                                } else if (element.isJsonObject()) {
+                                    // Handle case where likes are Template objects
+                                    JsonObject templateObj = element.getAsJsonObject();
+                                    if (templateObj.has("_id")) {
+                                        serverLikedTemplateIds.add(templateObj.get("_id").getAsString());
+                                    }
                                 }
                             }
                             
@@ -2724,7 +2745,14 @@ public class TemplateRepository {
                             
                             for (JsonElement element : favoritesArray) {
                                 if (element.isJsonPrimitive()) {
+                                    // Handle case where favorites are template IDs
                                     serverFavoritedTemplateIds.add(element.getAsString());
+                                } else if (element.isJsonObject()) {
+                                    // Handle case where favorites are Template objects
+                                    JsonObject templateObj = element.getAsJsonObject();
+                                    if (templateObj.has("_id")) {
+                                        serverFavoritedTemplateIds.add(templateObj.get("_id").getAsString());
+                                    }
                                 }
                             }
                             

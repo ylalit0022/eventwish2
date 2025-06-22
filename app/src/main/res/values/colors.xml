@@ -1,25 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Material 3 color tokens - Light Theme -->
-    <color name="md_theme_light_primary">#FF6200EE</color> <!-- Using existing purple_500 -->
-    <color name="md_theme_light_onPrimary">#FFFFFFFF</color> <!-- Using existing white -->
-    <color name="md_theme_light_primaryContainer">#EADDFF</color>
-    <color name="md_theme_light_onPrimaryContainer">#21005E</color>
-    <color name="md_theme_light_secondary">#FF03DAC5</color> <!-- Using existing teal_200 -->
-    <color name="md_theme_light_onSecondary">#FF000000</color> <!-- Using existing black -->
-    <color name="md_theme_light_secondaryContainer">#CEFFF1</color>
-    <color name="md_theme_light_onSecondaryContainer">#002019</color>
-    <color name="md_theme_light_tertiary">#7D5260</color>
-    <color name="md_theme_light_onTertiary">#FFFFFF</color>
-    <color name="md_theme_light_tertiaryContainer">#FFD8E4</color>
-    <color name="md_theme_light_onTertiaryContainer">#31111D</color>
+    <!-- Material 3 color tokens - Light Theme (Festive Greeting Card Palette) -->
+    <!-- Primary: Emotional Pink Red for celebrations -->
+    <color name="md_theme_light_primary">#D64F7D</color>
+    <color name="md_theme_light_onPrimary">#FFFFFF</color>
+    <color name="md_theme_light_primaryContainer">#FFD6E4</color>
+    <color name="md_theme_light_onPrimaryContainer">#3B001C</color>
+    
+    <!-- Secondary: Warm Yellow for joy and birthdays -->
+    <color name="md_theme_light_secondary">#FBB13C</color>
+    <color name="md_theme_light_onSecondary">#000000</color>
+    <color name="md_theme_light_secondaryContainer">#FFE8C7</color>
+    <color name="md_theme_light_onSecondaryContainer">#2E2200</color>
+    
+    <!-- Tertiary: Teal Mint for calm gratitude -->
+    <color name="md_theme_light_tertiary">#80CBC4</color>
+    <color name="md_theme_light_onTertiary">#000000</color>
+    <color name="md_theme_light_tertiaryContainer">#B2DFDB</color>
+    <color name="md_theme_light_onTertiaryContainer">#004D40</color>
     <color name="md_theme_light_error">#B00020</color> <!-- Using existing error -->
     <color name="md_theme_light_onError">#FFFFFF</color>
     <color name="md_theme_light_errorContainer">#FFCDD2</color> <!-- Using existing error_light -->
     <color name="md_theme_light_onErrorContainer">#410002</color>
-    <color name="md_theme_light_background">#FFFBFF</color>
+    <!-- Warm background with paper feel -->
+    <color name="md_theme_light_background">#FFF8F6</color>
     <color name="md_theme_light_onBackground">#1C1B1F</color>
-    <color name="md_theme_light_surface">#FFFBFF</color>
+    <color name="md_theme_light_surface">#FFFFFF</color>
     <color name="md_theme_light_onSurface">#1C1B1F</color>
     <color name="md_theme_light_surfaceVariant">#E7E0EC</color>
     <color name="md_theme_light_onSurfaceVariant">#49454F</color>
@@ -30,26 +36,32 @@
     <color name="md_theme_light_surfaceContainerLowest">#FFFFFF</color>
     <color name="md_theme_light_surfaceContainerHigh">#ECE6F0</color>
 
-    <!-- Material 3 color tokens - Dark Theme -->
-    <color name="md_theme_dark_primary">#D0BCFF</color>
-    <color name="md_theme_dark_onPrimary">#381E72</color>
-    <color name="md_theme_dark_primaryContainer">#4F378B</color>
-    <color name="md_theme_dark_onPrimaryContainer">#EADDFF</color>
-    <color name="md_theme_dark_secondary">#A4F0E0</color>
-    <color name="md_theme_dark_onSecondary">#00382F</color>
-    <color name="md_theme_dark_secondaryContainer">#005047</color>
-    <color name="md_theme_dark_onSecondaryContainer">#CEFFF1</color>
-    <color name="md_theme_dark_tertiary">#EFB8C8</color>
-    <color name="md_theme_dark_onTertiary">#492532</color>
-    <color name="md_theme_dark_tertiaryContainer">#633B48</color>
-    <color name="md_theme_dark_onTertiaryContainer">#FFD8E4</color>
+    <!-- Material 3 color tokens - Dark Theme (Festive Greeting Card Palette) -->
+    <!-- Primary: Soft Pink for intimate celebrations -->
+    <color name="md_theme_dark_primary">#FFB1C5</color>
+    <color name="md_theme_dark_onPrimary">#3B001C</color>
+    <color name="md_theme_dark_primaryContainer">#D64F7D</color>
+    <color name="md_theme_dark_onPrimaryContainer">#FFD6E4</color>
+    
+    <!-- Secondary: Gentle Yellow for cozy warmth -->
+    <color name="md_theme_dark_secondary">#FFE29A</color>
+    <color name="md_theme_dark_onSecondary">#2E2200</color>
+    <color name="md_theme_dark_secondaryContainer">#FBB13C</color>
+    <color name="md_theme_dark_onSecondaryContainer">#FFE8C7</color>
+    
+    <!-- Tertiary: Deep Teal for sophisticated calm -->
+    <color name="md_theme_dark_tertiary">#004D40</color>
+    <color name="md_theme_dark_onTertiary">#FFFFFF</color>
+    <color name="md_theme_dark_tertiaryContainer">#80CBC4</color>
+    <color name="md_theme_dark_onTertiaryContainer">#000000</color>
     <color name="md_theme_dark_error">#CF6679</color>
     <color name="md_theme_dark_onError">#000000</color>
     <color name="md_theme_dark_errorContainer">#93000A</color>
     <color name="md_theme_dark_onErrorContainer">#FFCDD2</color>
-    <color name="md_theme_dark_background">#1C1B1F</color>
+    <!-- Cozy dark backgrounds -->
+    <color name="md_theme_dark_background">#1A1A1A</color>
     <color name="md_theme_dark_onBackground">#E6E1E5</color>
-    <color name="md_theme_dark_surface">#1C1B1F</color>
+    <color name="md_theme_dark_surface">#121212</color>
     <color name="md_theme_dark_onSurface">#E6E1E5</color>
     <color name="md_theme_dark_surfaceVariant">#49454F</color>
     <color name="md_theme_dark_onSurfaceVariant">#CAC4D0</color>
@@ -205,4 +217,43 @@
 
     <!-- Back button background with transparency -->
     <color name="back_button_background">#80000000</color>
+    
+    <!-- Festive Greeting Card Specific Colors -->
+    <!-- Celebration colors for special occasions -->
+    <color name="celebration_pink">#D64F7D</color>
+    <color name="celebration_yellow">#FBB13C</color>
+    <color name="celebration_teal">#80CBC4</color>
+    
+    <!-- Seasonal color variants -->
+    <color name="valentine_red">#E91E63</color>
+    <color name="birthday_orange">#FF9800</color>
+    <color name="christmas_green">#4CAF50</color>
+    <color name="christmas_red">#F44336</color>
+    <color name="new_year_gold">#FFD700</color>
+    <color name="spring_green">#8BC34A</color>
+    <color name="summer_blue">#03A9F4</color>
+    <color name="autumn_orange">#FF5722</color>
+    <color name="winter_blue">#2196F3</color>
+    
+    <!-- Emotional greeting colors -->
+    <color name="love_pink">#E91E63</color>
+    <color name="joy_yellow">#FFEB3B</color>
+    <color name="peace_blue">#2196F3</color>
+    <color name="gratitude_green">#4CAF50</color>
+    <color name="sympathy_purple">#9C27B0</color>
+    <color name="encouragement_orange">#FF9800</color>
+    
+    <!-- Card background variations -->
+    <color name="card_festive_light">#FFFAF8</color>
+    <color name="card_festive_dark">#2C2C2C</color>
+    <color name="card_celebration_background">#FFF8F6</color>
+    <color name="card_warm_background">#FFF5E1</color>
+    
+    <!-- Festive gradients (for future use) -->
+    <color name="gradient_celebration_start">#D64F7D</color>
+    <color name="gradient_celebration_end">#FBB13C</color>
+    <color name="gradient_warm_start">#FBB13C</color>
+    <color name="gradient_warm_end">#80CBC4</color>
+
+
 </resources>

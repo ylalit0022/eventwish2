@@ -73,6 +73,20 @@ public class SponsoredAdRepository {
     private static final String PREF_NAME = "sponsored_ad_tracking";
     private static final String KEY_LAST_BATCH_FLUSH = "last_batch_flush";
     
+    // Circuit breaker pattern to prevent continuous requests
+    private static final int CIRCUIT_BREAKER_FAILURE_THRESHOLD = 3; // Max failures before opening circuit
+    private static final long CIRCUIT_BREAKER_TIMEOUT_MS = TimeUnit.MINUTES.toMillis(10); // 10 minutes timeout
+    private static final long CIRCUIT_BREAKER_HALF_OPEN_TIMEOUT_MS = TimeUnit.MINUTES.toMillis(2); // 2 minutes before trying again
+    
+    private int consecutiveFailures = 0;
+    private long circuitBreakerOpenedAt = 0;
+    private boolean isCircuitBreakerOpen = false;
+    private boolean isCircuitBreakerHalfOpen = false;
+    
+    // Request throttling
+    private static final long REQUEST_THROTTLE_INTERVAL_MS = TimeUnit.SECONDS.toMillis(30); // Minimum 30 seconds between requests
+    private long lastRequestTime = 0;
+    
     private boolean isInitialized = false;
     private long lastRefreshTime = 0;
     
@@ -373,13 +387,36 @@ public class SponsoredAdRepository {
      * Check if we should refresh the data from network
      */
     private boolean shouldRefreshFromNetwork() {
-        // If force refresh is set, always refresh
+        // Check circuit breaker first
+        if (isCircuitBreakerOpen) {
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - circuitBreakerOpenedAt > CIRCUIT_BREAKER_TIMEOUT_MS) {
+                // Try to move to half-open state
+                isCircuitBreakerHalfOpen = true;
+                isCircuitBreakerOpen = false;
+                Log.d(TAG, "Circuit breaker moved to HALF-OPEN state, allowing one test request");
+            } else {
+                Log.d(TAG, "Circuit breaker is OPEN, blocking network requests for " + 
+                      TimeUnit.MILLISECONDS.toMinutes(CIRCUIT_BREAKER_TIMEOUT_MS - (currentTime - circuitBreakerOpenedAt)) + 
+                      " more minutes");
+                return false;
+            }
+        }
+        
+        // Check request throttling
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastRequestTime < REQUEST_THROTTLE_INTERVAL_MS) {
+            Log.d(TAG, "Request throttled, last request was " + 
+                  TimeUnit.MILLISECONDS.toSeconds(currentTime - lastRequestTime) + 
+                  " seconds ago (minimum " + TimeUnit.MILLISECONDS.toSeconds(REQUEST_THROTTLE_INTERVAL_MS) + " seconds)");
+            return false;
+        }
+        
+        // If force refresh is set, always refresh (but still respect circuit breaker and throttling above)
         if (forceRefresh) {
             Log.d(TAG, "Forced refresh requested, refreshing from network");
             return true;
         }
-        
-        long currentTime = System.currentTimeMillis();
         
         // If it's been longer than minimum refresh interval, refresh
         if (currentTime - lastRefreshTime > MIN_REFRESH_INTERVAL_MS) {
@@ -444,6 +481,9 @@ public class SponsoredAdRepository {
         Log.d(TAG, "Refreshing sponsored ads from network");
         loadingLiveData.postValue(true);
         
+        // Update last request time for throttling
+        lastRequestTime = System.currentTimeMillis();
+        
         // Prevent network calls if we're rate-limited
         if (isRateLimited && System.currentTimeMillis() < rateLimitExpiresAt) {
             Log.d(TAG, "Skipping network request due to rate limiting, expires in: " + 
@@ -467,10 +507,12 @@ public class SponsoredAdRepository {
             @Override
             public void onResponse(Call<SponsoredAdResponse> call, Response<SponsoredAdResponse> response) {
                 loadingLiveData.postValue(false);
+                lastRefreshTime = System.currentTimeMillis();
                 
                 if (response.code() == 429) {
                     // Handle rate limiting
                     handleRateLimiting(response);
+                    handleCircuitBreakerFailure();
                     return;
                 }
                 
@@ -481,6 +523,9 @@ public class SponsoredAdRepository {
                     if (adResponse.isSuccess() && adResponse.getAds() != null) {
                         final List<SponsoredAd> ads = adResponse.getAds();
                         Log.d(TAG, "Loaded " + ads.size() + " sponsored ads from API");
+                        
+                        // Reset circuit breaker on successful response
+                        handleCircuitBreakerSuccess();
                         
                         // Update LiveData
                         sponsoredAdsLiveData.postValue(ads);
@@ -501,6 +546,7 @@ public class SponsoredAdRepository {
                         String errorMsg = adResponse.getMessage() != null ? 
                                 adResponse.getMessage() : "No ads available";
                         errorLiveData.postValue(errorMsg);
+                        handleCircuitBreakerFailure();
                         Log.w(TAG, "Error loading sponsored ads: " + 
                                (adResponse.getError() != null ? adResponse.getError() : adResponse.getMessage()));
                     }
@@ -517,6 +563,7 @@ public class SponsoredAdRepository {
                     }
                     
                     errorLiveData.postValue(errorMsg);
+                    handleCircuitBreakerFailure();
                     Log.e(TAG, errorMsg);
                 }
             }
@@ -526,6 +573,7 @@ public class SponsoredAdRepository {
                 loadingLiveData.postValue(false);
                 String errorMsg = "Network error: " + t.getMessage();
                 errorLiveData.postValue(errorMsg);
+                handleCircuitBreakerFailure();
                 Log.e(TAG, "Network error fetching sponsored ads", t);
                 Log.e(TAG, "Request URL: " + call.request().url());
                 Log.e(TAG, "Request headers: " + call.request().headers());
@@ -1442,5 +1490,26 @@ public class SponsoredAdRepository {
         Log.d(TAG, "Forcing immediate refresh from network");
         forceRefresh = true;
         refreshFromNetwork();
+    }
+
+    /**
+     * Handle circuit breaker logic
+     */
+    private void handleCircuitBreakerFailure() {
+        consecutiveFailures++;
+        if (consecutiveFailures >= CIRCUIT_BREAKER_FAILURE_THRESHOLD) {
+            isCircuitBreakerOpen = true;
+            circuitBreakerOpenedAt = System.currentTimeMillis();
+            Log.d(TAG, "Circuit breaker opened");
+        }
+    }
+
+    /**
+     * Handle circuit breaker logic
+     */
+    private void handleCircuitBreakerSuccess() {
+        consecutiveFailures = 0;
+        isCircuitBreakerOpen = false;
+        Log.d(TAG, "Circuit breaker closed");
     }
 } 

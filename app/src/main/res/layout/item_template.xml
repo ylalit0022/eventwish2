@@ -10,14 +10,12 @@
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardView"
+        style="@style/Widget.EventWish.Card.Festive"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:cardCornerRadius="8dp"
-        app:cardElevation="2dp"
-        app:cardUseCompatPadding="true"
         android:clickable="true"
         android:focusable="true"
-        app:rippleColor="?attr/colorPrimaryContainer"
+        app:rippleColor="?attr/colorPrimary"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -109,8 +107,7 @@
                         android:id="@+id/titleText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
+                        android:textAppearance="@style/TextAppearance.EventWish.Title"
                         android:textColor="#FFFFFF"
                         android:maxLines="2"
                         android:ellipsize="end"

@@ -48,7 +48,7 @@ const SubscriptionSchema = new Schema({
     },
     planLevel: {
         type: String,
-        enum: ['BASIC', 'PREMIUM', 'PRO', 'NONE', ''],
+        enum: ['BASIC', 'PREMIUM', 'PRO', 'NONE'],
         default: 'NONE'
     },
 

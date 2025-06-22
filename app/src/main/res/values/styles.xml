@@ -234,5 +234,179 @@
         <item name="shapeAppearance">@style/ShapeAppearanceOverlay.EventWish.Button</item>
     </style>
 
+    <!-- ========== FESTIVE GREETING CARD STYLES ========== -->
+    
+    <!-- Celebratory Card Style for Greeting Card Previews -->
+    <style name="Widget.EventWish.Card.Festive" parent="Widget.Material3.CardView.Elevated">
+        <item name="cardBackgroundColor">?attr/colorSurface</item>
+        <item name="cardCornerRadius">16dp</item>
+        <item name="cardElevation">4dp</item>
+        <item name="contentPadding">20dp</item>
+        <item name="rippleColor">?attr/colorPrimary</item>
+        <item name="strokeColor">?attr/colorOutlineVariant</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="shapeAppearance">@style/ShapeAppearanceOverlay.EventWish.Card.Large</item>
+    </style>
+
+    <!-- Festive FAB Style for Create Greeting Actions -->
+    <style name="Widget.EventWish.FloatingActionButton.Festive" parent="Widget.Material3.FloatingActionButton.Primary">
+        <item name="backgroundTint">?attr/colorPrimary</item>
+        <item name="tint">?attr/colorOnPrimary</item>
+        <item name="elevation">6dp</item>
+        <item name="hoveredFocusedTranslationZ">8dp</item>
+        <item name="pressedTranslationZ">12dp</item>
+        <item name="rippleColor">?attr/colorOnPrimary</item>
+    </style>
+
+    <!-- Warm Button Style for Celebratory Actions -->
+    <style name="Widget.EventWish.Button.Warm" parent="Widget.Material3.Button">
+        <item name="backgroundTint">?attr/colorSecondary</item>
+        <item name="android:textColor">?attr/colorOnSecondary</item>
+        <item name="cornerRadius">12dp</item>
+        <item name="android:padding">16dp</item>
+        <item name="rippleColor">?attr/colorSecondaryContainer</item>
+        <item name="shapeAppearance">@style/ShapeAppearanceOverlay.EventWish.Button</item>
+    </style>
+
+    <!-- Celebration Button Style (Primary Color) -->
+    <style name="Widget.EventWish.Button.Celebration" parent="Widget.Material3.Button">
+        <item name="backgroundTint">?attr/colorPrimary</item>
+        <item name="android:textColor">?attr/colorOnPrimary</item>
+        <item name="cornerRadius">12dp</item>
+        <item name="android:padding">16dp</item>
+        <item name="rippleColor">?attr/colorPrimaryContainer</item>
+        <item name="elevation">2dp</item>
+        <item name="shapeAppearance">@style/ShapeAppearanceOverlay.EventWish.Button</item>
+    </style>
+
+    <!-- Gratitude Button Style (Tertiary Color) -->
+    <style name="Widget.EventWish.Button.Gratitude" parent="Widget.Material3.Button">
+        <item name="backgroundTint">?attr/colorTertiary</item>
+        <item name="android:textColor">?attr/colorOnTertiary</item>
+        <item name="cornerRadius">12dp</item>
+        <item name="android:padding">16dp</item>
+        <item name="rippleColor">?attr/colorTertiaryContainer</item>
+        <item name="shapeAppearance">@style/ShapeAppearanceOverlay.EventWish.Button</item>
+    </style>
+
+    <!-- Festive Chip Style for Categories -->
+    <style name="Widget.EventWish.Chip.Festive" parent="Widget.Material3.Chip.Filter">
+        <item name="chipBackgroundColor">?attr/colorSurfaceContainer</item>
+        <item name="chipStrokeColor">?attr/colorPrimary</item>
+        <item name="chipStrokeWidth">1dp</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="checkedIconTint">?attr/colorPrimary</item>
+        <item name="rippleColor">?attr/colorPrimaryContainer</item>
+        <item name="shapeAppearance">@style/ShapeAppearanceOverlay.EventWish.Chip</item>
+    </style>
+
+    <!-- Celebration Chip Style (Selected State) -->
+    <style name="Widget.EventWish.Chip.Celebration" parent="Widget.Material3.Chip.Filter">
+        <item name="chipBackgroundColor">?attr/colorPrimaryContainer</item>
+        <item name="chipStrokeColor">?attr/colorPrimary</item>
+        <item name="chipStrokeWidth">2dp</item>
+        <item name="android:textColor">?attr/colorOnPrimaryContainer</item>
+        <item name="checkedIconTint">?attr/colorPrimary</item>
+        <item name="rippleColor">?attr/colorPrimary</item>
+        <item name="shapeAppearance">@style/ShapeAppearanceOverlay.EventWish.Chip</item>
+    </style>
+
+    <!-- Enhanced Text Appearance for Festive Greetings -->
+    <style name="TextAppearance.EventWish.Greeting.Display" parent="TextAppearance.Material3.DisplaySmall">
+        <item name="android:textSize">36sp</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="android:textStyle">bold</item>
+        <item name="fontFamily">sans-serif</item>
+        <item name="android:letterSpacing">0.02</item>
+    </style>
+
+    <style name="TextAppearance.EventWish.Greeting.Headline" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="android:textSize">28sp</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="android:textStyle">bold</item>
+        <item name="fontFamily">sans-serif</item>
+    </style>
+
+    <style name="TextAppearance.EventWish.Greeting.Title" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textSize">22sp</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="android:textStyle">bold</item>
+        <item name="fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.EventWish.Greeting.Subtitle" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+        <item name="fontFamily">sans-serif</item>
+        <item name="android:lineSpacingExtra">4dp</item>
+    </style>
+
+    <!-- Festive Card Variations -->
+    <style name="Widget.EventWish.Card.Celebration" parent="Widget.EventWish.Card.Festive">
+        <item name="cardBackgroundColor">@color/card_celebration_background</item>
+        <item name="strokeColor">?attr/colorPrimary</item>
+        <item name="strokeWidth">2dp</item>
+    </style>
+
+    <style name="Widget.EventWish.Card.Warm" parent="Widget.EventWish.Card.Festive">
+        <item name="cardBackgroundColor">@color/card_warm_background</item>
+        <item name="strokeColor">?attr/colorSecondary</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.EventWish.Card.Gratitude" parent="Widget.EventWish.Card.Festive">
+        <item name="cardBackgroundColor">?attr/colorTertiaryContainer</item>
+        <item name="strokeColor">?attr/colorTertiary</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <!-- Progress Indicator with Festive Colors -->
+    <style name="Widget.EventWish.CircularProgressIndicator.Festive" parent="Widget.Material3.CircularProgressIndicator">
+        <item name="indicatorColor">?attr/colorPrimary</item>
+        <item name="trackColor">?attr/colorPrimaryContainer</item>
+        <item name="indicatorSize">48dp</item>
+        <item name="trackThickness">4dp</item>
+    </style>
+
+    <!-- Enhanced Shape Appearances for Festive Design -->
+    <style name="ShapeAppearanceOverlay.EventWish.Card.Festive" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">20dp</item>
+    </style>
+
+    <style name="ShapeAppearanceOverlay.EventWish.Button.Festive" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">24dp</item>
+    </style>
+
+    <style name="ShapeAppearanceOverlay.EventWish.Image.Festive" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
+
+    <!-- Essential Text Appearance Styles for Festive Design -->
+    <style name="TextAppearance.EventWish.Display" parent="TextAppearance.Material3.DisplaySmall">
+        <item name="android:textSize">36sp</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="android:textStyle">bold</item>
+        <item name="fontFamily">sans-serif</item>
+        <item name="android:letterSpacing">-0.02</item>
+    </style>
+
+    <style name="TextAppearance.EventWish.Headline" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="android:textSize">28sp</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="android:textStyle">bold</item>
+        <item name="fontFamily">sans-serif</item>
+        <item name="android:letterSpacing">-0.01</item>
+    </style>
+
+    <style name="TextAppearance.EventWish.Title" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textSize">22sp</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="android:textStyle">bold</item>
+        <item name="fontFamily">sans-serif-medium</item>
+    </style>
+
 </resources>
 

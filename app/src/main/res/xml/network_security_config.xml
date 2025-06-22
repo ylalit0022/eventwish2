@@ -2,12 +2,18 @@
 <network-security-config>
     <!-- Allow cleartext traffic for local development -->
     <domain-config cleartextTrafficPermitted="true">
+        <!-- Android emulator localhost mapping -->
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        
         <!-- User's actual local IP address -->
         <domain includeSubdomains="true">192.168.25.134</domain>
         
-        <!-- Add additional domains if needed -->
-        <!-- <domain includeSubdomains="true">localhost</domain> -->
-        <!-- <domain includeSubdomains="true">10.0.2.2</domain> -->
+        <!-- Common localhost addresses -->
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        
+        <!-- Add additional local network ranges if needed -->
+        <!-- <domain includeSubdomains="true">192.168.1.0/24</domain> -->
     </domain-config>
     
     <!-- Default configuration for all other domains -->

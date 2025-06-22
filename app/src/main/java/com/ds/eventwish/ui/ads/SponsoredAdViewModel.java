@@ -44,6 +44,10 @@ public class SponsoredAdViewModel extends AndroidViewModel {
     private long lastAdRefreshTime = 0;
     private static final long MAX_CACHE_LIFETIME_MS = TimeUnit.MINUTES.toMillis(5); // Refresh every 5 minutes at most
     
+    // Request throttling to prevent excessive API calls
+    private static final long FORCE_REFRESH_THROTTLE_MS = TimeUnit.SECONDS.toMillis(30); // Minimum 30 seconds between force refreshes
+    private long lastForceRefreshTime = 0;
+    
     public SponsoredAdViewModel(@NonNull Application application) {
         super(application);
         repository = SponsoredAdRepository.getInstance(application);
@@ -65,9 +69,20 @@ public class SponsoredAdViewModel extends AndroidViewModel {
      * Force refresh ads from network
      */
     public void forceRefreshAds() {
+        long currentTime = System.currentTimeMillis();
+        
+        // Check if we're within the throttle period
+        if (currentTime - lastForceRefreshTime < FORCE_REFRESH_THROTTLE_MS) {
+            Log.d(TAG, "Force refresh throttled, last refresh was " + 
+                  TimeUnit.MILLISECONDS.toSeconds(currentTime - lastForceRefreshTime) + 
+                  " seconds ago (minimum " + TimeUnit.MILLISECONDS.toSeconds(FORCE_REFRESH_THROTTLE_MS) + " seconds)");
+            return;
+        }
+        
         Log.d(TAG, "Forcing refresh of sponsored ads from network");
+        lastForceRefreshTime = currentTime;
         repository.forceRefreshNow();
-        lastAdRefreshTime = System.currentTimeMillis();
+        lastAdRefreshTime = currentTime;
     }
     
     /**

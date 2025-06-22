@@ -46,8 +46,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="EventWish"
-                        android:textSize="20sp"
-                        android:textStyle="bold"
+                        android:textAppearance="@style/TextAppearance.EventWish.Headline"
                         android:textColor="?attr/colorPrimary"
                         android:layout_marginStart="16dp"
                         android:layout_marginEnd="16dp"
@@ -154,7 +153,7 @@
 
                         <com.google.android.material.chip.Chip
                             android:id="@+id/chipTrending"
-                            style="@style/Widget.Material3.Chip.Filter"
+                            style="@style/Widget.EventWish.Chip.Festive"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:textSize="10sp"
@@ -163,7 +162,7 @@
 
                         <com.google.android.material.chip.Chip
                             android:id="@+id/chipNewest"
-                            style="@style/Widget.Material3.Chip.Filter"
+                            style="@style/Widget.EventWish.Chip.Festive"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:textSize="10sp"
@@ -171,7 +170,7 @@
 
                         <com.google.android.material.chip.Chip
                             android:id="@+id/chipOldest"
-                            style="@style/Widget.Material3.Chip.Filter"
+                            style="@style/Widget.EventWish.Chip.Festive"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:textSize="10sp"
@@ -179,7 +178,7 @@
 
                         <com.google.android.material.chip.Chip
                             android:id="@+id/chipMostUsed"
-                            style="@style/Widget.Material3.Chip.Filter"
+                            style="@style/Widget.EventWish.Chip.Festive"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:textSize="10sp"
@@ -587,5 +586,17 @@
             app:layout_constraintEnd_toEndOf="parent"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Festive Create Greeting FAB -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/createGreetingFab"
+        style="@style/Widget.EventWish.FloatingActionButton.Festive"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="16dp"
+        android:src="@drawable/ic_add"
+        android:contentDescription="Create festive greeting"
+        app:tint="?attr/colorOnPrimary" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

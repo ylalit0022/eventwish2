@@ -78,22 +78,22 @@ async function handleAsyncOperation(operation, operationName, res, uid = 'unknow
 function cleanupSubscriptionData(user) {
     if (user.subscription) {
         // Fix invalid plan values
-        const validPlans = ['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY', ''];
+        const validPlans = ['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY', 'NONE'];
         if (!validPlans.includes(user.subscription.plan)) {
-            logger.warn(`Fixing invalid subscription plan: ${user.subscription.plan} -> ''`);
-            user.subscription.plan = '';
+            logger.warn(`Fixing invalid subscription plan: ${user.subscription.plan} -> 'NONE'`);
+            user.subscription.plan = 'NONE';
         }
         
         // Fix invalid planLevel values
-        const validPlanLevels = ['BASIC', 'PREMIUM', 'PRO', ''];
+        const validPlanLevels = ['BASIC', 'PREMIUM', 'PRO', 'NONE'];
         if (user.subscription.planLevel !== undefined && !validPlanLevels.includes(user.subscription.planLevel)) {
-            logger.warn(`Fixing invalid subscription planLevel: ${user.subscription.planLevel} -> ''`);
-            user.subscription.planLevel = '';
+            logger.warn(`Fixing invalid subscription planLevel: ${user.subscription.planLevel} -> 'NONE'`);
+            user.subscription.planLevel = 'NONE';
         }
         
-        // Ensure planLevel is set to empty string if undefined
+        // Ensure planLevel is set to NONE if undefined
         if (user.subscription.planLevel === undefined || user.subscription.planLevel === null) {
-            user.subscription.planLevel = '';
+            user.subscription.planLevel = 'NONE';
         }
     }
 }

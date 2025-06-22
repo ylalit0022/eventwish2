@@ -106,4 +106,25 @@ public interface ApiService {
     // User engagement tracking
     @POST("users/engagement")
     Call<JsonObject> trackUserEngagement(@HeaderMap Map<String, String> headers, @Body Map<String, Object> engagementData);
+    
+    // Like/Unlike endpoints
+    @PUT("users/{uid}/likes/{templateId}")
+    Call<JsonObject> likeTemplate(@Path("uid") String uid, @Path("templateId") String templateId, @retrofit2.http.Header("Authorization") String authToken);
+    
+    @DELETE("users/{uid}/likes/{templateId}")
+    Call<JsonObject> unlikeTemplate(@Path("uid") String uid, @Path("templateId") String templateId, @retrofit2.http.Header("Authorization") String authToken);
+    
+    // Favorite/Unfavorite endpoints
+    @PUT("users/{uid}/favorites/{templateId}")
+    Call<JsonObject> favoriteTemplate(@Path("uid") String uid, @Path("templateId") String templateId, @retrofit2.http.Header("Authorization") String authToken);
+    
+    @DELETE("users/{uid}/favorites/{templateId}")
+    Call<JsonObject> unfavoriteTemplate(@Path("uid") String uid, @Path("templateId") String templateId, @retrofit2.http.Header("Authorization") String authToken);
+    
+    // Get user's favorites and likes
+    @GET("users/{uid}/templates/favorites")
+    Call<JsonObject> getUserFavorites(@Path("uid") String uid, @retrofit2.http.Header("Authorization") String authToken);
+    
+    @GET("users/{uid}/templates/likes")
+    Call<JsonObject> getUserLikes(@Path("uid") String uid, @retrofit2.http.Header("Authorization") String authToken);
 } 
