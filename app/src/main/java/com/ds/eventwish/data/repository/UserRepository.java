@@ -850,9 +850,8 @@ public class UserRepository {
     }
     
     /**
-     * Sync user data with MongoDB
-     * @param firebaseUser Firebase user object
-     * @return Task with User object
+     * Simplified user synchronization with MongoDB
+     * Uses device-based authentication first, then links with Firebase
      */
     public Task<User> syncUserWithMongoDB(FirebaseUser firebaseUser) {
         if (firebaseUser == null) {
@@ -861,159 +860,83 @@ public class UserRepository {
         
         final TaskCompletionSource<User> taskCompletionSource = new TaskCompletionSource<>();
         
-        // Get auth token
-        authManager.getIdToken(new AuthManager.TokenCallback() {
-            @Override
-            public void onTokenReceived(String token) {
-                // Create user data map
-                Map<String, Object> userData = new HashMap<>();
-                userData.put("uid", firebaseUser.getUid());
-                userData.put("displayName", firebaseUser.getDisplayName());
-                userData.put("email", firebaseUser.getEmail());
-                userData.put("phoneNumber", firebaseUser.getPhoneNumber());
-                userData.put("photoURL", firebaseUser.getPhotoUrl() != null ? 
-                        firebaseUser.getPhotoUrl().toString() : null);
-                
-                // Add device info
-                String deviceId = getDeviceId();
-                userData.put("deviceId", deviceId);
-                userData.put("deviceModel", Build.MODEL);
-                userData.put("deviceName", getDeviceName());
-                userData.put("appVersion", getAppVersion());
-                userData.put("osVersion", Build.VERSION.RELEASE);
-                userData.put("loginTimestamp", System.currentTimeMillis());
-                
-                // Add subscription data with valid planLevel to avoid MongoDB validation error
-                Map<String, Object> subscriptionData = new HashMap<>();
-                subscriptionData.put("planLevel", "BASIC");
-                subscriptionData.put("isActive", false);
-                subscriptionData.put("plan", "");
-                userData.put("subscription", subscriptionData);
-                
-                // Create auth header
-                String authHeader = "Bearer " + token;
-                
-                // Create or update user in MongoDB
-                Call<JsonObject> call = apiService.updateUserProfile(userData, authHeader);
-                call.enqueue(new Callback<JsonObject>() {
-                    @Override
-                    public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
-                        if (response.isSuccessful() && response.body() != null) {
-                            try {
-                                // Parse user from response
-                                User user = createUserFromJsonObject(response.body());
-                                
-                                // Add current device session
-                                User.DeviceSession session = createDeviceSession();
-                                user.addDeviceSession(getDeviceId(), session);
-                                
-                                // Store device info in SharedPreferences
-                                storeCurrentDeviceInfo(deviceId, firebaseUser.getUid());
-                                
-                                // Cache user data
-                                cacheUserData(user);
-                                
-                                // Complete the task
-                                taskCompletionSource.setResult(user);
-                            } catch (Exception e) {
-                                Log.e(TAG, "Error parsing user data", e);
-                                tryAlternativeAuthMethods(firebaseUser, userData, authHeader, taskCompletionSource);
-                            }
-                        } else {
-                            Log.e(TAG, "Error creating/updating user: " + response.code());
-                            tryAlternativeAuthMethods(firebaseUser, userData, authHeader, taskCompletionSource);
-                        }
-                    }
-                    
-                    @Override
-                    public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable t) {
-                        Log.e(TAG, "Network error creating/updating user", t);
-                        tryAlternativeAuthMethods(firebaseUser, userData, authHeader, taskCompletionSource);
-                    }
-                });
-            }
-            
-            @Override
-            public void onError(String errorMessage) {
-                Log.e(TAG, "Error getting ID token: " + errorMessage);
-                tryAlternativeAuthMethods(firebaseUser, null, null, taskCompletionSource);
-            }
+        // First, ensure device user is registered
+        if (!isUserRegistered()) {
+            registerUserIfNeeded();
+        }
+        
+        // Create a simple user object from Firebase data
+        User user = createUserFromFirebaseUser(firebaseUser);
+        
+        // Store device info in SharedPreferences
+        storeCurrentDeviceInfo(getDeviceId(), firebaseUser.getUid());
+        
+        // Cache user data
+        cacheUserData(user);
+        
+        // Complete the task immediately with the created user
+        taskCompletionSource.setResult(user);
+        
+        // Optionally try to sync with backend in the background (non-blocking)
+        AppExecutors.getInstance().networkIO().execute(() -> {
+            tryBackgroundSync(firebaseUser, user);
         });
         
         return taskCompletionSource.getTask();
     }
-
+    
     /**
-     * Try alternative authentication methods if the primary method fails
+     * Try to sync user data with backend in the background
+     * This is non-blocking and won't affect the user experience if it fails
      */
-    private void tryAlternativeAuthMethods(FirebaseUser firebaseUser, Map<String, Object> userData, 
-                                         String authToken, TaskCompletionSource<User> taskCompletionSource) {
-        // Run on background thread to avoid NetworkOnMainThreadException
-        AppExecutors.getInstance().networkIO().execute(() -> {
-            try {
-                Log.d(TAG, "tryAlternativeAuthMethods: Trying alternative authentication for user " + firebaseUser.getUid());
-                
-                // Create minimal user data without subscription to avoid validation errors
-                Map<String, Object> minimalUserData = new HashMap<>();
-                minimalUserData.put("uid", firebaseUser.getUid());
-                minimalUserData.put("displayName", firebaseUser.getDisplayName());
-                minimalUserData.put("email", firebaseUser.getEmail());
-                minimalUserData.put("phoneNumber", firebaseUser.getPhoneNumber());
-                minimalUserData.put("profilePhoto", firebaseUser.getPhotoUrl() != null ? firebaseUser.getPhotoUrl().toString() : null);
-                
-                // Add device info
-                minimalUserData.put("deviceId", getDeviceId());
-                minimalUserData.put("deviceModel", Build.MODEL);
-                minimalUserData.put("deviceName", getDeviceName());
-                minimalUserData.put("appVersion", getAppVersion());
-                minimalUserData.put("osVersion", Build.VERSION.RELEASE);
-                minimalUserData.put("loginTimestamp", System.currentTimeMillis());
-                
-                Log.d(TAG, "tryAlternativeAuthMethods: Attempting authenticateWithFirebase with minimal data");
-                
-                // Try authenticateWithFirebase endpoint
-                Response<JsonObject> response = apiService.authenticateWithFirebase(minimalUserData).execute();
-                
-                if (response.isSuccessful() && response.body() != null) {
-                    Log.d(TAG, "tryAlternativeAuthMethods: authenticateWithFirebase successful");
-                    JsonObject jsonResponse = response.body();
+    private void tryBackgroundSync(FirebaseUser firebaseUser, User user) {
+        try {
+            // Create minimal user data for background sync
+            Map<String, Object> userData = new HashMap<>();
+            userData.put("uid", firebaseUser.getUid());
+            userData.put("deviceId", getDeviceId());
+            userData.put("displayName", firebaseUser.getDisplayName());
+            userData.put("email", firebaseUser.getEmail());
+            userData.put("profilePhoto", firebaseUser.getPhotoUrl() != null ? firebaseUser.getPhotoUrl().toString() : null);
+            userData.put("deviceModel", Build.MODEL);
+            userData.put("deviceName", getDeviceName());
+            userData.put("appVersion", getAppVersion());
+            userData.put("osVersion", Build.VERSION.RELEASE);
+            userData.put("loginTimestamp", System.currentTimeMillis());
+            
+            // Try to update user profile (best effort)
+            authManager.getIdToken(new AuthManager.TokenCallback() {
+                @Override
+                public void onTokenReceived(String token) {
+                    String authHeader = "Bearer " + token;
                     
-                    if (jsonResponse.has("success") && jsonResponse.get("success").getAsBoolean()) {
-                        // Parse user data from response
-                        User user = parseUserFromResponse(jsonResponse, firebaseUser);
+                    Call<JsonObject> call = apiService.updateUserProfile(userData, authHeader);
+                    call.enqueue(new Callback<JsonObject>() {
+                        @Override
+                        public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
+                            if (response.isSuccessful()) {
+                                Log.d(TAG, "Background sync successful for user: " + firebaseUser.getUid());
+                            } else {
+                                Log.w(TAG, "Background sync failed: " + response.code());
+                            }
+                        }
                         
-                        // Complete the task on main thread
-                        new Handler(Looper.getMainLooper()).post(() -> {
-                            taskCompletionSource.setResult(user);
-                        });
-                        return;
-                    }
+                        @Override
+                        public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable t) {
+                            Log.w(TAG, "Background sync network error: " + t.getMessage());
+                        }
+                    });
                 }
                 
-                Log.w(TAG, "tryAlternativeAuthMethods: authenticateWithFirebase failed, response: " + 
-                      (response.body() != null ? response.body().toString() : "null"));
-                
-                // If all methods fail, create a minimal user object
-                User fallbackUser = createFallbackUser(firebaseUser);
-                
-                // Complete the task on main thread
-                new Handler(Looper.getMainLooper()).post(() -> {
-                    Log.d(TAG, "tryAlternativeAuthMethods: Using fallback user");
-                    taskCompletionSource.setResult(fallbackUser);
-                });
-                
-            } catch (Exception e) {
-                Log.e(TAG, "Error trying alternate authentication approach", e);
-                
-                // Create fallback user on error
-                User fallbackUser = createFallbackUser(firebaseUser);
-                
-                // Complete the task on main thread
-                new Handler(Looper.getMainLooper()).post(() -> {
-                    taskCompletionSource.setResult(fallbackUser);
-                });
-            }
-        });
+                @Override
+                public void onError(String errorMessage) {
+                    Log.w(TAG, "Background sync auth error: " + errorMessage);
+                }
+            });
+            
+        } catch (Exception e) {
+            Log.w(TAG, "Background sync exception: " + e.getMessage());
+        }
     }
 
     /**
@@ -1461,7 +1384,7 @@ public class UserRepository {
                     public void onTokenReceived(String token) {
                         String authToken = "Bearer " + token;
 
-                        // Create request body with only deviceId
+                        // Create minimal request body without subscription data
                         Map<String, Object> requestBody = new HashMap<>();
                         requestBody.put("deviceId", deviceId);
                         
@@ -1565,9 +1488,9 @@ public class UserRepository {
         user.setUnlocked(false);
         user.setUnlockExpiry(0);
         
-        // Create a basic subscription with valid planLevel
+        // Create a basic subscription with valid enum values
         User.Subscription subscription = new User.Subscription();
-        subscription.setPlan("BASIC");
+        subscription.setPlan("MONTHLY"); // Valid enum: 'MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY', ''
         subscription.setActive(false);
         user.setSubscription(subscription);
         

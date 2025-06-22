@@ -7,6 +7,27 @@ const { verifyFirebaseToken, optionalFirebaseAuth } = require('../middleware/aut
 const recommendationService = require('../services/recommendationService');
 
 /**
+ * Helper function to clean up invalid subscription data
+ * @param {Object} user - User document
+ */
+function cleanupSubscriptionData(user) {
+    if (user.subscription) {
+        // Fix invalid plan values
+        const validPlans = ['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY', ''];
+        if (!validPlans.includes(user.subscription.plan)) {
+            logger.warn(`Fixing invalid subscription plan: ${user.subscription.plan} -> MONTHLY`);
+            user.subscription.plan = 'MONTHLY';
+        }
+        
+        // Remove planLevel field if it exists (field has been removed from schema)
+        if (user.subscription.planLevel !== undefined) {
+            logger.warn(`Removing deprecated planLevel field: ${user.subscription.planLevel}`);
+            delete user.subscription.planLevel;
+        }
+    }
+}
+
+/**
  * @route   POST /api/users/profile
  * @desc    Update user profile in MongoDB after Firebase authentication
  * @access  Private
@@ -62,6 +83,9 @@ router.post('/profile', validateFirebaseUid, verifyFirebaseToken, async (req, re
                     logger.warn(`Failed to add device session for user ${uid}: ${sessionError.message}`);
                 }
             }
+            
+            // Clean up invalid subscription data before saving
+            cleanupSubscriptionData(user);
             
             await user.save();
             
@@ -162,6 +186,9 @@ router.post('/register', validateFirebaseUid, verifyFirebaseToken, async (req, r
             if (deviceName) user.deviceName = deviceName;
             if (appVersion) user.appVersion = appVersion;
             if (osVersion) user.osVersion = osVersion;
+            
+            // Clean up invalid subscription data before saving
+            cleanupSubscriptionData(user);
             
             await user.save();
             
@@ -2314,6 +2341,10 @@ router.post('/:uid/sessions/update', validateFirebaseUid, verifyFirebaseToken, a
         
         // Also update user's lastOnline
         user.lastOnline = Date.now();
+        
+        // Clean up invalid subscription data before saving
+        cleanupSubscriptionData(user);
+        
         await user.save();
         
         res.status(200).json({

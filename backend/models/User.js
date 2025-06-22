@@ -47,12 +47,6 @@ const SubscriptionSchema = new Schema({
         default: ''
     },
 
-    planLevel: {
-        type: String,
-        enum: ['BASIC', 'PREMIUM', 'PRO'],
-        default: ''
-    },
-
     startedAt: { 
         type: Date, 
         default: null 
