@@ -379,89 +379,106 @@ router.put('/:uid/likes/:templateId', validateFirebaseUid, verifyFirebaseToken, 
             });
         }
 
-        // Start a transaction for data consistency
-        const session = await mongoose.startSession();
-        
+        // Simplified version without transactions for debugging
         try {
-            return await session.withTransaction(async () => {
-                // Find user by uid
-                const user = await User.findOne({ uid }).session(session);
+            // Find user by uid
+            const user = await User.findOne({ uid });
+            
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found'
+                });
+            }
+            
+            // Verify template exists
+            const template = await Template.findById(templateId);
+            if (!template) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Template not found'
+                });
+            }
+            
+            // Initialize likes array if it doesn't exist
+            if (!user.likes) {
+                user.likes = [];
+            }
+            
+            // Check if template is already liked
+            const isAlreadyLiked = user.likes.some(id => id.toString() === templateId.toString());
+            
+            if (!isAlreadyLiked) {
+                // Add to likes
+                user.likes.push(templateId);
                 
-                if (!user) {
-                    throw new Error('User not found');
+                // Add to engagement log
+                if (!user.engagementLog) {
+                    user.engagementLog = [];
                 }
                 
-                // Verify template exists
-                const template = await Template.findById(templateId).session(session);
-                if (!template) {
-                    throw new Error('Template not found');
-                }
+                user.engagementLog.push({
+                    action: 'LIKE',
+                    templateId,
+                    timestamp: Date.now()
+                });
                 
-                // Initialize likes array if it doesn't exist
-                if (!user.likes) {
-                    user.likes = [];
-                }
+                // Update last active template
+                user.lastActiveTemplate = templateId;
+                user.lastActionOnTemplate = 'LIKE';
                 
-                // Check if template is already liked
-                const isAlreadyLiked = user.likes.some(id => id.toString() === templateId.toString());
+                // Update last online
+                user.lastOnline = Date.now();
                 
-                if (!isAlreadyLiked) {
-                    // Add to likes
-                    user.likes.push(templateId);
-                    
-                    // Add to engagement log
-                    if (!user.engagementLog) {
-                        user.engagementLog = [];
-                    }
-                    
-                    user.engagementLog.push({
-                        action: 'LIKE',
+                // Save user first
+                await user.save();
+                
+                // Increment template like count (simplified without transaction)
+                try {
+                    await Template.findByIdAndUpdate(
                         templateId,
-                        timestamp: Date.now()
-                    });
-                    
-                    // Update last active template
-                    user.lastActiveTemplate = templateId;
-                    user.lastActionOnTemplate = 'LIKE';
-                    
-                    // Update last online
-                    user.lastOnline = Date.now();
-                    
-                    // Save user first
-                    await user.save({ session });
-                    
-                    // Increment template like count
-                    await safeUpdateTemplateCounts(templateId, { likes: 1 }, session);
-                    
-                    // Invalidate recommendations
-                    await recommendationService.invalidateUserRecommendations(uid);
-                    
-                    logger.info(`User ${uid} liked template ${templateId}`);
-                    
-                    return res.status(200).json({
-                        success: true,
-                        message: 'Template liked successfully',
-                        data: {
-                            templateId,
-                            isLiked: true,
-                            totalLikes: user.likes.length
-                        }
-                    });
-                } else {
-                    // Template already liked
-                    return res.status(200).json({
-                        success: true,
-                        message: 'Template already liked',
-                        data: {
-                            templateId,
-                            isLiked: true,
-                            totalLikes: user.likes.length
-                        }
-                    });
+                        { $inc: { likes: 1 } },
+                        { new: true }
+                    );
+                } catch (templateError) {
+                    logger.warn(`Failed to update template like count: ${templateError.message}`);
+                    // Continue anyway - user like was saved
                 }
-            });
-        } finally {
-            await session.endSession();
+                
+                // Invalidate recommendations (but don't fail if it errors)
+                try {
+                    await recommendationService.invalidateUserRecommendations(uid);
+                } catch (recError) {
+                    logger.warn(`Failed to invalidate recommendations: ${recError.message}`);
+                    // Continue anyway
+                }
+                
+                logger.info(`User ${uid} liked template ${templateId}`);
+                
+                return res.status(200).json({
+                    success: true,
+                    message: 'Template liked successfully',
+                    data: {
+                        templateId,
+                        isLiked: true,
+                        totalLikes: user.likes.length
+                    }
+                });
+            } else {
+                // Template already liked
+                return res.status(200).json({
+                    success: true,
+                    message: 'Template already liked',
+                    data: {
+                        templateId,
+                        isLiked: true,
+                        totalLikes: user.likes.length
+                    }
+                });
+            }
+        } catch (error) {
+            logger.error(`Like operation error: ${error.message}`);
+            throw error; // Let handleAsyncOperation handle it
         }
     }, 'Add like', res, uid);
 });
@@ -485,79 +502,93 @@ router.delete('/:uid/likes/:templateId', validateFirebaseUid, verifyFirebaseToke
             });
         }
 
-        // Start a transaction for data consistency
-        const session = await mongoose.startSession();
-        
+        // Simplified version without transactions for debugging
         try {
-            return await session.withTransaction(async () => {
-                // Find user by uid
-                const user = await User.findOne({ uid }).session(session);
+            // Find user by uid
+            const user = await User.findOne({ uid });
+            
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found'
+                });
+            }
+            
+            // Initialize likes array if it doesn't exist
+            if (!user.likes) {
+                user.likes = [];
+            }
+            
+            // Check if template is liked
+            const likeIndex = user.likes.findIndex(id => id.toString() === templateId.toString());
+            
+            if (likeIndex !== -1) {
+                // Remove from likes
+                user.likes.splice(likeIndex, 1);
                 
-                if (!user) {
-                    throw new Error('User not found');
+                // Add to engagement log
+                if (!user.engagementLog) {
+                    user.engagementLog = [];
                 }
                 
-                // Initialize likes array if it doesn't exist
-                if (!user.likes) {
-                    user.likes = [];
-                }
+                user.engagementLog.push({
+                    action: 'UNLIKE',
+                    templateId,
+                    timestamp: Date.now()
+                });
                 
-                // Check if template is liked
-                const likeIndex = user.likes.findIndex(id => id.toString() === templateId.toString());
+                // Update last online
+                user.lastOnline = Date.now();
                 
-                if (likeIndex !== -1) {
-                    // Remove from likes
-                    user.likes.splice(likeIndex, 1);
-                    
-                    // Add to engagement log
-                    if (!user.engagementLog) {
-                        user.engagementLog = [];
-                    }
-                    
-                    user.engagementLog.push({
-                        action: 'UNLIKE',
+                // Save user first
+                await user.save();
+                
+                // Decrement template like count (simplified without transaction)
+                try {
+                    await Template.findByIdAndUpdate(
                         templateId,
-                        timestamp: Date.now()
-                    });
-                    
-                    // Update last online
-                    user.lastOnline = Date.now();
-                    
-                    // Save user first
-                    await user.save({ session });
-                    
-                    // Decrement template like count
-                    await safeUpdateTemplateCounts(templateId, { likes: -1 }, session);
-                    
-                    // Invalidate recommendations
-                    await recommendationService.invalidateUserRecommendations(uid);
-                    
-                    logger.info(`User ${uid} unliked template ${templateId}`);
-                    
-                    return res.status(200).json({
-                        success: true,
-                        message: 'Template unliked successfully',
-                        data: {
-                            templateId,
-                            isLiked: false,
-                            totalLikes: user.likes.length
-                        }
-                    });
-                } else {
-                    // Template not liked
-                    return res.status(200).json({
-                        success: true,
-                        message: 'Template was not liked',
-                        data: {
-                            templateId,
-                            isLiked: false,
-                            totalLikes: user.likes.length
-                        }
-                    });
+                        { $inc: { likes: -1 } },
+                        { new: true }
+                    );
+                } catch (templateError) {
+                    logger.warn(`Failed to update template like count: ${templateError.message}`);
+                    // Continue anyway - user unlike was saved
                 }
-            });
-        } finally {
-            await session.endSession();
+                
+                // Invalidate recommendations (but don't fail if it errors)
+                try {
+                    await recommendationService.invalidateUserRecommendations(uid);
+                } catch (recError) {
+                    logger.warn(`Failed to invalidate recommendations: ${recError.message}`);
+                    // Continue anyway
+                }
+                
+                logger.info(`User ${uid} unliked template ${templateId}`);
+                
+                return res.status(200).json({
+                    success: true,
+                    message: 'Template unliked successfully',
+                    data: {
+                        templateId,
+                        isLiked: false,
+                        totalLikes: user.likes.length
+                    }
+                });
+            } else {
+                // Template not liked
+                return res.status(200).json({
+                    success: true,
+                    message: 'Template was not liked',
+                    data: {
+                        templateId,
+                        isLiked: false,
+                        totalLikes: user.likes.length
+                    }
+                });
+            }
+        } catch (error) {
+            logger.error(`Unlike operation error: ${error.message}`);
+            throw error; // Let handleAsyncOperation handle it
         }
     }, 'Remove like', res, uid);
 });

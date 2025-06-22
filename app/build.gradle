@@ -68,7 +68,7 @@ android {
             debuggable true
             // Use local development server - try localhost first, then specific IP
             // Update this IP address to match your current machine's IP if needed
-            buildConfigField "String", "BASE_URL", "\"http://10.0.2.2:3001/api/\""
+            buildConfigField "String", "BASE_URL", "\"http://192.168.25.134:3001/api/\""
             buildConfigField "String", "API_ENV", "\"LOCAL\""
             // Add a suffix to distinguish the local build
             versionNameSuffix "-local"

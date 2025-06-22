@@ -66,6 +66,7 @@ import com.ds.eventwish.data.remote.FirestoreManager;
 import com.ds.eventwish.utils.EventNotificationManager;
 import com.ds.eventwish.data.auth.AuthManager;
 import com.google.android.material.color.DynamicColors;
+import com.ds.eventwish.data.repository.SponsoredAdRepository;
 
 public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
@@ -147,6 +148,9 @@ public class EventWishApplication extends Application implements Configuration.P
     @Override
     public void onCreate() {
         super.onCreate();
+        
+        // Disable sponsored ads to prevent continuous requests to the server
+        SponsoredAdRepository.setSponsoredAdsEnabled(false);
         
         // Apply dynamic colors if available (Android 12+)
         DynamicColors.applyToActivitiesIfAvailable(this);

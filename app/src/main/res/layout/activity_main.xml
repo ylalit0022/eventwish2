@@ -60,16 +60,12 @@
 
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNavigation"
+        style="@style/Widget.EventWish.BottomNavigation"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="0dp"
         android:background="?attr/colorSurfaceContainer"
         android:elevation="0dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp"
-        app:itemIconSize="24dp"
-        app:itemPaddingTop="8dp"
-        app:itemPaddingBottom="8dp"
         app:labelVisibilityMode="labeled"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"

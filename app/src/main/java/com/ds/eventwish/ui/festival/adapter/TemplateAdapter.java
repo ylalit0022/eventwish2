@@ -96,13 +96,18 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.Templa
                 thumbnailImage.setImageResource(R.drawable.error_image);
             }
 
-            // Set click listener on the CardView
-            cardView.setOnClickListener(v -> {
+            // Set click listener on the image view instead of CardView
+            thumbnailImage.setOnClickListener(v -> {
                 if (listener != null) {
                     Log.d(TAG, "Template clicked: " + template.getId());
                     listener.onTemplateClick(template);
                 }
             });
+            
+            // Remove click listener from CardView
+            cardView.setOnClickListener(null);
+            cardView.setClickable(false);
+            cardView.setFocusable(false);
         }
     }
 }

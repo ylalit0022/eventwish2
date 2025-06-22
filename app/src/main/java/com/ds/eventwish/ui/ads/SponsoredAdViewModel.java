@@ -42,10 +42,10 @@ public class SponsoredAdViewModel extends AndroidViewModel {
     
     // Track when last refreshed
     private long lastAdRefreshTime = 0;
-    private static final long MAX_CACHE_LIFETIME_MS = TimeUnit.MINUTES.toMillis(5); // Refresh every 5 minutes at most
+    private static final long MAX_CACHE_LIFETIME_MS = TimeUnit.HOURS.toMillis(1); // Increase from 5 minutes to 1 hour
     
     // Request throttling to prevent excessive API calls
-    private static final long FORCE_REFRESH_THROTTLE_MS = TimeUnit.SECONDS.toMillis(30); // Minimum 30 seconds between force refreshes
+    private static final long FORCE_REFRESH_THROTTLE_MS = TimeUnit.MINUTES.toMillis(5); // Increase from 30 seconds to 5 minutes
     private long lastForceRefreshTime = 0;
     
     public SponsoredAdViewModel(@NonNull Application application) {

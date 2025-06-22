@@ -161,6 +161,13 @@
         <item name="fontFamily">sans-serif</item>
     </style>
 
+    <!-- Add missing Body style -->
+    <style name="TextAppearance.EventWish.Body" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="fontFamily">sans-serif</item>
+    </style>
+
     <style name="TextAppearance.EventWish.Caption" parent="TextAppearance.Material3.BodySmall">
         <item name="android:textSize">12sp</item>
         <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
@@ -237,15 +244,23 @@
     <!-- ========== FESTIVE GREETING CARD STYLES ========== -->
     
     <!-- Celebratory Card Style for Greeting Card Previews -->
-    <style name="Widget.EventWish.Card.Festive" parent="Widget.Material3.CardView.Elevated">
-        <item name="cardBackgroundColor">?attr/colorSurface</item>
+    <style name="Widget.EventWish.Card.Festive" parent="Widget.Material3.CardView.Filled">
+        <item name="cardBackgroundColor">@color/card_festive_light</item>
         <item name="cardCornerRadius">16dp</item>
-        <item name="cardElevation">4dp</item>
-        <item name="contentPadding">20dp</item>
-        <item name="rippleColor">?attr/colorPrimary</item>
-        <item name="strokeColor">?attr/colorOutlineVariant</item>
-        <item name="strokeWidth">1dp</item>
-        <item name="shapeAppearance">@style/ShapeAppearanceOverlay.EventWish.Card.Large</item>
+        <item name="cardElevation">1dp</item>
+        <item name="contentPadding">0dp</item>
+        <item name="rippleColor">@android:color/transparent</item>
+        <item name="strokeColor">@color/md_theme_light_outlineVariant</item>
+        <item name="strokeWidth">0.5dp</item>
+        <item name="android:layout_marginBottom">8dp</item>
+        <item name="android:layout_marginTop">8dp</item>
+        <item name="materialThemeOverlay">@style/ThemeOverlay.EventWish.Card</item>
+        <item name="android:background">@drawable/bg_card_festive</item>
+    </style>
+
+    <!-- Theme overlay for cards to ensure proper Material 3 styling -->
+    <style name="ThemeOverlay.EventWish.Card" parent="">
+        <item name="colorSurface">@color/card_festive_light</item>
     </style>
 
     <!-- Festive FAB Style for Create Greeting Actions -->
@@ -406,6 +421,31 @@
         <item name="android:textColor">?attr/colorOnSurface</item>
         <item name="android:textStyle">bold</item>
         <item name="fontFamily">sans-serif-medium</item>
+    </style>
+
+    <!-- Circle Image View Style for Profile Pictures -->
+    <style name="CircleImageView">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
+    <!-- Compact Bottom Navigation Style -->
+    <style name="Widget.EventWish.BottomNavigation" parent="Widget.Material3.BottomNavigationView">
+        <item name="itemIconSize">22dp</item>
+        <item name="itemIconPadding">2dp</item>
+        <item name="itemTextAppearanceActive">@style/TextAppearance.EventWish.BottomNavigation</item>
+        <item name="itemTextAppearanceInactive">@style/TextAppearance.EventWish.BottomNavigation</item>
+        <item name="itemPaddingTop">6dp</item>
+        <item name="itemPaddingBottom">6dp</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:paddingTop">2dp</item>
+        <item name="android:paddingBottom">2dp</item>
+    </style>
+
+    <!-- Bottom Navigation Text Style -->
+    <style name="TextAppearance.EventWish.BottomNavigation" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:textSize">11sp</item>
+        <item name="android:letterSpacing">0</item>
     </style>
 
 </resources>

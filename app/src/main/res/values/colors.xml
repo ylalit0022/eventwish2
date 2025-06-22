@@ -244,7 +244,7 @@
     <color name="encouragement_orange">#FF9800</color>
     
     <!-- Card background variations -->
-    <color name="card_festive_light">#FFFAF8</color>
+    <color name="card_festive_light">#FFF5F0</color>
     <color name="card_festive_dark">#2C2C2C</color>
     <color name="card_celebration_background">#FFF8F6</color>
     <color name="card_warm_background">#FFF5E1</color>

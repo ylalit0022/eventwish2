@@ -588,7 +588,7 @@
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- Festive Create Greeting FAB -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
+    <!-- <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/createGreetingFab"
         style="@style/Widget.EventWish.FloatingActionButton.Festive"
         android:layout_width="wrap_content"
@@ -597,6 +597,6 @@
         android:layout_margin="16dp"
         android:src="@drawable/ic_add"
         android:contentDescription="Create festive greeting"
-        app:tint="?attr/colorOnPrimary" />
+        app:tint="?attr/colorOnPrimary" /> -->
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

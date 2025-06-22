@@ -84,6 +84,10 @@ public class SponsoredAdView extends FrameLayout {
     private static final long BASE_RETRY_DELAY_MS = 1000; // Base delay for exponential backoff (1s)
     private static final long MAX_RETRY_DELAY_MS = 60000; // Maximum delay for exponential backoff (1min)
     
+    // Error recovery throttling - increase to 2 minutes minimum between error recovery attempts
+    private static final long ERROR_RECOVERY_THROTTLE_MS = TimeUnit.MINUTES.toMillis(2); // Minimum 2 minutes between error recovery attempts
+    private long lastErrorRecoveryTime = 0;
+    
     // UI Components
     private CardView cardContainer;
     private ImageView adImage;
@@ -139,10 +143,6 @@ public class SponsoredAdView extends FrameLayout {
     // Track when last refreshed
     private long lastAdRefreshTime = 0;
     private static final long MAX_CACHE_LIFETIME_MS = TimeUnit.MINUTES.toMillis(5); // Refresh every 5 minutes at most
-    
-    // Error recovery throttling
-    private static final long ERROR_RECOVERY_THROTTLE_MS = TimeUnit.MINUTES.toMillis(2); // Minimum 2 minutes between error recovery attempts
-    private long lastErrorRecoveryTime = 0;
     
     // Enum to represent the different states of the view
     private enum ViewState {

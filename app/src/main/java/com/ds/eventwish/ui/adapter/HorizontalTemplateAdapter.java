@@ -85,7 +85,7 @@ public class HorizontalTemplateAdapter extends RecyclerView.Adapter<HorizontalTe
         }
         
         // Set click listeners
-        holder.cardView.setOnClickListener(v -> {
+        holder.templateImage.setOnClickListener(v -> {
             if (listener != null && canHandleClick("click_" + template.getId())) {
                 listener.onTemplateClick(template);
             }

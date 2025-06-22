@@ -50,6 +50,9 @@ public class SponsoredAdRepository {
     private static final long MAX_BATCH_AGE_MS = TimeUnit.HOURS.toMillis(24); // Maximum age for cached events
     private static final int MAX_RETRY_ATTEMPTS = 3; // Maximum number of retry attempts
     
+    // Added flag to completely disable sponsored ads
+    private static boolean SPONSORED_ADS_ENABLED = false;
+    
     private final ApiService apiService;
     private final SponsoredAdDao sponsoredAdDao;
     private final AppExecutors executors;
@@ -478,16 +481,56 @@ public class SponsoredAdRepository {
      * Refresh the data from the network
      */
     private void refreshFromNetwork() {
+        // If sponsored ads are disabled, don't make any network requests
+        if (!SPONSORED_ADS_ENABLED) {
+            Log.d(TAG, "Sponsored ads are disabled. Skipping network request.");
+            loadingLiveData.postValue(false);
+            return;
+        }
+        
+        // Check if circuit breaker is open
+        if (isCircuitBreakerOpen) {
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - circuitBreakerOpenedAt < CIRCUIT_BREAKER_TIMEOUT_MS) {
+                Log.d(TAG, "Circuit breaker is open. Skipping network request until " + 
+                      new java.util.Date(circuitBreakerOpenedAt + CIRCUIT_BREAKER_TIMEOUT_MS));
+                loadingLiveData.postValue(false);
+                return;
+            } else {
+                // Try half-open state
+                Log.d(TAG, "Circuit breaker timeout reached. Moving to half-open state.");
+                isCircuitBreakerOpen = false;
+                isCircuitBreakerHalfOpen = true;
+            }
+        }
+        
+        // Check rate limiting and throttling
+        long currentTime = System.currentTimeMillis();
+        if (isRateLimited && currentTime < rateLimitExpiresAt) {
+            Log.d(TAG, "Rate limited. Skipping network request until " + new java.util.Date(rateLimitExpiresAt));
+            loadingLiveData.postValue(false);
+            return;
+        }
+        
+        // Request throttling
+        if (currentTime - lastRequestTime < REQUEST_THROTTLE_INTERVAL_MS && !forceRefresh) {
+            Log.d(TAG, "Request throttled. Last request was " + 
+                  TimeUnit.MILLISECONDS.toSeconds(currentTime - lastRequestTime) + 
+                  " seconds ago (minimum " + TimeUnit.MILLISECONDS.toSeconds(REQUEST_THROTTLE_INTERVAL_MS) + " seconds)");
+            loadingLiveData.postValue(false);
+            return;
+        }
+        
         Log.d(TAG, "Refreshing sponsored ads from network");
         loadingLiveData.postValue(true);
         
         // Update last request time for throttling
-        lastRequestTime = System.currentTimeMillis();
+        lastRequestTime = currentTime;
         
         // Prevent network calls if we're rate-limited
-        if (isRateLimited && System.currentTimeMillis() < rateLimitExpiresAt) {
+        if (isRateLimited && currentTime < rateLimitExpiresAt) {
             Log.d(TAG, "Skipping network request due to rate limiting, expires in: " + 
-                  (rateLimitExpiresAt - System.currentTimeMillis()) / 1000 + " seconds");
+                  (rateLimitExpiresAt - currentTime) / 1000 + " seconds");
             loadingLiveData.postValue(false);
             errorLiveData.postValue("API rate limit exceeded. Please try again later.");
             return;
@@ -507,7 +550,7 @@ public class SponsoredAdRepository {
             @Override
             public void onResponse(Call<SponsoredAdResponse> call, Response<SponsoredAdResponse> response) {
                 loadingLiveData.postValue(false);
-                lastRefreshTime = System.currentTimeMillis();
+                lastRefreshTime = currentTime;
                 
                 if (response.code() == 429) {
                     // Handle rate limiting
@@ -586,7 +629,8 @@ public class SponsoredAdRepository {
      */
     private void handleRateLimiting(Response<?> response) {
         isRateLimited = true;
-        rateLimitExpiresAt = System.currentTimeMillis() + RATE_LIMIT_BACKOFF_MS;
+        long currentTime = System.currentTimeMillis();
+        rateLimitExpiresAt = currentTime + RATE_LIMIT_BACKOFF_MS;
         
         // Try to extract Retry-After header if available
         String retryAfter = response.headers().get("Retry-After");
@@ -594,7 +638,7 @@ public class SponsoredAdRepository {
             try {
                 // If Retry-After contains a number of seconds
                 int seconds = Integer.parseInt(retryAfter.trim());
-                rateLimitExpiresAt = System.currentTimeMillis() + (seconds * 1000L);
+                rateLimitExpiresAt = currentTime + (seconds * 1000L);
                 Log.w(TAG, "Rate limited by server, retrying in " + seconds + " seconds (Retry-After header)");
             } catch (NumberFormatException e) {
                 // If it's a HTTP date format, we'll just use our default backoff
@@ -635,8 +679,9 @@ public class SponsoredAdRepository {
         Log.d(TAG, "IMPRESSION TRACKING: Starting impression recording process for ad: " + adId);
         
         // Check rate limiting for all API calls
-        if (isRateLimited && System.currentTimeMillis() < rateLimitExpiresAt) {
-            long remainingMinutes = (rateLimitExpiresAt - System.currentTimeMillis()) / 60000;
+        long currentTime = System.currentTimeMillis();
+        if (isRateLimited && currentTime < rateLimitExpiresAt) {
+            long remainingMinutes = (rateLimitExpiresAt - currentTime) / 60000;
             Log.d(TAG, "IMPRESSION TRACKING: Skipping impression tracking - rate limited for " + remainingMinutes + " more minutes");
             
             // Still update local database
@@ -646,7 +691,6 @@ public class SponsoredAdRepository {
         }
         
         // Create daily impression key - using just the date part ensures one impression per ad per day
-        long currentTime = System.currentTimeMillis();
         String today = String.valueOf(currentTime / (1000 * 60 * 60 * 24)); // Convert to days since epoch
         SharedPreferences prefs = EventWishApplication.getAppContext()
             .getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
@@ -883,13 +927,17 @@ public class SponsoredAdRepository {
             return;
         }
         
+        Log.d(TAG, "CLICK TRACKING: Starting click recording process for ad: " + adId);
+        
         // Check rate limiting for all API calls
-        if (isRateLimited && System.currentTimeMillis() < rateLimitExpiresAt) {
-            long remainingMinutes = (rateLimitExpiresAt - System.currentTimeMillis()) / 60000;
-            Log.d(TAG, "Skipping click tracking - rate limited for " + remainingMinutes + " more minutes");
+        long currentTime = System.currentTimeMillis();
+        if (isRateLimited && currentTime < rateLimitExpiresAt) {
+            long remainingMinutes = (rateLimitExpiresAt - currentTime) / 60000;
+            Log.d(TAG, "CLICK TRACKING: Skipping click tracking - rate limited for " + remainingMinutes + " more minutes");
             
-            // Still update local database even if rate limited
+            // Still update local database
             updateLocalClickCount(adId);
+            Log.d(TAG, "CLICK TRACKING: Updated local database click count only due to rate limiting");
             return;
         }
         
@@ -1510,6 +1558,24 @@ public class SponsoredAdRepository {
     private void handleCircuitBreakerSuccess() {
         consecutiveFailures = 0;
         isCircuitBreakerOpen = false;
-        Log.d(TAG, "Circuit breaker closed");
+        isCircuitBreakerHalfOpen = false;
+        Log.d(TAG, "Circuit breaker reset after successful response");
+    }
+
+    /**
+     * Enable or disable sponsored ads globally
+     * @param enabled true to enable sponsored ads, false to disable
+     */
+    public static void setSponsoredAdsEnabled(boolean enabled) {
+        SPONSORED_ADS_ENABLED = enabled;
+        Log.d(TAG, "Sponsored ads " + (enabled ? "enabled" : "disabled") + " globally");
+    }
+    
+    /**
+     * Check if sponsored ads are enabled
+     * @return true if sponsored ads are enabled
+     */
+    public static boolean areSponsoredAdsEnabled() {
+        return SPONSORED_ADS_ENABLED;
     }
 } 

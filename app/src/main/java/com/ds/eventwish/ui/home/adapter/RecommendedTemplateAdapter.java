@@ -259,12 +259,17 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
             shareIcon.setClickable(false);
             shareIcon.setFocusable(false);
             
-            // Set up card click listener
-            cardView.setOnClickListener(v -> {
+            // Set up template image click listener
+            templateImage.setOnClickListener(v -> {
                 if (listener != null) {
                     listener.onTemplateClick(template);
                 }
             });
+            
+            // Remove card view click listener
+            cardView.setOnClickListener(null);
+            cardView.setClickable(false);
+            cardView.setFocusable(false);
             
             // Load template image
             String imageUrl = template.getPreviewUrl();

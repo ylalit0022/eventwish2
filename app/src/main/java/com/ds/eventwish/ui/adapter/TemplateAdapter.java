@@ -22,6 +22,7 @@ import com.ds.eventwish.data.remote.TemplateInteractionManager;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Date;
 
 public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHolder> {
 
@@ -60,6 +61,15 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         holder.titleText.setText(template.getTitle());
         holder.categoryText.setText(template.getCategoryId());
         
+        // Set creation time in social media format
+        if (template.getCreatedAt() != null) {
+            holder.timeText.setVisibility(View.VISIBLE);
+            holder.timeText.setText(formatTimeAgo(template.getCreatedAt()));
+            holder.timeText.setTextColor(Color.GRAY);
+        } else {
+            holder.timeText.setVisibility(View.GONE);
+        }
+        
         // Set like and favorite icons
         updateLikeState(holder, template.isLiked());
         updateFavoriteState(holder, template.isFavorited());
@@ -95,7 +105,7 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
                 .into(holder.templateImage);
                 
         // Set click listeners
-        holder.cardView.setOnClickListener(v -> {
+        holder.templateImage.setOnClickListener(v -> {
             if (onItemClickListener != null) {
                 Log.d(TAG, "Template clicked: " + template.getId());
                 onItemClickListener.onItemClick(template);
@@ -296,6 +306,7 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         final TextView favoriteCountText;
         final TextView newBadge;
         final LinearLayout recommendedBadge;
+        final TextView timeText;
 
         public ViewHolder(View itemView) {
             super(itemView);
@@ -310,6 +321,60 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             favoriteCountText = itemView.findViewById(R.id.favoriteCountText);
             newBadge = itemView.findViewById(R.id.newBadge);
             recommendedBadge = itemView.findViewById(R.id.recommendedBadge);
+            timeText = itemView.findViewById(R.id.timeText);
         }
+    }
+
+    /**
+     * Formats a date into a social media style time ago string
+     * @param date The date to format
+     * @return A string like "2h ago", "3d ago", etc.
+     */
+    private String formatTimeAgo(Date date) {
+        if (date == null) return "";
+        
+        long now = System.currentTimeMillis();
+        long time = date.getTime();
+        long diff = now - time;
+        
+        // Convert to seconds
+        long seconds = diff / 1000;
+        if (seconds < 60) {
+            return "just now";
+        }
+        
+        // Convert to minutes
+        long minutes = seconds / 60;
+        if (minutes < 60) {
+            return minutes + "m ago";
+        }
+        
+        // Convert to hours
+        long hours = minutes / 60;
+        if (hours < 24) {
+            return hours + "h ago";
+        }
+        
+        // Convert to days
+        long days = hours / 24;
+        if (days < 7) {
+            return days + "d ago";
+        }
+        
+        // Convert to weeks
+        long weeks = days / 7;
+        if (weeks < 4) {
+            return weeks + "w ago";
+        }
+        
+        // Convert to months
+        long months = days / 30;
+        if (months < 12) {
+            return months + "mo ago";
+        }
+        
+        // Convert to years
+        long years = days / 365;
+        return years + "y ago";
     }
 } 
