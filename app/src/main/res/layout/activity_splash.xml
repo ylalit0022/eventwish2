@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:background="@color/splash_background">
 
-    <ImageView
+    <com.google.android.material.imageview.ShapeableImageView
         android:id="@+id/backArrow"
         android:layout_width="32dp"
         android:layout_height="32dp"
@@ -17,7 +17,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:tint="@color/white" />
 
-    <ImageView
+    <com.google.android.material.imageview.ShapeableImageView
         android:id="@+id/logoImageView"
         android:layout_width="120dp"
         android:layout_height="120dp"
@@ -28,7 +28,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_chainStyle="packed" />
 
-    <TextView
+    <com.google.android.material.textview.MaterialTextView
         android:id="@+id/appNameTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -42,14 +42,13 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/logoImageView" />
 
-    <ProgressBar
+    <com.google.android.material.progressindicator.LinearProgressIndicator
         android:id="@+id/loadingProgressBar"
-        style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="200dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="32dp"
         android:indeterminate="true"
-        android:indeterminateTint="@color/white"
+        app:indicatorColor="@color/white"
         app:layout_constraintBottom_toTopOf="@+id/signInButton"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -66,7 +65,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/loadingProgressBar" />
 
-    <TextView
+    <com.google.android.material.textview.MaterialTextView
         android:id="@+id/signInStatus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -101,13 +100,13 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-        <ImageView
+        <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/signInSuccessIcon"
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:src="@drawable/ic_check_circle"
             android:visibility="gone"
-            android:tint="@color/colorSuccess"
+            app:tint="@color/colorSuccess"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>

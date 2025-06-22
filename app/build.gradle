@@ -60,7 +60,7 @@ android {
             buildConfigField "String", "API_ENV", "\"PRODUCTION\""
         }
         
-        // New build type for local development
+        // New build type for local development (only use when local server is running)
         local {
             // Extend from debug build type
             initWith debug

@@ -182,5 +182,57 @@
         <item name="fontFamily">sans-serif</item>
     </style>
 
+    <!-- Shape Appearance Styles for Material 3 -->
+    <style name="ShapeAppearanceOverlay.EventWish.Card" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
+
+    <style name="ShapeAppearanceOverlay.EventWish.Card.Large" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">16dp</item>
+    </style>
+
+    <style name="ShapeAppearanceOverlay.EventWish.Button" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">20dp</item>
+    </style>
+
+    <style name="ShapeAppearanceOverlay.EventWish.Chip" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">16dp</item>
+    </style>
+
+    <style name="ShapeAppearanceOverlay.EventWish.Image.Rounded" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">8dp</item>
+    </style>
+
+    <style name="ShapeAppearanceOverlay.EventWish.Image.Circle" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
+    <!-- Enhanced Material 3 Component Styles -->
+    <style name="Widget.EventWish.MaterialButton" parent="Widget.Material3.Button">
+        <item name="android:textColor">?attr/colorOnPrimary</item>
+        <item name="backgroundTint">?attr/colorPrimary</item>
+        <item name="rippleColor">?attr/colorOnPrimary</item>
+        <item name="shapeAppearance">@style/ShapeAppearanceOverlay.EventWish.Button</item>
+    </style>
+
+    <style name="Widget.EventWish.MaterialButton.Outlined" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:textColor">?attr/colorPrimary</item>
+        <item name="strokeColor">?attr/colorPrimary</item>
+        <item name="rippleColor">?attr/colorPrimaryContainer</item>
+        <item name="shapeAppearance">@style/ShapeAppearanceOverlay.EventWish.Button</item>
+    </style>
+
+    <style name="Widget.EventWish.MaterialButton.Text" parent="Widget.Material3.Button.TextButton">
+        <item name="android:textColor">?attr/colorPrimary</item>
+        <item name="rippleColor">?attr/colorPrimaryContainer</item>
+        <item name="shapeAppearance">@style/ShapeAppearanceOverlay.EventWish.Button</item>
+    </style>
+
 </resources>
 

@@ -879,7 +879,7 @@ public class ResourceFragment extends BaseFragment {
     }
     
     /**
-     * Enable Material 3 immersive mode
+     * Enable Material 3 immersive mode (without hiding status bar)
      */
     private void enableMaterial3ImmersiveMode() {
         Activity activity = getActivity();
@@ -898,14 +898,13 @@ public class ResourceFragment extends BaseFragment {
             originalLightNavigationBar = windowInsetsController.isAppearanceLightNavigationBars();
         }
         
-        // Apply Material 3 immersive theming
-        WindowCompat.setDecorFitsSystemWindows(window, false);
+        // Keep status bar visible, only change colors
+        // Don't apply immersive mode - WindowCompat.setDecorFitsSystemWindows(window, false);
         
-        // Set system bars to adapt to content
-        window.setStatusBarColor(Color.TRANSPARENT);
+        // Set system bars to adapt to content (navigation bar only)
         window.setNavigationBarColor(Color.TRANSPARENT);
         
-        Log.d(TAG, "Material 3 immersive mode enabled");
+        Log.d(TAG, "Material 3 immersive mode enabled (status bar kept visible)");
     }
     
     /**
@@ -918,8 +917,7 @@ public class ResourceFragment extends BaseFragment {
         Window window = activity.getWindow();
         if (window == null) return;
         
-        // Restore system bars
-        WindowCompat.setDecorFitsSystemWindows(window, true);
+        // Restore system bars (status bar was never hidden)
         WindowInsetsControllerCompat windowInsetsController = WindowCompat.getInsetsController(window, window.getDecorView());
         if (windowInsetsController != null) {
             windowInsetsController.setAppearanceLightStatusBars(originalLightStatusBar);
@@ -948,15 +946,17 @@ public class ResourceFragment extends BaseFragment {
         Window window = activity.getWindow();
         if (window == null) return;
         
-        // Create lighter and darker variations
+        // Create darker variation for status bar
+        int statusBarColor = ColorUtils.blendARGB(dominantColor, Color.BLACK, 0.3f);
+        
+        // Apply to status bar only (keep it visible)
+        window.setStatusBarColor(statusBarColor);
+        
+        // Keep navigation bar transparent
+        window.setNavigationBarColor(Color.TRANSPARENT);
+        
+        // Apply lighter background to fragment content
         int lightColor = ColorUtils.blendARGB(dominantColor, Color.WHITE, 0.8f);
-        int darkColor = ColorUtils.blendARGB(dominantColor, Color.BLACK, 0.3f);
-        
-        // Apply to system bars
-        window.setStatusBarColor(darkColor);
-        window.setNavigationBarColor(darkColor);
-        
-        // Apply to fragment background
         if (binding != null) {
             binding.getRoot().setBackgroundColor(lightColor);
         }
@@ -964,12 +964,12 @@ public class ResourceFragment extends BaseFragment {
         // Update window insets controller for proper contrast
         WindowInsetsControllerCompat windowInsetsController = WindowCompat.getInsetsController(window, window.getDecorView());
         if (windowInsetsController != null) {
-            // Determine if we need light or dark content based on background
-            boolean isLightBackground = ColorUtils.calculateLuminance(darkColor) > 0.5;
+            // Determine if we need light or dark content based on status bar color
+            boolean isLightBackground = ColorUtils.calculateLuminance(statusBarColor) > 0.5;
             windowInsetsController.setAppearanceLightStatusBars(isLightBackground);
             windowInsetsController.setAppearanceLightNavigationBars(isLightBackground);
         }
         
-        Log.d(TAG, "Applied dynamic theming with color: " + Integer.toHexString(dominantColor));
+        Log.d(TAG, "Applied dynamic theming with status bar color: " + Integer.toHexString(statusBarColor));
     }
 }
