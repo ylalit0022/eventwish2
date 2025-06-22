@@ -153,17 +153,50 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       setLoading(true);
-      console.log("Initiating Google sign-in redirect...");
+      console.log("Initiating Google sign-in...");
       
-      // Using redirect method
-      await signInWithGoogle();
-      // The redirect will happen now, and the result will be handled in the useEffect
+      // Using popup method (updated from redirect)
+      const result = await signInWithGoogle();
       
-      // Note: We won't reach this point as the page will redirect
+      if (result && result.user) {
+        console.log("Google sign-in successful", result.user);
+        setCurrentUser(result.user);
+        
+        // Verify admin status immediately after sign-in
+        try {
+          const adminData = await verifyAdmin();
+          console.log("Admin verification response after sign-in:", adminData);
+          
+          if (adminData && adminData.isAdmin) {
+            console.log("Admin verification successful", adminData);
+            setAdminInfo({
+              isAdmin: true,
+              role: adminData.role
+            });
+          } else {
+            console.log("User is not an admin");
+            setAdminInfo(null);
+            setError('You do not have admin access');
+          }
+        } catch (err) {
+          console.error('Error verifying admin status after sign-in:', err);
+          setAdminInfo(null);
+          setError('Error verifying admin status: ' + (err.message || err));
+        }
+        
+        setLoading(false);
+        return true;
+      } else {
+        // This might be a redirect case (fallback)
+        console.log("No immediate result, redirect may have occurred");
+        setLoading(false);
+        return true;
+      }
     } catch (err) {
       console.error('Login error:', err);
       setError('Failed to sign in with Google: ' + (err.message || err));
       setLoading(false);
+      return false;
     }
   };
 

@@ -76,7 +76,7 @@ function App() {
       <NotiStackProvider maxSnack={3}>
         <SnackbarProvider>
           <AuthProvider>
-            <Router basename="/">
+            <Router basename="/admin">
               <Routes>
                 {/* Public routes */}
                 <Route path="/login" element={<Login />} />

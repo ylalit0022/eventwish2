@@ -213,6 +213,20 @@ if (fs.existsSync(adminBuildPath)) {
       if (path.endsWith('.js')) {
         res.setHeader('Content-Type', 'application/javascript');
       }
+      // Set proper CSP for admin panel
+      res.setHeader('Content-Security-Policy', 
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://accounts.google.com https://www.gstatic.com https://neweventwish.firebaseapp.com https://*.googleapis.com; " +
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+        "font-src 'self' https://fonts.gstatic.com; " +
+        "img-src 'self' data: https: blob:; " +
+        "connect-src 'self' https://accounts.google.com https://www.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://neweventwish.firebaseapp.com https://*.googleapis.com https://firebase.googleapis.com; " +
+        "frame-src 'self' https://accounts.google.com https://neweventwish.firebaseapp.com https://*.firebaseapp.com; " +
+        "child-src 'self' https://accounts.google.com https://neweventwish.firebaseapp.com https://*.firebaseapp.com; " +
+        "object-src 'none'; " +
+        "form-action 'self' https://accounts.google.com; " +
+        "base-uri 'self'"
+      );
     }
   }));
   console.log('✅ Admin panel static files served from:', adminBuildPath);
@@ -228,8 +242,12 @@ app.get('/bundle*.js', (req, res) => {
   res.sendFile(bundlePath);
 });
 
-// Serve favicon.ico
+// Serve favicon.ico for admin panel
 app.get('/favicon.ico', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin-panel/build/favicon.ico'));
+});
+
+app.get('/admin/favicon.ico', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin-panel/build/favicon.ico'));
 });
 
@@ -461,10 +479,36 @@ app.use((err, req, res, next) => {
 
 // Handle all admin panel routes to serve the React app
 app.get('/admin', (req, res) => {
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://accounts.google.com https://www.gstatic.com https://neweventwish.firebaseapp.com https://*.googleapis.com; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+    "font-src 'self' https://fonts.gstatic.com; " +
+    "img-src 'self' data: https: blob:; " +
+    "connect-src 'self' https://accounts.google.com https://www.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://neweventwish.firebaseapp.com https://*.googleapis.com https://firebase.googleapis.com; " +
+    "frame-src 'self' https://accounts.google.com https://neweventwish.firebaseapp.com https://*.firebaseapp.com; " +
+    "child-src 'self' https://accounts.google.com https://neweventwish.firebaseapp.com https://*.firebaseapp.com; " +
+    "object-src 'none'; " +
+    "form-action 'self' https://accounts.google.com; " +
+    "base-uri 'self'"
+  );
   res.sendFile(path.join(__dirname, 'admin-panel/build/index.html'));
 });
 
 app.get('/admin/*', (req, res) => {
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://accounts.google.com https://www.gstatic.com https://neweventwish.firebaseapp.com https://*.googleapis.com; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+    "font-src 'self' https://fonts.gstatic.com; " +
+    "img-src 'self' data: https: blob:; " +
+    "connect-src 'self' https://accounts.google.com https://www.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://neweventwish.firebaseapp.com https://*.googleapis.com https://firebase.googleapis.com; " +
+    "frame-src 'self' https://accounts.google.com https://neweventwish.firebaseapp.com https://*.firebaseapp.com; " +
+    "child-src 'self' https://accounts.google.com https://neweventwish.firebaseapp.com https://*.firebaseapp.com; " +
+    "object-src 'none'; " +
+    "form-action 'self' https://accounts.google.com; " +
+    "base-uri 'self'"
+  );
   res.sendFile(path.join(__dirname, 'admin-panel/build/index.html'));
 });
 

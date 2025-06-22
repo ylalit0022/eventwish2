@@ -42,15 +42,26 @@ googleProvider.setCustomParameters({
   prompt: "select_account"
 });
 
-// Sign in with Google using redirect (more compatible with CSP restrictions)
+// Sign in with Google using popup (better for CSP and local development)
 export const signInWithGoogle = async () => {
   try {
-    console.log("Starting Google sign in with redirect...");
-    await signInWithRedirect(auth, googleProvider);
-    // The result will be handled by getRedirectResult in AuthContext
-    return true;
+    console.log("Starting Google sign in with popup...");
+    const result = await signInWithPopup(auth, googleProvider);
+    console.log("Google sign in successful:", result.user.email);
+    return result;
   } catch (error) {
-    console.error("Error initiating Google sign in redirect:", error);
+    console.error("Error with Google sign in popup:", error);
+    // Fallback to redirect if popup fails
+    if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
+      console.log("Popup blocked, trying redirect...");
+      try {
+        await signInWithRedirect(auth, googleProvider);
+        return true;
+      } catch (redirectError) {
+        console.error("Error initiating Google sign in redirect:", redirectError);
+        throw redirectError;
+      }
+    }
     throw error;
   }
 };
