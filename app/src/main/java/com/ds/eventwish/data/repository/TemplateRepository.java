@@ -1257,18 +1257,27 @@ public class TemplateRepository {
                                         }
                                     }
                                     
-                                    // If we got here, something went wrong
-                                    Log.e(TAG, "Like operation failed for template " + templateId + " - status code: " + 
-                                        response.code() + ", message: " + response.message());
-                                    
-                                    if (response.errorBody() != null) {
-                                        try {
-                                            String errorBody = response.errorBody().string();
-                                            Log.e(TAG, "Like API error body: " + errorBody);
-                                        } catch (Exception e) {
-                                            Log.e(TAG, "Failed to read error body", e);
-                                        }
-                                    }
+                                                        // If we got here, something went wrong
+                    String errorMessage = "Like operation failed for template " + templateId;
+                    
+                    if (response.code() == 401) {
+                        Log.w(TAG, errorMessage + " - Authentication required. User may need to sign in again.");
+                        // Don't revert the UI change for auth errors - user can retry later
+                    } else if (response.code() == 502 || response.code() == 503) {
+                        Log.w(TAG, errorMessage + " - Server temporarily unavailable (" + response.code() + "). Keeping local state.");
+                        // Don't revert the UI change for server errors - keep optimistic update
+                    } else {
+                        Log.e(TAG, errorMessage + " - status code: " + response.code() + ", message: " + response.message());
+                    }
+                    
+                    if (response.errorBody() != null) {
+                        try {
+                            String errorBody = response.errorBody().string();
+                            Log.e(TAG, "Like API error body: " + errorBody);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to read error body", e);
+                        }
+                    }
                                     
                                     // Return result but don't revert the UI change
                                     // The user already sees the change, and we've stored it locally
@@ -1395,18 +1404,27 @@ public class TemplateRepository {
                                         }
                                     }
                                     
-                                    // If we got here, something went wrong
-                                    Log.e(TAG, "Favorite operation failed for template " + templateId + " - status code: " + 
-                                        response.code() + ", message: " + response.message());
-                                    
-                                    if (response.errorBody() != null) {
-                                        try {
-                                            String errorBody = response.errorBody().string();
-                                            Log.e(TAG, "Favorite API error body: " + errorBody);
-                                        } catch (Exception e) {
-                                            Log.e(TAG, "Failed to read error body", e);
-                                        }
-                                    }
+                                                        // If we got here, something went wrong
+                    String errorMessage = "Favorite operation failed for template " + templateId;
+                    
+                    if (response.code() == 401) {
+                        Log.w(TAG, errorMessage + " - Authentication required. User may need to sign in again.");
+                        // Don't revert the UI change for auth errors - user can retry later
+                    } else if (response.code() == 502 || response.code() == 503) {
+                        Log.w(TAG, errorMessage + " - Server temporarily unavailable (" + response.code() + "). Keeping local state.");
+                        // Don't revert the UI change for server errors - keep optimistic update
+                    } else {
+                        Log.e(TAG, errorMessage + " - status code: " + response.code() + ", message: " + response.message());
+                    }
+                    
+                    if (response.errorBody() != null) {
+                        try {
+                            String errorBody = response.errorBody().string();
+                            Log.e(TAG, "Favorite API error body: " + errorBody);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to read error body", e);
+                        }
+                    }
                                     
                                     // Return result but don't revert the UI change
                                     // The user already sees the change, and we've stored it locally
@@ -3137,6 +3155,43 @@ public class TemplateRepository {
             Log.d(TAG, "Posted updated template counts from server for template " + templateId);
         } else {
             Log.w(TAG, "Template " + templateId + " not found for server count update");
+        }
+    }
+
+    /**
+     * Retry mechanism for failed API operations
+     */
+    private void retryFailedOperation(String operation, String templateId, boolean newState, int retryCount) {
+        if (retryCount >= 3) {
+            Log.w(TAG, "Max retries reached for " + operation + " operation on template " + templateId);
+            return;
+        }
+        
+        Log.d(TAG, "Retrying " + operation + " operation for template " + templateId + " (attempt " + (retryCount + 1) + "/3)");
+        
+        // Retry after a short delay
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            if ("like".equals(operation)) {
+                toggleLike(templateId, newState);
+            } else if ("favorite".equals(operation)) {
+                toggleFavorite(templateId, newState);
+            }
+        }, 2000 * (retryCount + 1)); // Exponential backoff: 2s, 4s, 6s
+    }
+    
+    /**
+     * Check if the user's authentication token is still valid
+     */
+    private void checkAuthenticationStatus() {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            Log.w(TAG, "User is not authenticated. Some operations may fail.");
+        } else {
+            user.getIdToken(false).addOnCompleteListener(task -> {
+                if (!task.isSuccessful()) {
+                    Log.w(TAG, "User token may be expired. Some operations may fail.");
+                }
+            });
         }
     }
 }

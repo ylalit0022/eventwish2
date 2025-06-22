@@ -155,8 +155,8 @@
     <color name="gray_text">#757575</color>
     
     <!-- Share Button Colors -->
-    <color name="share_button_enabled">#2196F3</color>
-    <color name="share_button_disabled">#757575</color>
+    <color name="share_button_enabled">@color/md_theme_light_primary</color>
+    <color name="share_button_disabled">#CCCCCC</color>
     
     <!-- Original App Theme Colors (preserving for compatibility) -->
     <color name="primary">#FFFFFF</color>
@@ -202,4 +202,7 @@
     <color name="template_recommended_background">#FFF8E1</color>
     <color name="template_text_primary">#212121</color>
     <color name="template_text_secondary">#757575</color>
+
+    <!-- Back button background with transparency -->
+    <color name="back_button_background">#80000000</color>
 </resources>

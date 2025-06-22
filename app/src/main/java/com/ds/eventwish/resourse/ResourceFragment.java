@@ -22,6 +22,11 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.NavDirections;
 import androidx.navigation.Navigation;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
+import android.view.Window;
+import android.app.Activity;
 import com.ds.eventwish.ui.base.BaseFragment;
 import com.ds.eventwish.MainActivity;
 import com.ds.eventwish.R;
@@ -111,6 +116,12 @@ public class ResourceFragment extends BaseFragment {
     
     // Add AdMobManager reference
     private AdMobManager adMobManager;
+    
+    // Material 3 immersive experience
+    private int originalStatusBarColor;
+    private int originalNavigationBarColor;
+    private boolean originalLightStatusBar;
+    private boolean originalLightNavigationBar;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -161,8 +172,11 @@ public class ResourceFragment extends BaseFragment {
         // Get bottom navigation from activity
         if (getActivity() instanceof MainActivity) {
             bottomNav = getActivity().findViewById(R.id.bottomNavigation);
-            bottomNav.setVisibility(View.VISIBLE);
+            bottomNav.setVisibility(View.GONE); // Hide bottom nav for immersive experience
         }
+        
+        // Enable Material 3 immersive mode
+        enableMaterial3ImmersiveMode();
 
         // Get shortCode from deep link
         if (getArguments() != null) {
@@ -213,6 +227,7 @@ public class ResourceFragment extends BaseFragment {
         setupFullScreenToggle();
         setupTouchListener();
         setupReuseButton();
+        setupBackButton();
         
         // Enable full screen mode by default
         enableFullScreenMode();
@@ -395,20 +410,16 @@ public class ResourceFragment extends BaseFragment {
                         // Get the dominant color
                         int dominantColor = palette.getDominantSwatch().getRgb();
                         
-                        // Make it lighter for better readability
-                        int lightColor = ColorUtils.blendARGB(dominantColor, Color.WHITE, 0.7f);
+                        Log.d(TAG, "Extracted dominant color: " + Integer.toHexString(dominantColor));
                         
-                        // Apply the color to the background
-                        binding.getRoot().setBackgroundColor(lightColor);
-                        
-                        // Also apply to content layout
-                        binding.contentLayout.setBackgroundColor(lightColor);
-                        
-                        Log.d(TAG, "Applied extracted background color");
+                        // Apply Material 3 dynamic theming
+                        applyDynamicTheming(dominantColor);
                     }
                 });
             } catch (Exception e) {
                 Log.e(TAG, "Error extracting color", e);
+                // Apply default Material 3 theming on error
+                applyDynamicTheming(Color.parseColor("#6200EE"));
             }
         }
     }
@@ -668,6 +679,9 @@ public class ResourceFragment extends BaseFragment {
         // Remove any pending callbacks
         autoHideHandler.removeCallbacks(autoHideRunnable);
         
+        // Restore Material 3 immersive mode
+        disableMaterial3ImmersiveMode();
+        
         // Restore bottom navigation visibility
         if (bottomNav != null) {
             bottomNav.setVisibility(View.VISIBLE);
@@ -833,5 +847,129 @@ public class ResourceFragment extends BaseFragment {
         } catch (Exception e) {
             Log.e(TAG, "Error in analytics tracking on resume: " + e.getMessage());
         }
+    }
+    
+    /**
+     * Setup back button click listener
+     */
+    private void setupBackButton() {
+        if (binding != null && binding.backButton != null) {
+            binding.backButton.setOnClickListener(v -> {
+                Log.d(TAG, "Back button clicked - navigating to HomeFragment");
+                navigateToHome();
+            });
+        }
+    }
+    
+    /**
+     * Navigate to HomeFragment
+     */
+    private void navigateToHome() {
+        try {
+            NavController navController = Navigation.findNavController(requireView());
+            navController.navigate(R.id.action_resource_to_home);
+            Log.d(TAG, "Successfully navigated to HomeFragment");
+        } catch (Exception e) {
+            Log.e(TAG, "Error navigating to HomeFragment", e);
+            // Fallback: finish activity if navigation fails
+            if (getActivity() != null) {
+                getActivity().finish();
+            }
+        }
+    }
+    
+    /**
+     * Enable Material 3 immersive mode
+     */
+    private void enableMaterial3ImmersiveMode() {
+        Activity activity = getActivity();
+        if (activity == null) return;
+        
+        Window window = activity.getWindow();
+        if (window == null) return;
+        
+        // Store original values for restoration
+        originalStatusBarColor = window.getStatusBarColor();
+        originalNavigationBarColor = window.getNavigationBarColor();
+        
+        WindowInsetsControllerCompat windowInsetsController = WindowCompat.getInsetsController(window, window.getDecorView());
+        if (windowInsetsController != null) {
+            originalLightStatusBar = windowInsetsController.isAppearanceLightStatusBars();
+            originalLightNavigationBar = windowInsetsController.isAppearanceLightNavigationBars();
+        }
+        
+        // Apply Material 3 immersive theming
+        WindowCompat.setDecorFitsSystemWindows(window, false);
+        
+        // Set system bars to adapt to content
+        window.setStatusBarColor(Color.TRANSPARENT);
+        window.setNavigationBarColor(Color.TRANSPARENT);
+        
+        Log.d(TAG, "Material 3 immersive mode enabled");
+    }
+    
+    /**
+     * Disable Material 3 immersive mode and restore original system UI
+     */
+    private void disableMaterial3ImmersiveMode() {
+        Activity activity = getActivity();
+        if (activity == null) return;
+        
+        Window window = activity.getWindow();
+        if (window == null) return;
+        
+        // Restore system bars
+        WindowCompat.setDecorFitsSystemWindows(window, true);
+        WindowInsetsControllerCompat windowInsetsController = WindowCompat.getInsetsController(window, window.getDecorView());
+        if (windowInsetsController != null) {
+            windowInsetsController.setAppearanceLightStatusBars(originalLightStatusBar);
+            windowInsetsController.setAppearanceLightNavigationBars(originalLightNavigationBar);
+        }
+        
+        // Restore original colors
+        window.setStatusBarColor(originalStatusBarColor);
+        window.setNavigationBarColor(originalNavigationBarColor);
+        
+        // Show bottom navigation
+        if (bottomNav != null) {
+            bottomNav.setVisibility(View.VISIBLE);
+        }
+        
+        Log.d(TAG, "Material 3 immersive mode disabled");
+    }
+    
+    /**
+     * Apply dynamic theming based on WebView content color
+     */
+    private void applyDynamicTheming(int dominantColor) {
+        Activity activity = getActivity();
+        if (activity == null) return;
+        
+        Window window = activity.getWindow();
+        if (window == null) return;
+        
+        // Create lighter and darker variations
+        int lightColor = ColorUtils.blendARGB(dominantColor, Color.WHITE, 0.8f);
+        int darkColor = ColorUtils.blendARGB(dominantColor, Color.BLACK, 0.3f);
+        
+        // Apply to system bars
+        window.setStatusBarColor(darkColor);
+        window.setNavigationBarColor(darkColor);
+        
+        // Apply to fragment background
+        if (binding != null) {
+            binding.getRoot().setBackgroundColor(lightColor);
+        }
+        
+        // Update window insets controller for proper contrast
+        WindowInsetsControllerCompat windowInsetsController = WindowCompat.getInsetsController(window, window.getDecorView());
+        if (windowInsetsController != null) {
+            // Determine if we need light or dark content based on background
+            boolean isLightBackground = ColorUtils.calculateLuminance(darkColor) > 0.5;
+            windowInsetsController.setAppearanceLightStatusBars(isLightBackground);
+            windowInsetsController.setAppearanceLightNavigationBars(isLightBackground);
+        }
+        
+        Log.d(TAG, "Applied dynamic theming with color: " + Integer.toHexString(dominantColor));
     }
 }

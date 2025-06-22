@@ -4,7 +4,23 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurface">
+    android:background="?attr/colorSurface"
+    android:fitsSystemWindows="false">
+
+    <!-- Back Arrow Button -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/backButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:src="@drawable/ic_arrow_back"
+        android:contentDescription="@string/navigate_back"
+        app:fabSize="mini"
+        app:backgroundTint="@color/back_button_background"
+        app:tint="@android:color/white"
+        app:elevation="6dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <com.google.android.material.progressindicator.CircularProgressIndicator
         android:id="@+id/progressBar"
@@ -12,6 +28,7 @@
         android:layout_height="wrap_content"
         android:visibility="visible"
         android:indeterminate="true"
+        app:indicatorColor="?attr/colorPrimary"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -33,6 +50,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone"
+        android:fitsSystemWindows="false"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -48,32 +66,35 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <ImageButton
+        <!-- Fullscreen Toggle Button -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/fullscreenToggle"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:layout_margin="16dp"
-            android:background="@drawable/rounded_button_bg"
-            android:contentDescription="Toggle fullscreen mode"
-            android:elevation="4dp"
-            android:padding="8dp"
+            android:contentDescription="@string/toggle_fullscreen_mode"
             android:src="@drawable/ic_fullscreen"
-            app:tint="?attr/colorPrimary"
+            app:fabSize="mini"
+            app:backgroundTint="?attr/colorSurfaceContainer"
+            app:tint="?attr/colorOnSurfaceVariant"
+            app:elevation="4dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+        <!-- Reuse Template Button -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/reuseTemplateButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            android:contentDescription="@string/reuse_template_description"
+            android:src="@drawable/ic_refresh"
+            app:backgroundTint="?attr/colorPrimary"
+            app:tint="?attr/colorOnPrimary"
+            app:elevation="6dp"
+            app:layout_constraintBottom_toTopOf="@id/fullscreenToggle"
+            app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Add FloatingActionButton for reusing the template -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/reuseTemplateButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:contentDescription="@string/reuse_template_description"
-        app:srcCompat="@drawable/ic_refresh"
-        app:tint="?attr/colorOnPrimary"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

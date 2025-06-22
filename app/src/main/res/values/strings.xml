@@ -572,4 +572,13 @@
     <string name="more_profile">Profile</string>
 
     <string name="back_button_description">Back</string>
+    
+    <!-- Navigation -->
+    <string name="navigate_back">Navigate back</string>
+    <string name="toggle_fullscreen_mode">Toggle fullscreen mode</string>
+    
+    <!-- Material 3 UI -->
+    <string name="analytics">Analytics</string>
+    
+    <!-- Cooldown Timer - using existing strings -->
 </resources>

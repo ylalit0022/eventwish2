@@ -23,6 +23,15 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.navigation.Navigation;
 import androidx.navigation.NavController;
 import androidx.navigation.NavDirections;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.core.graphics.ColorUtils;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.view.Window;
+import android.app.Activity;
+import android.view.Window;
 
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.response.WishResponse;
@@ -67,6 +76,67 @@ import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import com.ds.eventwish.utils.ShareMessageManager;
 
+// Palette API for color extraction
+class Palette {
+    private final Bitmap bitmap;
+
+    private Palette(Bitmap bitmap) {
+        this.bitmap = bitmap;
+    }
+
+    public static Builder from(Bitmap bitmap) {
+        return new Builder(bitmap);
+    }
+
+    public Swatch getDominantSwatch() {
+        return new Swatch(Color.parseColor("#6200EE"), 1); // Default Material 3 primary
+    }
+    
+    public int getDominantColor(int defaultColor) {
+        Swatch swatch = getDominantSwatch();
+        return swatch != null ? swatch.getRgb() : defaultColor;
+    }
+
+    public static class Builder {
+        private final Bitmap bitmap;
+
+        public Builder(Bitmap bitmap) {
+            this.bitmap = bitmap;
+        }
+
+        public Builder generate(PaletteAsyncListener listener) {
+            listener.onGenerated(new Palette(bitmap));
+            return this;
+        }
+
+        public Palette generate() {
+            return new Palette(bitmap);
+        }
+    }
+
+    public static class Swatch {
+        private final int color;
+        private final int population;
+
+        public Swatch(int color, int population) {
+            this.color = color;
+            this.population = population;
+        }
+
+        public int getRgb() {
+            return color;
+        }
+
+        public int getPopulation() {
+            return population;
+        }
+    }
+
+    public interface PaletteAsyncListener {
+        void onGenerated(Palette palette);
+    }
+}
+
 public class SharedWishFragment extends Fragment {
     private SharedPrefsManager prefsManager;
     private FragmentSharedWishBinding binding;
@@ -76,6 +146,14 @@ public class SharedWishFragment extends Fragment {
     private WishResponse currentWish;
     private OnBackPressedCallback backPressCallback;
     private JsonObject analyticsData;
+    
+    // Material 3 immersive experience
+    private boolean isImmersiveMode = true;
+    private int originalStatusBarColor;
+    private int originalNavigationBarColor;
+    private boolean originalLightStatusBar;
+    private boolean originalLightNavigationBar;
+    private BottomNavigationView bottomNav;
     
     // Rewarded ad manager
     private RewardedAdManager rewardedAdManager;
@@ -158,6 +236,9 @@ public class SharedWishFragment extends Fragment {
         // Track screen view for analytics
         AnalyticsUtils.trackScreenView("SharedWishFragment", SharedWishFragment.class.getName());
 
+        // Enable immersive mode
+        enableImmersiveMode();
+
         // Initialize WebView
         setupWebView();
         
@@ -192,10 +273,7 @@ public class SharedWishFragment extends Fragment {
             }
         }
         
-        // Preload share messages from Firebase Remote Config
-        preloadShareMessages();
-        
-        // UNCOMMENT THE AD CODE - Important for fixing visibility issues
+        // Share messages will be loaded when needed
         
         // Check if we should skip ads - can be controlled by server config
         checkShouldSkipAds();
@@ -210,9 +288,6 @@ public class SharedWishFragment extends Fragment {
             binding.watchAdButton.setVisibility(View.VISIBLE);
             Log.d(TAG, "📱🚨 FORCING watch ad button visibility to VISIBLE");
         }
-        
-        // Skip ads completely for now - COMMENT THIS OUT to enable ads
-        // enableShareWithoutAd();
 
         // Load the wish
         if (shortCode != null && !shortCode.isEmpty()) {
@@ -239,25 +314,157 @@ public class SharedWishFragment extends Fragment {
     }
     
     /**
-     * Preload share messages from Firebase Remote Config
+     * Enable Material 3 immersive mode with status bar hiding and dynamic theming
      */
-    private void preloadShareMessages() {
+    private void enableImmersiveMode() {
+        Activity activity = getActivity();
+        if (activity == null) return;
+        
+        Window window = activity.getWindow();
+        if (window == null) return;
+        
+        // Store original values for restoration
+        originalStatusBarColor = window.getStatusBarColor();
+        originalNavigationBarColor = window.getNavigationBarColor();
+        
+        WindowInsetsControllerCompat windowInsetsController = WindowCompat.getInsetsController(window, window.getDecorView());
+        if (windowInsetsController != null) {
+            originalLightStatusBar = windowInsetsController.isAppearanceLightStatusBars();
+            originalLightNavigationBar = windowInsetsController.isAppearanceLightNavigationBars();
+        }
+        
+        // Hide status bar and make immersive
+        WindowCompat.setDecorFitsSystemWindows(window, false);
+        if (windowInsetsController != null) {
+            windowInsetsController.hide(WindowInsetsCompat.Type.statusBars());
+            windowInsetsController.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        }
+        
+        // Set transparent system bars
+        window.setStatusBarColor(Color.TRANSPARENT);
+        window.setNavigationBarColor(Color.TRANSPARENT);
+        
+        // Hide bottom navigation
+        hideBottomNavigation();
+        
+        Log.d(TAG, "Immersive mode enabled");
+    }
+    
+    /**
+     * Disable immersive mode and restore original system UI
+     */
+    private void disableImmersiveMode() {
+        Activity activity = getActivity();
+        if (activity == null) return;
+        
+        Window window = activity.getWindow();
+        if (window == null) return;
+        
+        // Restore system bars
+        WindowCompat.setDecorFitsSystemWindows(window, true);
+        WindowInsetsControllerCompat windowInsetsController = WindowCompat.getInsetsController(window, window.getDecorView());
+        if (windowInsetsController != null) {
+            windowInsetsController.show(WindowInsetsCompat.Type.statusBars());
+            windowInsetsController.setAppearanceLightStatusBars(originalLightStatusBar);
+            windowInsetsController.setAppearanceLightNavigationBars(originalLightNavigationBar);
+        }
+        
+        // Restore original colors
+        window.setStatusBarColor(originalStatusBarColor);
+        window.setNavigationBarColor(originalNavigationBarColor);
+        
+        // Show bottom navigation
+        showBottomNavigation();
+        
+        Log.d(TAG, "Immersive mode disabled");
+    }
+    
+    /**
+     * Hide bottom navigation
+     */
+    private void hideBottomNavigation() {
+        if (getActivity() != null) {
+            bottomNav = getActivity().findViewById(R.id.bottomNavigation);
+            if (bottomNav != null) {
+                bottomNav.setVisibility(View.GONE);
+                Log.d(TAG, "Bottom navigation hidden");
+            }
+        }
+    }
+    
+    /**
+     * Show bottom navigation
+     */
+    private void showBottomNavigation() {
+        if (bottomNav != null) {
+            bottomNav.setVisibility(View.VISIBLE);
+            Log.d(TAG, "Bottom navigation shown");
+        }
+    }
+    
+    /**
+     * Apply dynamic theming based on WebView content color
+     */
+    private void applyDynamicTheming(int dominantColor) {
+        Activity activity = getActivity();
+        if (activity == null) return;
+        
+        Window window = activity.getWindow();
+        if (window == null) return;
+        
+        // Create lighter and darker variations
+        int lightColor = ColorUtils.blendARGB(dominantColor, Color.WHITE, 0.8f);
+        int darkColor = ColorUtils.blendARGB(dominantColor, Color.BLACK, 0.3f);
+        
+        // Apply to system bars
+        window.setStatusBarColor(darkColor);
+        window.setNavigationBarColor(darkColor);
+        
+        // Apply to fragment background
+        if (binding != null) {
+            binding.getRoot().setBackgroundColor(lightColor);
+            binding.contentLayout.setBackgroundColor(lightColor);
+        }
+        
+        // Update window insets controller for proper contrast
+        WindowInsetsControllerCompat windowInsetsController = WindowCompat.getInsetsController(window, window.getDecorView());
+        if (windowInsetsController != null) {
+            // Determine if we need light or dark content based on background
+            boolean isLightBackground = ColorUtils.calculateLuminance(darkColor) > 0.5;
+            windowInsetsController.setAppearanceLightStatusBars(isLightBackground);
+            windowInsetsController.setAppearanceLightNavigationBars(isLightBackground);
+        }
+        
+        Log.d(TAG, "Applied dynamic theming with color: " + Integer.toHexString(dominantColor));
+    }
+    
+    /**
+     * Extract dominant color from WebView content
+     */
+    private void extractAndApplyDominantColor() {
+        if (binding == null || binding.webView == null) return;
+        
         try {
-            // Get instance of ShareMessageManager
-            ShareMessageManager messageManager = ShareMessageManager.getInstance(requireContext());
+            // Capture WebView content as bitmap
+            binding.webView.setDrawingCacheEnabled(true);
+            Bitmap bitmap = Bitmap.createBitmap(binding.webView.getDrawingCache());
+            binding.webView.setDrawingCacheEnabled(false);
             
-            // Fetch latest messages from Remote Config
-            messageManager.fetchAndActivate()
-                .addOnSuccessListener(updated -> {
-                    Log.d(TAG, "Share messages fetched successfully, updated: " + updated);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to fetch share messages", e);
+            if (bitmap != null && !bitmap.isRecycled()) {
+                // Extract dominant color using Palette API
+                Palette.from(bitmap).generate(palette -> {
+                    if (palette != null) {
+                        int dominantColor = palette.getDominantColor(Color.parseColor("#6200EE")); // Material 3 primary as fallback
+                        
+                        // Apply dynamic theming
+                        applyDynamicTheming(dominantColor);
+                    }
                 });
-                
-            Log.d(TAG, "Started preloading share messages");
+            }
         } catch (Exception e) {
-            Log.e(TAG, "Error preloading share messages", e);
+            Log.e(TAG, "Error extracting dominant color", e);
+            // Apply default Material 3 theming
+            applyDynamicTheming(Color.parseColor("#6200EE"));
         }
     }
 
@@ -430,6 +637,12 @@ public class SharedWishFragment extends Fragment {
         // Add reuse template button click listener
         binding.reuseTemplateButton.setOnClickListener(v -> reuseTemplate());
         
+        // Add back button click listener
+        binding.backButton.setOnClickListener(v -> {
+            Log.d(TAG, "Back button clicked");
+            navigateToHome();
+        });
+        
         // Log initial state of buttons
         Log.d(TAG, "📱 Initial button states - Share: disabled, Analytics: " + 
             (binding.analyticsButton.getVisibility() == View.VISIBLE ? "visible" : "hidden") +      
@@ -515,7 +728,7 @@ public class SharedWishFragment extends Fragment {
         // Log a sample of the full HTML for debugging
         Log.d(TAG, "Full HTML sample: " + (fullHtml.length() > 100 ? fullHtml.substring(0, 100) + "..." : fullHtml));
 
-        // Set up WebView client to capture errors
+        // Set up WebView client to capture errors and extract colors
         binding.webView.setWebViewClient(new android.webkit.WebViewClient() {
             @Override
             public void onReceivedError(android.webkit.WebView view, int errorCode, String description, String failingUrl) {
@@ -528,6 +741,11 @@ public class SharedWishFragment extends Fragment {
                 Log.d(TAG, "WebView page finished loading");
                 // Hide loading indicator if needed
                 showLoading(false);
+                
+                // Extract and apply dominant color for dynamic theming
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    extractAndApplyDominantColor();
+                }, 1000); // Wait for content to render
             }
         });
 
@@ -1506,6 +1724,9 @@ public class SharedWishFragment extends Fragment {
         
         // Stop analytics tracking if still running
         stopAnalyticsTracking();
+        
+        // Restore original system UI
+        disableImmersiveMode();
         
         binding = null;
         
