@@ -15,14 +15,20 @@ function cleanupSubscriptionData(user) {
         // Fix invalid plan values
         const validPlans = ['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY', ''];
         if (!validPlans.includes(user.subscription.plan)) {
-            logger.warn(`Fixing invalid subscription plan: ${user.subscription.plan} -> MONTHLY`);
-            user.subscription.plan = 'MONTHLY';
+            logger.warn(`Fixing invalid subscription plan: ${user.subscription.plan} -> ''`);
+            user.subscription.plan = '';
         }
         
-        // Remove planLevel field if it exists (field has been removed from schema)
-        if (user.subscription.planLevel !== undefined) {
-            logger.warn(`Removing deprecated planLevel field: ${user.subscription.planLevel}`);
-            delete user.subscription.planLevel;
+        // Fix invalid planLevel values
+        const validPlanLevels = ['BASIC', 'PREMIUM', 'PRO', ''];
+        if (user.subscription.planLevel !== undefined && !validPlanLevels.includes(user.subscription.planLevel)) {
+            logger.warn(`Fixing invalid subscription planLevel: ${user.subscription.planLevel} -> ''`);
+            user.subscription.planLevel = '';
+        }
+        
+        // Ensure planLevel is set to empty string if undefined
+        if (user.subscription.planLevel === undefined || user.subscription.planLevel === null) {
+            user.subscription.planLevel = '';
         }
     }
 }
