@@ -167,6 +167,15 @@ router.post('/register', validateFirebaseUid, verifyFirebaseToken, async (req, r
             osVersion
         } = req.body;
         
+        // Enhanced logging for debugging
+        logger.info(`Registration attempt for UID: ${uid}`, {
+            hasDisplayName: !!displayName,
+            hasEmail: !!email,
+            hasDeviceId: !!deviceId,
+            deviceModel,
+            appVersion
+        });
+        
         // Find user by uid
         let user = await User.findOne({ uid });
         
@@ -202,6 +211,7 @@ router.post('/register', validateFirebaseUid, verifyFirebaseToken, async (req, r
                         appVersion,
                         osVersion
                     });
+                    logger.info(`Device session added for existing user ${uid}: ${deviceId}`);
                 } catch (sessionError) {
                     logger.warn(`Failed to add device session for existing user ${uid}: ${sessionError.message}`);
                 }
@@ -233,6 +243,7 @@ router.post('/register', validateFirebaseUid, verifyFirebaseToken, async (req, r
         });
         
         await user.save();
+        logger.info(`New user document saved: UID: ${uid}`);
         
         // Track device session if device info is provided
         if (deviceId) {
@@ -244,12 +255,13 @@ router.post('/register', validateFirebaseUid, verifyFirebaseToken, async (req, r
                     appVersion,
                     osVersion
                 });
+                logger.info(`Device session added for new user ${uid}: ${deviceId}`);
             } catch (sessionError) {
                 logger.warn(`Failed to add device session for new registered user ${uid}: ${sessionError.message}`);
             }
         }
         
-        logger.info(`New user registered: UID: ${uid}`);
+        logger.info(`New user registered successfully: UID: ${uid}`);
         
         res.status(201).json({
             success: true,
@@ -257,7 +269,35 @@ router.post('/register', validateFirebaseUid, verifyFirebaseToken, async (req, r
             user
         });
     } catch (error) {
-        logger.error(`User registration error: ${error.message}`);
+        logger.error(`User registration error: ${error.message}`, {
+            stack: error.stack,
+            uid: req.body?.uid,
+            deviceId: req.body?.deviceId
+        });
+        
+        // Check for specific MongoDB validation errors
+        if (error.name === 'ValidationError') {
+            const validationErrors = Object.values(error.errors).map(err => err.message);
+            logger.error(`MongoDB validation errors: ${validationErrors.join(', ')}`);
+            
+            return res.status(400).json({
+                success: false,
+                message: 'Validation error during registration',
+                errors: validationErrors
+            });
+        }
+        
+        // Check for duplicate key errors
+        if (error.code === 11000) {
+            logger.error(`Duplicate key error during registration: ${JSON.stringify(error.keyPattern)}`);
+            
+            return res.status(400).json({
+                success: false,
+                message: 'User with this identifier already exists',
+                error: 'DUPLICATE_USER'
+            });
+        }
+        
         res.status(500).json({
             success: false,
             message: 'Server error during registration',
@@ -2173,7 +2213,7 @@ router.get('/:uid/notifications/status', validateFirebaseUid, verifyFirebaseToke
 
 /**
  * @route   GET /api/users/:uid/sessions
- * @desc    Get active sessions for a user
+ * @desc    Get all active sessions for a user
  * @access  Private
  */
 router.get('/:uid/sessions', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
@@ -2181,42 +2221,42 @@ router.get('/:uid/sessions', validateFirebaseUid, verifyFirebaseToken, async (re
         const { uid } = req.params;
         
         // Find user by uid
-        let user = await User.findOne({ uid });
+        const user = await User.findOne({ uid });
         
         if (!user) {
-            logger.warn(`Sessions requested for non-existent user: UID ${uid}`);
             return res.status(404).json({
                 success: false,
                 message: 'User not found'
             });
         }
         
-        // Convert Map to array for response
+        // Convert Map to array for JSON response
         const sessions = [];
         if (user.activeSessions) {
-            for (const [deviceId, session] of user.activeSessions.entries()) {
+            for (const [deviceId, sessionData] of user.activeSessions) {
                 sessions.push({
                     deviceId,
-                    deviceModel: session.deviceModel,
-                    deviceName: session.deviceName,
-                    appVersion: session.appVersion,
-                    osVersion: session.osVersion,
-                    loginTimestamp: session.loginTimestamp,
-                    lastActiveTimestamp: session.lastActiveTimestamp,
-                    isCurrentDevice: deviceId === req.body.deviceId
+                    ...sessionData,
+                    isCurrentDevice: deviceId === user.deviceId
                 });
             }
         }
         
+        logger.info(`Retrieved ${sessions.length} active sessions for user ${uid}`);
+        
         res.status(200).json({
             success: true,
-            sessions
+            message: 'User sessions retrieved successfully',
+            sessions: sessions,
+            totalSessions: sessions.length,
+            currentDeviceId: user.deviceId,
+            lastOnline: user.lastOnline
         });
     } catch (error) {
-        logger.error(`Get sessions error: ${error.message}`);
+        logger.error(`Get user sessions error: ${error.message}`);
         res.status(500).json({
             success: false,
-            message: 'Server error retrieving sessions',
+            message: 'Server error retrieving user sessions',
             error: error.message
         });
     }
