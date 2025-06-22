@@ -6,6 +6,76 @@ const logger = require('../utils/logger');
 const { validateDeviceId, validateFirebaseUid } = require('../middleware/validators');
 const { verifyFirebaseToken, optionalFirebaseAuth } = require('../middleware/auth');
 const recommendationService = require('../services/recommendationService');
+const mongoose = require('mongoose');
+
+/**
+ * Helper function to validate ObjectId
+ * @param {string} id - ID to validate
+ * @returns {boolean} - Whether the ID is valid
+ */
+function isValidObjectId(id) {
+    return mongoose.Types.ObjectId.isValid(id);
+}
+
+/**
+ * Helper function to handle async operations with comprehensive error handling
+ * @param {Function} operation - Async operation to execute
+ * @param {string} operationName - Name of the operation for logging
+ * @param {Object} res - Express response object
+ * @param {string} uid - User ID for logging
+ * @returns {Promise} - Result of the operation or error response
+ */
+async function handleAsyncOperation(operation, operationName, res, uid = 'unknown') {
+    try {
+        return await operation();
+    } catch (error) {
+        logger.error(`${operationName} error for user ${uid}: ${error.message}`, {
+            stack: error.stack,
+            operation: operationName,
+            uid: uid
+        });
+        
+        // Handle specific error types
+        if (error.name === 'ValidationError') {
+            const validationErrors = Object.values(error.errors).map(err => err.message);
+            return res.status(400).json({
+                success: false,
+                message: `Validation error during ${operationName}`,
+                errors: validationErrors
+            });
+        }
+        
+        if (error.name === 'CastError') {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid ID format',
+                error: 'INVALID_ID'
+            });
+        }
+        
+        if (error.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                message: 'Duplicate entry error',
+                error: 'DUPLICATE_ENTRY'
+            });
+        }
+        
+        if (error.name === 'MongoNetworkError' || error.name === 'MongoTimeoutError') {
+            return res.status(503).json({
+                success: false,
+                message: 'Database connection error. Please try again.',
+                error: 'DATABASE_CONNECTION_ERROR'
+            });
+        }
+        
+        return res.status(500).json({
+            success: false,
+            message: `Server error during ${operationName}`,
+            error: error.message
+        });
+    }
+}
 
 /**
  * Helper function to clean up invalid subscription data
@@ -32,6 +102,89 @@ function cleanupSubscriptionData(user) {
             user.subscription.planLevel = '';
         }
     }
+}
+
+/**
+ * Helper function to safely update template counts with transaction support
+ * @param {string} templateId - Template ID
+ * @param {Object} updates - Object with count updates (e.g., { likes: 1, favorites: -1 })
+ * @param {Object} session - MongoDB session for transaction
+ * @returns {Promise<Object>} - Updated template or null if not found
+ */
+async function safeUpdateTemplateCounts(templateId, updates, session = null) {
+    try {
+        if (!isValidObjectId(templateId)) {
+            throw new Error('Invalid template ID format');
+        }
+        
+        // Build the update object
+        const updateObj = {};
+        for (const [field, increment] of Object.entries(updates)) {
+            if (typeof increment === 'number') {
+                updateObj[`$inc`] = updateObj[`$inc`] || {};
+                updateObj[`$inc`][field] = increment;
+            }
+        }
+        
+        if (Object.keys(updateObj).length === 0) {
+            throw new Error('No valid updates provided');
+        }
+        
+        const options = {
+            new: true,
+            upsert: false,
+            runValidators: true
+        };
+        
+        if (session) {
+            options.session = session;
+        }
+        
+        const updatedTemplate = await Template.findByIdAndUpdate(
+            templateId,
+            updateObj,
+            options
+        );
+        
+        if (!updatedTemplate) {
+            logger.warn(`Template not found for count update: ${templateId}`);
+            return null;
+        }
+        
+        logger.info(`Updated template ${templateId} counts:`, updates);
+        return updatedTemplate;
+        
+    } catch (error) {
+        logger.error(`Failed to update template counts for ${templateId}: ${error.message}`);
+        throw error;
+    }
+}
+
+/**
+ * Helper function to validate template interaction request
+ * @param {string} uid - User ID
+ * @param {string} templateId - Template ID
+ * @returns {Object} - Validation result
+ */
+function validateTemplateInteraction(uid, templateId) {
+    const errors = [];
+    
+    if (!uid || typeof uid !== 'string' || uid.trim().length === 0) {
+        errors.push('Valid user ID is required');
+    }
+    
+    if (!templateId || typeof templateId !== 'string' || templateId.trim().length === 0) {
+        errors.push('Valid template ID is required');
+    }
+    
+    if (!isValidObjectId(templateId)) {
+        errors.push('Invalid template ID format');
+    }
+    
+    return {
+        isValid: errors.length === 0,
+        errors
+    };
 }
 
 /**
@@ -546,7 +699,7 @@ router.get('/:uid/recommendations', async (req, res) => {
  * @access  Private
  */
 router.post('/engagement', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
-    try {
+    return handleAsyncOperation(async () => {
         const { uid, type, templateId, category, timestamp, durationMs, engagementScore, source } = req.body;
         
         // Validate required fields
@@ -557,162 +710,163 @@ router.post('/engagement', validateFirebaseUid, verifyFirebaseToken, async (req,
             });
         }
         
-        // Find user by uid
-        let user = await User.findOne({ uid });
-        
-        if (!user) {
-            logger.warn(`Engagement tracking attempted for non-existent user: UID ${uid}`);
-            return res.status(404).json({
+        // Validate templateId if provided
+        if (templateId && !isValidObjectId(templateId)) {
+            return res.status(400).json({
                 success: false,
-                message: 'User not found'
+                message: 'Invalid template ID format'
             });
         }
         
-        // Record engagement based on type
-        switch (type) {
-            case 1: // Category visit
-                if (category) {
-                    await user.visitCategory(category, source || 'direct');
-                    logger.info(`User ${uid} engagement: visited category ${category}`);
-                }
-                break;
+        // Start a transaction for data consistency
+        const session = await mongoose.startSession();
+        
+        try {
+            await session.withTransaction(async () => {
+                // Find user by uid
+                const user = await User.findOne({ uid }).session(session);
                 
-            case 2: // Template view
-                if (templateId && category) {
-                    await user.visitCategoryFromTemplate(category, templateId);
-                    await user.setLastActiveTemplate(templateId, 'VIEW');
-                    
-                    // Add to engagement log
-                    if (!user.engagementLog) user.engagementLog = [];
-                    user.engagementLog.push({
-                        action: 'VIEW',
-                        templateId,
-                        timestamp: timestamp || Date.now()
-                    });
-                    
-                    logger.info(`User ${uid} engagement: viewed template ${templateId} in ${category}`);
+                if (!user) {
+                    throw new Error('User not found');
                 }
-                break;
                 
-            case 3: // Template use
-                if (templateId && category) {
-                    // Record as a stronger engagement
-                    await user.visitCategoryFromTemplate(category, templateId);
-                    await user.setLastActiveTemplate(templateId, 'SHARE');
-                    
-                    // Add to engagement log
-                    if (!user.engagementLog) user.engagementLog = [];
-                    user.engagementLog.push({
-                        action: 'SHARE',
-                        templateId,
-                        timestamp: timestamp || Date.now()
-                    });
-                    
-                    // Increment template share count
-                    try {
-                        await Template.findByIdAndUpdate(
-                            templateId,
-                            { $inc: { sharedCount: 1 } },
-                            { new: true, upsert: false }
-                        );
-                        logger.info(`Incremented shares count for template ${templateId}`);
-                    } catch (templateError) {
-                        logger.error(`Failed to increment shares count for template ${templateId}: ${templateError.message}`);
-                        // Continue with user processing even if template update fails
-                    }
-                    
-                    // Add to recent templates
-                    if (!user.recentTemplatesUsed) user.recentTemplatesUsed = [];
-                    
-                    // Remove template if already in list
-                    user.recentTemplatesUsed = user.recentTemplatesUsed.filter(
-                        id => id.toString() !== templateId.toString()
-                    );
-                    
-                    // Add to beginning of list
-                    user.recentTemplatesUsed.unshift(templateId);
-                    
-                    // Keep only 10 most recent
-                    if (user.recentTemplatesUsed.length > 10) {
-                        user.recentTemplatesUsed = user.recentTemplatesUsed.slice(0, 10);
-                    }
-                    
-                    logger.info(`User ${uid} engagement: used template ${templateId} in ${category}`);
+                // Record engagement based on type
+                switch (type) {
+                    case 1: // Category visit
+                        if (category) {
+                            await user.visitCategory(category, source || 'direct');
+                            logger.info(`User ${uid} engagement: visited category ${category}`);
+                        }
+                        break;
+                        
+                    case 2: // Template view
+                        if (templateId && category) {
+                            await user.visitCategoryFromTemplate(category, templateId);
+                            await user.setLastActiveTemplate(templateId, 'VIEW');
+                            
+                            // Add to engagement log
+                            if (!user.engagementLog) user.engagementLog = [];
+                            user.engagementLog.push({
+                                action: 'VIEW',
+                                templateId,
+                                timestamp: timestamp || Date.now()
+                            });
+                            
+                            logger.info(`User ${uid} engagement: viewed template ${templateId} in ${category}`);
+                        }
+                        break;
+                        
+                    case 3: // Template use
+                        if (templateId && category) {
+                            // Record as a stronger engagement
+                            await user.visitCategoryFromTemplate(category, templateId);
+                            await user.setLastActiveTemplate(templateId, 'SHARE');
+                            
+                            // Add to engagement log
+                            if (!user.engagementLog) user.engagementLog = [];
+                            user.engagementLog.push({
+                                action: 'SHARE',
+                                templateId,
+                                timestamp: timestamp || Date.now()
+                            });
+                            
+                            // Increment template share count
+                            await safeUpdateTemplateCounts(templateId, { sharedCount: 1 }, session);
+                            
+                            // Add to recent templates
+                            if (!user.recentTemplatesUsed) user.recentTemplatesUsed = [];
+                            
+                            // Remove template if already in list
+                            user.recentTemplatesUsed = user.recentTemplatesUsed.filter(
+                                id => id.toString() !== templateId.toString()
+                            );
+                            
+                            // Add to beginning of list
+                            user.recentTemplatesUsed.unshift(templateId);
+                            
+                            // Keep only 10 most recent
+                            if (user.recentTemplatesUsed.length > 10) {
+                                user.recentTemplatesUsed = user.recentTemplatesUsed.slice(0, 10);
+                            }
+                            
+                            logger.info(`User ${uid} engagement: used template ${templateId} in ${category}`);
+                        }
+                        break;
+                        
+                    case 4: // Explicit like
+                        if (templateId && category) {
+                            // Record as like
+                            await user.visitCategoryFromTemplate(category, templateId);
+                            await user.setLastActiveTemplate(templateId, 'LIKE');
+                            
+                            // Add to likes if not already there
+                            if (!user.likes) user.likes = [];
+                            const wasNotLiked = !user.likes.some(id => id.toString() === templateId.toString());
+                            if (wasNotLiked) {
+                                user.likes.push(templateId);
+                                // Increment template like count
+                                await safeUpdateTemplateCounts(templateId, { likes: 1 }, session);
+                            }
+                            
+                            // Add to engagement log
+                            if (!user.engagementLog) user.engagementLog = [];
+                            user.engagementLog.push({
+                                action: 'LIKE',
+                                templateId,
+                                timestamp: timestamp || Date.now()
+                            });
+                            
+                            logger.info(`User ${uid} engagement: liked template ${templateId}`);
+                        }
+                        break;
+                        
+                    case 5: // Add to favorites
+                        if (templateId && category) {
+                            // Record as favorite
+                            await user.visitCategoryFromTemplate(category, templateId);
+                            await user.setLastActiveTemplate(templateId, 'FAV');
+                            
+                            // Add to favorites if not already there
+                            if (!user.favorites) user.favorites = [];
+                            const wasNotFavorited = !user.favorites.some(id => id.toString() === templateId.toString());
+                            if (wasNotFavorited) {
+                                user.favorites.push(templateId);
+                                // Increment template favorite count
+                                await safeUpdateTemplateCounts(templateId, { favorites: 1 }, session);
+                            }
+                            
+                            // Add to engagement log
+                            if (!user.engagementLog) user.engagementLog = [];
+                            user.engagementLog.push({
+                                action: 'FAV',
+                                templateId,
+                                timestamp: timestamp || Date.now()
+                            });
+                            
+                            logger.info(`User ${uid} engagement: favorited template ${templateId}`);
+                        }
+                        break;
+                        
+                    default:
+                        logger.warn(`Unknown engagement type ${type} from user ${uid}`);
                 }
-                break;
                 
-            case 4: // Explicit like
-                if (templateId && category) {
-                    // Record as like
-                    await user.visitCategoryFromTemplate(category, templateId);
-                    await user.setLastActiveTemplate(templateId, 'LIKE');
-                    
-                    // Add to likes if not already there
-                    if (!user.likes) user.likes = [];
-                    if (!user.likes.includes(templateId)) {
-                        user.likes.push(templateId);
-                    }
-                    
-                    // Add to engagement log
-                    if (!user.engagementLog) user.engagementLog = [];
-                    user.engagementLog.push({
-                        action: 'LIKE',
-                        templateId,
-                        timestamp: timestamp || Date.now()
-                    });
-                    
-                    logger.info(`User ${uid} engagement: liked template ${templateId}`);
-                }
-                break;
+                // Update last online time
+                user.lastOnline = Date.now();
+                await user.save({ session });
                 
-            case 5: // Add to favorites
-                if (templateId && category) {
-                    // Record as favorite
-                    await user.visitCategoryFromTemplate(category, templateId);
-                    await user.setLastActiveTemplate(templateId, 'FAV');
-                    
-                    // Add to favorites if not already there
-                    if (!user.favorites) user.favorites = [];
-                    if (!user.favorites.includes(templateId)) {
-                        user.favorites.push(templateId);
-                    }
-                    
-                    // Add to engagement log
-                    if (!user.engagementLog) user.engagementLog = [];
-                    user.engagementLog.push({
-                        action: 'FAV',
-                        templateId,
-                        timestamp: timestamp || Date.now()
-                    });
-                    
-                    logger.info(`User ${uid} engagement: favorited template ${templateId}`);
-                }
-                break;
+                // Invalidate recommendations cache
+                await recommendationService.invalidateUserRecommendations(uid);
                 
-            default:
-                logger.warn(`Unknown engagement type ${type} from user ${uid}`);
+                return res.status(200).json({
+                    success: true,
+                    message: 'Engagement recorded successfully'
+                });
+            });
+        } finally {
+            await session.endSession();
         }
-        
-        // Update last online time
-        user.lastOnline = Date.now();
-        await user.save();
-        
-        // Invalidate recommendations cache
-        await recommendationService.invalidateUserRecommendations(uid);
-        
-        res.status(200).json({
-            success: true,
-            message: 'Engagement recorded successfully'
-        });
-        
-    } catch (error) {
-        logger.error(`Engagement tracking error: ${error.message}`, { error });
-        res.status(500).json({
-            success: false,
-            message: 'Server error recording engagement',
-            error: error.message
-        });
-    }
+    }, 'Record engagement', res, uid);
 });
 
 /**
@@ -721,7 +875,7 @@ router.post('/engagement', validateFirebaseUid, verifyFirebaseToken, async (req,
  * @access  Private
  */
 router.post('/engagement/sync', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
-    try {
+    return handleAsyncOperation(async () => {
         const { uid, engagements } = req.body;
         
         if (!uid || !engagements || !Array.isArray(engagements)) {
@@ -731,177 +885,155 @@ router.post('/engagement/sync', validateFirebaseUid, verifyFirebaseToken, async 
             });
         }
         
-        // Find user by uid
-        let user = await User.findOne({ uid });
-        
-        if (!user) {
-            logger.warn(`Batch engagement sync attempted for non-existent user: UID ${uid}`);
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-        
-        // Process each engagement record
-        let processed = 0;
+        // Validate all templateIds in batch
         for (const engagement of engagements) {
-            try {
-                const { type, templateId, category, source, timestamp } = engagement;
-                
-                // Process based on type (simplified implementation)
-                if (type === 1 && category) {
-                    // Category visit
-                    await user.visitCategory(category, source || 'direct');
-                    processed++;
-                } 
-                else if ((type === 2 || type === 3) && templateId && category) {
-                    // Template view or use
-                    await user.visitCategoryFromTemplate(category, templateId);
-                    
-                    // Set appropriate action
-                    const action = type === 2 ? 'VIEW' : 'SHARE';
-                    await user.setLastActiveTemplate(templateId, action);
-                    
-                    // Add to engagement log
-                    if (!user.engagementLog) user.engagementLog = [];
-                    user.engagementLog.push({
-                        action,
-                        templateId,
-                        timestamp: timestamp || Date.now()
-                    });
-                    
-                    // For template use, add to recent templates and increment share count
-                    if (type === 3) {
-                        // Increment template share count
-                        try {
-                            await Template.findByIdAndUpdate(
-                                templateId,
-                                { $inc: { sharedCount: 1 } },
-                                { new: true, upsert: false }
-                            );
-                            logger.info(`Incremented shares count for template ${templateId} (batch sync)`);
-                        } catch (templateError) {
-                            logger.error(`Failed to increment shares count for template ${templateId} (batch sync): ${templateError.message}`);
-                        }
-                        
-                        if (!user.recentTemplatesUsed) user.recentTemplatesUsed = [];
-                        
-                        // Remove template if already in list
-                        user.recentTemplatesUsed = user.recentTemplatesUsed.filter(
-                            id => id.toString() !== templateId.toString()
-                        );
-                        
-                        // Add to beginning of list
-                        user.recentTemplatesUsed.unshift(templateId);
-                        
-                        // Keep only 10 most recent
-                        if (user.recentTemplatesUsed.length > 10) {
-                            user.recentTemplatesUsed = user.recentTemplatesUsed.slice(0, 10);
-                        }
-                    }
-                    
-                    processed++;
-                }
-                else if (type === 4 && templateId) {
-                    // Like
-                    if (category) {
-                        await user.visitCategoryFromTemplate(category, templateId);
-                    }
-                    
-                    await user.setLastActiveTemplate(templateId, 'LIKE');
-                    
-                    // Add to likes if not already there
-                    if (!user.likes) user.likes = [];
-                    const wasNotLiked = !user.likes.some(id => id.toString() === templateId.toString());
-                    if (wasNotLiked) {
-                        user.likes.push(templateId);
-                        
-                        // Increment template like count only if it wasn't already liked
-                        try {
-                            await Template.findByIdAndUpdate(
-                                templateId,
-                                { $inc: { likes: 1 } },
-                                { new: true, upsert: false }
-                            );
-                            logger.info(`Incremented likes count for template ${templateId} (batch sync)`);
-                        } catch (templateError) {
-                            logger.error(`Failed to increment likes count for template ${templateId} (batch sync): ${templateError.message}`);
-                        }
-                    }
-                    
-                    // Add to engagement log
-                    if (!user.engagementLog) user.engagementLog = [];
-                    user.engagementLog.push({
-                        action: 'LIKE',
-                        templateId,
-                        timestamp: timestamp || Date.now()
-                    });
-                    
-                    processed++;
-                }
-                else if (type === 5 && templateId) {
-                    // Favorite
-                    if (category) {
-                        await user.visitCategoryFromTemplate(category, templateId);
-                    }
-                    
-                    await user.setLastActiveTemplate(templateId, 'FAV');
-                    
-                    // Add to favorites if not already there
-                    if (!user.favorites) user.favorites = [];
-                    const wasNotFavorited = !user.favorites.some(id => id.toString() === templateId.toString());
-                    if (wasNotFavorited) {
-                        user.favorites.push(templateId);
-                        
-                        // Increment template favorite count only if it wasn't already favorited
-                        try {
-                            await Template.findByIdAndUpdate(
-                                templateId,
-                                { $inc: { favorites: 1 } },
-                                { new: true, upsert: false }
-                            );
-                            logger.info(`Incremented favorites count for template ${templateId} (batch sync)`);
-                        } catch (templateError) {
-                            logger.error(`Failed to increment favorites count for template ${templateId} (batch sync): ${templateError.message}`);
-                        }
-                    }
-                    
-                    // Add to engagement log
-                    if (!user.engagementLog) user.engagementLog = [];
-                    user.engagementLog.push({
-                        action: 'FAV',
-                        templateId,
-                        timestamp: timestamp || Date.now()
-                    });
-                    
-                    processed++;
-                }
-            } catch (err) {
-                logger.warn(`Error processing engagement record: ${err.message}`);
-                // Continue with next record even if one fails
+            if (engagement.templateId && !isValidObjectId(engagement.templateId)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid template ID format in engagement data'
+                });
             }
         }
         
-        // Update last online time
-        user.lastOnline = Date.now();
-        await user.save();
+        // Start a transaction for data consistency
+        const session = await mongoose.startSession();
         
-        // Invalidate recommendations cache
-        await recommendationService.invalidateUserRecommendations(uid);
-        
-        res.status(200).json({
-            success: true,
-            message: `Processed ${processed} of ${engagements.length} engagement records`
-        });
-        
-    } catch (error) {
-        logger.error(`Batch engagement sync error: ${error.message}`, { error });
-        res.status(500).json({
-            success: false,
-            message: 'Server error during batch engagement sync',
-            error: error.message
-        });
-    }
+        try {
+            await session.withTransaction(async () => {
+                // Find user by uid
+                const user = await User.findOne({ uid }).session(session);
+                
+                if (!user) {
+                    throw new Error('User not found');
+                }
+                
+                // Process each engagement record
+                let processed = 0;
+                for (const engagement of engagements) {
+                    try {
+                        const { type, templateId, category, source, timestamp } = engagement;
+                        
+                        // Process based on type (simplified implementation)
+                        if (type === 1 && category) {
+                            // Category visit
+                            await user.visitCategory(category, source || 'direct');
+                            processed++;
+                        } 
+                        else if ((type === 2 || type === 3) && templateId && category) {
+                            // Template view or use
+                            await user.visitCategoryFromTemplate(category, templateId);
+                            
+                            // Set appropriate action
+                            const action = type === 2 ? 'VIEW' : 'SHARE';
+                            await user.setLastActiveTemplate(templateId, action);
+                            
+                            // Add to engagement log
+                            if (!user.engagementLog) user.engagementLog = [];
+                            user.engagementLog.push({
+                                action,
+                                templateId,
+                                timestamp: timestamp || Date.now()
+                            });
+                            
+                            // For template use, add to recent templates and increment share count
+                            if (type === 3) {
+                                // Increment template share count
+                                await safeUpdateTemplateCounts(templateId, { sharedCount: 1 }, session);
+                                
+                                if (!user.recentTemplatesUsed) user.recentTemplatesUsed = [];
+                                
+                                // Remove template if already in list
+                                user.recentTemplatesUsed = user.recentTemplatesUsed.filter(
+                                    id => id.toString() !== templateId.toString()
+                                );
+                                
+                                // Add to beginning of list
+                                user.recentTemplatesUsed.unshift(templateId);
+                                
+                                // Keep only 10 most recent
+                                if (user.recentTemplatesUsed.length > 10) {
+                                    user.recentTemplatesUsed = user.recentTemplatesUsed.slice(0, 10);
+                                }
+                            }
+                            
+                            processed++;
+                        }
+                        else if (type === 4 && templateId) {
+                            // Like
+                            if (category) {
+                                await user.visitCategoryFromTemplate(category, templateId);
+                            }
+                            
+                            await user.setLastActiveTemplate(templateId, 'LIKE');
+                            
+                            // Add to likes if not already there
+                            if (!user.likes) user.likes = [];
+                            const wasNotLiked = !user.likes.some(id => id.toString() === templateId.toString());
+                            if (wasNotLiked) {
+                                user.likes.push(templateId);
+                                // Increment template like count only if it wasn't already liked
+                                await safeUpdateTemplateCounts(templateId, { likes: 1 }, session);
+                            }
+                            
+                            // Add to engagement log
+                            if (!user.engagementLog) user.engagementLog = [];
+                            user.engagementLog.push({
+                                action: 'LIKE',
+                                templateId,
+                                timestamp: timestamp || Date.now()
+                            });
+                            
+                            processed++;
+                        }
+                        else if (type === 5 && templateId) {
+                            // Favorite
+                            if (category) {
+                                await user.visitCategoryFromTemplate(category, templateId);
+                            }
+                            
+                            await user.setLastActiveTemplate(templateId, 'FAV');
+                            
+                            // Add to favorites if not already there
+                            if (!user.favorites) user.favorites = [];
+                            const wasNotFavorited = !user.favorites.some(id => id.toString() === templateId.toString());
+                            if (wasNotFavorited) {
+                                user.favorites.push(templateId);
+                                // Increment template favorite count only if it wasn't already favorited
+                                await safeUpdateTemplateCounts(templateId, { favorites: 1 }, session);
+                            }
+                            
+                            // Add to engagement log
+                            if (!user.engagementLog) user.engagementLog = [];
+                            user.engagementLog.push({
+                                action: 'FAV',
+                                templateId,
+                                timestamp: timestamp || Date.now()
+                            });
+                            
+                            processed++;
+                        }
+                    } catch (err) {
+                        logger.warn(`Error processing engagement record: ${err.message}`);
+                        // Continue with next record even if one fails
+                    }
+                }
+                
+                // Update last online time
+                user.lastOnline = Date.now();
+                await user.save({ session });
+                
+                // Invalidate recommendations cache
+                await recommendationService.invalidateUserRecommendations(uid);
+                
+                return res.status(200).json({
+                    success: true,
+                    message: `Processed ${processed} of ${engagements.length} engagement records`
+                });
+            });
+        } finally {
+            await session.endSession();
+        }
+    }, 'Batch engagement sync', res, uid);
 });
 
 /**
@@ -1597,89 +1729,104 @@ router.post('/auth', validateFirebaseUid, async (req, res) => {
  * @access  Private
  */
 router.put('/:uid/favorites/:templateId', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
-    try {
+    return handleAsyncOperation(async () => {
         const { uid, templateId } = req.params;
         
-        // Find user by uid
-        let user = await User.findOne({ uid });
-        
-        if (!user) {
-            logger.warn(`Favorite operation attempted for non-existent user: UID ${uid}`);
-            return res.status(404).json({
+        // Validate request
+        const validation = validateTemplateInteraction(uid, templateId);
+        if (!validation.isValid) {
+            return res.status(400).json({
                 success: false,
-                message: 'User not found'
+                message: 'Validation failed',
+                errors: validation.errors
             });
         }
         
-        // Initialize favorites array if it doesn't exist
-        if (!user.favorites) {
-            user.favorites = [];
-        }
+        // Start a transaction for data consistency
+        const session = await mongoose.startSession();
         
-        // Check if template is already in favorites
-        if (!user.favorites.some(id => id.toString() === templateId.toString())) {
-            // Add to favorites
-            user.favorites.push(templateId);
-            
-            // Add to engagement log
-            if (!user.engagementLog) {
-                user.engagementLog = [];
-            }
-            
-            user.engagementLog.push({
-                action: 'FAV',
-                templateId,
-                timestamp: Date.now()
+        try {
+            await session.withTransaction(async () => {
+                // Find user by uid
+                const user = await User.findOne({ uid }).session(session);
+                
+                if (!user) {
+                    throw new Error('User not found');
+                }
+                
+                // Verify template exists
+                const template = await Template.findById(templateId).session(session);
+                if (!template) {
+                    throw new Error('Template not found');
+                }
+                
+                // Initialize favorites array if it doesn't exist
+                if (!user.favorites) {
+                    user.favorites = [];
+                }
+                
+                // Check if template is already in favorites
+                const isAlreadyFavorited = user.favorites.some(id => id.toString() === templateId.toString());
+                
+                if (!isAlreadyFavorited) {
+                    // Add to favorites
+                    user.favorites.push(templateId);
+                    
+                    // Add to engagement log
+                    if (!user.engagementLog) {
+                        user.engagementLog = [];
+                    }
+                    
+                    user.engagementLog.push({
+                        action: 'FAV',
+                        templateId,
+                        timestamp: Date.now()
+                    });
+                    
+                    // Update last active template
+                    user.lastActiveTemplate = templateId;
+                    user.lastActionOnTemplate = 'FAV';
+                    
+                    // Update last online
+                    user.lastOnline = Date.now();
+                    
+                    // Save user first
+                    await user.save({ session });
+                    
+                    // Increment template favorite count
+                    await safeUpdateTemplateCounts(templateId, { favorites: 1 }, session);
+                    
+                    // Invalidate recommendations
+                    await recommendationService.invalidateUserRecommendations(uid);
+                    
+                    logger.info(`User ${uid} added template ${templateId} to favorites`);
+                    
+                    return res.status(200).json({
+                        success: true,
+                        message: 'Template added to favorites successfully',
+                        data: {
+                            templateId,
+                            isFavorited: true,
+                            totalFavorites: user.favorites.length
+                        }
+                    });
+                } else {
+                    // Template already in favorites
+                    return res.status(200).json({
+                        success: true,
+                        message: 'Template already in favorites',
+                        data: {
+                            templateId,
+                            isFavorited: true,
+                            totalFavorites: user.favorites.length
+                        }
+                    });
+                }
             });
-            
-            // Update last active template
-            user.lastActiveTemplate = templateId;
-            user.lastActionOnTemplate = 'FAV';
-            
-            // Update last online
-            user.lastOnline = Date.now();
-            
-            // Increment template favorite count
-            try {
-                await Template.findByIdAndUpdate(
-                    templateId,
-                    { $inc: { favorites: 1 } },
-                    { new: true, upsert: false }
-                );
-                logger.info(`Incremented favorites count for template ${templateId}`);
-            } catch (templateError) {
-                logger.error(`Failed to increment favorites count for template ${templateId}: ${templateError.message}`);
-                // Continue with user save even if template update fails
-            }
-            
-            await user.save();
-            
-            // Invalidate recommendations
-            await recommendationService.invalidateUserRecommendations(uid);
-            
-            logger.info(`User ${uid} added template ${templateId} to favorites`);
-            
-            return res.status(200).json({
-                success: true,
-                message: 'Template added to favorites',
-                favorites: user.favorites
-            });
-        } else {
-            // Template already in favorites
-            return res.status(200).json({
-                success: true,
-                message: 'Template already in favorites',
-                favorites: user.favorites
-            });
+        } finally {
+            await session.endSession();
         }
-    } catch (error) {
-        logger.error(`Add favorite error: ${error.message}`);
-        res.status(500).json({
-            success: false,
-            message: 'Server error adding template to favorites',
-            error: error.message
-        });
-    }
+    }, 'Add favorite', res, uid);
 });
 
 /**
@@ -1688,94 +1835,105 @@ router.put('/:uid/favorites/:templateId', validateFirebaseUid, verifyFirebaseTok
  * @access  Private
  */
 router.delete('/:uid/favorites/:templateId', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
-    try {
+    return handleAsyncOperation(async () => {
         const { uid, templateId } = req.params;
         
-        // Find user by uid
-        let user = await User.findOne({ uid });
-        
-        if (!user) {
-            logger.warn(`Favorite removal attempted for non-existent user: UID ${uid}`);
-            return res.status(404).json({
+        // Validate request
+        const validation = validateTemplateInteraction(uid, templateId);
+        if (!validation.isValid) {
+            return res.status(400).json({
                 success: false,
-                message: 'User not found'
+                message: 'Validation failed',
+                errors: validation.errors
             });
         }
         
-        // Check if user has favorites
-        if (!user.favorites || user.favorites.length === 0) {
-            return res.status(200).json({
-                success: true,
-                message: 'No favorites to remove',
-                favorites: []
-            });
-        }
+        // Start a transaction for data consistency
+        const session = await mongoose.startSession();
         
-        // Remove template from favorites
-        const initialCount = user.favorites.length;
-        user.favorites = user.favorites.filter(id => id.toString() !== templateId.toString());
-        
-        // Check if anything was removed
-        if (user.favorites.length < initialCount) {
-            // Add to engagement log
-            if (!user.engagementLog) {
-                user.engagementLog = [];
-            }
-            
-            user.engagementLog.push({
-                action: 'UNFAV',
-                templateId,
-                timestamp: Date.now()
+        try {
+            await session.withTransaction(async () => {
+                // Find user by uid
+                const user = await User.findOne({ uid }).session(session);
+                
+                if (!user) {
+                    throw new Error('User not found');
+                }
+                
+                // Check if user has favorites
+                if (!user.favorites || user.favorites.length === 0) {
+                    return res.status(200).json({
+                        success: true,
+                        message: 'No favorites to remove',
+                        data: {
+                            templateId,
+                            isFavorited: false,
+                            totalFavorites: 0
+                        }
+                    });
+                }
+                
+                // Remove template from favorites
+                const initialCount = user.favorites.length;
+                user.favorites = user.favorites.filter(id => id.toString() !== templateId.toString());
+                
+                // Check if anything was removed
+                if (user.favorites.length < initialCount) {
+                    // Add to engagement log
+                    if (!user.engagementLog) {
+                        user.engagementLog = [];
+                    }
+                    
+                    user.engagementLog.push({
+                        action: 'UNFAV',
+                        templateId,
+                        timestamp: Date.now()
+                    });
+                    
+                    // Update last active template
+                    user.lastActiveTemplate = templateId;
+                    user.lastActionOnTemplate = 'UNFAV';
+                    
+                    // Update last online
+                    user.lastOnline = Date.now();
+                    
+                    // Save user first
+                    await user.save({ session });
+                    
+                    // Decrement template favorite count
+                    await safeUpdateTemplateCounts(templateId, { favorites: -1 }, session);
+                    
+                    // Invalidate recommendations
+                    await recommendationService.invalidateUserRecommendations(uid);
+                    
+                    logger.info(`User ${uid} removed template ${templateId} from favorites`);
+                    
+                    return res.status(200).json({
+                        success: true,
+                        message: 'Template removed from favorites successfully',
+                        data: {
+                            templateId,
+                            isFavorited: false,
+                            totalFavorites: user.favorites.length
+                        }
+                    });
+                } else {
+                    // Template not in favorites
+                    return res.status(200).json({
+                        success: true,
+                        message: 'Template was not in favorites',
+                        data: {
+                            templateId,
+                            isFavorited: false,
+                            totalFavorites: user.favorites.length
+                        }
+                    });
+                }
             });
-            
-            // Update last active template
-            user.lastActiveTemplate = templateId;
-            user.lastActionOnTemplate = 'UNFAV';
-            
-            // Update last online
-            user.lastOnline = Date.now();
-            
-            // Decrement template favorite count
-            try {
-                await Template.findByIdAndUpdate(
-                    templateId,
-                    { $inc: { favorites: -1 } },
-                    { new: true, upsert: false }
-                );
-                logger.info(`Decremented favorites count for template ${templateId}`);
-            } catch (templateError) {
-                logger.error(`Failed to decrement favorites count for template ${templateId}: ${templateError.message}`);
-                // Continue with user save even if template update fails
-            }
-            
-            await user.save();
-            
-            // Invalidate recommendations
-            await recommendationService.invalidateUserRecommendations(uid);
-            
-            logger.info(`User ${uid} removed template ${templateId} from favorites`);
-            
-            return res.status(200).json({
-                success: true,
-                message: 'Template removed from favorites',
-                favorites: user.favorites
-            });
-        } else {
-            // Template not in favorites
-            return res.status(200).json({
-                success: true,
-                message: 'Template not in favorites',
-                favorites: user.favorites
-            });
+        } finally {
+            await session.endSession();
         }
-    } catch (error) {
-        logger.error(`Remove favorite error: ${error.message}`);
-        res.status(500).json({
-            success: false,
-            message: 'Server error removing template from favorites',
-            error: error.message
-        });
-    }
+    }, 'Remove favorite', res, uid);
 });
 
 /**
@@ -1784,89 +1942,104 @@ router.delete('/:uid/favorites/:templateId', validateFirebaseUid, verifyFirebase
  * @access  Private
  */
 router.put('/:uid/likes/:templateId', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
-    try {
+    return handleAsyncOperation(async () => {
         const { uid, templateId } = req.params;
         
-        // Find user by uid
-        let user = await User.findOne({ uid });
-        
-        if (!user) {
-            logger.warn(`Like operation attempted for non-existent user: UID ${uid}`);
-            return res.status(404).json({
+        // Validate request
+        const validation = validateTemplateInteraction(uid, templateId);
+        if (!validation.isValid) {
+            return res.status(400).json({
                 success: false,
-                message: 'User not found'
+                message: 'Validation failed',
+                errors: validation.errors
             });
         }
         
-        // Initialize likes array if it doesn't exist
-        if (!user.likes) {
-            user.likes = [];
-        }
+        // Start a transaction for data consistency
+        const session = await mongoose.startSession();
         
-        // Check if template is already liked
-        if (!user.likes.some(id => id.toString() === templateId.toString())) {
-            // Add to likes
-            user.likes.push(templateId);
-            
-            // Add to engagement log
-            if (!user.engagementLog) {
-                user.engagementLog = [];
-            }
-            
-            user.engagementLog.push({
-                action: 'LIKE',
-                templateId,
-                timestamp: Date.now()
+        try {
+            await session.withTransaction(async () => {
+                // Find user by uid
+                const user = await User.findOne({ uid }).session(session);
+                
+                if (!user) {
+                    throw new Error('User not found');
+                }
+                
+                // Verify template exists
+                const template = await Template.findById(templateId).session(session);
+                if (!template) {
+                    throw new Error('Template not found');
+                }
+                
+                // Initialize likes array if it doesn't exist
+                if (!user.likes) {
+                    user.likes = [];
+                }
+                
+                // Check if template is already liked
+                const isAlreadyLiked = user.likes.some(id => id.toString() === templateId.toString());
+                
+                if (!isAlreadyLiked) {
+                    // Add to likes
+                    user.likes.push(templateId);
+                    
+                    // Add to engagement log
+                    if (!user.engagementLog) {
+                        user.engagementLog = [];
+                    }
+                    
+                    user.engagementLog.push({
+                        action: 'LIKE',
+                        templateId,
+                        timestamp: Date.now()
+                    });
+                    
+                    // Update last active template
+                    user.lastActiveTemplate = templateId;
+                    user.lastActionOnTemplate = 'LIKE';
+                    
+                    // Update last online
+                    user.lastOnline = Date.now();
+                    
+                    // Save user first
+                    await user.save({ session });
+                    
+                    // Increment template like count
+                    await safeUpdateTemplateCounts(templateId, { likes: 1 }, session);
+                    
+                    // Invalidate recommendations
+                    await recommendationService.invalidateUserRecommendations(uid);
+                    
+                    logger.info(`User ${uid} liked template ${templateId}`);
+                    
+                    return res.status(200).json({
+                        success: true,
+                        message: 'Template liked successfully',
+                        data: {
+                            templateId,
+                            isLiked: true,
+                            totalLikes: user.likes.length
+                        }
+                    });
+                } else {
+                    // Template already liked
+                    return res.status(200).json({
+                        success: true,
+                        message: 'Template already liked',
+                        data: {
+                            templateId,
+                            isLiked: true,
+                            totalLikes: user.likes.length
+                        }
+                    });
+                }
             });
-            
-            // Update last active template
-            user.lastActiveTemplate = templateId;
-            user.lastActionOnTemplate = 'LIKE';
-            
-            // Update last online
-            user.lastOnline = Date.now();
-            
-            // Increment template like count
-            try {
-                await Template.findByIdAndUpdate(
-                    templateId,
-                    { $inc: { likes: 1 } },
-                    { new: true, upsert: false }
-                );
-                logger.info(`Incremented likes count for template ${templateId}`);
-            } catch (templateError) {
-                logger.error(`Failed to increment likes count for template ${templateId}: ${templateError.message}`);
-                // Continue with user save even if template update fails
-            }
-            
-            await user.save();
-            
-            // Invalidate recommendations
-            await recommendationService.invalidateUserRecommendations(uid);
-            
-            logger.info(`User ${uid} liked template ${templateId}`);
-            
-            return res.status(200).json({
-                success: true,
-                message: 'Template liked',
-                likes: user.likes
-            });
-        } else {
-            // Template already liked
-            return res.status(200).json({
-                success: true,
-                message: 'Template already liked',
-                likes: user.likes
-            });
+        } finally {
+            await session.endSession();
         }
-    } catch (error) {
-        logger.error(`Add like error: ${error.message}`);
-        res.status(500).json({
-            success: false,
-            message: 'Server error liking template',
-            error: error.message
-        });
-    }
+    }, 'Add like', res, uid);
 });
 
 /**
@@ -1875,94 +2048,273 @@ router.put('/:uid/likes/:templateId', validateFirebaseUid, verifyFirebaseToken, 
  * @access  Private
  */
 router.delete('/:uid/likes/:templateId', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
-    try {
+    return handleAsyncOperation(async () => {
         const { uid, templateId } = req.params;
         
+        // Validate request
+        const validation = validateTemplateInteraction(uid, templateId);
+        if (!validation.isValid) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed',
+                errors: validation.errors
+            });
+        }
+        
+        // Start a transaction for data consistency
+        const session = await mongoose.startSession();
+        
+        try {
+            await session.withTransaction(async () => {
+                // Find user by uid
+                const user = await User.findOne({ uid }).session(session);
+                
+                if (!user) {
+                    throw new Error('User not found');
+                }
+                
+                // Check if user has likes
+                if (!user.likes || user.likes.length === 0) {
+                    return res.status(200).json({
+                        success: true,
+                        message: 'No likes to remove',
+                        data: {
+                            templateId,
+                            isLiked: false,
+                            totalLikes: 0
+                        }
+                    });
+                }
+                
+                // Remove template from likes
+                const initialCount = user.likes.length;
+                user.likes = user.likes.filter(id => id.toString() !== templateId.toString());
+                
+                // Check if anything was removed
+                if (user.likes.length < initialCount) {
+                    // Add to engagement log
+                    if (!user.engagementLog) {
+                        user.engagementLog = [];
+                    }
+                    
+                    user.engagementLog.push({
+                        action: 'UNLIKE',
+                        templateId,
+                        timestamp: Date.now()
+                    });
+                    
+                    // Update last active template
+                    user.lastActiveTemplate = templateId;
+                    user.lastActionOnTemplate = 'UNLIKE';
+                    
+                    // Update last online
+                    user.lastOnline = Date.now();
+                    
+                    // Save user first
+                    await user.save({ session });
+                    
+                    // Decrement template like count
+                    await safeUpdateTemplateCounts(templateId, { likes: -1 }, session);
+                    
+                    // Invalidate recommendations
+                    await recommendationService.invalidateUserRecommendations(uid);
+                    
+                    logger.info(`User ${uid} unliked template ${templateId}`);
+                    
+                    return res.status(200).json({
+                        success: true,
+                        message: 'Template unliked successfully',
+                        data: {
+                            templateId,
+                            isLiked: false,
+                            totalLikes: user.likes.length
+                        }
+                    });
+                } else {
+                    // Template not liked
+                    return res.status(200).json({
+                        success: true,
+                        message: 'Template was not liked',
+                        data: {
+                            templateId,
+                            isLiked: false,
+                            totalLikes: user.likes.length
+                        }
+                    });
+                }
+            });
+        } finally {
+            await session.endSession();
+        }
+    }, 'Remove like', res, uid);
+});
+
+/**
+ * @route   POST /api/users/:uid/templates/:templateId/share
+ * @desc    Record template share and increment share count
+ * @access  Private
+ */
+router.post('/:uid/templates/:templateId/share', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
+    return handleAsyncOperation(async () => {
+        const { uid, templateId } = req.params;
+        const { shareMethod = 'unknown', category } = req.body;
+        
+        // Validate request
+        const validation = validateTemplateInteraction(uid, templateId);
+        if (!validation.isValid) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed',
+                errors: validation.errors
+            });
+        }
+        
+        // Start a transaction for data consistency
+        const session = await mongoose.startSession();
+        
+        try {
+            await session.withTransaction(async () => {
+                // Find user by uid
+                const user = await User.findOne({ uid }).session(session);
+                
+                if (!user) {
+                    throw new Error('User not found');
+                }
+                
+                // Verify template exists
+                const template = await Template.findById(templateId).session(session);
+                if (!template) {
+                    throw new Error('Template not found');
+                }
+                
+                // Record category visit if provided
+                if (category) {
+                    await user.visitCategoryFromTemplate(category, templateId);
+                }
+                
+                // Set last active template
+                await user.setLastActiveTemplate(templateId, 'SHARE');
+                
+                // Add to engagement log
+                if (!user.engagementLog) {
+                    user.engagementLog = [];
+                }
+                
+                user.engagementLog.push({
+                    action: 'SHARE',
+                    templateId,
+                    timestamp: Date.now(),
+                    metadata: { shareMethod }
+                });
+                
+                // Add to recent templates used
+                if (!user.recentTemplatesUsed) {
+                    user.recentTemplatesUsed = [];
+                }
+                
+                // Remove template if already in list
+                user.recentTemplatesUsed = user.recentTemplatesUsed.filter(
+                    id => id.toString() !== templateId.toString()
+                );
+                
+                // Add to beginning of list
+                user.recentTemplatesUsed.unshift(templateId);
+                
+                // Keep only 10 most recent
+                if (user.recentTemplatesUsed.length > 10) {
+                    user.recentTemplatesUsed = user.recentTemplatesUsed.slice(0, 10);
+                }
+                
+                // Update last online
+                user.lastOnline = Date.now();
+                
+                // Save user first
+                await user.save({ session });
+                
+                // Increment template share count
+                await safeUpdateTemplateCounts(templateId, { sharedCount: 1 }, session);
+                
+                // Invalidate recommendations
+                await recommendationService.invalidateUserRecommendations(uid);
+                
+                logger.info(`User ${uid} shared template ${templateId} via ${shareMethod}`);
+                
+                return res.status(200).json({
+                    success: true,
+                    message: 'Template share recorded successfully',
+                    data: {
+                        templateId,
+                        shareMethod,
+                        totalShares: template.sharedCount + 1
+                    }
+                });
+            });
+        } finally {
+            await session.endSession();
+        }
+    }, 'Record share', res, uid);
+});
+
+/**
+ * @route   GET /api/users/:uid/templates/:templateId/interaction-status
+ * @desc    Get user's interaction status with a specific template
+ * @access  Private
+ */
+router.get('/:uid/templates/:templateId/interaction-status', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
+    return handleAsyncOperation(async () => {
+        const { uid, templateId } = req.params;
+        
+        // Validate request
+        const validation = validateTemplateInteraction(uid, templateId);
+        if (!validation.isValid) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed',
+                errors: validation.errors
+            });
+        }
+        
         // Find user by uid
-        let user = await User.findOne({ uid });
+        const user = await User.findOne({ uid });
         
         if (!user) {
-            logger.warn(`Like removal attempted for non-existent user: UID ${uid}`);
             return res.status(404).json({
                 success: false,
                 message: 'User not found'
             });
         }
         
-        // Check if user has likes
-        if (!user.likes || user.likes.length === 0) {
-            return res.status(200).json({
-                success: true,
-                message: 'No likes to remove',
-                likes: []
+        // Get template to include current counts
+        const template = await Template.findById(templateId, 'likes favorites sharedCount viewCount');
+        
+        if (!template) {
+            return res.status(404).json({
+                success: false,
+                message: 'Template not found'
             });
         }
         
-        // Remove template from likes
-        const initialCount = user.likes.length;
-        user.likes = user.likes.filter(id => id.toString() !== templateId.toString());
+        // Check interaction status
+        const isLiked = user.likes && user.likes.some(id => id.toString() === templateId.toString());
+        const isFavorited = user.favorites && user.favorites.some(id => id.toString() === templateId.toString());
         
-        // Check if anything was removed
-        if (user.likes.length < initialCount) {
-            // Add to engagement log
-            if (!user.engagementLog) {
-                user.engagementLog = [];
-            }
-            
-            user.engagementLog.push({
-                action: 'UNLIKE',
+        return res.status(200).json({
+            success: true,
+            data: {
                 templateId,
-                timestamp: Date.now()
-            });
-            
-            // Update last active template
-            user.lastActiveTemplate = templateId;
-            user.lastActionOnTemplate = 'UNLIKE';
-            
-            // Update last online
-            user.lastOnline = Date.now();
-            
-            // Decrement template like count
-            try {
-                await Template.findByIdAndUpdate(
-                    templateId,
-                    { $inc: { likes: -1 } },
-                    { new: true, upsert: false }
-                );
-                logger.info(`Decremented likes count for template ${templateId}`);
-            } catch (templateError) {
-                logger.error(`Failed to decrement likes count for template ${templateId}: ${templateError.message}`);
-                // Continue with user save even if template update fails
+                interactions: {
+                    isLiked,
+                    isFavorited
+                },
+                counts: {
+                    likes: template.likes || 0,
+                    favorites: template.favorites || 0,
+                    shares: template.sharedCount || 0,
+                    views: template.viewCount || 0
+                }
             }
-            
-            await user.save();
-            
-            // Invalidate recommendations
-            await recommendationService.invalidateUserRecommendations(uid);
-            
-            logger.info(`User ${uid} unliked template ${templateId}`);
-            
-            return res.status(200).json({
-                success: true,
-                message: 'Template unliked',
-                likes: user.likes
-            });
-        } else {
-            // Template not liked
-            return res.status(200).json({
-                success: true,
-                message: 'Template not liked',
-                likes: user.likes
-            });
-        }
-    } catch (error) {
-        logger.error(`Remove like error: ${error.message}`);
-        res.status(500).json({
-            success: false,
-            message: 'Server error unliking template',
-            error: error.message
         });
-    }
+    }, 'Get interaction status', res, uid);
 });
 
 /**

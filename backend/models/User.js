@@ -43,13 +43,13 @@ const SubscriptionSchema = new Schema({
     },
     plan: {
         type: String,
-        enum: ['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY', ''],
-        default: ''
+        enum: ['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY', 'NONE'],
+        default: 'NONE'
     },
     planLevel: {
         type: String,
-        enum: ['BASIC', 'PREMIUM', 'PRO', ''],
-        default: ''
+        enum: ['BASIC', 'PREMIUM', 'PRO', 'NONE'],
+        default: 'NONE'
     },
 
     startedAt: { 
@@ -93,8 +93,8 @@ const SubscriptionSchema = new Schema({
 const SubscriptionOfferSchema = new Schema({
     planAssigned: { 
         type: String, 
-        enum: ['BASIC', 'PREMIUM', 'PRO'], 
-        default: '' 
+        enum: ['BASIC', 'PREMIUM', 'PRO', 'NONE'], 
+        default: 'NONE' 
     },
     originalPrice: { 
         type: Number, 

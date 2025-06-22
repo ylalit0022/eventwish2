@@ -1373,4 +1373,52 @@ public interface ApiService {
         @Body Map<String, Object> body,
         @retrofit2.http.Header("Authorization") String authToken
     );
+
+    // =============================================================================
+    // TEMPLATE INTERACTION TRACKING WITH COUNTS
+    // =============================================================================
+
+    /**
+     * Record template share and increment share count
+     * @param uid User ID (Firebase UID)
+     * @param templateId Template ID to share
+     * @param body Share data (shareMethod, category)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with updated template counts and user data
+     */
+    @POST("users/{uid}/templates/{templateId}/share")
+    Call<JsonObject> recordTemplateShare(
+        @Path("uid") String uid,
+        @Path("templateId") String templateId,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Get template interaction status for a user
+     * @param uid User ID (Firebase UID)
+     * @param templateId Template ID to check
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with interaction status (liked, favorited, shared)
+     */
+    @GET("users/{uid}/templates/{templateId}/interaction-status")
+    Call<JsonObject> getTemplateInteractionStatus(
+        @Path("uid") String uid,
+        @Path("templateId") String templateId,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
+
+    /**
+     * Get bulk template interaction status for multiple templates
+     * @param uid User ID (Firebase UID)
+     * @param body Request containing templateIds array
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with interaction status for all templates
+     */
+    @POST("users/{uid}/templates/interaction-status/bulk")
+    Call<JsonObject> getBulkTemplateInteractionStatus(
+        @Path("uid") String uid,
+        @Body Map<String, Object> body,
+        @retrofit2.http.Header("Authorization") String authToken
+    );
 }
