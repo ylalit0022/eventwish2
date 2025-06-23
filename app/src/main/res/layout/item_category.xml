@@ -6,7 +6,7 @@
     android:layout_height="wrap_content"
     android:layout_margin="1dp"
     android:orientation="horizontal"
-    android:background="@drawable/bg_category_stroke_selector"
+    android:background="@drawable/bg_category_selector"
     android:gravity="center"
     android:padding="8dp"
     android:stateListAnimator="@animator/category_state_list_animator"

@@ -2063,10 +2063,12 @@ public class TemplateRepository {
         
         try {
             // Wait for database operations to complete
-            // Use a timeout to prevent deadlock
-            boolean completed = latch.await(500, TimeUnit.MILLISECONDS);
+            // Increased timeout to 2 seconds to prevent premature timeouts
+            boolean completed = latch.await(2000, TimeUnit.MILLISECONDS);
             if (!completed) {
-                Log.w(TAG, "Database operations timed out, returning partially updated templates");
+                Log.w(TAG, "Database operations timed out after 2 seconds, returning partially updated templates");
+            } else {
+                Log.d(TAG, "Database operations completed successfully");
             }
         } catch (InterruptedException e) {
             Log.e(TAG, "Interrupted while waiting for database operations", e);

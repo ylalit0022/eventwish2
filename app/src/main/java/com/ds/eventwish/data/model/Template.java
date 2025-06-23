@@ -87,7 +87,7 @@ public class Template {
     @ColumnInfo(name = "jsContent")
     private String jsContent;
     
-    private boolean recommended;
+
     
     @SerializedName("createdAt")
     private Date createdAt;
@@ -130,7 +130,7 @@ public class Template {
         this.lastUpdated = new Date();
         this.likeChanged = false;
         this.favoriteChanged = false;
-        this.recommended = false;
+
         this.createdAt = new Date();
     }
 
@@ -172,7 +172,7 @@ public class Template {
         this.htmlContent = other.htmlContent;
         this.cssContent = other.cssContent;
         this.jsContent = other.jsContent;
-        this.recommended = other.recommended;
+
         this.createdAt = other.createdAt != null ? other.createdAt : new Date();
         this.creatorId = other.creatorId;
         this.creatorUid = other.creatorUid;
@@ -289,8 +289,7 @@ public class Template {
     public String getJsContent() { return jsContent; }
     public void setJsContent(String jsContent) { this.jsContent = jsContent; }
     
-    public boolean isRecommended() { return recommended; }
-    public void setRecommended(boolean recommended) { this.recommended = recommended; }
+
     
     public Date getCreatedAt() { return createdAt; }
     public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }
@@ -381,7 +380,7 @@ public class Template {
                isFavorited == template.isFavorited &&
                likeChanged == template.likeChanged &&
                favoriteChanged == template.favoriteChanged &&
-               recommended == template.recommended &&
+
                Objects.equals(id, template.id) &&
                Objects.equals(title, template.title) &&
                Objects.equals(categoryId, template.categoryId) &&
@@ -401,7 +400,7 @@ public class Template {
     public int hashCode() {
         return Objects.hash(id, title, categoryId, previewUrl, likeCount, favoriteCount, shareCount,
                           isLiked, isFavorited, lastUpdated, likeChanged, favoriteChanged,
-                          htmlContent, cssContent, jsContent, recommended, createdAt,
+                          htmlContent, cssContent, jsContent, createdAt,
                           creatorId, creatorName, creatorProfilePhoto, generatedByUser);
     }
 }

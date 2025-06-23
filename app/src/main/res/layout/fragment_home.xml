@@ -43,10 +43,11 @@
                     android:gravity="center_vertical">
 
                     <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/tvEventWishUserName"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="EventWish"
-                        android:textAppearance="@style/TextAppearance.EventWish.Headline"
+                        android:text="Hello, EventWish"
+                        android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
                         android:textColor="?attr/colorPrimary"
                         android:layout_marginStart="16dp"
                         android:layout_marginEnd="16dp"

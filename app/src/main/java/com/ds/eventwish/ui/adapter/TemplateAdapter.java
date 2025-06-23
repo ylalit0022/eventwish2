@@ -2,12 +2,13 @@ package com.ds.eventwish.ui.adapter;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.text.SpannableString;
+import android.text.style.RelativeSizeSpan;
+import android.text.style.StyleSpan;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -19,25 +20,29 @@ import com.bumptech.glide.Glide;
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.remote.TemplateInteractionManager;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import androidx.core.content.ContextCompat;
-import android.text.SpannableString;
-import android.text.style.RelativeSizeSpan;
-import android.text.style.StyleSpan;
 
 public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHolder> {
 
     private final Context context;
-    private final ArrayList<Template> templates;
+    private ArrayList<Template> templates;
     private final TemplateInteractionManager interactionManager;
     private OnItemClickListener onItemClickListener;
     private OnTemplateInteractionListener onTemplateInteractionListener;
     private static final long CLICK_DEBOUNCE_TIME = 800; // ms - longer debounce time for network operations
     private final Map<String, Long> lastClickTimes = new HashMap<>();
     private static final String TAG = "TemplateAdapter";
+    
+    // Add debouncing for setTemplates to prevent excessive updates
+    private long lastSetTemplatesTime = 0;
+    private static final long SET_TEMPLATES_DEBOUNCE_TIME = 1000; // 1 second debounce
 
     public TemplateAdapter(Context context) {
         this.context = context;
@@ -115,11 +120,8 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             holder.newBadge.setVisibility(View.GONE);
         }
         
-        if (template.isRecommended()) {
-            holder.recommendedBadge.setVisibility(View.VISIBLE);
-        } else {
-            holder.recommendedBadge.setVisibility(View.GONE);
-        }
+        // Note: Recommendation system removed
+        holder.recommendedBadge.setVisibility(View.GONE);
         
         // Load image
         Log.d(TAG, "Loading image for template " + template.getId() + " from URL: " + template.getPreviewUrl());
@@ -139,41 +141,74 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         });
         
         holder.likeIcon.setOnClickListener(v -> {
-            boolean newLikeState = !template.isLiked();
-            template.setLiked(newLikeState);
+            Log.d(TAG, "=== LIKE BUTTON CLICKED ===");
+            Log.d(TAG, "Template ID: " + template.getId());
+            Log.d(TAG, "Current position: " + holder.getAdapterPosition());
+            Log.d(TAG, "Layout position: " + holder.getLayoutPosition());
+            Log.d(TAG, "Current liked state: " + template.isLiked());
+            Log.d(TAG, "Current like count: " + template.getLikeCount());
             
-            Log.d(TAG, "Template " + template.getId() + " like toggled to: " + newLikeState);
+            // Prevent rapid clicks
+            if (!v.isEnabled()) {
+                Log.w(TAG, "Like button disabled - preventing rapid clicks");
+                return;
+            }
+            
+            // Disable button temporarily to prevent rapid clicks
+            v.setEnabled(false);
+            v.postDelayed(() -> v.setEnabled(true), 1000);
+            
+            // Get current adapter position
+            int currentPosition = holder.getAdapterPosition();
+            if (currentPosition == RecyclerView.NO_POSITION) {
+                Log.e(TAG, "Invalid adapter position - aborting like action");
+                return;
+            }
+            
+            Log.d(TAG, "Performing optimistic UI update at position: " + currentPosition);
+            
+            // Optimistic UI update - THIS MIGHT CAUSE JUMPING!
+            boolean newLikedState = !template.isLiked();
+            long newLikeCount = template.getLikeCount() + (newLikedState ? 1 : -1);
+            
+            Log.d(TAG, "Optimistic update: liked " + template.isLiked() + " -> " + newLikedState);
+            Log.d(TAG, "Optimistic update: count " + template.getLikeCount() + " -> " + newLikeCount);
+            
+            // Update template state immediately for UI responsiveness
+            template.setLiked(newLikedState);
+            template.setLikeCount(Math.max(0, newLikeCount));
+            
+            // Update UI immediately - THIS MIGHT CAUSE JUMPING!
+            Log.w(TAG, "Updating like button UI immediately - POTENTIAL JUMPING CAUSE!");
             
             // Animate the like button
-            animateLikeButton(holder.likeIcon, newLikeState);
+            animateLikeButton(holder.likeIcon, newLikedState);
             
-            // Update UI
-            updateLikeState(holder, newLikeState);
+            // Update UI state
+            updateLikeState(holder, newLikedState);
+            
+            // Update like count display
+            if (template.getLikeCount() > 0) {
+                holder.likeCountText.setText(String.valueOf(template.getLikeCount()));
+                holder.likeCountText.setVisibility(View.VISIBLE);
+                Log.d(TAG, "Like count updated to: " + template.getLikeCount());
+            } else {
+                holder.likeCountText.setVisibility(View.GONE);
+                Log.d(TAG, "Like count hidden (count is 0)");
+            }
             
             // Show toast message
-            Toast.makeText(context, newLikeState ? "Liked" : "Unliked", Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, newLikedState ? "Liked" : "Unliked", Toast.LENGTH_SHORT).show();
             
-            // Update like count
-            if (newLikeState) {
-                long newCount = template.getLikeCount() + 1;
-                template.setLikeCount(newCount);
-                holder.likeCountText.setText(String.valueOf(newCount));
-                holder.likeCountText.setVisibility(View.VISIBLE);
-            } else {
-                long newCount = Math.max(0, template.getLikeCount() - 1);
-                template.setLikeCount(newCount);
-                if (newCount > 0) {
-                    holder.likeCountText.setText(String.valueOf(newCount));
-                    holder.likeCountText.setVisibility(View.VISIBLE);
-                } else {
-                    holder.likeCountText.setVisibility(View.GONE);
-                }
-            }
-            
-            // Notify listener
+            // Notify the listener
             if (onTemplateInteractionListener != null) {
-                onTemplateInteractionListener.onTemplateLiked(template, newLikeState);
+                Log.d(TAG, "Notifying interaction listener of like action");
+                onTemplateInteractionListener.onTemplateLiked(template, newLikedState);
+            } else {
+                Log.w(TAG, "No interaction listener set!");
             }
+            
+            Log.d(TAG, "=== LIKE BUTTON CLICK COMPLETED ===");
         });
         
         holder.favoriteIcon.setOnClickListener(v -> {
@@ -280,27 +315,96 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         return templates.size();
     }
 
-    public void setTemplates(ArrayList<Template> templates) {
-        Log.d(TAG, "setTemplates: Received " + (templates != null ? templates.size() : 0) + " templates");
+    /**
+     * Set the list of templates and update the adapter
+     */
+    public void setTemplates(List<Template> templates) {
+        Log.d(TAG, "=== SET TEMPLATES CALLED ===");
+        Log.d(TAG, "New templates count: " + (templates != null ? templates.size() : 0));
+        Log.d(TAG, "Current templates count: " + (this.templates != null ? this.templates.size() : 0));
         
         if (templates == null) {
-            Log.e(TAG, "setTemplates: Received null templates list");
+            Log.w(TAG, "Received null templates list");
             return;
         }
         
-        if (templates.isEmpty()) {
-            Log.d(TAG, "setTemplates: Received empty templates list");
-        } else {
-            Log.d(TAG, "First template ID: " + templates.get(0).getId() + 
-                  ", Title: " + templates.get(0).getTitle() + 
-                  ", Preview URL: " + templates.get(0).getPreviewUrl());
+        // Debounce rapid setTemplates calls to prevent excessive updates
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastSetTemplatesTime < SET_TEMPLATES_DEBOUNCE_TIME) {
+            Log.d(TAG, "Debouncing setTemplates call - too soon since last update (" + 
+                  (currentTime - lastSetTemplatesTime) + "ms ago)");
+            return;
+        }
+        lastSetTemplatesTime = currentTime;
+        
+        // Log first few template IDs for debugging
+        if (!templates.isEmpty()) {
+            Log.d(TAG, "First template ID: " + templates.get(0).getId());
+            if (templates.size() > 1) {
+                Log.d(TAG, "Second template ID: " + templates.get(1).getId());
+            }
         }
         
-        this.templates.clear();
-        this.templates.addAll(templates);
+        // Check if this is the same data
+        boolean isSameData = false;
+        if (this.templates != null && this.templates.size() == templates.size()) {
+            isSameData = true;
+            for (int i = 0; i < templates.size(); i++) {
+                if (!this.templates.get(i).getId().equals(templates.get(i).getId())) {
+                    isSameData = false;
+                    break;
+                }
+            }
+        }
+        
+        Log.d(TAG, "Is same data: " + isSameData);
+        
+        if (isSameData) {
+            Log.d(TAG, "Same template data detected - checking for state changes");
+            // Check if any template states have changed
+            boolean hasStateChanges = false;
+            for (int i = 0; i < templates.size(); i++) {
+                Template oldTemplate = this.templates.get(i);
+                Template newTemplate = templates.get(i);
+                
+                if (oldTemplate.isLiked() != newTemplate.isLiked() ||
+                    oldTemplate.isFavorited() != newTemplate.isFavorited() ||
+                    oldTemplate.getLikeCount() != newTemplate.getLikeCount() ||
+                    oldTemplate.getFavoriteCount() != newTemplate.getFavoriteCount()) {
+                    
+                    Log.d(TAG, "State change detected in template " + newTemplate.getId() + 
+                          " at position " + i);
+                    Log.d(TAG, "  Liked: " + oldTemplate.isLiked() + " -> " + newTemplate.isLiked());
+                    Log.d(TAG, "  Like count: " + oldTemplate.getLikeCount() + " -> " + newTemplate.getLikeCount());
+                    Log.d(TAG, "  Favorited: " + oldTemplate.isFavorited() + " -> " + newTemplate.isFavorited());
+                    Log.d(TAG, "  Favorite count: " + oldTemplate.getFavoriteCount() + " -> " + newTemplate.getFavoriteCount());
+                    
+                    hasStateChanges = true;
+                    
+                    // Call notifyItemChanged for this specific position - THIS MIGHT CAUSE JUMPING!
+                    Log.w(TAG, "Calling notifyItemChanged(" + i + ") - POTENTIAL JUMPING CAUSE!");
+                    notifyItemChanged(i);
+                }
+            }
+            
+            if (hasStateChanges) {
+                Log.w(TAG, "Template states updated with individual notifyItemChanged calls");
+            } else {
+                Log.d(TAG, "No state changes detected - skipping unnecessary updates");
+            }
+            
+            // Update the data reference
+            this.templates = new ArrayList<>(templates);
+            return;
+        }
+        
+        Log.d(TAG, "Different template data - performing full update");
+        this.templates = new ArrayList<>(templates);
+        
+        Log.w(TAG, "Calling notifyDataSetChanged() - POTENTIAL JUMPING CAUSE!");
         notifyDataSetChanged();
         
-        Log.d(TAG, "setTemplates: Adapter updated with " + this.templates.size() + " templates");
+        Log.d(TAG, "=== SET TEMPLATES COMPLETED ===");
     }
 
     public void setOnItemClickListener(OnItemClickListener listener) {

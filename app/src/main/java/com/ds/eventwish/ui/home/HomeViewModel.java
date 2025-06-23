@@ -29,6 +29,15 @@ import java.lang.StringBuilder;
 import com.ds.eventwish.utils.AnalyticsUtils;
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
+import com.ds.eventwish.data.repository.UserRepository;
+import com.ds.eventwish.data.local.AppDatabase;
+import com.ds.eventwish.data.local.dao.UserDao;
+import com.ds.eventwish.data.local.entity.UserEntity;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.ds.eventwish.utils.AppExecutors;
+import com.ds.eventwish.data.auth.AuthManager;
+import com.ds.eventwish.utils.StringUtils;
 
 public class HomeViewModel extends ViewModel {
     private static final String TAG = "HomeViewModel";
@@ -37,9 +46,10 @@ public class HomeViewModel extends ViewModel {
     private TemplateUpdateManager updateManager;
     private final MutableLiveData<Set<String>> newTemplateIds = new MutableLiveData<>(new HashSet<>());
     private final Set<String> viewedTemplateIds = new HashSet<>();
+    private final MutableLiveData<String> userName = new MutableLiveData<>("EventWish");
+    private UserRepository userRepository;
     
-    // Add LiveData to track recommended template IDs
-    private final MutableLiveData<Set<String>> recommendedTemplateIds = new MutableLiveData<>(new HashSet<>());
+
     
     private static final String PREF_VIEWED_TEMPLATES = "viewed_template_ids";
     private static final String PREF_LAST_CHECK_TIME = "last_check_time";
@@ -90,6 +100,10 @@ public class HomeViewModel extends ViewModel {
     // Add a field to track time of last end message display
     private long lastEndMessageTime = 0;
     private static final long END_MESSAGE_DISPLAY_INTERVAL = 60000; // 1 minute
+    
+    // Add debouncing for pagination to prevent excessive calls
+    private long lastPaginationCallTime = 0;
+    private static final long PAGINATION_DEBOUNCE_TIME = 500; // 500ms debounce
 
     public HomeViewModel() {
         repository = TemplateRepository.getInstance();
@@ -98,6 +112,10 @@ public class HomeViewModel extends ViewModel {
     public void init(Context context) {
         this.appContext = context.getApplicationContext();
         this.updateManager = TemplateUpdateManager.getInstance(context);
+        this.userRepository = UserRepository.getInstance(context.getApplicationContext());
+        
+        // Load user name
+        loadUserName();
         
         // Load saved preferences
         SharedPreferences prefs = context.getSharedPreferences("home_prefs", Context.MODE_PRIVATE);
@@ -140,6 +158,38 @@ public class HomeViewModel extends ViewModel {
         
         // Explicitly load categories to ensure they're available
         loadCategories();
+    }
+
+    private void loadUserName() {
+        // Try to get user from local database first
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            try {
+                AppDatabase db = AppDatabase.getInstance(appContext);
+                UserDao userDao = db.userDao();
+                UserEntity userEntity = userDao.getCurrentUser();
+
+                if (userEntity != null && userEntity.getDisplayName() != null) {
+                    String displayName = StringUtils.toCamelCase(userEntity.getDisplayName());
+                    userName.postValue("Hello, " + displayName);
+                } else {
+                    // Fallback to Firebase user
+                    FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+                    if (firebaseUser != null && firebaseUser.getDisplayName() != null) {
+                        String displayName = StringUtils.toCamelCase(firebaseUser.getDisplayName());
+                        userName.postValue("Hello, " + displayName);
+                    } else {
+                        userName.postValue("EventWish");
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error loading user name: " + e.getMessage());
+                userName.postValue("EventWish");
+            }
+        });
+    }
+
+    public LiveData<String> getUserName() {
+        return userName;
     }
 
     public LiveData<List<Template>> getTemplates() {
@@ -372,6 +422,14 @@ public class HomeViewModel extends ViewModel {
      * @param totalItemCount Total number of items in the adapter
      */
     public void loadMoreIfNeeded(int lastVisibleItem, int totalItemCount) {
+        // Add debouncing to prevent excessive calls
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastPaginationCallTime < PAGINATION_DEBOUNCE_TIME) {
+            Log.d(TAG, "Pagination call debounced - too soon since last call");
+            return;
+        }
+        lastPaginationCallTime = currentTime;
+        
         if (isPaginationInProgress || repository.isLoading()) {
             Log.d(TAG, "Already loading, skipping loadMoreIfNeeded");
             return;
@@ -379,13 +437,17 @@ public class HomeViewModel extends ViewModel {
 
         // Check if we're near the end of the list and have more pages
         if (lastVisibleItem + VISIBLE_THRESHOLD >= totalItemCount && hasMorePagesToLoad()) {
-            Log.d(TAG, "Loading more templates, pagination in progress");
+            Log.d(TAG, "Loading more templates, pagination in progress. LastVisible: " + 
+                  lastVisibleItem + ", Total: " + totalItemCount + ", Threshold: " + VISIBLE_THRESHOLD);
             
             // Set pagination flag to true
             isPaginationInProgress = true;
             
             // Load more templates
             repository.loadTemplates(false);
+        } else {
+            Log.d(TAG, "Pagination not needed. LastVisible: " + lastVisibleItem + 
+                  ", Total: " + totalItemCount + ", HasMore: " + hasMorePagesToLoad());
         }
     }
 
@@ -732,39 +794,7 @@ public class HomeViewModel extends ViewModel {
         }
     }
 
-    /**
-     * Get the LiveData for recommended template IDs
-     */
-    public LiveData<Set<String>> getRecommendedTemplateIds() {
-        return recommendedTemplateIds;
-    }
-    
-    /**
-     * Set recommended template IDs
-     */
-    public void setRecommendedTemplateIds(Set<String> ids) {
-        if (ids == null) {
-            ids = new HashSet<>();
-        }
-        recommendedTemplateIds.setValue(ids);
-    }
-    
-    /**
-     * Add a template ID to the recommended set
-     */
-    public void addRecommendedTemplateId(String id) {
-        if (id == null || id.isEmpty()) {
-            return;
-        }
-        
-        Set<String> currentIds = recommendedTemplateIds.getValue();
-        if (currentIds == null) {
-            currentIds = new HashSet<>();
-        }
-        
-        currentIds.add(id);
-        recommendedTemplateIds.setValue(currentIds);
-    }
+
 
     private String searchQuery = "";
     private boolean isFullscreenMode = false;

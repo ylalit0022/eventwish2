@@ -5,7 +5,7 @@ const User = require('../../models/User');
 const logger = require('../../utils/logger');
 const { validateFirebaseUid } = require('../../middleware/validators');
 const { verifyFirebaseToken } = require('../../middleware/auth');
-const recommendationService = require('../../services/recommendationService');
+
 const { 
     handleAsyncOperation, 
     safeUpdateTemplateCounts, 
@@ -41,7 +41,7 @@ router.put('/activity', validateFirebaseUid, verifyFirebaseToken, async (req, re
             logger.info(`User ${uid} visited category: ${category} (source: ${source})`);
             
             // Invalidate recommendations cache on category visit
-            await recommendationService.invalidateUserRecommendations(uid);
+        // Note: Recommendation system removed
         } else {
             await user.save();
             logger.info(`User ${uid} activity updated (last online)`);

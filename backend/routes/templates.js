@@ -6,7 +6,7 @@ const {
     getTemplateById,
     duplicateTemplate
 } = require('../controllers/templateController');
-const recommendationService = require('../services/recommendationService');
+
 const logger = require('../utils/logger');
 const Template = require('../models/Template');
 const User = require('../models/User');
@@ -33,7 +33,8 @@ router.get('/recommendations/:deviceId', async (req, res) => {
         }
 
         logger.info(`Getting personalized recommendations for device: ${deviceId}`);
-        const recommendations = await recommendationService.getRecommendationsForUser(deviceId, limit);
+        // Note: Recommendation system removed - returning empty array
+        const recommendations = [];
         
         res.json({
             success: true,

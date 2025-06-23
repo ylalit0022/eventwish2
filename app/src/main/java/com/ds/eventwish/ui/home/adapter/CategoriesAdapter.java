@@ -103,6 +103,19 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         return categories.size();
     }
     
+    @Override
+    public long getItemId(int position) {
+        if (position >= 0 && position < categories.size()) {
+            Category category = categories.get(position);
+            if (category.getId() == null) {
+                // Use a consistent ID for "All" category
+                return "all".hashCode();
+            }
+            return category.getId().hashCode();
+        }
+        return RecyclerView.NO_ID;
+    }
+    
     /**
      * Update the data in the adapter with a stable sort to prevent position changes
      * @param newCategories New list of categories
@@ -139,14 +152,21 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
                 Category oldItem = categories.get(oldItemPosition);
                 Category newItem = sortedNewCategories.get(newItemPosition);
                 
-                // Compare all relevant fields
+                // Compare all relevant fields including selection state
                 boolean sameId = (oldItem.getId() == null && newItem.getId() == null) ||
                         (oldItem.getId() != null && oldItem.getId().equals(newItem.getId()));
                 boolean sameName = oldItem.getName().equals(newItem.getName());
                 boolean sameImage = (oldItem.getIcon() == null && newItem.getIcon() == null) ||
                         (oldItem.getIcon() != null && oldItem.getIcon().equals(newItem.getIcon()));
                 
-                return sameId && sameName && sameImage;
+                // Check if selection state has changed for this item
+                boolean oldSelected = (selectedCategoryId == null && oldItem.getId() == null) ||
+                        (selectedCategoryId != null && selectedCategoryId.equals(oldItem.getId()));
+                boolean newSelected = (selectedCategoryId == null && newItem.getId() == null) ||
+                        (selectedCategoryId != null && selectedCategoryId.equals(newItem.getId()));
+                boolean sameSelection = oldSelected == newSelected;
+                
+                return sameId && sameName && sameImage && sameSelection;
             }
         });
         
@@ -278,11 +298,35 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
               (selectedCategoryId != null ? selectedCategoryId : "All") + 
               " to " + (categoryId != null ? categoryId : "All"));
         
+        // Store old selection for targeted updates
+        String oldSelectedCategoryId = this.selectedCategoryId;
         this.selectedCategoryId = categoryId;
         
         // Only notify data set changed if we're not preventing changes
         if (!preventChanges) {
-            notifyDataSetChanged();
+            // Use targeted updates instead of notifyDataSetChanged for better performance
+            updateSelectionTargeted(oldSelectedCategoryId, categoryId);
+        }
+    }
+    
+    /**
+     * Update selection state with targeted notifications to avoid full rebind
+     */
+    private void updateSelectionTargeted(String oldCategoryId, String newCategoryId) {
+        // Find and update the old selected item
+        if (oldCategoryId != null || categories.size() > 0) {
+            for (int i = 0; i < categories.size(); i++) {
+                Category category = categories.get(i);
+                boolean wasSelected = (oldCategoryId == null && category.getId() == null) ||
+                        (oldCategoryId != null && oldCategoryId.equals(category.getId()));
+                boolean isSelected = (newCategoryId == null && category.getId() == null) ||
+                        (newCategoryId != null && newCategoryId.equals(category.getId()));
+                
+                // Only notify if selection state changed for this item
+                if (wasSelected != isSelected) {
+                    notifyItemChanged(i);
+                }
+            }
         }
     }
     

@@ -30,7 +30,7 @@ import com.ds.eventwish.data.local.dao.AdUnitDao;
         Category.class,
         AdUnitEntity.class
     },
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters({
@@ -79,7 +79,7 @@ public abstract class AppDatabase extends RoomDatabase {
                     Log.d(TAG, "Database opened");
                 }
             })
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .fallbackToDestructiveMigration() // Only during development
             .build();
     }
@@ -172,6 +172,76 @@ public abstract class AppDatabase extends RoomDatabase {
                 Log.d(TAG, "Migration 3->4 completed successfully");
             } catch (Exception e) {
                 Log.e(TAG, "Error during migration 3->4", e);
+                throw e;
+            }
+        }
+    };
+
+    private static final Migration MIGRATION_4_5 = new Migration(4, 5) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            Log.d(TAG, "Migrating database from version 4 to 5 - removing recommendation system fields");
+            
+            try {
+                // Check if recommended column exists and remove it if it does
+                android.database.Cursor cursor = database.query("PRAGMA table_info(templates)");
+                boolean recommendedExists = false;
+                
+                while (cursor.moveToNext()) {
+                    String columnName = cursor.getString(1); // Column name is at index 1
+                    if ("recommended".equals(columnName)) {
+                        recommendedExists = true;
+                        break;
+                    }
+                }
+                cursor.close();
+                
+                if (recommendedExists) {
+                    Log.d(TAG, "Found recommended column, recreating table without it");
+                    
+                    // Create new table without recommended column
+                    database.execSQL("CREATE TABLE IF NOT EXISTS `templates_new` " +
+                                   "(`id` TEXT NOT NULL, " +
+                                   "`title` TEXT, " +
+                                   "`categoryId` TEXT, " +
+                                   "`previewUrl` TEXT, " +
+                                   "`likeCount` INTEGER NOT NULL DEFAULT 0, " +
+                                   "`favoriteCount` INTEGER NOT NULL DEFAULT 0, " +
+                                   "`shareCount` INTEGER NOT NULL DEFAULT 0, " +
+                                   "`isLiked` INTEGER NOT NULL DEFAULT 0, " +
+                                   "`isFavorited` INTEGER NOT NULL DEFAULT 0, " +
+                                   "`lastUpdated` INTEGER, " +
+                                   "`likeChanged` INTEGER NOT NULL DEFAULT 0, " +
+                                   "`favoriteChanged` INTEGER NOT NULL DEFAULT 0, " +
+                                   "PRIMARY KEY(`id`), " +
+                                   "FOREIGN KEY(`categoryId`) REFERENCES `categories`(`id`) ON DELETE SET NULL)");
+
+                    // Copy data from old table (excluding recommended column)
+                    database.execSQL("INSERT OR REPLACE INTO `templates_new` " +
+                                   "(id, title, categoryId, previewUrl, likeCount, favoriteCount, shareCount, isLiked, isFavorited, lastUpdated, likeChanged, favoriteChanged) " +
+                                   "SELECT id, title, categoryId, previewUrl, likeCount, favoriteCount, shareCount, isLiked, isFavorited, lastUpdated, likeChanged, favoriteChanged " +
+                                   "FROM `templates`");
+
+                    // Drop old table
+                    database.execSQL("DROP TABLE IF EXISTS `templates`");
+
+                    // Rename new table
+                    database.execSQL("ALTER TABLE `templates_new` RENAME TO `templates`");
+
+                    // Recreate indices
+                    database.execSQL("CREATE INDEX IF NOT EXISTS `index_templates_categoryId` ON `templates` (`categoryId`)");
+                    database.execSQL("CREATE INDEX IF NOT EXISTS `index_templates_lastUpdated` ON `templates` (`lastUpdated`)");
+                    database.execSQL("CREATE INDEX IF NOT EXISTS `index_templates_isLiked` ON `templates` (`isLiked`)");
+                    database.execSQL("CREATE INDEX IF NOT EXISTS `index_templates_isFavorited` ON `templates` (`isFavorited`)");
+                    
+                    Log.d(TAG, "Successfully removed recommended column from templates table");
+                } else {
+                    Log.d(TAG, "No recommended column found, table already up to date");
+                }
+                
+                Log.d(TAG, "Migration 4->5 completed successfully");
+            } catch (Exception e) {
+                Log.e(TAG, "Error during migration 4->5", e);
                 throw e;
             }
         }

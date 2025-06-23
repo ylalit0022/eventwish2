@@ -4,7 +4,7 @@ const User = require('../../models/User');
 const logger = require('../../utils/logger');
 const { validateFirebaseUid } = require('../../middleware/validators');
 const { verifyFirebaseToken } = require('../../middleware/auth');
-const recommendationService = require('../../services/recommendationService');
+
 
 /**
  * @route   GET /api/users/:uid/recommendations
@@ -41,8 +41,8 @@ router.get('/:uid/recommendations', async (req, res) => {
             logger.info(`Found user by deviceId fallback for recommendations: ${uid}`);
         }
         
-        // Get personalized recommendations
-        const recommendations = await recommendationService.getPersonalizedRecommendations(uid, limit);
+        // Note: Recommendation system removed - returning empty array
+        const recommendations = [];
         
         res.status(200).json({
             success: true,

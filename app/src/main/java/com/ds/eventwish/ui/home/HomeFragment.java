@@ -23,6 +23,7 @@ import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
+import androidx.recyclerview.widget.DefaultItemAnimator;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -35,7 +36,7 @@ import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.model.Category;
 import com.ds.eventwish.data.model.CategoryIcon;
 import com.ds.eventwish.ui.base.BaseFragment;
-import com.ds.eventwish.ui.home.adapter.RecommendedTemplateAdapter;
+import com.ds.eventwish.ui.adapter.TemplateAdapter;
 import com.ds.eventwish.ui.home.adapter.CategoriesAdapter;
 import com.ds.eventwish.data.repository.CategoryIconRepository;
 import com.ds.eventwish.data.repository.TemplateRepository;
@@ -94,13 +95,13 @@ import androidx.core.app.NotificationManagerCompat;
 import com.google.firebase.auth.FirebaseAuth;
 import android.os.Looper;
 
-public class HomeFragment extends BaseFragment implements RecommendedTemplateAdapter.TemplateClickListener {
+public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItemClickListener, TemplateAdapter.OnTemplateInteractionListener {
     private static final String TAG = "HomeFragment";
     
     private FragmentHomeBinding binding;
     private HomeViewModel viewModel;
     private FestivalViewModel festivalViewModel;
-    private RecommendedTemplateAdapter adapter;
+    private TemplateAdapter adapter;
     private CategoriesAdapter categoriesAdapter;
     private GridLayoutManager layoutManager;
     private static final int VISIBLE_THRESHOLD = 5;
@@ -335,7 +336,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 List<Template> currentTemplates = viewModel.getTemplates().getValue();
                 if (currentTemplates != null && !currentTemplates.isEmpty()) {
                     Log.d(TAG, "Refreshing UI with existing " + currentTemplates.size() + " templates");
-                    adapter.updateTemplates(new ArrayList<>(currentTemplates));
+                    adapter.setTemplates(new ArrayList<>(currentTemplates));
                     
                     // Restore scroll position
                     int lastPosition = viewModel.getLastVisiblePosition();
@@ -667,11 +668,29 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     private void setupCategoriesAdapter() {
         // Initialize the categories adapter with loading state
         categoriesAdapter = new CategoriesAdapter(requireContext());
+        categoriesAdapter.setHasStableIds(true);
         
-        // Set up RecyclerView with horizontal layout
-        binding.categoriesRecyclerView.setLayoutManager(
-                new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false));
+        // Set up RecyclerView with horizontal layout and optimized settings
+        LinearLayoutManager categoriesLayoutManager = new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false);
+        binding.categoriesRecyclerView.setLayoutManager(categoriesLayoutManager);
         binding.categoriesRecyclerView.setAdapter(categoriesAdapter);
+        
+        // Optimize categories RecyclerView for smooth scrolling
+        binding.categoriesRecyclerView.setHasFixedSize(true);
+        binding.categoriesRecyclerView.setItemViewCacheSize(10);
+        
+        // Configure item animator for categories
+        RecyclerView.ItemAnimator categoriesAnimator = binding.categoriesRecyclerView.getItemAnimator();
+        if (categoriesAnimator instanceof DefaultItemAnimator) {
+            DefaultItemAnimator defaultAnimator = (DefaultItemAnimator) categoriesAnimator;
+            // Faster animations for categories
+            defaultAnimator.setAddDuration(100);
+            defaultAnimator.setRemoveDuration(100);
+            defaultAnimator.setMoveDuration(100);
+            defaultAnimator.setChangeDuration(100);
+            // Disable change animations to prevent selection flickering
+            defaultAnimator.setSupportsChangeAnimations(false);
+        }
         
         // Initialize with just the "All" category with proper icon
         List<Category> initialCategories = new ArrayList<>();
@@ -684,13 +703,19 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             String categoryId = category.getId();
             String categoryName = category.getName();
             
+            // Prevent rapid clicking that can cause jerky behavior
+            if (viewModel.getLoading().getValue() == Boolean.TRUE) {
+                Log.d(TAG, "Ignoring category click while loading");
+                return;
+            }
+            
             // Reset pagination-related flags when changing categories
             hasShownEndMessage = false;
             viewModel.setPaginationInProgress(false);
             lastPaginationCheck = 0;
             
-            // Preserve current categories before changing the selection
-            List<Category> currentCategories = categoriesAdapter.getVisibleCategories();
+            // Update selection first for immediate visual feedback
+            categoriesAdapter.updateSelectedCategory(categoryId);
             
             if ("All".equals(categoryName) || categoryId == null) {
                 viewModel.setCategory(null);
@@ -709,9 +734,6 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 // Show loading Snackbar when selecting a category
                 showCategoryLoadingSnackbar(categoryName);
             }
-            
-            // Update selected category without changing the category list
-            categoriesAdapter.updateSelectedCategory(categoryId);
         });
 
         categoriesAdapter.setOnMoreClickListener(this::showCategoriesBottomSheet);
@@ -1073,18 +1095,30 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         binding.templatesRecyclerView.setLayoutManager(layoutManager);
         
         // Create adapter with click listener
-        adapter = new RecommendedTemplateAdapter(this);
+        adapter = new TemplateAdapter(requireContext());
+        adapter.setOnItemClickListener(this);
+        adapter.setOnTemplateInteractionListener(this);
         
         // Set stable IDs to prevent blinking during updates
         adapter.setHasStableIds(true);
         
-        // Disable all animations to prevent flickering and jumping
-        binding.templatesRecyclerView.setItemAnimator(null);
+        // Use default item animator with optimized settings for smooth updates
+        RecyclerView.ItemAnimator itemAnimator = binding.templatesRecyclerView.getItemAnimator();
+        if (itemAnimator instanceof DefaultItemAnimator) {
+            DefaultItemAnimator defaultAnimator = (DefaultItemAnimator) itemAnimator;
+            // Reduce animation duration for snappier feel
+            defaultAnimator.setAddDuration(150);
+            defaultAnimator.setRemoveDuration(150);
+            defaultAnimator.setMoveDuration(150);
+            defaultAnimator.setChangeDuration(150);
+            // Disable change animations to prevent content flickering
+            defaultAnimator.setSupportsChangeAnimations(false);
+        }
         binding.templatesRecyclerView.setHasFixedSize(true);
         
         // Prevent layout shifts during updates
         binding.templatesRecyclerView.getRecycledViewPool().setMaxRecycledViews(
-            RecommendedTemplateAdapter.VIEW_TYPE_TEMPLATE, 20);
+                            0, 20); // Simple template adapter has single view type
         
         // Improve scrolling performance
         binding.templatesRecyclerView.setItemViewCacheSize(10);
@@ -1098,21 +1132,76 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         int spacing = getResources().getDimensionPixelSize(R.dimen.grid_spacing);
         binding.templatesRecyclerView.addItemDecoration(new GridSpacingItemDecoration(2, spacing, true));
         
-        // Add scroll listener for pagination
+        // Add scroll listener for pagination and position tracking
         binding.templatesRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
                 
-                // Get last visible item position
-                int lastVisibleItem = layoutManager.findLastVisibleItemPosition();
+                // Log scroll events for debugging jumping issues
+                if (Math.abs(dx) > 50 || Math.abs(dy) > 50) {
+                    Log.d(TAG, "=== SIGNIFICANT SCROLL DETECTED ===");
+                    Log.d(TAG, "dx: " + dx + ", dy: " + dy);
+                    Log.d(TAG, "Current first visible position: " + getCurrentScrollPosition());
+                }
+                
+                // Check for pagination need
+                int visibleItemCount = layoutManager.getChildCount();
                 int totalItemCount = layoutManager.getItemCount();
+                int firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition();
                 
-                // Load more items if needed
-                viewModel.loadMoreIfNeeded(lastVisibleItem, totalItemCount);
+                // Log pagination check details
+                if (totalItemCount > 0) {
+                    Log.v(TAG, "Scroll state - visible: " + visibleItemCount + 
+                          ", total: " + totalItemCount + 
+                          ", first visible: " + firstVisibleItemPosition);
+                }
                 
-                // Save scroll position
-                viewModel.saveScrollPosition(layoutManager.findFirstVisibleItemPosition());
+                // Save current scroll position
+                viewModel.saveScrollPosition(firstVisibleItemPosition);
+                
+                // Check if we need to load more items
+                if (!viewModel.getLoading().getValue() && 
+                    viewModel.hasMorePagesToLoad() && 
+                    (firstVisibleItemPosition + visibleItemCount) >= totalItemCount - VISIBLE_THRESHOLD) {
+                    
+                    Log.d(TAG, "=== PAGINATION TRIGGERED ===");
+                    Log.d(TAG, "Visible items: " + visibleItemCount);
+                    Log.d(TAG, "Total items: " + totalItemCount);
+                    Log.d(TAG, "First visible position: " + firstVisibleItemPosition);
+                    Log.d(TAG, "Threshold reached: " + ((firstVisibleItemPosition + visibleItemCount) >= totalItemCount - VISIBLE_THRESHOLD));
+                    
+                    loadMoreItems();
+                }
+            }
+            
+            @Override
+            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
+                super.onScrollStateChanged(recyclerView, newState);
+                
+                String stateString;
+                switch (newState) {
+                    case RecyclerView.SCROLL_STATE_IDLE:
+                        stateString = "IDLE";
+                        break;
+                    case RecyclerView.SCROLL_STATE_DRAGGING:
+                        stateString = "DRAGGING";
+                        break;
+                    case RecyclerView.SCROLL_STATE_SETTLING:
+                        stateString = "SETTLING";
+                        break;
+                    default:
+                        stateString = "UNKNOWN";
+                }
+                
+                Log.d(TAG, "=== SCROLL STATE CHANGED ===");
+                Log.d(TAG, "New state: " + stateString + " (" + newState + ")");
+                Log.d(TAG, "Current position: " + getCurrentScrollPosition());
+                
+                // Track when scrolling stops after template updates
+                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                    Log.d(TAG, "RecyclerView settled at position: " + getCurrentScrollPosition());
+                }
             }
         });
         
@@ -1135,18 +1224,8 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                         for (int i = firstVisible; i <= lastVisible; i++) {
                             // Get the item at this position
                             if (i >= 0 && i < adapter.getItemCount()) {
-                                int viewType = adapter.getItemViewType(i);
-                                
-                                // Only track templates, not headers
-                                if (viewType == RecommendedTemplateAdapter.VIEW_TYPE_TEMPLATE) {
-                                    Object item = adapter.getItem(i);
-                                    if (item instanceof Template) {
-                                        Template template = (Template) item;
-                                        if (template.getId() != null) {
-                                            viewModel.markTemplateAsViewed(template.getId());
-                                        }
-                                    }
-                                }
+                                // Simple template adapter - impression tracking simplified
+                                Log.d(TAG, "Template impression tracking: position " + i);
                             }
                         }
                     }
@@ -1263,6 +1342,11 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     }
 
     private void setupObservers() {
+        // Observe user name
+        viewModel.getUserName().observe(getViewLifecycleOwner(), name -> {
+            binding.tvEventWishUserName.setText(name);
+        });
+
         // Observe categories from the ViewModel immediately
         viewModel.getCategories().observe(getViewLifecycleOwner(), categories -> {
             // Skip updates if fragment is not resumed to avoid unnecessary processing
@@ -1341,7 +1425,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
         // Set up network state observer
         setupNetworkObserver();
         
-        // Observe templates from the ViewModel
+        // Observe templates from the ViewModel with debouncing to prevent rapid updates
         viewModel.getTemplates().observe(getViewLifecycleOwner(), templates -> {
             // Skip updates if fragment is not resumed to avoid unnecessary processing
             if (!isResumed) {
@@ -1360,17 +1444,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                 // Check for new templates
                 viewModel.checkForNewTemplates(newList);
                 
-                // Mark some templates as recommended for testing (in a real app, this would come from the server)
-                // This is just for demonstration purposes
-                Set<String> recommendedIds = new HashSet<>();
-                for (int i = 0; i < Math.min(newList.size(), 5); i++) {
-                    Template template = newList.get(i);
-                    if (template != null && template.getId() != null) {
-                        recommendedIds.add(template.getId());
-                        template.setRecommended(true);
-                    }
-                }
-                viewModel.setRecommendedTemplateIds(recommendedIds);
+                // Note: Recommendation system removed
                 
                 // Update the adapter with the new list
                 binding.templatesRecyclerView.post(() -> {
@@ -1381,24 +1455,28 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
                     boolean isPagination = viewModel.isPaginationInProgress();
                     Log.d(TAG, "Updating adapter with " + newList.size() + " templates, isPagination: " + isPagination);
                     
-                    // Update adapter with new templates
-                    adapter.updateTemplates(newList);
+                    // Update adapter with new templates - use new logging method
+                updateTemplates(newList, isPagination);
                     
-                    // Only restore scroll position if this is NOT a pagination update
-                    // For pagination, we want to maintain the current scroll position
-                    if (!isPagination) {
-                        // Get saved position from ViewModel
-                        int savedPosition = viewModel.getLastVisiblePosition();
-                        if (savedPosition > 0 && savedPosition < newList.size()) {
-                            Log.d(TAG, "Restoring scroll position to: " + savedPosition);
-                            layoutManager.scrollToPosition(savedPosition);
+                    // Handle scroll position restoration with proper timing
+                    binding.templatesRecyclerView.post(() -> {
+                        // Only restore scroll position if this is NOT a pagination update
+                        // For pagination, we want to maintain the current scroll position
+                        if (!isPagination) {
+                            // Get saved position from ViewModel
+                            int savedPosition = viewModel.getLastVisiblePosition();
+                            if (savedPosition > 0 && savedPosition < newList.size()) {
+                                Log.d(TAG, "Restoring scroll position to: " + savedPosition);
+                                // Use scrollToPositionWithOffset for smoother restoration
+                                layoutManager.scrollToPositionWithOffset(savedPosition, 0);
+                            }
+                        } else {
+                            // For pagination, we'll maintain the current position
+                            // Reset pagination flag now that we've handled the update
+                            Log.d(TAG, "Pagination update complete, maintaining current scroll position");
+                            viewModel.setPaginationInProgress(false);
                         }
-                    } else {
-                        // For pagination, we'll maintain the current position
-                        // Reset pagination flag now that we've handled the update
-                        Log.d(TAG, "Pagination update complete, maintaining current scroll position");
-                        viewModel.setPaginationInProgress(false);
-                    }
+                    });
                     
                     // Show empty state if needed
                     binding.emptyView.setVisibility(newList.isEmpty() ? View.VISIBLE : View.GONE);
@@ -1415,7 +1493,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             } else if (templates != null && templates.isEmpty()) {
                 // Handle empty state
                 binding.templatesRecyclerView.post(() -> {
-                    adapter.updateTemplates(new ArrayList<>());
+                    updateTemplates(new ArrayList<>(), false);
                     binding.emptyView.setVisibility(View.VISIBLE);
                     binding.bottomLoadingView.setVisibility(View.GONE);
                     
@@ -1435,17 +1513,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
             
             // If we have new templates, also make sure to update the adapter with the IDs
             if (hasNew && adapter != null) {
-                Set<String> newIds = viewModel.getNewTemplateIds().getValue();
-                if (newIds != null && !newIds.isEmpty()) {
-                    adapter.setNewTemplateIds(newIds);
-                    
-                    // Force a refresh of visible items to ensure badges are displayed
-                    int firstVisible = layoutManager.findFirstVisibleItemPosition();
-                    int lastVisible = layoutManager.findLastVisibleItemPosition();
-                    if (firstVisible >= 0 && lastVisible >= 0) {
-                        adapter.notifyItemRangeChanged(firstVisible, lastVisible - firstVisible + 1);
-                    }
-                }
+                // Note: New template badges handled directly in TemplateAdapter
             }
         });
         
@@ -1652,7 +1720,7 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
 
 
     @Override
-    public void onTemplateClick(Template template) {
+    public void onItemClick(Template template) {
         if (template == null) {
             Log.e(TAG, "Null template clicked");
             return;
@@ -1679,65 +1747,81 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     }
 
     @Override
-    public void onTemplateLike(Template template) {
-        if (template == null) return;
+    public void onTemplateLiked(Template template, boolean liked) {
+        Log.d(TAG, "=== HOME FRAGMENT LIKE HANDLER ===");
+        Log.d(TAG, "Template ID: " + template.getId());
+        Log.d(TAG, "New liked state: " + liked);
+        Log.d(TAG, "Current like count: " + template.getLikeCount());
+        Log.d(TAG, "Current scroll position: " + getCurrentScrollPosition());
         
-        Log.d(TAG, "Template liked: " + template.getId());
+        // Store current scroll position before any updates
+        int scrollPosition = getCurrentScrollPosition();
+        Log.d(TAG, "Stored scroll position: " + scrollPosition);
         
-        // Check if user is authenticated
-        if (!isUserAuthenticated()) {
-            // Show login prompt
-            Snackbar.make(binding.getRoot(), "Please sign in to like templates", Snackbar.LENGTH_SHORT)
-                .setAction("Sign In", v -> {
-                    // Navigate to login screen
-                    navigateToAuthScreen();
-                }).show();
-            
-            // Reset the template state since the action failed
-            template.setLiked(false);
-            
-            // Force update the specific item to reflect the correct state
-            updateTemplateItemInAdapter(template);
-            return;
+        if (viewModel != null) {
+            Log.d(TAG, "Calling HomeViewModel.handleTemplateLike()");
+            viewModel.handleTemplateLike(template)
+                .addOnSuccessListener(isLiked -> {
+                    Log.d(TAG, "=== LIKE SUCCESS CALLBACK ===");
+                    Log.d(TAG, "Like operation successful for template: " + template.getId());
+                    Log.d(TAG, "Server returned liked state: " + isLiked);
+                    
+                    // Check if scroll position changed
+                    int currentScrollPos = getCurrentScrollPosition();
+                    Log.d(TAG, "Scroll position after like success - Before: " + scrollPosition + ", After: " + currentScrollPos);
+                    
+                    if (Math.abs(currentScrollPos - scrollPosition) > 10) {
+                        Log.w(TAG, "SCROLL POSITION CHANGED SIGNIFICANTLY! Difference: " + (currentScrollPos - scrollPosition));
+                        // Try to restore scroll position
+                        if (binding.templatesRecyclerView != null) {
+                            Log.d(TAG, "Attempting to restore scroll position to: " + scrollPosition);
+                            binding.templatesRecyclerView.scrollToPosition(scrollPosition);
+                        }
+                    }
+                    
+                    // Verify template state matches server response
+                    if (template.isLiked() != isLiked) {
+                        Log.w(TAG, "Template state mismatch! Local: " + template.isLiked() + ", Server: " + isLiked);
+                        // Update to match server
+                        template.setLiked(isLiked);
+                        // This might cause another adapter update - POTENTIAL JUMPING CAUSE!
+                        Log.w(TAG, "Correcting template state - POTENTIAL JUMPING CAUSE!");
+                        if (adapter != null) {
+                            adapter.notifyDataSetChanged();
+                        }
+                    }
+                    
+                    Log.d(TAG, "=== LIKE SUCCESS CALLBACK COMPLETED ===");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "=== LIKE ERROR CALLBACK ===");
+                    Log.e(TAG, "Like operation failed for template: " + template.getId());
+                    Log.e(TAG, "Error: " + e.getMessage());
+                    
+                    // Revert optimistic update
+                    Log.w(TAG, "Reverting optimistic update due to error");
+                    template.setLiked(!liked);
+                    template.setLikeCount(template.getLikeCount() + (liked ? -1 : 1));
+                    
+                    // Notify adapter of the revert - THIS MIGHT CAUSE JUMPING!
+                    if (adapter != null) {
+                        Log.w(TAG, "Notifying adapter of reverted state - POTENTIAL JUMPING CAUSE!");
+                        adapter.notifyDataSetChanged();
+                    }
+                    
+                    // Show error message
+                    Toast.makeText(getContext(), "Failed to " + (liked ? "like" : "unlike") + " template: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Log.e(TAG, "=== LIKE ERROR CALLBACK COMPLETED ===");
+                });
+        } else {
+            Log.e(TAG, "HomeViewModel is null - cannot process like action");
         }
         
-        // Note: UI is already updated optimistically in the adapter
-        // Just need to handle the backend update and potential errors
-        
-        // Track like action with source
-        AnalyticsUtils.getInstance().trackTemplateLike(template.getId(), "home_feed");
-        
-        // Keep the original state in case we need to revert
-        final boolean originalLikeState = !template.isLiked();
-        final long originalLikeCount = template.isLiked() ? 
-            template.getLikeCount() - 1 : template.getLikeCount() + 1;
-        
-        // Update backend
-        viewModel.handleTemplateLike(template)
-            .addOnSuccessListener(isLiked -> {
-                // Success - show feedback only if the state changed to liked
-                if (isLiked && template.isLiked()) {
-                    Snackbar.make(binding.getRoot(), "Added to liked templates", Snackbar.LENGTH_SHORT).show();
-                }
-            })
-            .addOnFailureListener(e -> {
-                // Failure - revert UI and show error
-                Log.e(TAG, "Failed to like template: " + template.getId(), e);
-                
-                // Revert to original state
-                template.setLiked(originalLikeState);
-                template.setLikeCount(originalLikeCount);
-                
-                // Update UI
-                updateTemplateItemInAdapter(template);
-                
-                // Show error
-                Snackbar.make(binding.getRoot(), "Failed to update like status", Snackbar.LENGTH_SHORT).show();
-            });
+        Log.d(TAG, "=== HOME FRAGMENT LIKE HANDLER COMPLETED ===");
     }
 
     @Override
-    public void onTemplateFavorite(Template template) {
+    public void onTemplateFavorited(Template template, boolean favorited) {
         if (template == null) return;
         
         Log.d(TAG, "Template favorited: " + template.getId());
@@ -1791,24 +1875,34 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
      * Update a specific template item in the adapter without refreshing the entire list
      */
     private void updateTemplateItemInAdapter(Template template) {
-        if (adapter == null || template == null || template.getId() == null) return;
+        Log.d(TAG, "=== UPDATE TEMPLATE ITEM IN ADAPTER ===");
+        Log.d(TAG, "Template ID: " + (template != null ? template.getId() : "null"));
+        Log.d(TAG, "Adapter null: " + (adapter == null));
+        
+        if (adapter == null || template == null || template.getId() == null) {
+            Log.w(TAG, "Cannot update template - adapter, template, or template ID is null");
+            return;
+        }
+        
+        Log.d(TAG, "Template liked state: " + template.isLiked());
+        Log.d(TAG, "Template like count: " + template.getLikeCount());
+        Log.d(TAG, "Searching for template in adapter...");
         
         try {
-            // Find the position of the template in the adapter
-            for (int i = 0; i < adapter.getItemCount(); i++) {
-                Object item = adapter.getItem(i);
-                if (item instanceof Template) {
-                    Template adapterTemplate = (Template) item;
-                    if (adapterTemplate.getId() != null && adapterTemplate.getId().equals(template.getId())) {
-                        // Update the template object in the adapter's data
-                        adapter.updateTemplateAtPosition(i, template);
-                        return;
-                    }
-                }
-            }
+            // Note: TemplateAdapter doesn't support individual item updates
+            // For now, we'll just log the update request
+            Log.d(TAG, "Template update requested for: " + template.getId());
+            Log.d(TAG, "Template liked: " + template.isLiked());
+            Log.d(TAG, "Template like count: " + template.getLikeCount());
+            Log.d(TAG, "Individual template updates not supported by TemplateAdapter");
+            
+            // TODO: Consider implementing getItem() and updateTemplateAtPosition() in TemplateAdapter
+            // for better performance, or use notifyDataSetChanged() if needed
         } catch (Exception e) {
             Log.e(TAG, "Error updating template in adapter", e);
         }
+        
+        Log.d(TAG, "=== UPDATE TEMPLATE ITEM IN ADAPTER COMPLETED ===");
     }
 
     private void navigateToTemplateDetail(String templateId) {
@@ -2628,5 +2722,74 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     private void createNetworkStateObserver() {
         // Call the existing setupNetworkObserver method
         setupNetworkObserver();
+    }
+
+    /**
+     * Get current scroll position of the templates RecyclerView
+     */
+    private int getCurrentScrollPosition() {
+        if (binding.templatesRecyclerView != null && binding.templatesRecyclerView.getLayoutManager() != null) {
+            LinearLayoutManager layoutManager = (LinearLayoutManager) binding.templatesRecyclerView.getLayoutManager();
+            return layoutManager.findFirstVisibleItemPosition();
+        }
+        return 0;
+    }
+
+    /**
+     * Update templates with comprehensive logging to track jumping issues
+     */
+    private void updateTemplates(List<Template> templates, boolean isPagination) {
+        Log.d(TAG, "=== UPDATE TEMPLATES CALLED ===");
+        Log.d(TAG, "Templates count: " + (templates != null ? templates.size() : 0));
+        Log.d(TAG, "Is pagination: " + isPagination);
+        Log.d(TAG, "Current scroll position: " + getCurrentScrollPosition());
+        
+        if (templates == null) {
+            Log.w(TAG, "Received null templates list");
+            return;
+        }
+
+        // Store current scroll position before update
+        int scrollPositionBeforeUpdate = getCurrentScrollPosition();
+        Log.d(TAG, "Scroll position before update: " + scrollPositionBeforeUpdate);
+
+        if (adapter == null) {
+            Log.e(TAG, "Template adapter is null - cannot update templates");
+            return;
+        }
+
+        Log.d(TAG, "Updating adapter with " + templates.size() + " templates, isPagination: " + isPagination);
+        
+        // Update the adapter - THIS IS WHERE JUMPING MIGHT OCCUR!
+        Log.w(TAG, "Calling adapter.setTemplates() - POTENTIAL JUMPING CAUSE!");
+        adapter.setTemplates(templates);
+
+        if (isPagination) {
+            // For pagination, try to maintain scroll position
+            Log.d(TAG, "Pagination update - checking scroll position maintenance");
+            
+            // Post to ensure the update is complete before checking position
+            binding.templatesRecyclerView.post(() -> {
+                int scrollPositionAfterUpdate = getCurrentScrollPosition();
+                Log.d(TAG, "Scroll position after pagination update: " + scrollPositionAfterUpdate);
+                
+                if (Math.abs(scrollPositionAfterUpdate - scrollPositionBeforeUpdate) > 5) {
+                    Log.w(TAG, "PAGINATION SCROLL POSITION CHANGED! Before: " + scrollPositionBeforeUpdate + ", After: " + scrollPositionAfterUpdate);
+                    Log.w(TAG, "Difference: " + (scrollPositionAfterUpdate - scrollPositionBeforeUpdate));
+                    
+                    // Try to restore the position
+                    Log.d(TAG, "Attempting to restore scroll position to: " + scrollPositionBeforeUpdate);
+                    binding.templatesRecyclerView.scrollToPosition(scrollPositionBeforeUpdate);
+                }
+                
+                Log.d(TAG, "Pagination update complete, maintaining current scroll position");
+            });
+        } else {
+            // For initial load, scroll to top
+            Log.d(TAG, "Initial template load - scrolling to top");
+            binding.templatesRecyclerView.scrollToPosition(0);
+        }
+        
+        Log.d(TAG, "=== UPDATE TEMPLATES COMPLETED ===");
     }
 }
