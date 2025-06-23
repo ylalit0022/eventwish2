@@ -166,9 +166,7 @@
         </activity>
         
        
-        <meta-data
-            android:name="preloaded_fonts"
-            android:resource="@array/preloaded_fonts" />
+
         <meta-data
             android:name="com.google.android.gms.fonts"
             android:value="@array/com_google_android_gms_fonts_certs" />

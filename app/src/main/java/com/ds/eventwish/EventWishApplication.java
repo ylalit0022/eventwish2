@@ -67,6 +67,7 @@ import com.ds.eventwish.utils.EventNotificationManager;
 import com.ds.eventwish.data.auth.AuthManager;
 import com.google.android.material.color.DynamicColors;
 import com.ds.eventwish.data.repository.SponsoredAdRepository;
+import com.ds.eventwish.utils.ThemeManager;
 
 public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
@@ -154,6 +155,9 @@ public class EventWishApplication extends Application implements Configuration.P
         
         // Apply dynamic colors if available (Android 12+)
         DynamicColors.applyToActivitiesIfAvailable(this);
+        
+        // Initialize ThemeManager for remote theme control
+        ThemeManager.getInstance(this).initializeRemoteConfig();
         
         // Set application instance and context first
         instance = this;

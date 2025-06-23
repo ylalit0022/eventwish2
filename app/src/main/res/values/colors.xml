@@ -255,5 +255,272 @@
     <color name="gradient_warm_start">#FBB13C</color>
     <color name="gradient_warm_end">#80CBC4</color>
 
+    <!-- ============================================ -->
+    <!-- THEME VARIANT COLORS FOR REMOTE CONFIG     -->
+    <!-- ============================================ -->
+    
+    <!-- Christmas Theme Colors - Red/Green/Gold palette -->
+    <color name="christmas_primary">#C62828</color> <!-- Christmas Red -->
+    <color name="christmas_onPrimary">#FFFFFF</color>
+    <color name="christmas_primaryContainer">#FFCDD2</color>
+    <color name="christmas_onPrimaryContainer">#B71C1C</color>
+    
+    <color name="christmas_secondary">#2E7D32</color> <!-- Christmas Green -->
+    <color name="christmas_onSecondary">#FFFFFF</color>
+    <color name="christmas_secondaryContainer">#C8E6C9</color>
+    <color name="christmas_onSecondaryContainer">#1B5E20</color>
+    
+    <color name="christmas_tertiary">#F57F17</color> <!-- Christmas Gold -->
+    <color name="christmas_onTertiary">#000000</color>
+    <color name="christmas_tertiaryContainer">#FFF9C4</color>
+    <color name="christmas_onTertiaryContainer">#F57F17</color>
+    
+    <color name="christmas_surface">#FFF8F5</color>
+    <color name="christmas_onSurface">#1C1B1F</color>
+    <color name="christmas_background">#FFF8F5</color>
+    <color name="christmas_onBackground">#1C1B1F</color>
+    <color name="christmas_surfaceVariant">#E7E0EC</color>
+    <color name="christmas_onSurfaceVariant">#49454F</color>
+    <color name="christmas_outline">#79747E</color>
+    <color name="christmas_outlineVariant">#CAC4D0</color>
+    <color name="christmas_surfaceContainer">#F2EDF7</color>
+    <color name="christmas_surfaceContainerHigh">#ECE6F0</color>
+    <color name="christmas_surfaceContainerLow">#F7F2FC</color>
+    <color name="christmas_surfaceContainerLowest">#FFFFFF</color>
+
+    <!-- Diwali Theme Colors - Orange/Gold/Deep Red palette -->
+    <color name="diwali_primary">#FF6F00</color> <!-- Diwali Orange -->
+    <color name="diwali_onPrimary">#FFFFFF</color>
+    <color name="diwali_primaryContainer">#FFE0B2</color>
+    <color name="diwali_onPrimaryContainer">#E65100</color>
+    
+    <color name="diwali_secondary">#FFB300</color> <!-- Diwali Gold -->
+    <color name="diwali_onSecondary">#000000</color>
+    <color name="diwali_secondaryContainer">#FFF8E1</color>
+    <color name="diwali_onSecondaryContainer">#FF8F00</color>
+    
+    <color name="diwali_tertiary">#D32F2F</color> <!-- Diwali Deep Red -->
+    <color name="diwali_onTertiary">#FFFFFF</color>
+    <color name="diwali_tertiaryContainer">#FFCDD2</color>
+    <color name="diwali_onTertiaryContainer">#B71C1C</color>
+    
+    <color name="diwali_surface">#FFFAF0</color>
+    <color name="diwali_onSurface">#1C1B1F</color>
+    <color name="diwali_background">#FFFAF0</color>
+    <color name="diwali_onBackground">#1C1B1F</color>
+    <color name="diwali_surfaceVariant">#E7E0EC</color>
+    <color name="diwali_onSurfaceVariant">#49454F</color>
+    <color name="diwali_outline">#79747E</color>
+    <color name="diwali_outlineVariant">#CAC4D0</color>
+    <color name="diwali_surfaceContainer">#F2EDF7</color>
+    <color name="diwali_surfaceContainerHigh">#ECE6F0</color>
+    <color name="diwali_surfaceContainerLow">#F7F2FC</color>
+    <color name="diwali_surfaceContainerLowest">#FFFFFF</color>
+
+    <!-- New Year Theme Colors - Gold/Silver/Black palette -->
+    <color name="new_year_primary">#FFD700</color> <!-- New Year Gold -->
+    <color name="new_year_onPrimary">#000000</color>
+    <color name="new_year_primaryContainer">#FFF9C4</color>
+    <color name="new_year_onPrimaryContainer">#F57F17</color>
+    
+    <color name="new_year_secondary">#9E9E9E</color> <!-- New Year Silver -->
+    <color name="new_year_onSecondary">#000000</color>
+    <color name="new_year_secondaryContainer">#F5F5F5</color>
+    <color name="new_year_onSecondaryContainer">#616161</color>
+    
+    <color name="new_year_tertiary">#212121</color> <!-- New Year Black -->
+    <color name="new_year_onTertiary">#FFFFFF</color>
+    <color name="new_year_tertiaryContainer">#424242</color>
+    <color name="new_year_onTertiaryContainer">#E0E0E0</color>
+    
+    <color name="new_year_surface">#FAFAFA</color>
+    <color name="new_year_onSurface">#1C1B1F</color>
+    <color name="new_year_background">#FAFAFA</color>
+    <color name="new_year_onBackground">#1C1B1F</color>
+    <color name="new_year_surfaceVariant">#E7E0EC</color>
+    <color name="new_year_onSurfaceVariant">#49454F</color>
+    <color name="new_year_outline">#79747E</color>
+    <color name="new_year_outlineVariant">#CAC4D0</color>
+    <color name="new_year_surfaceContainer">#F2EDF7</color>
+    <color name="new_year_surfaceContainerHigh">#ECE6F0</color>
+    <color name="new_year_surfaceContainerLow">#F7F2FC</color>
+    <color name="new_year_surfaceContainerLowest">#FFFFFF</color>
+
+    <!-- Valentine Theme Colors - Pink/Red/Rose palette -->
+    <color name="valentine_primary">#E91E63</color> <!-- Valentine Pink -->
+    <color name="valentine_onPrimary">#FFFFFF</color>
+    <color name="valentine_primaryContainer">#FCE4EC</color>
+    <color name="valentine_onPrimaryContainer">#AD1457</color>
+    
+    <color name="valentine_secondary">#F44336</color> <!-- Valentine Red -->
+    <color name="valentine_onSecondary">#FFFFFF</color>
+    <color name="valentine_secondaryContainer">#FFEBEE</color>
+    <color name="valentine_onSecondaryContainer">#C62828</color>
+    
+    <color name="valentine_tertiary">#EC407A</color> <!-- Valentine Rose -->
+    <color name="valentine_onTertiary">#FFFFFF</color>
+    <color name="valentine_tertiaryContainer">#F8BBD9</color>
+    <color name="valentine_onTertiaryContainer">#880E4F</color>
+    
+    <color name="valentine_surface">#FFF5F7</color>
+    <color name="valentine_onSurface">#1C1B1F</color>
+    <color name="valentine_background">#FFF5F7</color>
+    <color name="valentine_onBackground">#1C1B1F</color>
+    <color name="valentine_surfaceVariant">#E7E0EC</color>
+    <color name="valentine_onSurfaceVariant">#49454F</color>
+    <color name="valentine_outline">#79747E</color>
+    <color name="valentine_outlineVariant">#CAC4D0</color>
+    <color name="valentine_surfaceContainer">#F2EDF7</color>
+    <color name="valentine_surfaceContainerHigh">#ECE6F0</color>
+    <color name="valentine_surfaceContainerLow">#F7F2FC</color>
+    <color name="valentine_surfaceContainerLowest">#FFFFFF</color>
+
+    <!-- Spring Theme Colors - Fresh Green/Pink/Light Blue -->
+    <color name="spring_primary">#4CAF50</color> <!-- Spring Green -->
+    <color name="spring_onPrimary">#FFFFFF</color>
+    <color name="spring_primaryContainer">#C8E6C9</color>
+    <color name="spring_onPrimaryContainer">#1B5E20</color>
+    
+    <color name="spring_secondary">#FF9800</color> <!-- Spring Pink -->
+    <color name="spring_onSecondary">#000000</color>
+    <color name="spring_secondaryContainer">#FFE0B2</color>
+    <color name="spring_onSecondaryContainer">#E65100</color>
+    
+    <color name="spring_tertiary">#03A9F4</color> <!-- Spring Light Blue -->
+    <color name="spring_onTertiary">#FFFFFF</color>
+    <color name="spring_tertiaryContainer">#B3E5FC</color>
+    <color name="spring_onTertiaryContainer">#01579B</color>
+    
+    <color name="spring_surface">#F1F8E9</color>
+    <color name="spring_onSurface">#1C1B1F</color>
+    <color name="spring_background">#F1F8E9</color>
+    <color name="spring_onBackground">#1C1B1F</color>
+    <color name="spring_surfaceVariant">#E7E0EC</color>
+    <color name="spring_onSurfaceVariant">#49454F</color>
+    <color name="spring_outline">#79747E</color>
+    <color name="spring_outlineVariant">#CAC4D0</color>
+    <color name="spring_surfaceContainer">#F2EDF7</color>
+    <color name="spring_surfaceContainerHigh">#ECE6F0</color>
+    <color name="spring_surfaceContainerLow">#F7F2FC</color>
+    <color name="spring_surfaceContainerLowest">#FFFFFF</color>
+
+    <!-- Summer Theme Colors - Bright Yellow/Orange/Cyan -->
+    <color name="summer_primary">#FFEB3B</color> <!-- Summer Yellow -->
+    <color name="summer_onPrimary">#000000</color>
+    <color name="summer_primaryContainer">#FFF9C4</color>
+    <color name="summer_onPrimaryContainer">#F57F17</color>
+    
+    <color name="summer_secondary">#FF5722</color> <!-- Summer Orange -->
+    <color name="summer_onSecondary">#FFFFFF</color>
+    <color name="summer_secondaryContainer">#FFCCBC</color>
+    <color name="summer_onSecondaryContainer">#BF360C</color>
+    
+    <color name="summer_tertiary">#00BCD4</color> <!-- Summer Cyan -->
+    <color name="summer_onTertiary">#FFFFFF</color>
+    <color name="summer_tertiaryContainer">#B2EBF2</color>
+    <color name="summer_onTertiaryContainer">#006064</color>
+    
+    <color name="summer_surface">#FFFEF7</color>
+    <color name="summer_onSurface">#1C1B1F</color>
+    <color name="summer_background">#FFFEF7</color>
+    <color name="summer_onBackground">#1C1B1F</color>
+    <color name="summer_surfaceVariant">#E7E0EC</color>
+    <color name="summer_onSurfaceVariant">#49454F</color>
+    <color name="summer_outline">#79747E</color>
+    <color name="summer_outlineVariant">#CAC4D0</color>
+    <color name="summer_surfaceContainer">#F2EDF7</color>
+    <color name="summer_surfaceContainerHigh">#ECE6F0</color>
+    <color name="summer_surfaceContainerLow">#F7F2FC</color>
+    <color name="summer_surfaceContainerLowest">#FFFFFF</color>
+
+    <!-- Fall Theme Colors - Orange/Brown/Amber -->
+    <color name="fall_primary">#FF9800</color> <!-- Fall Orange -->
+    <color name="fall_onPrimary">#FFFFFF</color>
+    <color name="fall_primaryContainer">#FFE0B2</color>
+    <color name="fall_onPrimaryContainer">#E65100</color>
+    
+    <color name="fall_secondary">#795548</color> <!-- Fall Brown -->
+    <color name="fall_onSecondary">#FFFFFF</color>
+    <color name="fall_secondaryContainer">#D7CCC8</color>
+    <color name="fall_onSecondaryContainer">#3E2723</color>
+    
+    <color name="fall_tertiary">#FFC107</color> <!-- Fall Amber -->
+    <color name="fall_onTertiary">#000000</color>
+    <color name="fall_tertiaryContainer">#FFECB3</color>
+    <color name="fall_onTertiaryContainer">#FF8F00</color>
+    
+    <color name="fall_surface">#FFF8E1</color>
+    <color name="fall_onSurface">#1C1B1F</color>
+    <color name="fall_background">#FFF8E1</color>
+    <color name="fall_onBackground">#1C1B1F</color>
+    <color name="fall_surfaceVariant">#E7E0EC</color>
+    <color name="fall_onSurfaceVariant">#49454F</color>
+    <color name="fall_outline">#79747E</color>
+    <color name="fall_outlineVariant">#CAC4D0</color>
+    <color name="fall_surfaceContainer">#F2EDF7</color>
+    <color name="fall_surfaceContainerHigh">#ECE6F0</color>
+    <color name="fall_surfaceContainerLow">#F7F2FC</color>
+    <color name="fall_surfaceContainerLowest">#FFFFFF</color>
+
+    <!-- Winter Theme Colors - Blue/Silver/White -->
+    <color name="winter_primary">#2196F3</color> <!-- Winter Blue -->
+    <color name="winter_onPrimary">#FFFFFF</color>
+    <color name="winter_primaryContainer">#BBDEFB</color>
+    <color name="winter_onPrimaryContainer">#0D47A1</color>
+    
+    <color name="winter_secondary">#607D8B</color> <!-- Winter Silver -->
+    <color name="winter_onSecondary">#FFFFFF</color>
+    <color name="winter_secondaryContainer">#CFD8DC</color>
+    <color name="winter_onSecondaryContainer">#263238</color>
+    
+    <color name="winter_tertiary">#ECEFF1</color> <!-- Winter White -->
+    <color name="winter_onTertiary">#000000</color>
+    <color name="winter_tertiaryContainer">#F5F5F5</color>
+    <color name="winter_onTertiaryContainer">#424242</color>
+    
+    <color name="winter_surface">#F3F7FB</color>
+    <color name="winter_onSurface">#1C1B1F</color>
+    <color name="winter_background">#F3F7FB</color>
+    <color name="winter_onBackground">#1C1B1F</color>
+    <color name="winter_surfaceVariant">#E7E0EC</color>
+    <color name="winter_onSurfaceVariant">#49454F</color>
+    <color name="winter_outline">#79747E</color>
+    <color name="winter_outlineVariant">#CAC4D0</color>
+    <color name="winter_surfaceContainer">#F2EDF7</color>
+    <color name="winter_surfaceContainerHigh">#ECE6F0</color>
+    <color name="winter_surfaceContainerLow">#F7F2FC</color>
+    <color name="winter_surfaceContainerLowest">#FFFFFF</color>
+
+    <!-- CENTRALIZED THEMING: Additional Theme Attributes -->
+    <!-- Surface Overlays for transparent backgrounds -->
+    <color name="md_theme_light_surfaceOverlay">#80FFFFFF</color>
+    <color name="md_theme_dark_surfaceOverlay">#80000000</color>
+
+    <!-- Status Indicators for system messages -->
+    <color name="md_theme_light_statusSuccess">#4CAF50</color>
+    <color name="md_theme_light_onStatusSuccess">#FFFFFF</color>
+    <color name="md_theme_light_statusWarning">#FFF8E1</color>
+    <color name="md_theme_light_onStatusWarning">#795548</color>
+    <color name="md_theme_light_statusInfo">#E3F2FD</color>
+    <color name="md_theme_light_onStatusInfo">#0D47A1</color>
+    
+    <color name="md_theme_dark_statusSuccess">#66BB6A</color>
+    <color name="md_theme_dark_onStatusSuccess">#000000</color>
+    <color name="md_theme_dark_statusWarning">#FFB74D</color>
+    <color name="md_theme_dark_onStatusWarning">#000000</color>
+    <color name="md_theme_dark_statusInfo">#42A5F5</color>
+    <color name="md_theme_dark_onStatusInfo">#000000</color>
+
+    <!-- Loading States for shimmer effects -->
+    <color name="md_theme_light_shimmer">#EEEEEE</color>
+    <color name="md_theme_light_shimmerHighlight">#F5F5F5</color>
+    <color name="md_theme_dark_shimmer">#333333</color>
+    <color name="md_theme_dark_shimmerHighlight">#404040</color>
+
+    <!-- Ad Components for advertising layouts -->
+    <color name="md_theme_light_adBackground">#F5F5F5</color>
+    <color name="md_theme_light_onAdBackground">#424242</color>
+    <color name="md_theme_dark_adBackground">#2A2A2A</color>
+    <color name="md_theme_dark_onAdBackground">#E0E0E0</color>
 
 </resources>

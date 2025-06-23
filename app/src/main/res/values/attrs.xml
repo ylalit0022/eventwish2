@@ -6,4 +6,47 @@
         <attr name="enabled" format="boolean" />
         <attr name="adType" format="string" />
     </declare-styleable>
+    
+    <!-- CENTRALIZED THEMING: Theme Attribute Declarations -->
+    <!-- Surface Overlays -->
+    <attr name="colorSurfaceOverlay" format="color" />
+    
+    <!-- Status Indicators -->
+    <attr name="colorStatusSuccess" format="color" />
+    <attr name="colorOnStatusSuccess" format="color" />
+    <attr name="colorStatusWarning" format="color" />
+    <attr name="colorOnStatusWarning" format="color" />
+    <attr name="colorStatusInfo" format="color" />
+    <attr name="colorOnStatusInfo" format="color" />
+    
+    <!-- Loading States -->
+    <attr name="colorShimmer" format="color" />
+    <attr name="colorShimmerHighlight" format="color" />
+    
+    <!-- Ad Components -->
+    <attr name="colorAdBackground" format="color" />
+    <attr name="colorOnAdBackground" format="color" />
+    
+    <!-- PHASE 6-8: Advanced Theme Attributes for Complete Centralization -->
+    <!-- Icon Colors -->
+    <attr name="colorIconPrimary" format="color" />      <!-- Main icons -->
+    <attr name="colorIconSecondary" format="color" />    <!-- Secondary icons -->
+    <attr name="colorIconOnPrimary" format="color" />    <!-- Icons on primary background -->
+    <attr name="colorIconOnSurface" format="color" />    <!-- Icons on surface background -->
+    
+    <!-- Status Colors (extend existing) -->
+    <attr name="colorStatusWarningContainer" format="color" />
+    <attr name="colorStatusInfoContainer" format="color" />
+    <attr name="colorStatusSuccessContainer" format="color" />
+    
+    <!-- Badge & Indicator Colors -->
+    <attr name="colorBadgeBackground" format="color" />
+    <attr name="colorOnBadgeBackground" format="color" />
+    <attr name="colorIndicatorDot" format="color" />
+    
+    <!-- Gradient Colors -->
+    <attr name="colorGradientStart" format="color" />
+    <attr name="colorGradientEnd" format="color" />
+    <attr name="colorOverlayLight" format="color" />
+    <attr name="colorOverlayDark" format="color" />
 </resources> 

@@ -1,34 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView
+<com.google.android.material.chip.Chip
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:layout_margin="4dp"
-    app:cardBackgroundColor="#E0F7FA"
-    app:cardCornerRadius="16dp"
-    app:cardElevation="2dp"
-    app:checkedIconTint="@color/white"
-    app:cardForegroundColor="@color/ripple_color">
-
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="8dp">
-
-        <ImageView
-            android:id="@+id/filterIcon"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:contentDescription="@string/filter_icon" />
-
-        <TextView
-            android:id="@+id/filterName"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:textSize="12sp"
-            android:textColor="@color/black" />
-    </LinearLayout>
-</com.google.android.material.card.MaterialCardView>
+    android:layout_height="32dp"
+    android:layout_marginEnd="8dp"
+    android:layout_marginBottom="8dp"
+    android:checkable="true"
+    android:clickable="true"
+    android:focusable="true"
+    android:textSize="11sp"
+    android:textColor="?attr/colorOnSurface"
+    android:gravity="center"
+    style="@style/Widget.EventWish.Chip.Premium"
+    app:chipBackgroundColor="?attr/colorSurfaceContainer"
+    app:chipStrokeWidth="1dp"
+    app:checkedIconVisible="false"
+    app:chipMinHeight="32dp"
+    app:chipIconSize="16dp"
+    app:chipIconTint="?attr/colorPrimary"
+    app:chipStrokeColor="?attr/colorOutlineVariant"
+    app:chipStartPadding="12dp"
+    app:chipEndPadding="12dp"
+    app:chipCornerRadius="16dp"
+    app:rippleColor="?attr/colorPrimary"
+    app:ensureMinTouchTargetSize="false" />

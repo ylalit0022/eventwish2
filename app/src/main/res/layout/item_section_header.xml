@@ -14,7 +14,7 @@
         android:layout_height="wrap_content"
         android:textSize="18sp"
         android:textStyle="bold"
-        android:textColor="@android:color/black"
+        android:textColor="?attr/colorOnSurface"
         tools:text="Recommended For You" />
 
     <TextView
@@ -22,7 +22,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textSize="14sp"
-        android:textColor="#757575"
+        android:textColor="?attr/colorOnSurfaceVariant"
         android:layout_marginTop="4dp"
         tools:text="Personalized templates based on your preferences" />
 

@@ -91,6 +91,25 @@ public class Template {
     
     @SerializedName("createdAt")
     private Date createdAt;
+    
+    // Creator Information (from backend Template.js)
+    @SerializedName("creatorId")
+    private String creatorId;
+    
+    @SerializedName("creatorUid")
+    private String creatorUid;  // Firebase UID of the template creator
+    
+    @SerializedName("creatorName")
+    private String creatorName;
+    
+    @SerializedName("creatorProfilePhoto")
+    private String creatorProfilePhoto;
+    
+    @SerializedName("generatedByUser")
+    private String generatedByUser;
+    
+    @SerializedName("generatedByUserUid")
+    private String generatedByUserUid;  // Firebase UID of the user who generated this template
 
     // Default constructor required by Room
     public Template() {
@@ -155,6 +174,12 @@ public class Template {
         this.jsContent = other.jsContent;
         this.recommended = other.recommended;
         this.createdAt = other.createdAt != null ? other.createdAt : new Date();
+        this.creatorId = other.creatorId;
+        this.creatorUid = other.creatorUid;
+        this.creatorName = other.creatorName;
+        this.creatorProfilePhoto = other.creatorProfilePhoto;
+        this.generatedByUser = other.generatedByUser;
+        this.generatedByUserUid = other.generatedByUserUid;
     }
 
     // Getters and setters
@@ -274,6 +299,56 @@ public class Template {
         return createdAt != null ? createdAt.getTime() : 0;
     }
     
+    // Creator Information getters and setters
+    public String getCreatorId() { return creatorId; }
+    public void setCreatorId(String creatorId) { this.creatorId = creatorId; }
+    
+    public String getCreatorUid() { return creatorUid; }
+    public void setCreatorUid(String creatorUid) { this.creatorUid = creatorUid; }
+    
+    public String getCreatorName() { return creatorName; }
+    public void setCreatorName(String creatorName) { this.creatorName = creatorName; }
+    
+    public String getCreatorProfilePhoto() { return creatorProfilePhoto; }
+    public void setCreatorProfilePhoto(String creatorProfilePhoto) { this.creatorProfilePhoto = creatorProfilePhoto; }
+    
+    public String getGeneratedByUser() { return generatedByUser; }
+    public void setGeneratedByUser(String generatedByUser) { this.generatedByUser = generatedByUser; }
+    
+    public String getGeneratedByUserUid() { return generatedByUserUid; }
+    public void setGeneratedByUserUid(String generatedByUserUid) { this.generatedByUserUid = generatedByUserUid; }
+    
+    /**
+     * Get the display name for the template creator
+     * @return Creator name or fallback to "eventwish" if not available
+     */
+    public String getCreatorDisplayName() {
+        if (creatorName != null && !creatorName.trim().isEmpty()) {
+            return creatorName.trim();
+        }
+        return "eventwish";
+    }
+    
+    /**
+     * Check if template has creator information
+     * @return true if creator UID or ID is available
+     */
+    public boolean hasCreatorInfo() {
+        return (creatorUid != null && !creatorUid.trim().isEmpty()) || 
+               (creatorId != null && !creatorId.trim().isEmpty());
+    }
+    
+    /**
+     * Get the primary creator identifier (UID preferred, then ID)
+     * @return Creator UID if available, otherwise creator ID
+     */
+    public String getPrimaryCreatorId() {
+        if (creatorUid != null && !creatorUid.trim().isEmpty()) {
+            return creatorUid;
+        }
+        return creatorId;
+    }
+
     // Alias methods for backward compatibility
     public String getName() { return getTitle(); }
     public void setName(String name) { setTitle(name); }
@@ -315,13 +390,18 @@ public class Template {
                Objects.equals(htmlContent, template.htmlContent) &&
                Objects.equals(cssContent, template.cssContent) &&
                Objects.equals(jsContent, template.jsContent) &&
-               Objects.equals(createdAt, template.createdAt);
+               Objects.equals(createdAt, template.createdAt) &&
+               Objects.equals(creatorId, template.creatorId) &&
+               Objects.equals(creatorName, template.creatorName) &&
+               Objects.equals(creatorProfilePhoto, template.creatorProfilePhoto) &&
+               Objects.equals(generatedByUser, template.generatedByUser);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(id, title, categoryId, previewUrl, likeCount, favoriteCount, shareCount,
                           isLiked, isFavorited, lastUpdated, likeChanged, favoriteChanged,
-                          htmlContent, cssContent, jsContent, recommended, createdAt);
+                          htmlContent, cssContent, jsContent, recommended, createdAt,
+                          creatorId, creatorName, creatorProfilePhoto, generatedByUser);
     }
 }

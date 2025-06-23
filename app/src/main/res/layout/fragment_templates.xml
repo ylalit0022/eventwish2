@@ -44,7 +44,7 @@
         android:id="@+id/loadingView"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:background="#80FFFFFF"
+        android:background="?attr/colorSurfaceOverlay"
         android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"

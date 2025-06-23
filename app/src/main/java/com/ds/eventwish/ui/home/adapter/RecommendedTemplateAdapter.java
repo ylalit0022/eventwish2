@@ -27,7 +27,9 @@ import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.repository.CategoryIconRepository;
 import com.ds.eventwish.data.repository.EngagementRepository;
+import com.ds.eventwish.data.repository.CreatorProfileRepository;
 import com.ds.eventwish.utils.NumberFormatter;
+import com.google.gson.JsonObject;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -55,6 +57,7 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
     private final TemplateClickListener clickListener;
     private CategoryIconRepository categoryIconRepository;
     private EngagementRepository engagementRepository;
+    private CreatorProfileRepository creatorProfileRepository;
     
     // Add this constant at the top of the class
     private static final int TAG_ADAPTER = R.id.tag_adapter;
@@ -132,6 +135,8 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
         private final TextView shareCountText;
         private final TextView timeText;
         private final TextView fallbackTimeText;
+        private final ImageView profileImage;
+        private final TextView usernameText;
 
         public TemplateViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -150,6 +155,8 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
             shareCountText = itemView.findViewById(R.id.shareCountText);
             timeText = itemView.findViewById(R.id.timeText);
             fallbackTimeText = itemView.findViewById(R.id.fallbackTimeText);
+            profileImage = itemView.findViewById(R.id.profileImage);
+            usernameText = itemView.findViewById(R.id.usernameText);
         }
         
         public void bind(Template template, Set<String> recommendedIds, Set<String> newIds, TemplateClickListener listener, RecommendedTemplateAdapter adapter) {
@@ -186,6 +193,9 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
             } else {
                 Log.w(TAG, "fallbackTimeText view is null!");
             }
+            
+            // Set creator profile information
+            setCreatorProfile(template);
             
             // Set badges
             if (newIds != null && newIds.contains(template.getId())) {
@@ -410,6 +420,147 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
                                 .start())
                     .start();
         }
+        
+        /**
+         * Set creator profile information using server-side API with fallback to app branding
+         */
+        private void setCreatorProfile(Template template) {
+            if (profileImage == null || usernameText == null) {
+                Log.w(TAG, "Profile views are null - profileImage: " + profileImage + ", usernameText: " + usernameText);
+                return;
+            }
+            
+            // Set default values immediately for better UX
+            setDefaultCreatorProfile();
+            
+            // Get creator profile from server-side API
+            if (template.getId() != null && !template.getId().trim().isEmpty()) {
+                Log.d(TAG, "Fetching creator profile for template: " + template.getId());
+                
+                // Use the adapter's creator profile repository
+                RecommendedTemplateAdapter adapter = getAdapterFromViewHolder();
+                if (adapter != null && adapter.creatorProfileRepository != null) {
+                    adapter.creatorProfileRepository.getCreatorProfile(template.getId())
+                        .observeForever(response -> {
+                            if (response != null) {
+                                updateCreatorProfileUI(response, template.getId());
+                            } else {
+                                Log.w(TAG, "Failed to fetch creator profile for template: " + template.getId() + 
+                                          ", using default profile");
+                            }
+                        });
+                } else {
+                    Log.w(TAG, "CreatorProfileRepository is not available, using default profile");
+                }
+            } else {
+                Log.w(TAG, "Template ID is null or empty, using default profile");
+            }
+        }
+        
+        /**
+         * Set default creator profile (app branding)
+         */
+        private void setDefaultCreatorProfile() {
+            usernameText.setText("eventwish");
+            profileImage.setImageResource(R.drawable.app_logo);
+            Log.d(TAG, "Set default creator profile: eventwish with app logo");
+        }
+        
+        /**
+         * Update UI with creator profile information from server response
+         */
+        private void updateCreatorProfileUI(JsonObject response, String templateId) {
+            try {
+                if (response.has("success") && response.get("success").getAsBoolean()) {
+                    if (response.has("data") && response.get("data").isJsonObject()) {
+                        JsonObject data = response.getAsJsonObject("data");
+                        
+                        if (data.has("creatorProfile") && data.get("creatorProfile").isJsonObject()) {
+                            JsonObject creatorProfile = data.getAsJsonObject("creatorProfile");
+                            
+                            // Set creator name with fallback priority
+                            String displayName = "eventwish"; // Default fallback
+                            if (creatorProfile.has("creatorName") && !creatorProfile.get("creatorName").isJsonNull()) {
+                                String creatorName = creatorProfile.get("creatorName").getAsString();
+                                if (creatorName != null && !creatorName.trim().isEmpty()) {
+                                    displayName = creatorName.trim();
+                                }
+                            } else if (creatorProfile.has("generatedByUser") && !creatorProfile.get("generatedByUser").isJsonNull()) {
+                                String generatedByUser = creatorProfile.get("generatedByUser").getAsString();
+                                if (generatedByUser != null && !generatedByUser.trim().isEmpty()) {
+                                    displayName = generatedByUser.trim();
+                                }
+                            }
+                            usernameText.setText(displayName);
+                            Log.d(TAG, "Updated username for template " + templateId + " to: " + displayName);
+                            
+                            // Set creator profile image
+                            String profilePhotoUrl = null;
+                            if (creatorProfile.has("creatorProfilePhoto") && !creatorProfile.get("creatorProfilePhoto").isJsonNull()) {
+                                profilePhotoUrl = creatorProfile.get("creatorProfilePhoto").getAsString();
+                            }
+                            
+                            if (profilePhotoUrl != null && !profilePhotoUrl.trim().isEmpty()) {
+                                final String imageUrl = profilePhotoUrl.trim();
+                                Log.d(TAG, "Loading creator profile image for template " + templateId + ": " + imageUrl);
+                                
+                                Glide.with(profileImage.getContext())
+                                    .load(imageUrl)
+                                    .apply(new RequestOptions()
+                                        .placeholder(R.drawable.app_logo)
+                                        .error(R.drawable.app_logo)
+                                        .circleCrop()
+                                        .diskCacheStrategy(DiskCacheStrategy.ALL))
+                                    .listener(new RequestListener<Drawable>() {
+                                        @Override
+                                        public boolean onLoadFailed(@Nullable GlideException e, Object model, 
+                                                                  Target<Drawable> target, boolean isFirstResource) {
+                                            Log.w(TAG, "Failed to load creator profile image for template " + templateId + ": " + imageUrl, e);
+                                            return false; // Let Glide handle the error (show error drawable)
+                                        }
+
+                                        @Override
+                                        public boolean onResourceReady(Drawable resource, Object model,
+                                                                     Target<Drawable> target, DataSource dataSource,
+                                                                     boolean isFirstResource) {
+                                            Log.d(TAG, "Successfully loaded creator profile image for template " + templateId);
+                                            return false; // Let Glide handle the resource
+                                        }
+                                    })
+                                    .into(profileImage);
+                            } else {
+                                // Fallback to app logo
+                                profileImage.setImageResource(R.drawable.app_logo);
+                                Log.d(TAG, "Using fallback app logo for template " + templateId);
+                            }
+                            
+                            String creatorSource = data.has("creatorSource") ? data.get("creatorSource").getAsString() : "api";
+                            Log.d(TAG, "Creator profile UI updated successfully - Source: " + creatorSource);
+                        } else {
+                            Log.w(TAG, "Creator profile object is missing for template " + templateId + ", using default");
+                        }
+                    } else {
+                        Log.w(TAG, "Data object is missing for template " + templateId + ", using default");
+                    }
+                } else {
+                    Log.w(TAG, "Creator profile response unsuccessful for template " + templateId + ", using default");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error updating creator profile UI for template " + templateId, e);
+            }
+        }
+        
+        /**
+         * Get the adapter instance from the ViewHolder
+         */
+        private RecommendedTemplateAdapter getAdapterFromViewHolder() {
+            Object tag = itemView.getTag(TAG_ADAPTER);
+            if (tag instanceof RecommendedTemplateAdapter) {
+                return (RecommendedTemplateAdapter) tag;
+            }
+            Log.w(TAG, "Failed to get adapter from ViewHolder tag");
+            return null;
+        }
     }
     
     /**
@@ -419,6 +570,9 @@ public class RecommendedTemplateAdapter extends RecyclerView.Adapter<RecyclerVie
         this.clickListener = listener;
         // Enable stable IDs to prevent blinking during updates
         setHasStableIds(true);
+        
+        // Initialize repositories
+        this.creatorProfileRepository = CreatorProfileRepository.getInstance();
     }
     
     /**

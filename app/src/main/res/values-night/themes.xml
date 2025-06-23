@@ -53,6 +53,26 @@
         <item name="android:textColorPrimary">@color/md_theme_dark_onSurface</item>
         <item name="android:textColorSecondary">@color/md_theme_dark_onSurfaceVariant</item>
         
+        <!-- CENTRALIZED THEMING: Additional Theme Attributes -->
+        <!-- Surface Overlays -->
+        <item name="colorSurfaceOverlay">@color/md_theme_dark_surfaceOverlay</item>
+        
+        <!-- Status Indicators -->
+        <item name="colorStatusSuccess">@color/md_theme_dark_statusSuccess</item>
+        <item name="colorOnStatusSuccess">@color/md_theme_dark_onStatusSuccess</item>
+        <item name="colorStatusWarning">@color/md_theme_dark_statusWarning</item>
+        <item name="colorOnStatusWarning">@color/md_theme_dark_onStatusWarning</item>
+        <item name="colorStatusInfo">@color/md_theme_dark_statusInfo</item>
+        <item name="colorOnStatusInfo">@color/md_theme_dark_onStatusInfo</item>
+        
+        <!-- Loading States -->
+        <item name="colorShimmer">@color/md_theme_dark_shimmer</item>
+        <item name="colorShimmerHighlight">@color/md_theme_dark_shimmerHighlight</item>
+        
+        <!-- Ad Components -->
+        <item name="colorAdBackground">@color/md_theme_dark_adBackground</item>
+        <item name="colorOnAdBackground">@color/md_theme_dark_onAdBackground</item>
+        
         <!-- Text appearances -->
         <item name="textAppearanceHeadline1">@style/TextAppearance.EventWish.Headline1</item>
         <item name="textAppearanceHeadline2">@style/TextAppearance.EventWish.Headline2</item>

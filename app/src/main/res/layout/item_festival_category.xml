@@ -42,7 +42,7 @@
             android:id="@+id/festivalDate"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#757575"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="14sp"
             tools:text="Mar 5, 2025" />
     </LinearLayout>
@@ -59,7 +59,7 @@
             android:id="@+id/festivalName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@android:color/black"
+            android:textColor="?attr/colorOnSurface"
             android:textSize="18sp"
             android:textStyle="bold"
             tools:text="Holi Festival" />
@@ -69,7 +69,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:textColor="#757575"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="14sp"
             tools:text="Festival of Colors" />
             
@@ -81,7 +81,7 @@
         android:layout_height="1dp"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"
-        android:background="#EEEEEE" />
+        android:background="?attr/colorShimmerHighlight" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/templatesRecyclerView"
@@ -99,6 +99,6 @@
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginTop="16dp"
-        android:background="#EEEEEE" />
+        android:background="?attr/colorShimmerHighlight" />
 
 </LinearLayout>

@@ -356,54 +356,406 @@ We have successfully improved error handling and user feedback across all templa
 
 These improvements will significantly enhance the user experience in the admin panel by providing clear feedback about operations and errors, especially when server errors (500) occur. The standardized approach also makes the code more maintainable and easier to debug. 
 
-# Scratchpad Plan: Fix Persistent Language Field Error in Template Updates
+# COMPLETE CENTRALIZED THEMING & UI ENHANCEMENT PLAN
 
-## 🎯 Objective
-Fix the MongoDB error "found language override field in document with non-string type" that persists despite previous fixes, and resolve the React error #31 that appears after the MongoDB error.
+## 🔍 **Comprehensive Layout Analysis & Requirements**:
 
-## 🧩 Related Files
-- backend/routes/adminRoutes.js - Contains the template update route
-- backend/models/Template.js - Contains the template schema definition
-- backend/admin-panel/src/pages/TemplateDetail.js - Frontend component for editing templates
-- backend/admin-panel/src/api.js - API client for making requests to the backend
+### **📊 Current State Assessment:**
 
-## ✅ Checklist
-- [x] Analyze the error logs to understand the exact nature of the issue
-- [x] Check how null/undefined language values are handled in the frontend
-- [x] Examine how the backend processes null/undefined language values
-- [x] Verify the React error #31 related to object with keys {language}
-- [x] Fix the language field handling in api.js
-- [x] Fix the language field handling in adminRoutes.js
-- [ ] Fix the language field handling in TemplateDetail.js (timeout issue)
-- [ ] Test the fix with a template update
+#### **✅ Already Themed (Good Examples):**
+- **Color State Lists**: `bottom_nav_item_color.xml`, `tab_icon_color.xml` - ✅ Using `?attr/colorPrimary`
+- **Some Layouts**: 13 layout files converted to theme attributes
+- **Base Theme System**: Material 3 with 8 festival variants
 
-## 🧠 Context
-The error persists despite our previous fixes. The error logs show:
-1. "Field error in language: null" and "Field error in language: undefined" - suggesting the issue might be with null/undefined values
-2. React error #31 - likely related to improper state updates after the error occurs
+#### **🚨 Critical Issues Found in Specified Files:**
 
-The Template model defines language as:
-```javascript
-language: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Language'
-}
+### **1. LAYOUT FILES REQUIRING CENTRALIZATION**
+
+#### **Priority 1: Main Activity & Navigation**
+- **activity_main.xml**: Uses `@color/bottom_nav_item_color` (needs theme attributes)
+- **activity_splash.xml**: Multiple hardcoded colors (`@color/white`, `@color/splash_background`, `@color/colorSuccess`)
+- **fragment_template_detail.xml**: Needs bottom nav hiding implementation
+
+#### **Priority 2: Core Fragments**
+- **fragment_home.xml**: Already mostly themed ✅ (uses `?attr/colorSurface`, `?attr/colorPrimary`)
+- **fragment_history.xml**: Uses `@color/background` (needs `?attr/colorSurface`)
+- **fragment_more.xml**: Multiple hardcoded colors (`@color/purple_500`, `@color/text_primary`, `@color/surface`)
+- **fragment_shared_wish.xml**: Uses Material 3 colors but hardcoded (`@color/md_theme_light_*`)
+- **fragment_resource.xml**: Uses `@color/back_button_background`, `@android:color/white`
+- **fragment_profile.xml**: Already themed ✅ (uses `?attr/colorSurface`, `?attr/colorPrimary`)
+- **fragment_reminder.xml**: Needs chip resizing and premium styling
+
+#### **Priority 3: Item Templates**
+- **item_template.xml**: Already well themed ✅ (uses `?attr/colorSurface`, etc.)
+- **item_history.xml**: Uses `@color/text_secondary`, `@color/primary`
+- **item_category.xml**: Uses `?attr/colorPrimary` ✅
+
+### **2. SPECIFIC UI ENHANCEMENT REQUIREMENTS**
+
+#### **🎯 Fragment Reminder Enhancements**
+- **Chip Resizing**: Make filter chips smaller and more premium
+- **Premium Styling**: Enhanced Material 3 chip design with proper elevation
+- **Color Theming**: Ensure all chips use theme attributes
+
+#### **📱 Bottom Navigation Optimization**
+- **Height Reduction**: Reduce bottom nav height in activity_main.xml
+- **Hide in Template Detail**: Implement dynamic hiding in TemplateDetailFragment.java
+- **Input Field Height**: Reduce input field heights in template detail
+
+#### **🖥️ Fragment Shared Wish Full Screen Implementation**
+- **WebView Full Screen**: Immersive full-screen WebView experience
+- **Dynamic Status Bar**: Status bar color adapts to template background
+- **Dynamic Navigation Bar**: Navigation bar color adapts to template
+- **Premium Feel**: Seamless, immersive template viewing experience
+
+### **3. DRAWABLE VECTORS - 150+ Hardcoded Colors**
+**High Impact**: Icons with hardcoded colors can't adapt to themes
+
+**Examples of Critical Issues:**
+```xml
+<!-- Current (BAD) -->
+<vector android:fillColor="#000000" />
+<vector android:fillColor="@android:color/white" />
+<vector android:tint="#FF0000" />
+
+<!-- Should be (GOOD) -->
+<vector android:fillColor="?attr/colorOnSurface" />
+<vector android:fillColor="?attr/colorSurface" />
+<vector android:tint="?attr/colorError" />
 ```
 
-Our previous fixes focused on converting non-string values to strings, but we may need to handle null/undefined values differently or fix how errors are handled in the UI.
+### **4. COMPREHENSIVE IMPLEMENTATION PLAN**
 
-## 🚧 Progress Log
-- Error logs show the language field is sometimes null or undefined
-- The error occurs in the PUT /admin/templates/:id route
-- The React error suggests there's an issue with state management after the error
-- Analysis of the code shows:
-  1. In TemplateDetail.js: The language field is set to null if it doesn't exist, but this might be causing issues
-  2. In api.js: The language field is converted to a string only if it's not null or undefined
-  3. In adminRoutes.js: Similar handling to api.js, but the error persists
-  4. In Template.js: The pre-save hook only processes the language field if it's not null or undefined
-- The issue might be that undefined/null values are not being properly handled or MongoDB is expecting an empty string instead of null
-- The React error #31 is likely occurring because we're trying to update the state with an invalid value after the error
-- Fixed api.js to convert null values to empty strings instead of keeping them as null
-- Fixed adminRoutes.js to convert null values to empty strings
-- Attempted to fix TemplateDetail.js but encountered a timeout issue
-- The approach is to convert all null/undefined values to empty strings ('') throughout the stack to avoid the MongoDB error
+## 📝 **Phase 1: Core Layout Centralization (Priority Files)**
+
+### **✅ Checklist - Core Layouts**
+- [ ] **activity_main.xml**: Convert `@color/bottom_nav_item_color` to theme attributes, reduce bottom nav height
+- [ ] **activity_splash.xml**: Convert all hardcoded colors to theme attributes
+- [ ] **fragment_history.xml**: Convert `@color/background` to `?attr/colorSurface`
+- [ ] **fragment_more.xml**: Convert all hardcoded colors (`@color/purple_500`, etc.) to theme attributes
+- [ ] **fragment_shared_wish.xml**: Convert hardcoded Material 3 colors to theme attributes
+- [ ] **fragment_resource.xml**: Convert button colors to theme attributes
+- [ ] **item_history.xml**: Convert text and icon colors to theme attributes
+
+### **✅ Checklist - UI Enhancements**
+- [ ] **fragment_reminder.xml**: Resize chips, apply premium styling
+- [ ] **fragment_template_detail.xml**: Implement bottom nav hiding logic
+- [ ] **TemplateDetailFragment.java**: Add bottom nav hide/show functionality
+- [ ] **fragment_shared_wish.xml**: Implement full-screen WebView with dynamic system bars
+
+## 📝 **Phase 2: Advanced UI Enhancements**
+
+### **🎯 Fragment Reminder Premium Chips**
+**Goal**: Make filter chips smaller, more elegant, and premium-feeling
+
+**Implementation Steps**:
+1. **Reduce Chip Size**:
+   ```xml
+   <com.google.android.material.chip.Chip
+       android:layout_width="wrap_content"
+       android:layout_height="32dp"
+       android:minHeight="32dp"
+       android:textSize="12sp"
+       app:chipMinHeight="32dp"
+       app:chipStartPadding="8dp"
+       app:chipEndPadding="8dp" />
+   ```
+
+2. **Premium Chip Styling**:
+   ```xml
+   <style name="Widget.EventWish.Chip.Premium" parent="Widget.Material3.Chip.Filter">
+       <item name="chipBackgroundColor">?attr/colorSurfaceContainer</item>
+       <item name="chipStrokeColor">?attr/colorOutlineVariant</item>
+       <item name="chipStrokeWidth">1dp</item>
+       <item name="android:textColor">?attr/colorOnSurface</item>
+       <item name="chipCornerRadius">16dp</item>
+       <item name="chipIconTint">?attr/colorPrimary</item>
+   </style>
+   ```
+
+3. **Apply Theme Attributes**:
+   - Replace all hardcoded colors with theme attributes
+   - Use `?attr/colorPrimary` for selected state
+   - Use `?attr/colorSurfaceContainer` for background
+
+### **📱 Bottom Navigation Height Reduction**
+**Goal**: Make bottom navigation more compact and modern
+
+**Implementation Steps**:
+1. **Reduce Height in activity_main.xml**:
+   ```xml
+   <com.google.android.material.bottomnavigation.BottomNavigationView
+       android:layout_height="56dp"
+       app:itemIconSize="20dp"
+       app:labelVisibilityMode="auto" />
+   ```
+
+2. **Custom Bottom Nav Style**:
+   ```xml
+   <style name="Widget.EventWish.BottomNavigationView.Compact" parent="Widget.Material3.BottomNavigationView">
+       <item name="android:minHeight">56dp</item>
+       <item name="itemIconSize">20dp</item>
+       <item name="itemTextAppearanceActive">@style/TextAppearance.EventWish.BottomNav.Active</item>
+       <item name="itemTextAppearanceInactive">@style/TextAppearance.EventWish.BottomNav.Inactive</item>
+   </style>
+   ```
+
+### **🖥️ Template Detail Bottom Nav Hiding**
+**Goal**: Hide bottom navigation in template detail for immersive experience
+
+**Implementation Steps**:
+1. **TemplateDetailFragment.java**:
+   ```java
+   @Override
+   public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+       super.onViewCreated(view, savedInstanceState);
+       hideBottomNavigation();
+   }
+   
+   @Override
+   public void onDestroyView() {
+       super.onDestroyView();
+       showBottomNavigation();
+   }
+   
+   private void hideBottomNavigation() {
+       if (getActivity() instanceof MainActivity) {
+           ((MainActivity) getActivity()).hideBottomNavigation();
+       }
+   }
+   
+   private void showBottomNavigation() {
+       if (getActivity() instanceof MainActivity) {
+           ((MainActivity) getActivity()).showBottomNavigation();
+       }
+   }
+   ```
+
+2. **MainActivity.java**:
+   ```java
+   public void hideBottomNavigation() {
+       BottomNavigationView bottomNav = findViewById(R.id.nav_view);
+       bottomNav.setVisibility(View.GONE);
+   }
+   
+   public void showBottomNavigation() {
+       BottomNavigationView bottomNav = findViewById(R.id.nav_view);
+       bottomNav.setVisibility(View.VISIBLE);
+   }
+   ```
+
+3. **Reduce Input Field Heights**:
+   ```xml
+   <com.google.android.material.textfield.TextInputLayout
+       android:layout_height="48dp"
+       app:boxBackgroundMode="outline"
+       app:boxStrokeColor="?attr/colorPrimary">
+       
+       <com.google.android.material.textfield.TextInputEditText
+           android:layout_height="48dp"
+           android:textSize="14sp" />
+   </com.google.android.material.textfield.TextInputLayout>
+   ```
+
+### **🖥️ Fragment Shared Wish Full Screen Implementation**
+**Goal**: Immersive full-screen WebView with dynamic system bar colors
+
+**Implementation Steps**:
+1. **Full Screen WebView Setup**:
+   ```xml
+   <WebView
+       android:id="@+id/webView"
+       android:layout_width="match_parent"
+       android:layout_height="match_parent"
+       android:fitsSystemWindows="false" />
+   ```
+
+2. **Dynamic System Bar Color Implementation**:
+   ```java
+   public class SharedWishFragment extends Fragment {
+       private WebView webView;
+       private int currentStatusBarColor;
+       private int currentNavBarColor;
+       
+       @Override
+       public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+           super.onViewCreated(view, savedInstanceState);
+           setupFullScreenWebView();
+           setupDynamicSystemBars();
+       }
+       
+       private void setupFullScreenWebView() {
+           if (getActivity() != null) {
+               Window window = getActivity().getWindow();
+               window.setFlags(
+                   WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                   WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+               );
+           }
+       }
+       
+       private void setupDynamicSystemBars() {
+           webView.setWebViewClient(new WebViewClient() {
+               @Override
+               public void onPageFinished(WebView view, String url) {
+                   super.onPageFinished(view, url);
+                   extractAndApplyBackgroundColor();
+               }
+           });
+       }
+       
+       private void extractAndApplyBackgroundColor() {
+           webView.evaluateJavascript(
+               "(function() { return window.getComputedStyle(document.body, null).getPropertyValue('background-color'); })();",
+               new ValueCallback<String>() {
+                   @Override
+                   public void onReceiveValue(String value) {
+                       try {
+                           int color = Color.parseColor(value);
+                           applySystemBarColors(color);
+                       } catch (Exception e) {
+                           // Fallback to theme colors
+                           applyThemeSystemBarColors();
+                       }
+                   }
+               }
+           );
+       }
+       
+       private void applySystemBarColors(int backgroundColor) {
+           if (getActivity() != null) {
+               Window window = getActivity().getWindow();
+               
+               // Calculate appropriate status bar color
+               int statusBarColor = ColorUtils.blendARGB(backgroundColor, Color.BLACK, 0.2f);
+               window.setStatusBarColor(statusBarColor);
+               
+               // Calculate appropriate navigation bar color
+               int navBarColor = ColorUtils.blendARGB(backgroundColor, Color.BLACK, 0.1f);
+               window.setNavigationBarColor(navBarColor);
+               
+               // Adjust system bar icon colors based on background brightness
+               View decorView = window.getDecorView();
+               int flags = decorView.getSystemUiVisibility();
+               
+               if (ColorUtils.calculateLuminance(backgroundColor) > 0.5) {
+                   // Light background - use dark icons
+                   flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+                   flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+               } else {
+                   // Dark background - use light icons
+                   flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+                   flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+               }
+               
+               decorView.setSystemUiVisibility(flags);
+           }
+       }
+       
+       private void applyThemeSystemBarColors() {
+           if (getActivity() != null) {
+               TypedValue typedValue = new TypedValue();
+               getActivity().getTheme().resolveAttribute(R.attr.colorSurface, typedValue, true);
+               int surfaceColor = typedValue.data;
+               applySystemBarColors(surfaceColor);
+           }
+       }
+       
+       @Override
+       public void onDestroyView() {
+           super.onDestroyView();
+           restoreSystemBarColors();
+       }
+       
+       private void restoreSystemBarColors() {
+           if (getActivity() != null) {
+               Window window = getActivity().getWindow();
+               window.setStatusBarColor(currentStatusBarColor);
+               window.setNavigationBarColor(currentNavBarColor);
+               window.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
+           }
+       }
+   }
+   ```
+
+3. **WebView Premium Styling**:
+   ```xml
+   <FrameLayout
+       android:layout_width="match_parent"
+       android:layout_height="match_parent"
+       android:fitsSystemWindows="false">
+       
+       <WebView
+           android:id="@+id/webView"
+           android:layout_width="match_parent"
+           android:layout_height="match_parent"
+           android:background="?attr/colorSurface" />
+           
+       <!-- Loading overlay -->
+       <FrameLayout
+           android:id="@+id/loadingOverlay"
+           android:layout_width="match_parent"
+           android:layout_height="match_parent"
+           android:background="?attr/colorSurface"
+           android:visibility="visible">
+           
+           <com.google.android.material.progressindicator.CircularProgressIndicator
+               android:layout_width="wrap_content"
+               android:layout_height="wrap_content"
+               android:layout_gravity="center"
+               app:indicatorColor="?attr/colorPrimary" />
+               
+       </FrameLayout>
+   </FrameLayout>
+   ```
+
+## 📝 **Phase 3: Complete Layout Folder Analysis & Updates**
+
+### **✅ Checklist - All Layout Files**
+- [ ] **Activities (8 files)**: activity_main.xml, activity_splash.xml, activity_settings.xml, etc.
+- [ ] **Fragments (15 files)**: All fragment_*.xml files
+- [ ] **Items (12 files)**: All item_*.xml files  
+- [ ] **Dialogs (6 files)**: All dialog_*.xml files
+- [ ] **Bottom Sheets (4 files)**: All bottom_sheet_*.xml files
+- [ ] **Views (8 files)**: All view_*.xml files
+- [ ] **Layouts (5 files)**: layout_*.xml files
+
+### **🎯 Implementation Strategy**:
+1. **Batch Convert Colors**: Use regex find/replace for common patterns
+2. **Test Each File**: Ensure no visual regressions
+3. **Validate Themes**: Test with all 8 festival themes
+4. **Performance Check**: Monitor build times and app performance
+
+## 📝 **Phase 4: Advanced Features**
+
+### **🌟 Dynamic Theme Features**:
+- [ ] **Real-time Preview**: Live theme switching in settings
+- [ ] **Template-based Themes**: Auto-theme based on template colors
+- [ ] **Accessibility Themes**: High contrast and large text variants
+- [ ] **Seasonal Auto-switching**: Automatic theme changes based on calendar
+
+### **🚀 Performance Optimizations**:
+- [ ] **Theme Caching**: Cache theme resources for faster switching
+- [ ] **Lazy Loading**: Load theme variants only when needed
+- [ ] **Memory Management**: Optimize theme resource usage
+
+## 📊 **Success Metrics**:
+- **100% Theme Attribute Usage**: No hardcoded colors in layouts
+- **Smooth Theme Switching**: < 500ms theme change time
+- **Visual Consistency**: All components follow Material 3 guidelines
+- **Accessibility Compliance**: WCAG AA standards met
+- **Performance**: No impact on app startup or navigation speed
+
+## 🔄 **Testing Strategy**:
+1. **Theme Switching Tests**: Verify all 8 themes work correctly
+2. **Device Compatibility**: Test on different screen sizes and Android versions
+3. **Accessibility Testing**: Screen readers, high contrast, large text
+4. **Performance Benchmarks**: Memory usage, startup time, theme switch speed
+5. **Visual Regression**: Screenshot comparison across themes
+
+## 📈 **Implementation Timeline**:
+- **Week 1**: Phase 1 - Core layout centralization
+- **Week 2**: Phase 2 - UI enhancements (chips, navigation, full screen)
+- **Week 3**: Phase 3 - Complete layout folder analysis and updates
+- **Week 4**: Phase 4 - Advanced features and optimization
+- **Week 5**: Testing, refinement, and documentation

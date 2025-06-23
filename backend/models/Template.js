@@ -149,6 +149,18 @@ const templateSchema = new mongoose.Schema({
         ref: 'User',
         default: null
     },
+    generatedByUserUid: {
+        type: String,  // Firebase UID of the user who generated this template
+        default: null,
+        validate: {
+            validator: function(v) {
+                // Firebase UID validation: alphanumeric + some special chars, 10-128 chars
+                return v === null || v === '' || /^[a-zA-Z0-9_-]{10,128}$/.test(v);
+            },
+            message: 'generatedByUserUid must be a valid Firebase UID'
+        },
+        index: true  // Add index for efficient uid lookups
+    },
     generationMetadata: {
         resolution: {
             type: String,
@@ -169,6 +181,18 @@ const templateSchema = new mongoose.Schema({
     creatorId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
+    },
+    creatorUid: {
+        type: String,  // Firebase UID of the template creator
+        default: null,
+        validate: {
+            validator: function(v) {
+                // Firebase UID validation: alphanumeric + some special chars, 10-128 chars
+                return v === null || v === '' || /^[a-zA-Z0-9_-]{10,128}$/.test(v);
+            },
+            message: 'creatorUid must be a valid Firebase UID'
+        },
+        index: true  // Add index for efficient uid lookups
     },
     festivalTag: {
         type: String,

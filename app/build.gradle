@@ -94,6 +94,12 @@ android {
         buildConfig true
     }
 
+    testOptions {
+        unitTests {
+            returnDefaultValues = true
+        }
+    }
+
     // Add configuration to handle duplicate classes
     configurations {
         all {

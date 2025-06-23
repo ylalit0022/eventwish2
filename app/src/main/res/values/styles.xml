@@ -20,6 +20,22 @@
         <item name="android:textColor">?attr/colorOnSurface</item>
     </style>
 
+    <!-- Premium Chip Style -->
+    <style name="Widget.EventWish.Chip.Premium" parent="Widget.Material3.Chip.Filter">
+        <item name="chipBackgroundColor">?attr/colorSurfaceContainer</item>
+        <item name="chipStrokeColor">?attr/colorOutlineVariant</item>
+        <item name="chipStrokeWidth">1dp</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="chipCornerRadius">16dp</item>
+        <item name="chipIconTint">?attr/colorPrimary</item>
+        <item name="rippleColor">?attr/colorPrimaryContainer</item>
+        <item name="android:textSize">11sp</item>
+        <item name="chipMinHeight">32dp</item>
+        <item name="chipStartPadding">8dp</item>
+        <item name="chipEndPadding">8dp</item>
+        <item name="chipIconSize">16dp</item>
+    </style>
+
     <!-- TextInputLayout Style -->
     <style name="Widget.EventWish.TextInputLayout" parent="Widget.Material3.TextInputLayout.OutlinedBox">
         <item name="boxStrokeColor">?attr/colorPrimary</item>
@@ -28,6 +44,21 @@
         <item name="hintAnimationEnabled">true</item>
         <item name="errorEnabled">true</item>
         <item name="errorTextColor">?attr/colorError</item>
+    </style>
+
+    <!-- Compact TextInputLayout Style -->
+    <style name="Widget.EventWish.TextInputLayout.Compact" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <item name="boxStrokeColor">?attr/colorPrimary</item>
+        <item name="hintTextColor">?attr/colorPrimary</item>
+        <item name="boxStrokeWidth">1dp</item>
+        <item name="hintAnimationEnabled">true</item>
+        <item name="errorEnabled">true</item>
+        <item name="errorTextColor">?attr/colorError</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="boxCornerRadiusTopStart">8dp</item>
+        <item name="boxCornerRadiusTopEnd">8dp</item>
+        <item name="boxCornerRadiusBottomStart">8dp</item>
+        <item name="boxCornerRadiusBottomEnd">8dp</item>
     </style>
 
     <!-- TextView Style -->
@@ -446,6 +477,13 @@
     <style name="TextAppearance.EventWish.BottomNavigation" parent="TextAppearance.Material3.BodySmall">
         <item name="android:textSize">11sp</item>
         <item name="android:letterSpacing">0</item>
+    </style>
+
+    <!-- BottomNavigationView Active Indicator Style -->
+    <style name="Widget.EventWish.BottomNavigation.ActiveIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:color">?attr/colorPrimary</item>
+        <item name="android:width">24dp</item>
+        <item name="android:height">32dp</item>
     </style>
 
 </resources>

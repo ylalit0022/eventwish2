@@ -1,0 +1,89 @@
+{
+  "timestamp": "2025-06-23T11:43:21.723933",
+  "total_tests": 5,
+  "passed_tests": 5,
+  "failed_tests": 0,
+  "success_rate": 100.0,
+  "test_results": [
+    {
+      "test_case": 1,
+      "template_id": "test_template_001",
+      "title": "Happy Birthday Celebration",
+      "expected": {
+        "display_name": "Sarah Johnson",
+        "image_source": "url",
+        "source": "Primary Creator Info"
+      },
+      "actual": {
+        "display_name": "Sarah Johnson",
+        "image_source": "url",
+        "source": "Primary Creator Info"
+      },
+      "passed": true
+    },
+    {
+      "test_case": 2,
+      "template_id": "test_template_002",
+      "title": "Wedding Anniversary Wishes",
+      "expected": {
+        "display_name": "Mike Chen",
+        "image_source": "app_logo",
+        "source": "GeneratedByUser Fallback"
+      },
+      "actual": {
+        "display_name": "Mike Chen",
+        "image_source": "app_logo",
+        "source": "GeneratedByUser Fallback"
+      },
+      "passed": true
+    },
+    {
+      "test_case": 3,
+      "template_id": "test_template_003",
+      "title": "Good Morning Greetings",
+      "expected": {
+        "display_name": "eventwish",
+        "image_source": "app_logo",
+        "source": "App Default Fallback"
+      },
+      "actual": {
+        "display_name": "eventwish",
+        "image_source": "app_logo",
+        "source": "App Default Fallback"
+      },
+      "passed": true
+    },
+    {
+      "test_case": 4,
+      "template_id": "test_template_004",
+      "title": "Thank You Card",
+      "expected": {
+        "display_name": "eventwish",
+        "image_source": "app_logo",
+        "source": "App Default Fallback"
+      },
+      "actual": {
+        "display_name": "eventwish",
+        "image_source": "app_logo",
+        "source": "App Default Fallback"
+      },
+      "passed": true
+    },
+    {
+      "test_case": 5,
+      "template_id": "test_template_005",
+      "title": "Get Well Soon",
+      "expected": {
+        "display_name": "Alex Rodriguez",
+        "image_source": "url",
+        "source": "Primary Creator Info"
+      },
+      "actual": {
+        "display_name": "Alex Rodriguez",
+        "image_source": "url",
+        "source": "Primary Creator Info"
+      },
+      "passed": true
+    }
+  ]
+}

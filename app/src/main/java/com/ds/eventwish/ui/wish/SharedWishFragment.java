@@ -32,6 +32,7 @@ import android.graphics.Color;
 import android.view.Window;
 import android.app.Activity;
 import android.view.Window;
+import android.net.Uri;
 
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.response.WishResponse;
@@ -90,6 +91,14 @@ class Palette {
 
     public Swatch getDominantSwatch() {
         return new Swatch(Color.parseColor("#6200EE"), 1); // Default Material 3 primary
+    }
+    
+    public Swatch getVibrantSwatch() {
+        return new Swatch(Color.parseColor("#D64F7D"), 1); // Festive pink-red
+    }
+    
+    public Swatch getMutedSwatch() {
+        return new Swatch(Color.parseColor("#80CBC4"), 1); // Teal mint
     }
     
     public int getDominantColor(int defaultColor) {
@@ -314,7 +323,7 @@ public class SharedWishFragment extends Fragment {
     }
     
     /**
-     * Enable Material 3 immersive mode with dynamic theming (without hiding status bar)
+     * Enable Instagram Story-style immersive mode with dynamic theming
      */
     private void enableImmersiveMode() {
         Activity activity = getActivity();
@@ -333,17 +342,50 @@ public class SharedWishFragment extends Fragment {
             originalLightNavigationBar = windowInsetsController.isAppearanceLightNavigationBars();
         }
         
-        // Keep status bar visible, only change colors
-        // Don't hide status bar - WindowCompat.setDecorFitsSystemWindows(window, false);
-        // Don't hide status bar - windowInsetsController.hide(WindowInsetsCompat.Type.statusBars());
+        // Enable edge-to-edge immersive experience like Instagram Stories
+        WindowCompat.setDecorFitsSystemWindows(window, false);
         
-        // Set transparent navigation bar only
+        // Make status bar and navigation bar fully transparent for immersive feel
+        window.setStatusBarColor(Color.TRANSPARENT);
         window.setNavigationBarColor(Color.TRANSPARENT);
         
-        // Hide bottom navigation
+        // Set initial dark appearance for better contrast with content
+        if (windowInsetsController != null) {
+            windowInsetsController.setAppearanceLightStatusBars(false);
+            windowInsetsController.setAppearanceLightNavigationBars(false);
+        }
+        
+        // Hide bottom navigation for full immersion
         hideBottomNavigation();
         
-        Log.d(TAG, "Immersive mode enabled (status bar kept visible)");
+        // Apply initial gradient background for premium feel
+        applyInitialGradientBackground();
+        
+        Log.d(TAG, "Instagram Story-style immersive mode enabled");
+    }
+    
+    /**
+     * Apply initial gradient background before content loads
+     */
+    private void applyInitialGradientBackground() {
+        if (binding != null && binding.getRoot() != null) {
+            // Create a subtle gradient background inspired by Instagram Stories
+            int primaryColor = getResources().getColor(R.color.md_theme_light_primary, null);
+            int surfaceColor = getResources().getColor(R.color.md_theme_light_surface, null);
+            
+            // Create gradient drawable
+            android.graphics.drawable.GradientDrawable gradient = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{
+                    ColorUtils.blendARGB(primaryColor, Color.BLACK, 0.1f), // Subtle dark tint at top
+                    surfaceColor, // Main surface color
+                    ColorUtils.blendARGB(surfaceColor, Color.WHITE, 0.05f) // Slight light tint at bottom
+                }
+            );
+            
+            binding.getRoot().setBackground(gradient);
+            Log.d(TAG, "Applied initial gradient background");
+        }
     }
     
     /**
@@ -356,7 +398,10 @@ public class SharedWishFragment extends Fragment {
         Window window = activity.getWindow();
         if (window == null) return;
         
-        // Restore system bars (status bar was never hidden)
+        // Restore system window insets
+        WindowCompat.setDecorFitsSystemWindows(window, true);
+        
+        // Restore system bars appearance
         WindowInsetsControllerCompat windowInsetsController = WindowCompat.getInsetsController(window, window.getDecorView());
         if (windowInsetsController != null) {
             windowInsetsController.setAppearanceLightStatusBars(originalLightStatusBar);
@@ -370,7 +415,12 @@ public class SharedWishFragment extends Fragment {
         // Show bottom navigation
         showBottomNavigation();
         
-        Log.d(TAG, "Immersive mode disabled");
+        // Clear background
+        if (binding != null && binding.getRoot() != null) {
+            binding.getRoot().setBackground(null);
+        }
+        
+        Log.d(TAG, "Immersive mode disabled and original UI restored");
     }
     
     /**
@@ -397,71 +447,158 @@ public class SharedWishFragment extends Fragment {
     }
     
     /**
-     * Apply dynamic theming based on WebView content color
+     * Apply Instagram Story-style dynamic theming based on WebView content color
      */
     private void applyDynamicTheming(int dominantColor) {
         Activity activity = getActivity();
-        if (activity == null) return;
+        if (activity == null || binding == null) return;
         
         Window window = activity.getWindow();
         if (window == null) return;
         
-        // Create darker variation for status bar
-        int statusBarColor = ColorUtils.blendARGB(dominantColor, Color.BLACK, 0.3f);
+        Log.d(TAG, "Applying dynamic theming with dominant color: " + Integer.toHexString(dominantColor));
         
-        // Apply to status bar only (keep it visible)
-        window.setStatusBarColor(statusBarColor);
+        // Calculate luminance to determine if the color is light or dark
+        double luminance = ColorUtils.calculateLuminance(dominantColor);
+        boolean isLightColor = luminance > 0.5;
         
-        // Keep navigation bar transparent
+        // Create sophisticated color palette from dominant color
+        int primaryColor = dominantColor;
+        int darkVariant = ColorUtils.blendARGB(dominantColor, Color.BLACK, 0.3f);
+        int lightVariant = ColorUtils.blendARGB(dominantColor, Color.WHITE, 0.3f);
+        int surfaceColor = ColorUtils.blendARGB(dominantColor, isLightColor ? Color.WHITE : Color.BLACK, 0.85f);
+        
+        // Apply enhanced gradient background inspired by Instagram Stories
+        android.graphics.drawable.GradientDrawable backgroundGradient = new android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+            new int[]{
+                ColorUtils.blendARGB(darkVariant, Color.BLACK, 0.2f), // Rich dark top
+                surfaceColor, // Main content area
+                ColorUtils.blendARGB(lightVariant, Color.WHITE, 0.1f) // Subtle light bottom
+            }
+        );
+        binding.getRoot().setBackground(backgroundGradient);
+        
+        // Apply sophisticated status bar theming
+        window.setStatusBarColor(Color.TRANSPARENT);
         window.setNavigationBarColor(Color.TRANSPARENT);
         
-        // Apply lighter background to fragment content
-        int lightColor = ColorUtils.blendARGB(dominantColor, Color.WHITE, 0.8f);
-        if (binding != null) {
-            binding.getRoot().setBackgroundColor(lightColor);
-            binding.contentLayout.setBackgroundColor(lightColor);
-        }
-        
-        // Update window insets controller for proper contrast
+        // Set status bar content color based on top gradient color
         WindowInsetsControllerCompat windowInsetsController = WindowCompat.getInsetsController(window, window.getDecorView());
         if (windowInsetsController != null) {
-            // Determine if we need light or dark content based on status bar color
-            boolean isLightBackground = ColorUtils.calculateLuminance(statusBarColor) > 0.5;
-            windowInsetsController.setAppearanceLightStatusBars(isLightBackground);
-            windowInsetsController.setAppearanceLightNavigationBars(isLightBackground);
+            // Use light content for dark backgrounds, dark content for light backgrounds
+            boolean useLightStatusContent = ColorUtils.calculateLuminance(darkVariant) < 0.5;
+            windowInsetsController.setAppearanceLightStatusBars(!useLightStatusContent);
+            windowInsetsController.setAppearanceLightNavigationBars(!useLightStatusContent);
         }
         
-        Log.d(TAG, "Applied dynamic theming with status bar color: " + Integer.toHexString(statusBarColor));
+        // Apply dynamic theming to UI components
+        applyComponentTheming(primaryColor, surfaceColor, isLightColor);
+        
+        Log.d(TAG, "Applied sophisticated dynamic theming - luminance: " + luminance + 
+              ", isLight: " + isLightColor + ", surface: " + Integer.toHexString(surfaceColor));
     }
     
     /**
-     * Extract dominant color from WebView content
+     * Apply dynamic theming to UI components for Instagram Story-style experience
      */
-    private void extractAndApplyDominantColor() {
-        if (binding == null || binding.webView == null) return;
+    private void applyComponentTheming(int primaryColor, int surfaceColor, boolean isLightTheme) {
+        if (binding == null) return;
         
         try {
-            // Capture WebView content as bitmap
-            binding.webView.setDrawingCacheEnabled(true);
-            Bitmap bitmap = Bitmap.createBitmap(binding.webView.getDrawingCache());
-            binding.webView.setDrawingCacheEnabled(false);
+            // Calculate text colors based on surface color luminance
+            int onSurfaceColor = isLightTheme ? Color.parseColor("#1C1B1F") : Color.parseColor("#E6E1E5");
+            int onSurfaceVariant = isLightTheme ? Color.parseColor("#49454F") : Color.parseColor("#CAC4D0");
             
-            if (bitmap != null && !bitmap.isRecycled()) {
-                // Extract dominant color using Palette API
-                Palette.from(bitmap).generate(palette -> {
-                    if (palette != null) {
-                        int dominantColor = palette.getDominantColor(Color.parseColor("#6200EE")); // Material 3 primary as fallback
-                        
-                        // Apply dynamic theming
-                        applyDynamicTheming(dominantColor);
-                    }
-                });
+            // Apply theming to back button with glassmorphism effect
+            if (binding.backButton != null) {
+                int backButtonBg = ColorUtils.blendARGB(surfaceColor, isLightTheme ? Color.WHITE : Color.BLACK, 0.2f);
+                binding.backButton.setBackgroundTintList(ColorStateList.valueOf(backButtonBg));
+                binding.backButton.setIconTint(ColorStateList.valueOf(onSurfaceColor));
+                
+                // Add subtle elevation for depth
+                binding.backButton.setElevation(dpToPx(8));
+                binding.backButton.setTranslationZ(dpToPx(4));
             }
+            
+            // Apply theming to watch ad card with glassmorphism
+            if (binding.watchAdCard != null) {
+                int cardBg = ColorUtils.blendARGB(surfaceColor, Color.WHITE, 0.1f);
+                binding.watchAdCard.setCardBackgroundColor(cardBg);
+                binding.watchAdCard.setStrokeColor(ColorUtils.blendARGB(primaryColor, Color.WHITE, 0.3f));
+                binding.watchAdCard.setStrokeWidth(2);
+                binding.watchAdCard.setCardElevation(dpToPx(12));
+                
+                // Apply subtle shadow for depth
+                binding.watchAdCard.setCardElevation(dpToPx(16));
+            }
+            
+            // Apply theming to watch ad button text
+            if (binding.watchAdButtonText != null) {
+                binding.watchAdButtonText.setTextColor(onSurfaceColor);
+            }
+            
+            // Apply sophisticated theming to share button
+            if (binding.shareButton != null) {
+                // Create gradient background for share button
+                android.graphics.drawable.GradientDrawable shareGradient = new android.graphics.drawable.GradientDrawable(
+                    android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                    new int[]{
+                        primaryColor,
+                        ColorUtils.blendARGB(primaryColor, Color.WHITE, 0.1f)
+                    }
+                );
+                shareGradient.setCornerRadius(dpToPx(28)); // Rounded corners
+                
+                binding.shareButton.setBackgroundTintList(ColorStateList.valueOf(primaryColor));
+                binding.shareButton.setElevation(dpToPx(8));
+                binding.shareButton.setTranslationZ(dpToPx(4));
+            }
+            
+            // Apply theming to countdown timer with enhanced styling
+            if (binding.countdownTimerView != null) {
+                int timerBg = ColorUtils.blendARGB(primaryColor, Color.BLACK, 0.2f);
+                android.graphics.drawable.GradientDrawable timerBackground = new android.graphics.drawable.GradientDrawable();
+                timerBackground.setColor(timerBg);
+                timerBackground.setCornerRadius(dpToPx(20));
+                timerBackground.setStroke(2, ColorUtils.blendARGB(primaryColor, Color.WHITE, 0.3f));
+                
+                binding.countdownTimerView.setBackground(timerBackground);
+                binding.countdownTimerView.setTextColor(Color.WHITE);
+                binding.countdownTimerView.setElevation(dpToPx(6));
+            }
+            
+            // Apply theming to analytics and reuse template buttons
+            applySecondaryButtonTheming(binding.analyticsButton, surfaceColor, onSurfaceVariant);
+            applySecondaryButtonTheming(binding.reuseTemplateButton, surfaceColor, onSurfaceVariant);
+            
+            Log.d(TAG, "Applied component theming with primary: " + Integer.toHexString(primaryColor) + 
+                  ", surface: " + Integer.toHexString(surfaceColor));
+                  
         } catch (Exception e) {
-            Log.e(TAG, "Error extracting dominant color", e);
-            // Apply default Material 3 theming
-            applyDynamicTheming(Color.parseColor("#6200EE"));
+            Log.e(TAG, "Error applying component theming", e);
         }
+    }
+    
+    /**
+     * Apply theming to secondary buttons
+     */
+    private void applySecondaryButtonTheming(com.google.android.material.button.MaterialButton button, int surfaceColor, int textColor) {
+        if (button != null) {
+            int buttonBg = ColorUtils.blendARGB(surfaceColor, Color.WHITE, 0.05f);
+            button.setBackgroundTintList(ColorStateList.valueOf(buttonBg));
+            button.setTextColor(textColor);
+            button.setStrokeColor(ColorStateList.valueOf(ColorUtils.blendARGB(textColor, Color.TRANSPARENT, 0.7f)));
+            button.setStrokeWidth(1);
+            button.setElevation(dpToPx(4));
+        }
+    }
+    
+    /**
+     * Convert dp to pixels
+     */
+    private float dpToPx(float dp) {
+        return dp * getResources().getDisplayMetrics().density;
     }
 
     private void setupWebView() {
@@ -2198,5 +2335,102 @@ public class SharedWishFragment extends Fragment {
         // Start the timer
         cooldownTimer.start();
         Log.d(TAG, "📱⏲️ Started cooldown countdown timer: " + (remainingTimeMs/1000) + " seconds");
+    }
+
+    /**
+     * Extract dominant color from WebView content with enhanced detection
+     */
+    private void extractAndApplyDominantColor() {
+        if (binding == null || binding.webView == null) return;
+        
+        try {
+            // Wait a bit for WebView to fully render
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                try {
+                    // Capture WebView content as bitmap
+                    binding.webView.setDrawingCacheEnabled(true);
+                    binding.webView.buildDrawingCache();
+                    Bitmap bitmap = Bitmap.createBitmap(binding.webView.getDrawingCache());
+                    binding.webView.setDrawingCacheEnabled(false);
+                    
+                    if (bitmap != null && !bitmap.isRecycled()) {
+                        // Create a smaller sample for faster processing
+                        int sampleSize = Math.max(bitmap.getWidth() / 100, bitmap.getHeight() / 100);
+                        Bitmap sampleBitmap = Bitmap.createScaledBitmap(
+                            bitmap, 
+                            bitmap.getWidth() / Math.max(1, sampleSize), 
+                            bitmap.getHeight() / Math.max(1, sampleSize), 
+                            false
+                        );
+                        
+                        // Extract dominant color using enhanced Palette API
+                        Palette.from(sampleBitmap).generate(palette -> {
+                            if (palette != null) {
+                                // Try multiple color extraction methods for best result
+                                int dominantColor = extractBestColor(palette);
+                                
+                                // Apply dynamic theming with extracted color
+                                applyDynamicTheming(dominantColor);
+                                
+                                Log.d(TAG, "Successfully extracted and applied dominant color: " + 
+                                      Integer.toHexString(dominantColor));
+                            } else {
+                                // Fallback to Material 3 primary
+                                applyDynamicTheming(getResources().getColor(R.color.md_theme_light_primary, null));
+                                Log.d(TAG, "Palette extraction failed, using Material 3 primary color");
+                            }
+                        });
+                        
+                        // Clean up bitmaps
+                        if (sampleBitmap != bitmap) {
+                            sampleBitmap.recycle();
+                        }
+                        bitmap.recycle();
+                    } else {
+                        // Fallback to Material 3 primary
+                        applyDynamicTheming(getResources().getColor(R.color.md_theme_light_primary, null));
+                        Log.w(TAG, "Failed to capture WebView bitmap, using fallback color");
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in delayed color extraction", e);
+                    // Apply default Material 3 theming
+                    applyDynamicTheming(getResources().getColor(R.color.md_theme_light_primary, null));
+                }
+            }, 1500); // Increased delay for better content rendering
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error extracting dominant color", e);
+            // Apply default Material 3 theming
+            applyDynamicTheming(getResources().getColor(R.color.md_theme_light_primary, null));
+        }
+    }
+    
+    /**
+     * Extract the best representative color from the palette
+     */
+    private int extractBestColor(Palette palette) {
+        // Priority order: vibrant -> dominant -> muted -> fallback
+        if (palette.getVibrantSwatch() != null) {
+            int vibrantColor = palette.getVibrantSwatch().getRgb();
+            Log.d(TAG, "Using vibrant color: " + Integer.toHexString(vibrantColor));
+            return vibrantColor;
+        }
+        
+        if (palette.getDominantSwatch() != null) {
+            int dominantColor = palette.getDominantSwatch().getRgb();
+            Log.d(TAG, "Using dominant color: " + Integer.toHexString(dominantColor));
+            return dominantColor;
+        }
+        
+        if (palette.getMutedSwatch() != null) {
+            int mutedColor = palette.getMutedSwatch().getRgb();
+            Log.d(TAG, "Using muted color: " + Integer.toHexString(mutedColor));
+            return mutedColor;
+        }
+        
+        // Final fallback
+        int fallbackColor = getResources().getColor(R.color.md_theme_light_primary, null);
+        Log.d(TAG, "Using fallback color: " + Integer.toHexString(fallbackColor));
+        return fallbackColor;
     }
 }

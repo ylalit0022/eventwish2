@@ -67,19 +67,21 @@ public class ReminderFilterAdapter extends RecyclerView.Adapter<ReminderFilterAd
         }
 
         void bind(FilterItem item, boolean isSelected) {
-            binding.filterIcon.setImageResource(item.iconRes);
-            binding.filterName.setText(item.name);
+            // Set text and icon directly on the Chip
+            binding.getRoot().setText(item.name);
+            binding.getRoot().setChipIcon(itemView.getContext().getDrawable(item.iconRes));
             binding.getRoot().setChecked(isSelected);
 
-            binding.getRoot().setCardBackgroundColor(
-                itemView.getContext().getColor(isSelected ? R.color.black : R.color.card_background)
-            );
-            binding.filterName.setTextColor(
-                itemView.getContext().getColor(isSelected ? R.color.white : R.color.text_primary)
-            );
-            binding.filterIcon.setColorFilter(
-                itemView.getContext().getColor(isSelected ? R.color.white : R.color.text_primary)
-            );
+            // Use Chip-specific styling methods
+            if (isSelected) {
+                binding.getRoot().setChipBackgroundColorResource(R.color.black);
+                binding.getRoot().setTextColor(itemView.getContext().getColor(R.color.white));
+                binding.getRoot().setChipIconTintResource(R.color.white);
+            } else {
+                binding.getRoot().setChipBackgroundColorResource(R.color.card_background);
+                binding.getRoot().setTextColor(itemView.getContext().getColor(R.color.text_primary));
+                binding.getRoot().setChipIconTintResource(R.color.text_primary);
+            }
         }
     }
 

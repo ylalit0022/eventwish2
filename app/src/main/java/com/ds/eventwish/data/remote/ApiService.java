@@ -1421,4 +1421,39 @@ public interface ApiService {
         @Body Map<String, Object> body,
         @retrofit2.http.Header("Authorization") String authToken
     );
+
+    // =============================================================================
+    // CREATOR PROFILE ENDPOINTS
+    // =============================================================================
+
+    /**
+     * Get creator profile information for a single template
+     * @param templateId The ID of the template
+     * @return Creator profile information with fallback logic applied server-side
+     */
+    @GET("templates/{templateId}/creator")
+    Call<JsonObject> getTemplateCreatorProfile(@Path("templateId") String templateId);
+
+    /**
+     * Get creator profiles for multiple templates in a single request
+     * @param body Request body containing templateIds array
+     * @return Map of template IDs to creator profile information
+     */
+    @POST("templates/creators/batch")
+    Call<JsonObject> getBatchCreatorProfiles(@Body Map<String, Object> body);
+
+    /**
+     * Get detailed statistics for a specific creator
+     * @param userId The creator's user ID
+     * @return Creator statistics including template count, total likes, etc.
+     */
+    @GET("templates/creators/{userId}/stats")
+    Call<JsonObject> getCreatorStats(@Path("userId") String userId);
+
+    /**
+     * Health check endpoint for template interactions
+     * @return Health status of template interaction system
+     */
+    @GET("templates/health/template-interactions")
+    Call<JsonObject> getTemplateInteractionsHealth();
 }

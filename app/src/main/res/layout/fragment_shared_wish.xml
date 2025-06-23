@@ -1,224 +1,290 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout 
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="false">
+    android:id="@+id/rootLayout"
+    android:fitsSystemWindows="false"
+    tools:context=".ui.wish.SharedWishFragment">
 
-    <!-- Back Arrow Button -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/backButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:src="@drawable/ic_arrow_back"
-        android:contentDescription="@string/navigate_back"
-        app:fabSize="mini"
-        app:backgroundTint="@color/back_button_background"
-        app:tint="@android:color/white"
-        app:elevation="6dp"
-        app:layout_anchor="@id/contentLayout"
-        app:layout_anchorGravity="top|start" />
-
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <!-- Main Content Layout with Edge-to-Edge Support -->
+    <LinearLayout
         android:id="@+id/contentLayout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:visibility="gone"
+        android:orientation="vertical"
         android:fitsSystemWindows="false">
 
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/headerCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
-            android:visibility="gone"
-            app:layout_constraintTop_toTopOf="parent"
-            style="@style/Widget.Material3.CardView.Elevated">
-
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="16dp">
-
-                <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/senderName"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:text="Sender Name"
-                    android:textAppearance="?attr/textAppearanceHeadlineSmall"
-                    android:textColor="?attr/colorOnSurface"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-                <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/recipientName"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Recipient Name"
-                    android:textAppearance="?attr/textAppearanceBodyMedium"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/senderName" />
-
-            </androidx.constraintlayout.widget.ConstraintLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <WebView
-            android:id="@+id/webView"
+        <!-- Status Bar Spacer for Dynamic Height -->
+        <View
+            android:id="@+id/statusBarSpacer"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp"
-            app:layout_constraintBottom_toTopOf="@id/buttonLayout"
-            app:layout_constraintTop_toBottomOf="@id/headerCard" />
+            android:fitsSystemWindows="true"
+            android:visibility="gone" />
 
+        <!-- Top Controls with Glassmorphism -->
         <LinearLayout
-            android:id="@+id/buttonLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:orientation="vertical"
-            android:gravity="center_horizontal"
-            app:layout_constraintBottom_toBottomOf="parent">
+            android:orientation="horizontal"
+            android:paddingTop="48dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="8dp"
+            android:gravity="center_vertical">
 
-            <!-- Countdown Timer View -->
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/countdownTimerView"
+            <!-- Back Button with Enhanced Styling -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/backButton"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="16dp"
+                app:icon="@drawable/ic_arrow_back"
+                app:iconSize="24dp"
+                app:iconGravity="textStart"
+                app:backgroundTint="@color/md_theme_light_surfaceContainer"
+                app:iconTint="@color/md_theme_light_onSurface"
+                app:cornerRadius="24dp"
+                app:strokeWidth="0dp"
+                android:elevation="8dp"
+                android:translationZ="4dp" />
+
+            <!-- Title Spacer -->
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <!-- Analytics Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/analyticsButton"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="8dp"
+                app:icon="@drawable/ic_analytics"
+                app:iconSize="20dp"
+                app:backgroundTint="@color/md_theme_light_surfaceContainer"
+                app:iconTint="@color/md_theme_light_onSurfaceVariant"
+                app:cornerRadius="24dp"
+                android:elevation="4dp" />
+
+            <!-- Reuse Template Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/reuseTemplateButton"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                app:icon="@drawable/ic_refresh"
+                app:iconSize="20dp"
+                app:backgroundTint="@color/md_theme_light_surfaceContainer"
+                app:iconTint="@color/md_theme_light_onSurfaceVariant"
+                app:cornerRadius="24dp"
+                android:elevation="4dp" />
+
+        </LinearLayout>
+
+        <!-- WebView Container with Enhanced Styling -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="8dp"
+            android:layout_marginBottom="8dp">
+
+            <!-- WebView for Content -->
+            <WebView
+                android:id="@+id/webView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@android:color/transparent"
+                android:scrollbars="none"
+                android:overScrollMode="never"
+                android:nestedScrollingEnabled="false" />
+
+            <!-- Loading Indicator -->
+            <com.google.android.material.progressindicator.CircularProgressIndicator
+                android:id="@+id/loadingIndicator"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
                 android:layout_gravity="center"
-                android:padding="12dp"
-                android:background="@drawable/rounded_countdown_background"
-                android:textColor="@android:color/white"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:visibility="gone"
-                android:text="@string/cooldown_timer_format" />
+                android:indeterminate="true"
+                app:indicatorColor="@color/md_theme_light_primary"
+                app:trackColor="@color/md_theme_light_surfaceVariant"
+                android:visibility="visible" />
 
-            <!-- Watch Ad Button Card -->
+            <!-- Progress Bar (Linear version for Java code compatibility) -->
+            <com.google.android.material.progressindicator.LinearProgressIndicator
+                android:id="@+id/progressBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top"
+                android:indeterminate="true"
+                app:indicatorColor="@color/md_theme_light_primary"
+                app:trackColor="@color/md_theme_light_surfaceVariant"
+                android:visibility="gone" />
+
+            <!-- Loading View (Full overlay for Java code compatibility) -->
+            <LinearLayout
+                android:id="@+id/loadingView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@color/md_theme_light_surface"
+                android:visibility="gone">
+
+                <com.google.android.material.progressindicator.CircularProgressIndicator
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:indeterminate="true"
+                    app:indicatorColor="@color/md_theme_light_primary"
+                    app:trackColor="@color/md_theme_light_surfaceVariant" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/loading"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textColor="@color/md_theme_light_onSurface" />
+
+            </LinearLayout>
+
+        </FrameLayout>
+
+        <!-- Bottom Controls with Enhanced Styling -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="32dp">
+
+            <!-- Watch Ad Card with Glassmorphism -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/watchAdCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp"
-                android:clickable="true"
-                android:focusable="true"
-                style="@style/Widget.Material3.CardView.Elevated">
+                app:cardBackgroundColor="@color/md_theme_light_surfaceContainer"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="12dp"
+                app:strokeColor="@color/md_theme_light_outline"
+                app:strokeWidth="1dp"
+                android:visibility="visible">
 
                 <LinearLayout
-                    android:id="@+id/watchAdButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:gravity="center"
                     android:padding="16dp"
-                    android:background="?attr/selectableItemBackground">
+                    android:gravity="center_vertical">
 
+                    <!-- Watch Ad Icon -->
                     <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_marginEnd="8dp"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:layout_marginEnd="12dp"
                         android:src="@drawable/ic_play_circle_filled"
-                        app:tint="?attr/colorPrimary" />
+                        app:tint="@color/md_theme_light_primary" />
 
+                    <!-- Watch Ad Text -->
                     <com.google.android.material.textview.MaterialTextView
                         android:id="@+id/watchAdButtonText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/watch_ad_to_share"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textColor="@color/md_theme_light_onSurface" />
+
+                    <!-- Countdown Timer -->
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/countdownTimerView"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/watch_ad_to_share"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textAppearance="?attr/textAppearanceButton"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/bg_timer_chip"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="6dp"
+                        android:text="02:00"
+                        android:textAppearance="?attr/textAppearanceLabelMedium"
+                        android:textColor="?attr/colorOnPrimary"
+                        android:elevation="6dp"
+                        android:visibility="gone" />
 
                 </LinearLayout>
+
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Watch Ad Button (Clickable version for Java code compatibility) -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/watchAdButton"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginBottom="12dp"
+                android:text="@string/watch_ad_to_share"
+                android:textAppearance="?attr/textAppearanceLabelLarge"
+                app:backgroundTint="@color/md_theme_light_secondary"
+                app:cornerRadius="28dp"
+                app:icon="@drawable/ic_play_circle_filled"
+                app:iconGravity="textStart"
+                app:iconSize="20dp"
+                android:elevation="4dp"
+                android:visibility="gone" />
+
+            <!-- Share Button Container -->
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
-                <!-- Share Button with Lock Overlay -->
-                <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+                <!-- Share Button with Enhanced Styling -->
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/shareButton"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/share"
+                    android:layout_height="56dp"
+                    android:text="@string/share_wish"
+                    android:textAppearance="?attr/textAppearanceLabelLarge"
+                    app:backgroundTint="@color/md_theme_light_primary"
+                    app:cornerRadius="28dp"
                     app:icon="@drawable/ic_share"
-                    app:backgroundTint="?attr/colorPrimary"
-                    app:iconTint="?attr/colorOnPrimary"
-                    android:textColor="?attr/colorOnPrimary"
-                    android:enabled="false" />
-
-                <!-- Lock icon overlay -->
-                <ImageView
-                    android:id="@+id/shareLockIcon"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:layout_gravity="center"
-                    android:src="@drawable/ic_lock"
-                    app:tint="?attr/colorOnSurface"
-                    android:visibility="visible" />
-
-                <!-- Analytics Button -->
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/analyticsButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="end|bottom"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/analytics"
-                    app:icon="@drawable/ic_analytics"
-                    style="@style/Widget.Material3.Button.TextButton"
+                    app:iconGravity="textStart"
+                    app:iconSize="20dp"
+                    android:elevation="8dp"
+                    android:translationZ="4dp"
                     android:visibility="gone" />
 
-                <!-- Reuse Template Button -->
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/reuseTemplateButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="start|bottom"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/reuse_template"
-                    app:icon="@drawable/ic_refresh"
-                    style="@style/Widget.Material3.Button.TextButton"
+                <!-- Share Lock Icon (overlay on share button) -->
+                <ImageView
+                    android:id="@+id/shareLockIcon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="start|center_vertical"
+                    android:layout_marginStart="16dp"
+                    android:src="@drawable/ic_lock"
+                    app:tint="?attr/colorOnPrimary"
                     android:visibility="gone" />
 
             </FrameLayout>
 
         </LinearLayout>
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+    </LinearLayout>
 
-    <FrameLayout
-        android:id="@+id/loadingView"
+    <!-- Error Message -->
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/errorMessage"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:background="@drawable/rounded_grey_background"
-        android:padding="24dp"
-        android:visibility="gone"
-        android:elevation="4dp"
-        android:focusableInTouchMode="true"
-        android:focusable="true"
-        android:clickable="true">
-
-        <com.google.android.material.progressindicator.CircularProgressIndicator
-            android:id="@+id/progressBar"
-            android:layout_gravity="center"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:indeterminate="true"
-            app:indicatorColor="?attr/colorPrimary" />
-    </FrameLayout>
+        android:text="@string/error_loading_wish"
+        android:textAppearance="?attr/textAppearanceBodyLarge"
+        android:textColor="@color/md_theme_light_error"
+        android:visibility="gone" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

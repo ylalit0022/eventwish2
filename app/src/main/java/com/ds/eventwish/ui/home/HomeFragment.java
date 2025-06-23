@@ -473,9 +473,11 @@ public class HomeFragment extends BaseFragment implements RecommendedTemplateAda
     @Override
     public void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
-        outState.putSerializable("sortOption", viewModel.getCurrentSortOption());
-        outState.putSerializable("timeFilter", viewModel.getCurrentTimeFilter());
-        outState.putBoolean("isFullscreenMode", viewModel.isFullscreenMode());
+        if (viewModel != null) {
+            outState.putSerializable("sortOption", viewModel.getCurrentSortOption());
+            outState.putSerializable("timeFilter", viewModel.getCurrentTimeFilter());
+            outState.putBoolean("isFullscreenMode", viewModel.isFullscreenMode());
+        }
         outState.putInt("lastScrollPosition", lastScrollPosition);
     }
 

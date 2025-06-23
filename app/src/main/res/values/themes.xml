@@ -72,6 +72,26 @@
         <item name="materialCardViewStyle">@style/Widget.EventWish.Card</item>
         <item name="chipStyle">@style/Widget.EventWish.Chip</item>
         <item name="textInputStyle">@style/Widget.EventWish.TextInputLayout</item>
+        
+        <!-- CENTRALIZED THEMING: Additional Theme Attributes -->
+        <!-- Surface Overlays -->
+        <item name="colorSurfaceOverlay">@color/md_theme_light_surfaceOverlay</item>
+        
+        <!-- Status Indicators -->
+        <item name="colorStatusSuccess">@color/md_theme_light_statusSuccess</item>
+        <item name="colorOnStatusSuccess">@color/md_theme_light_onStatusSuccess</item>
+        <item name="colorStatusWarning">@color/md_theme_light_statusWarning</item>
+        <item name="colorOnStatusWarning">@color/md_theme_light_onStatusWarning</item>
+        <item name="colorStatusInfo">@color/md_theme_light_statusInfo</item>
+        <item name="colorOnStatusInfo">@color/md_theme_light_onStatusInfo</item>
+        
+        <!-- Loading States -->
+        <item name="colorShimmer">@color/md_theme_light_shimmer</item>
+        <item name="colorShimmerHighlight">@color/md_theme_light_shimmerHighlight</item>
+        
+        <!-- Ad Components -->
+        <item name="colorAdBackground">@color/md_theme_light_adBackground</item>
+        <item name="colorOnAdBackground">@color/md_theme_light_onAdBackground</item>
     </style>
 
     <style name="Theme.EventWish.Splash" parent="Theme.Material3.DayNight.NoActionBar">
@@ -81,4 +101,397 @@
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
     </style>
+
+    <!-- Christmas Theme - Red/Green/Gold palette -->
+    <style name="Theme.EventWish.Christmas" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary: Christmas Red -->
+        <item name="colorPrimary">@color/christmas_primary</item>
+        <item name="colorOnPrimary">@color/christmas_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/christmas_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/christmas_onPrimaryContainer</item>
+        
+        <!-- Secondary: Christmas Green -->
+        <item name="colorSecondary">@color/christmas_secondary</item>
+        <item name="colorOnSecondary">@color/christmas_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/christmas_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/christmas_onSecondaryContainer</item>
+        
+        <!-- Tertiary: Christmas Gold -->
+        <item name="colorTertiary">@color/christmas_tertiary</item>
+        <item name="colorOnTertiary">@color/christmas_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/christmas_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/christmas_onTertiaryContainer</item>
+        
+        <!-- Surface and Background -->
+        <item name="colorSurface">@color/christmas_surface</item>
+        <item name="colorOnSurface">@color/christmas_onSurface</item>
+        <item name="android:colorBackground">@color/christmas_background</item>
+        <item name="colorOnBackground">@color/christmas_onBackground</item>
+        
+        <!-- Error colors remain the same -->
+        <item name="colorError">@color/md_theme_light_error</item>
+        <item name="colorOnError">@color/md_theme_light_onError</item>
+        <item name="colorErrorContainer">@color/md_theme_light_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/md_theme_light_onErrorContainer</item>
+        
+        <!-- Outline and surface variants -->
+        <item name="colorOutline">@color/christmas_outline</item>
+        <item name="colorOutlineVariant">@color/christmas_outlineVariant</item>
+        <item name="colorSurfaceVariant">@color/christmas_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/christmas_onSurfaceVariant</item>
+        <item name="colorSurfaceContainer">@color/christmas_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/christmas_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerLow">@color/christmas_surfaceContainerLow</item>
+        <item name="colorSurfaceContainerLowest">@color/christmas_surfaceContainerLowest</item>
+        
+        <!-- Status bar -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+    <!-- Diwali Theme - Orange/Gold/Deep Red palette -->
+    <style name="Theme.EventWish.Diwali" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary: Diwali Orange -->
+        <item name="colorPrimary">@color/diwali_primary</item>
+        <item name="colorOnPrimary">@color/diwali_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/diwali_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/diwali_onPrimaryContainer</item>
+        
+        <!-- Secondary: Diwali Gold -->
+        <item name="colorSecondary">@color/diwali_secondary</item>
+        <item name="colorOnSecondary">@color/diwali_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/diwali_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/diwali_onSecondaryContainer</item>
+        
+        <!-- Tertiary: Diwali Deep Red -->
+        <item name="colorTertiary">@color/diwali_tertiary</item>
+        <item name="colorOnTertiary">@color/diwali_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/diwali_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/diwali_onTertiaryContainer</item>
+        
+        <!-- Surface and Background -->
+        <item name="colorSurface">@color/diwali_surface</item>
+        <item name="colorOnSurface">@color/diwali_onSurface</item>
+        <item name="android:colorBackground">@color/diwali_background</item>
+        <item name="colorOnBackground">@color/diwali_onBackground</item>
+        
+        <!-- Error colors remain the same -->
+        <item name="colorError">@color/md_theme_light_error</item>
+        <item name="colorOnError">@color/md_theme_light_onError</item>
+        <item name="colorErrorContainer">@color/md_theme_light_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/md_theme_light_onErrorContainer</item>
+        
+        <!-- Outline and surface variants -->
+        <item name="colorOutline">@color/diwali_outline</item>
+        <item name="colorOutlineVariant">@color/diwali_outlineVariant</item>
+        <item name="colorSurfaceVariant">@color/diwali_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/diwali_onSurfaceVariant</item>
+        <item name="colorSurfaceContainer">@color/diwali_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/diwali_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerLow">@color/diwali_surfaceContainerLow</item>
+        <item name="colorSurfaceContainerLowest">@color/diwali_surfaceContainerLowest</item>
+        
+        <!-- Status bar -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+    <!-- New Year Theme - Gold/Silver/Black palette -->
+    <style name="Theme.EventWish.NewYear" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary: New Year Gold -->
+        <item name="colorPrimary">@color/new_year_primary</item>
+        <item name="colorOnPrimary">@color/new_year_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/new_year_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/new_year_onPrimaryContainer</item>
+        
+        <!-- Secondary: New Year Silver -->
+        <item name="colorSecondary">@color/new_year_secondary</item>
+        <item name="colorOnSecondary">@color/new_year_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/new_year_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/new_year_onSecondaryContainer</item>
+        
+        <!-- Tertiary: New Year Black -->
+        <item name="colorTertiary">@color/new_year_tertiary</item>
+        <item name="colorOnTertiary">@color/new_year_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/new_year_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/new_year_onTertiaryContainer</item>
+        
+        <!-- Surface and Background -->
+        <item name="colorSurface">@color/new_year_surface</item>
+        <item name="colorOnSurface">@color/new_year_onSurface</item>
+        <item name="android:colorBackground">@color/new_year_background</item>
+        <item name="colorOnBackground">@color/new_year_onBackground</item>
+        
+        <!-- Error colors remain the same -->
+        <item name="colorError">@color/md_theme_light_error</item>
+        <item name="colorOnError">@color/md_theme_light_onError</item>
+        <item name="colorErrorContainer">@color/md_theme_light_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/md_theme_light_onErrorContainer</item>
+        
+        <!-- Outline and surface variants -->
+        <item name="colorOutline">@color/new_year_outline</item>
+        <item name="colorOutlineVariant">@color/new_year_outlineVariant</item>
+        <item name="colorSurfaceVariant">@color/new_year_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/new_year_onSurfaceVariant</item>
+        <item name="colorSurfaceContainer">@color/new_year_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/new_year_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerLow">@color/new_year_surfaceContainerLow</item>
+        <item name="colorSurfaceContainerLowest">@color/new_year_surfaceContainerLowest</item>
+        
+        <!-- Status bar -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+    <!-- Valentine Theme - Pink/Red/Rose palette -->
+    <style name="Theme.EventWish.Valentine" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary: Valentine Pink -->
+        <item name="colorPrimary">@color/valentine_primary</item>
+        <item name="colorOnPrimary">@color/valentine_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/valentine_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/valentine_onPrimaryContainer</item>
+        
+        <!-- Secondary: Valentine Red -->
+        <item name="colorSecondary">@color/valentine_secondary</item>
+        <item name="colorOnSecondary">@color/valentine_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/valentine_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/valentine_onSecondaryContainer</item>
+        
+        <!-- Tertiary: Valentine Rose -->
+        <item name="colorTertiary">@color/valentine_tertiary</item>
+        <item name="colorOnTertiary">@color/valentine_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/valentine_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/valentine_onTertiaryContainer</item>
+        
+        <!-- Surface and Background -->
+        <item name="colorSurface">@color/valentine_surface</item>
+        <item name="colorOnSurface">@color/valentine_onSurface</item>
+        <item name="android:colorBackground">@color/valentine_background</item>
+        <item name="colorOnBackground">@color/valentine_onBackground</item>
+        
+        <!-- Error colors remain the same -->
+        <item name="colorError">@color/md_theme_light_error</item>
+        <item name="colorOnError">@color/md_theme_light_onError</item>
+        <item name="colorErrorContainer">@color/md_theme_light_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/md_theme_light_onErrorContainer</item>
+        
+        <!-- Outline and surface variants -->
+        <item name="colorOutline">@color/valentine_outline</item>
+        <item name="colorOutlineVariant">@color/valentine_outlineVariant</item>
+        <item name="colorSurfaceVariant">@color/valentine_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/valentine_onSurfaceVariant</item>
+        <item name="colorSurfaceContainer">@color/valentine_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/valentine_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerLow">@color/valentine_surfaceContainerLow</item>
+        <item name="colorSurfaceContainerLowest">@color/valentine_surfaceContainerLowest</item>
+        
+        <!-- Status bar -->
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
+    <!-- Spring Theme - Fresh Green/Pink/Light Blue -->
+    <style name="Theme.EventWish.Spring" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary: Spring Green -->
+        <item name="colorPrimary">@color/spring_primary</item>
+        <item name="colorOnPrimary">@color/spring_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/spring_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/spring_onPrimaryContainer</item>
+        
+        <!-- Secondary: Spring Pink -->
+        <item name="colorSecondary">@color/spring_secondary</item>
+        <item name="colorOnSecondary">@color/spring_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/spring_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/spring_onSecondaryContainer</item>
+        
+        <!-- Tertiary: Spring Light Blue -->
+        <item name="colorTertiary">@color/spring_tertiary</item>
+        <item name="colorOnTertiary">@color/spring_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/spring_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/spring_onTertiaryContainer</item>
+        
+        <!-- Surface and Background -->
+        <item name="colorSurface">@color/spring_surface</item>
+        <item name="colorOnSurface">@color/spring_onSurface</item>
+        <item name="android:colorBackground">@color/spring_background</item>
+        <item name="colorOnBackground">@color/spring_onBackground</item>
+        
+        <!-- Error colors remain the same -->
+        <item name="colorError">@color/md_theme_light_error</item>
+        <item name="colorOnError">@color/md_theme_light_onError</item>
+        <item name="colorErrorContainer">@color/md_theme_light_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/md_theme_light_onErrorContainer</item>
+        
+        <!-- Outline and surface variants -->
+        <item name="colorOutline">@color/spring_outline</item>
+        <item name="colorOutlineVariant">@color/spring_outlineVariant</item>
+        <item name="colorSurfaceVariant">@color/spring_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/spring_onSurfaceVariant</item>
+        <item name="colorSurfaceContainer">@color/spring_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/spring_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerLow">@color/spring_surfaceContainerLow</item>
+        <item name="colorSurfaceContainerLowest">@color/spring_surfaceContainerLowest</item>
+        
+        <!-- Status bar -->
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
+    <!-- Summer Theme - Bright Yellow/Orange/Cyan -->
+    <style name="Theme.EventWish.Summer" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary: Summer Yellow -->
+        <item name="colorPrimary">@color/summer_primary</item>
+        <item name="colorOnPrimary">@color/summer_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/summer_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/summer_onPrimaryContainer</item>
+        
+        <!-- Secondary: Summer Orange -->
+        <item name="colorSecondary">@color/summer_secondary</item>
+        <item name="colorOnSecondary">@color/summer_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/summer_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/summer_onSecondaryContainer</item>
+        
+        <!-- Tertiary: Summer Cyan -->
+        <item name="colorTertiary">@color/summer_tertiary</item>
+        <item name="colorOnTertiary">@color/summer_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/summer_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/summer_onTertiaryContainer</item>
+        
+        <!-- Surface and Background -->
+        <item name="colorSurface">@color/summer_surface</item>
+        <item name="colorOnSurface">@color/summer_onSurface</item>
+        <item name="android:colorBackground">@color/summer_background</item>
+        <item name="colorOnBackground">@color/summer_onBackground</item>
+        
+        <!-- Error colors remain the same -->
+        <item name="colorError">@color/md_theme_light_error</item>
+        <item name="colorOnError">@color/md_theme_light_onError</item>
+        <item name="colorErrorContainer">@color/md_theme_light_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/md_theme_light_onErrorContainer</item>
+        
+        <!-- Outline and surface variants -->
+        <item name="colorOutline">@color/summer_outline</item>
+        <item name="colorOutlineVariant">@color/summer_outlineVariant</item>
+        <item name="colorSurfaceVariant">@color/summer_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/summer_onSurfaceVariant</item>
+        <item name="colorSurfaceContainer">@color/summer_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/summer_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerLow">@color/summer_surfaceContainerLow</item>
+        <item name="colorSurfaceContainerLowest">@color/summer_surfaceContainerLowest</item>
+        
+        <!-- Status bar -->
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
+    <!-- Fall Theme - Orange/Brown/Amber -->
+    <style name="Theme.EventWish.Fall" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary: Fall Orange -->
+        <item name="colorPrimary">@color/fall_primary</item>
+        <item name="colorOnPrimary">@color/fall_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/fall_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/fall_onPrimaryContainer</item>
+        
+        <!-- Secondary: Fall Brown -->
+        <item name="colorSecondary">@color/fall_secondary</item>
+        <item name="colorOnSecondary">@color/fall_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/fall_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/fall_onSecondaryContainer</item>
+        
+        <!-- Tertiary: Fall Amber -->
+        <item name="colorTertiary">@color/fall_tertiary</item>
+        <item name="colorOnTertiary">@color/fall_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/fall_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/fall_onTertiaryContainer</item>
+        
+        <!-- Surface and Background -->
+        <item name="colorSurface">@color/fall_surface</item>
+        <item name="colorOnSurface">@color/fall_onSurface</item>
+        <item name="android:colorBackground">@color/fall_background</item>
+        <item name="colorOnBackground">@color/fall_onBackground</item>
+        
+        <!-- Error colors remain the same -->
+        <item name="colorError">@color/md_theme_light_error</item>
+        <item name="colorOnError">@color/md_theme_light_onError</item>
+        <item name="colorErrorContainer">@color/md_theme_light_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/md_theme_light_onErrorContainer</item>
+        
+        <!-- Outline and surface variants -->
+        <item name="colorOutline">@color/fall_outline</item>
+        <item name="colorOutlineVariant">@color/fall_outlineVariant</item>
+        <item name="colorSurfaceVariant">@color/fall_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/fall_onSurfaceVariant</item>
+        <item name="colorSurfaceContainer">@color/fall_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/fall_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerLow">@color/fall_surfaceContainerLow</item>
+        <item name="colorSurfaceContainerLowest">@color/fall_surfaceContainerLowest</item>
+        
+        <!-- Status bar -->
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
+    <!-- Winter Theme - Blue/Silver/White -->
+    <style name="Theme.EventWish.Winter" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary: Winter Blue -->
+        <item name="colorPrimary">@color/winter_primary</item>
+        <item name="colorOnPrimary">@color/winter_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/winter_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/winter_onPrimaryContainer</item>
+        
+        <!-- Secondary: Winter Silver -->
+        <item name="colorSecondary">@color/winter_secondary</item>
+        <item name="colorOnSecondary">@color/winter_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/winter_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/winter_onSecondaryContainer</item>
+        
+        <!-- Tertiary: Winter White -->
+        <item name="colorTertiary">@color/winter_tertiary</item>
+        <item name="colorOnTertiary">@color/winter_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/winter_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/winter_onTertiaryContainer</item>
+        
+        <!-- Surface and Background -->
+        <item name="colorSurface">@color/winter_surface</item>
+        <item name="colorOnSurface">@color/winter_onSurface</item>
+        <item name="android:colorBackground">@color/winter_background</item>
+        <item name="colorOnBackground">@color/winter_onBackground</item>
+        
+        <!-- Error colors remain the same -->
+        <item name="colorError">@color/md_theme_light_error</item>
+        <item name="colorOnError">@color/md_theme_light_onError</item>
+        <item name="colorErrorContainer">@color/md_theme_light_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/md_theme_light_onErrorContainer</item>
+        
+        <!-- Outline and surface variants -->
+        <item name="colorOutline">@color/winter_outline</item>
+        <item name="colorOutlineVariant">@color/winter_outlineVariant</item>
+        <item name="colorSurfaceVariant">@color/winter_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/winter_onSurfaceVariant</item>
+        <item name="colorSurfaceContainer">@color/winter_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/winter_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerLow">@color/winter_surfaceContainerLow</item>
+        <item name="colorSurfaceContainerLowest">@color/winter_surfaceContainerLowest</item>
+        
+        <!-- Status bar -->
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
 </resources>

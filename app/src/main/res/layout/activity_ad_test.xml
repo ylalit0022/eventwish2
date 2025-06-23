@@ -49,7 +49,7 @@
                 android:id="@+id/status_text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="#EEEEEE"
+                android:background="?attr/colorSurfaceVariant"
                 android:padding="8dp"
                 android:text="Status will appear here"
                 android:textSize="12sp" />
@@ -129,7 +129,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:backgroundTint="#E53935"
-            android:textColor="#FFFFFF"
+            android:textColor="?attr/colorOnPrimary"
             android:text="FORCE SERVER REFRESH (Ignore Cache)"
             android:textSize="12sp" />
     </LinearLayout>

@@ -1,20 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    
     <!-- White circular background -->
-    <item >
-        <shape android:shape="oval">
-            <solid android:color="#FFFFFF" />
-            <size android:width="120dp" android:height="120dp" />
-        </shape>
-    </item>
-
-    <!-- Logo image with inset to clip inside circle -->
-    <item android:top="10dp" android:bottom="10dp" android:left="10dp" android:right="60dp">
-        <bitmap
-            android:src="@drawable/logo"
-            android:gravity="center"
-            android:antialias="true" />
-    </item>
-
-</layer-list>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M60,60m-60,0a60,60 0,1 1,120 0a60,60 0,1 1,-120 0" />
+    
+    <!-- Star logo centered -->
+    <path
+        android:fillColor="?attr/colorPrimary"
+        android:pathData="M60,20l15.45,31.3L110,55.35l-25,24.35 5.9,34.4L60,97.85l-30.9,16.25L35,79.7 10,55.35l34.55,-4.05L60,20z" />
+    
+</vector>

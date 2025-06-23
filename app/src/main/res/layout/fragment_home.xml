@@ -270,7 +270,7 @@
                         android:textSize="14sp"
                         android:padding="5dp"
                         android:layout_margin="5dp"
-                        android:textColor="@color/purple_700"
+                        android:textColor="?attr/colorPrimary"
                         android:textStyle="bold"/> -->
 
                     <View
@@ -293,10 +293,10 @@
                         android:focusable="true"/>
 
                     <!-- Divider after sponsored ad - reduced height -->
-                    <!-- <View
+                    <!--                     <View
                         android:layout_width="match_parent"
                         android:layout_height="2dp"
-                        android:background="@color/purple_500"
+                        android:background="?attr/colorPrimary"
                         android:layout_marginTop="3dp"
                         android:layout_marginBottom="2dp"
                         android:layout_marginStart="3dp"
@@ -399,7 +399,7 @@
                     android:layout_marginEnd="16dp"
                     android:text="Recommended For You"
                     android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"
-                    android:textColor="@android:color/black"
+                    android:textColor="?attr/colorOnSurface"
                     android:textStyle="bold" />
 
                 <!-- Recommendations Description -->
@@ -451,7 +451,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="2dp"
                     android:layout_marginTop="8dp"
-                    android:background="@color/purple_500"/>
+                    android:background="?attr/colorPrimary"/>
             </LinearLayout>
 
             <androidx.recyclerview.widget.RecyclerView
@@ -519,7 +519,7 @@
                    android:layout_marginTop="16dp"
                    android:gravity="center"
                    android:textSize="16sp"
-                   android:textColor="@color/black"
+                   android:textColor="?attr/colorOnSurface"
                    android:text="@string/error_message" />
 
                <Button
@@ -543,7 +543,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
-        android:background="#80FFFFFF"
+        android:background="?attr/colorSurfaceContainer"
         android:visibility="gone"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
