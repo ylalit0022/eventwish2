@@ -9,6 +9,7 @@ import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
+import com.ds.eventwish.data.auth.AuthManager;
 import com.ds.eventwish.data.local.AppDatabase;
 import com.ds.eventwish.data.local.dao.UserDao;
 import com.ds.eventwish.data.local.entity.UserEntity;
@@ -19,19 +20,24 @@ import com.ds.eventwish.util.AppExecutors;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
+import java.util.Collections;
 import java.util.List;
 
 public class ProfileViewModel extends AndroidViewModel {
-    
+
     private static final int DEFAULT_TEMPLATE_LIMIT = 5;
-    
+
     private final MutableLiveData<String> username = new MutableLiveData<>();
     private final MutableLiveData<String> email = new MutableLiveData<>();
     private final TemplateRepository templateRepository;
     private final UserRepository userRepository;
-    
+    private final AuthManager authManager;
+
     private LiveData<List<Template>> recentlyLikedTemplates;
     private LiveData<List<Template>> recentlyFavoritedTemplates;
+
+    private final MutableLiveData<List<Template>> likedTemplates = new MutableLiveData<>();
+    private final MutableLiveData<List<Template>> favoriteTemplates = new MutableLiveData<>();
 
     public ProfileViewModel(Application application) {
         super(application);
@@ -39,11 +45,12 @@ public class ProfileViewModel extends AndroidViewModel {
         TemplateRepository.init(application);
         templateRepository = TemplateRepository.getInstance();
         userRepository = UserRepository.getInstance(application);
-        
+        authManager = AuthManager.getInstance();
+
         // Initialize with default values or load from repository
         username.setValue("User");
         email.setValue("user@example.com");
-        
+
         // Load user profile data
         loadUserProfile();
     }
@@ -55,13 +62,13 @@ public class ProfileViewModel extends AndroidViewModel {
                 AppDatabase db = AppDatabase.getInstance(getApplication());
                 UserDao userDao = db.userDao();
                 UserEntity userEntity = userDao.getCurrentUser();
-                
+
                 if (userEntity != null) {
                     // Update UI on main thread
                     new Handler(Looper.getMainLooper()).post(() -> {
-                        username.setValue(userEntity.getDisplayName() != null ? 
+                        username.setValue(userEntity.getDisplayName() != null ?
                                           userEntity.getDisplayName() : "User");
-                        email.setValue(userEntity.getEmail() != null ? 
+                        email.setValue(userEntity.getEmail() != null ?
                                       userEntity.getEmail() : "");
                     });
                 } else {
@@ -69,9 +76,9 @@ public class ProfileViewModel extends AndroidViewModel {
                     FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
                     if (firebaseUser != null) {
                         new Handler(Looper.getMainLooper()).post(() -> {
-                            username.setValue(firebaseUser.getDisplayName() != null ? 
+                            username.setValue(firebaseUser.getDisplayName() != null ?
                                              firebaseUser.getDisplayName() : "User");
-                            email.setValue(firebaseUser.getEmail() != null ? 
+                            email.setValue(firebaseUser.getEmail() != null ?
                                          firebaseUser.getEmail() : "");
                         });
                     }
@@ -100,7 +107,7 @@ public class ProfileViewModel extends AndroidViewModel {
         this.email.setValue(email);
         // Save to repository or preferences
     }
-    
+
     /**
      * Get the user's most recently liked templates
      * @param limit Maximum number of templates to return
@@ -112,7 +119,7 @@ public class ProfileViewModel extends AndroidViewModel {
         }
         return recentlyLikedTemplates;
     }
-    
+
     /**
      * Get the user's most recently liked templates with default limit
      * @return LiveData containing a list of the user's most recently liked templates
@@ -120,7 +127,7 @@ public class ProfileViewModel extends AndroidViewModel {
     public LiveData<List<Template>> getMostRecentlyLikedTemplates() {
         return getMostRecentlyLikedTemplates(DEFAULT_TEMPLATE_LIMIT);
     }
-    
+
     /**
      * Get the user's most recently favorited templates
      * @param limit Maximum number of templates to return
@@ -132,7 +139,7 @@ public class ProfileViewModel extends AndroidViewModel {
         }
         return recentlyFavoritedTemplates;
     }
-    
+
     /**
      * Get the user's most recently favorited templates with default limit
      * @return LiveData containing a list of the user's most recently favorited templates
@@ -140,54 +147,66 @@ public class ProfileViewModel extends AndroidViewModel {
     public LiveData<List<Template>> getMostRecentlyFavoritedTemplates() {
         return getMostRecentlyFavoritedTemplates(DEFAULT_TEMPLATE_LIMIT);
     }
-    
+
     /**
-     * Refresh the user's liked and favorited templates
+     * Get the count of user's posts
+     * @return LiveData containing the count of user's posts
      */
-    public void refreshUserInteractions() {
-        recentlyLikedTemplates = templateRepository.getMostRecentlyLikedTemplates(DEFAULT_TEMPLATE_LIMIT);
-        recentlyFavoritedTemplates = templateRepository.getMostRecentlyFavoritedTemplates(DEFAULT_TEMPLATE_LIMIT);
+    public LiveData<Integer> getPostsCount() {
+        return templateRepository.getUserTemplatesCount();
     }
 
     /**
-     * Toggle the like state of a template
-     * @param templateId ID of the template to toggle like state
-     * @param newState The new like state (true = liked, false = not liked)
+     * Get the count of user's likes
+     * @return LiveData containing the count of user's likes
      */
-    public void toggleTemplateLike(String templateId, boolean newState) {
-        if (newState) {
-            templateRepository.likeTemplate(templateId)
-                .addOnSuccessListener(liked -> {
-                    // Refresh liked templates after successful like
-                    recentlyLikedTemplates = templateRepository.getMostRecentlyLikedTemplates(DEFAULT_TEMPLATE_LIMIT);
-                });
-        } else {
-            templateRepository.unlikeTemplate(templateId)
-                .addOnSuccessListener(unliked -> {
-                    // Refresh liked templates after successful unlike
-                    recentlyLikedTemplates = templateRepository.getMostRecentlyLikedTemplates(DEFAULT_TEMPLATE_LIMIT);
-                });
-        }
+    public LiveData<Integer> getLikesCount() {
+        return templateRepository.getUserLikesCount();
     }
 
     /**
-     * Toggle the favorite state of a template
-     * @param templateId ID of the template to toggle favorite state
-     * @param newState The new favorite state (true = favorited, false = not favorited)
+     * Get the count of user's favorites
+     * @return LiveData containing the count of user's favorites
      */
-    public void toggleTemplateFavorite(String templateId, boolean newState) {
-        if (newState) {
-            templateRepository.favoriteTemplate(templateId)
-                .addOnSuccessListener(favorited -> {
-                    // Refresh favorited templates after successful favorite
-                    recentlyFavoritedTemplates = templateRepository.getMostRecentlyFavoritedTemplates(DEFAULT_TEMPLATE_LIMIT);
-                });
-        } else {
-            templateRepository.unfavoriteTemplate(templateId)
-                .addOnSuccessListener(unfavorited -> {
-                    // Refresh favorited templates after successful unfavorite
-                    recentlyFavoritedTemplates = templateRepository.getMostRecentlyFavoritedTemplates(DEFAULT_TEMPLATE_LIMIT);
-                });
-        }
+    public LiveData<Integer> getFavoritesCount() {
+        return templateRepository.getUserFavoritesCount();
     }
-} 
+
+    /**
+     * Get the user's liked templates
+     */
+    public LiveData<List<Template>> getLikedTemplates() {
+        if (likedTemplates.getValue() == null) {
+            loadLikedTemplates();
+        }
+        return likedTemplates;
+    }
+
+    /**
+     * Get the user's favorite templates
+     */
+    public LiveData<List<Template>> getFavoriteTemplates() {
+        if (favoriteTemplates.getValue() == null) {
+            loadFavoriteTemplates();
+        }
+        return favoriteTemplates;
+    }
+
+    /**
+     * Load the user's liked templates
+     */
+    private void loadLikedTemplates() {
+        // For now, use empty list as placeholder
+        // In a real app, this would fetch from repository
+        likedTemplates.setValue(Collections.emptyList());
+    }
+
+    /**
+     * Load the user's favorite templates
+     */
+    private void loadFavoriteTemplates() {
+        // For now, use empty list as placeholder
+        // In a real app, this would fetch from repository
+        favoriteTemplates.setValue(Collections.emptyList());
+    }
+}

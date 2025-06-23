@@ -23,6 +23,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Date;
+import androidx.core.content.ContextCompat;
+import android.text.SpannableString;
+import android.text.style.RelativeSizeSpan;
+import android.text.style.StyleSpan;
 
 public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHolder> {
 
@@ -61,14 +65,36 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         holder.titleText.setText(template.getTitle());
         holder.categoryText.setText(template.getCategoryId());
         
-        // Set creation time in social media format
+        // Add detailed logging for time display debugging
+        Log.d(TAG, "Template " + template.getId() + " time display: " +
+              "createdAt=" + (template.getCreatedAt() != null ? template.getCreatedAt().toString() : "null") + 
+              ", timestamp=" + template.getCreatedAtTimestamp());
+        
+        // Set creation time using actual template data
+        String timeAgoText;
         if (template.getCreatedAt() != null) {
-            holder.timeText.setVisibility(View.VISIBLE);
-            holder.timeText.setText(formatTimeAgo(template.getCreatedAt()));
-            holder.timeText.setTextColor(Color.GRAY);
+            timeAgoText = formatTimeAgo(template.getCreatedAt());
+            Log.d(TAG, "Template " + template.getId() + " formatted time: " + timeAgoText);
         } else {
-            holder.timeText.setVisibility(View.GONE);
+            timeAgoText = "recently added";
+            Log.d(TAG, "Template " + template.getId() + " using fallback time (createdAt is null)");
         }
+        
+        // Create a SpannableString for the actual time
+        SpannableString timeSpannable = new SpannableString("⏱️ " + timeAgoText.toUpperCase());
+        timeSpannable.setSpan(new StyleSpan(android.graphics.Typeface.BOLD), 0, timeSpannable.length(), 0);
+        timeSpannable.setSpan(new RelativeSizeSpan(1.2f), 0, timeSpannable.length(), 0);
+        
+        // Set the actual time text
+        holder.timeText.setText(timeSpannable);
+        holder.timeText.setVisibility(View.VISIBLE);
+        holder.timeText.setTextColor(Color.WHITE);
+        
+        // Set the fallback time text with actual data too
+        holder.fallbackTimeText.setText("⏱️ POSTED " + timeAgoText.toUpperCase());
+        holder.fallbackTimeText.setVisibility(View.VISIBLE);
+        
+        Log.d(TAG, "Setting timeText to actual template time: " + timeAgoText);
         
         // Set like and favorite icons
         updateLikeState(holder, template.isLiked());
@@ -307,6 +333,7 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         final TextView newBadge;
         final LinearLayout recommendedBadge;
         final TextView timeText;
+        final TextView fallbackTimeText;
 
         public ViewHolder(View itemView) {
             super(itemView);
@@ -322,6 +349,7 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             newBadge = itemView.findViewById(R.id.newBadge);
             recommendedBadge = itemView.findViewById(R.id.recommendedBadge);
             timeText = itemView.findViewById(R.id.timeText);
+            fallbackTimeText = itemView.findViewById(R.id.fallbackTimeText);
         }
     }
 
@@ -331,50 +359,109 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
      * @return A string like "2h ago", "3d ago", etc.
      */
     private String formatTimeAgo(Date date) {
-        if (date == null) return "";
+        if (date == null) {
+            Log.d(TAG, "formatTimeAgo: date is null, returning 'recently added'");
+            return "recently added";
+        }
         
         long now = System.currentTimeMillis();
         long time = date.getTime();
         long diff = now - time;
         
+        Log.d(TAG, "formatTimeAgo: date=" + date + ", now=" + new Date(now) + ", diff=" + diff + "ms (" + (diff/1000) + " seconds)");
+        
+        // Check if date is in the future (server time might be ahead)
+        if (diff < 0) {
+            Log.d(TAG, "formatTimeAgo: date is in the future, using 'recently added'");
+            return "recently added";
+        }
+        
         // Convert to seconds
         long seconds = diff / 1000;
         if (seconds < 60) {
+            Log.d(TAG, "formatTimeAgo: returning 'just now' for " + seconds + " seconds");
             return "just now";
         }
         
         // Convert to minutes
         long minutes = seconds / 60;
         if (minutes < 60) {
-            return minutes + "m ago";
+            String result = minutes + "m ago";
+            Log.d(TAG, "formatTimeAgo: returning '" + result + "' for " + minutes + " minutes");
+            return result;
         }
         
         // Convert to hours
         long hours = minutes / 60;
         if (hours < 24) {
-            return hours + "h ago";
+            String result = hours + "h ago";
+            Log.d(TAG, "formatTimeAgo: returning '" + result + "' for " + hours + " hours");
+            return result;
         }
         
         // Convert to days
         long days = hours / 24;
         if (days < 7) {
-            return days + "d ago";
+            String result = days + "d ago";
+            Log.d(TAG, "formatTimeAgo: returning '" + result + "' for " + days + " days");
+            return result;
         }
         
         // Convert to weeks
         long weeks = days / 7;
         if (weeks < 4) {
-            return weeks + "w ago";
+            String result = weeks + "w ago";
+            Log.d(TAG, "formatTimeAgo: returning '" + result + "' for " + weeks + " weeks");
+            return result;
         }
         
         // Convert to months
         long months = days / 30;
         if (months < 12) {
-            return months + "mo ago";
+            String result = months + "mo ago";
+            Log.d(TAG, "formatTimeAgo: returning '" + result + "' for " + months + " months");
+            return result;
         }
         
         // Convert to years
         long years = days / 365;
-        return years + "y ago";
+        String result = years + "y ago";
+        Log.d(TAG, "formatTimeAgo: returning '" + result + "' for " + years + " years");
+        return result;
+    }
+
+    private void verifyTimeTextVisibility(TextView timeText) {
+        // Check if the view is visible and has valid dimensions
+        boolean isVisible = timeText.getVisibility() == View.VISIBLE;
+        int width = timeText.getWidth();
+        int height = timeText.getHeight();
+        String text = timeText.getText().toString();
+        
+        Log.d(TAG, "TimeText verification: " +
+              "isVisible=" + isVisible + 
+              ", width=" + width + 
+              ", height=" + height + 
+              ", text='" + text + "'" +
+              ", parent=" + (timeText.getParent() != null ? timeText.getParent().getClass().getSimpleName() : "null"));
+        
+        // Check parent view
+        if (timeText.getParent() instanceof ViewGroup) {
+            ViewGroup parent = (ViewGroup) timeText.getParent();
+            Log.d(TAG, "Parent view: " +
+                  "visibility=" + (parent.getVisibility() == View.VISIBLE ? "VISIBLE" : "NOT_VISIBLE") +
+                  ", width=" + parent.getWidth() +
+                  ", height=" + parent.getHeight() +
+                  ", childCount=" + parent.getChildCount());
+        }
+        
+        if (!isVisible) {
+            Log.e(TAG, "TimeText is not visible!");
+        } else if (width <= 0 || height <= 0) {
+            Log.e(TAG, "TimeText has invalid dimensions: " + width + "x" + height);
+        } else if (text.isEmpty()) {
+            Log.e(TAG, "TimeText has empty text!");
+        } else {
+            Log.d(TAG, "TimeText appears to be displayed correctly");
+        }
     }
 } 

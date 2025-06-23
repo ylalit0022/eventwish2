@@ -33,6 +33,7 @@ import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -421,16 +422,39 @@ public class TemplateRepository {
                             
                             Log.d(TAG, "Fetched templates: " + (fetchedTemplates != null ? fetchedTemplates.size() : 0));
                             
-                            // Extract and update categories from the response
-                            Map<String, Integer> responseCategories = templateResponse.getCategories();
-                            if (responseCategories != null && !responseCategories.isEmpty()) {
-                                Log.d(TAG, "Updating categories from templates response: " + responseCategories.size());
-                                // Update categories on main thread
-                                AppExecutors.getInstance().mainThread().execute(() -> {
-                                    categories.setValue(responseCategories);
-                                    // Save to preferences for future use
-                                    saveCategoriesToPrefs(responseCategories);
-                                });
+                            // Process templates
+                            if (fetchedTemplates != null && !fetchedTemplates.isEmpty()) {
+                                Log.d(TAG, "Received " + fetchedTemplates.size() + " templates from API");
+                                
+                                // Log the first template's details for debugging
+                                Template firstTemplate = fetchedTemplates.get(0);
+                                Log.d(TAG, "First template details: " +
+                                      "id=" + firstTemplate.getId() + 
+                                      ", title=" + firstTemplate.getTitle() + 
+                                      ", createdAt=" + (firstTemplate.getCreatedAt() != null ? firstTemplate.getCreatedAt() : "null") +
+                                      ", raw JSON=" + new Gson().toJson(firstTemplate));
+                                
+                                // Ensure all templates have a createdAt date
+                                for (Template template : fetchedTemplates) {
+                                    if (template.getCreatedAt() == null) {
+                                        Log.d(TAG, "Template " + template.getId() + " has null createdAt, setting to current date");
+                                        template.setCreatedAt(new Date());
+                                    } else {
+                                        Log.d(TAG, "Template " + template.getId() + " has createdAt: " + template.getCreatedAt());
+                                    }
+                                }
+                                
+                                // Save categories from response if available
+                                Map<String, Integer> responseCategories = templateResponse.getCategories();
+                                if (responseCategories != null && !responseCategories.isEmpty()) {
+                                    Log.d(TAG, "Updating categories from templates response: " + responseCategories.size());
+                                    // Update categories on main thread
+                                    AppExecutors.getInstance().mainThread().execute(() -> {
+                                        categories.setValue(responseCategories);
+                                        // Save to preferences for future use
+                                        saveCategoriesToPrefs(responseCategories);
+                                    });
+                                }
                             }
                             
                                         // Update pagination state
@@ -3221,5 +3245,44 @@ public class TemplateRepository {
                 }
             });
         }
+    }
+
+    /**
+     * Get the count of templates created by the user
+     */
+    public LiveData<Integer> getUserTemplatesCount() {
+        MutableLiveData<Integer> countLiveData = new MutableLiveData<>(0);
+        
+        // This would typically fetch from the API, but for now we'll return a placeholder
+        // TODO: Implement actual API call to get user templates count
+        countLiveData.setValue(0);
+        
+        return countLiveData;
+    }
+    
+    /**
+     * Get the count of templates liked by the user
+     */
+    public LiveData<Integer> getUserLikesCount() {
+        MutableLiveData<Integer> countLiveData = new MutableLiveData<>(0);
+        
+        // This would typically fetch from the API, but for now we'll return a placeholder
+        // TODO: Implement actual API call to get user likes count
+        countLiveData.setValue(5);
+        
+        return countLiveData;
+    }
+    
+    /**
+     * Get the count of templates favorited by the user
+     */
+    public LiveData<Integer> getUserFavoritesCount() {
+        MutableLiveData<Integer> countLiveData = new MutableLiveData<>(0);
+        
+        // This would typically fetch from the API, but for now we'll return a placeholder
+        // TODO: Implement actual API call to get user favorites count
+        countLiveData.setValue(3);
+        
+        return countLiveData;
     }
 }

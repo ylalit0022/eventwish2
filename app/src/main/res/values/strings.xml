@@ -397,6 +397,13 @@
     <string name="profile_favorited_templates_title">Recently Favorited Templates</string>
     <string name="profile_no_liked_templates">You haven\'t liked any templates yet</string>
     <string name="profile_no_favorited_templates">You haven\'t favorited any templates yet</string>
+    <string name="profile_posts">Posts</string>
+    <string name="profile_likes">Likes</string>
+    <string name="profile_favorites">Saved</string>
+    <string name="profile_bio_default">Create beautiful greetings and wishes for every occasion</string>
+    <string name="profile_no_posts">No posts yet</string>
+    <string name="profile_no_likes">No likes yet</string>
+    <string name="profile_no_favorites">No saved items yet</string>
 
     <!-- Error messages -->
     <string name="network_error">Network connection error. Please check your internet connection and try again.</string>

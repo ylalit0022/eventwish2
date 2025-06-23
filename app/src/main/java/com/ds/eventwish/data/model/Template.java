@@ -154,7 +154,7 @@ public class Template {
         this.cssContent = other.cssContent;
         this.jsContent = other.jsContent;
         this.recommended = other.recommended;
-        this.createdAt = other.createdAt;
+        this.createdAt = other.createdAt != null ? other.createdAt : new Date();
     }
 
     // Getters and setters
