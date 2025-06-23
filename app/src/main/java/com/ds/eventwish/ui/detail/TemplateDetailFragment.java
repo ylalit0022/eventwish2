@@ -31,10 +31,12 @@ import com.ds.eventwish.MainActivity;
 import com.ds.eventwish.R;
 import com.ds.eventwish.databinding.FragmentTemplateDetailBinding;
 import com.ds.eventwish.data.repository.UserRepository;
+import com.ds.eventwish.data.local.entity.UserEntity;
 import com.ds.eventwish.ui.render.TemplateRenderer;
 import com.ds.eventwish.utils.AnalyticsUtils;
 import com.ds.eventwish.utils.EdgeToEdgeManager;
 import com.ds.eventwish.utils.PictureInPictureManager;
+import com.ds.eventwish.utils.AppExecutors;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -42,6 +44,8 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 public class TemplateDetailFragment extends BaseFragment implements TemplateRenderer.TemplateRenderListener, PictureInPictureManager.PipModeCallback {
     private static final String TAG = "TemplateDetailFragment";
@@ -104,6 +108,29 @@ public class TemplateDetailFragment extends BaseFragment implements TemplateRend
             bottomNav = getActivity().findViewById(R.id.bottomNavigation);
             setupWindowInsets();
             setupPictureInPicture();
+        }
+        
+        // Set current user's name as sender name
+        UserRepository userRepository = UserRepository.getInstance(requireContext());
+        String currentUserId = userRepository.getCurrentUserId();
+        if (currentUserId != null) {
+            userRepository.getUserProfile(currentUserId).observe(getViewLifecycleOwner(), user -> {
+                if (user != null && user.getDisplayName() != null) {
+                    binding.senderNameInput.setText(user.getDisplayName());
+                } else {
+                    // Fallback to Firebase user
+                    FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+                    if (firebaseUser != null && firebaseUser.getDisplayName() != null) {
+                        binding.senderNameInput.setText(firebaseUser.getDisplayName());
+                    }
+                }
+            });
+        } else {
+            // Fallback to Firebase user
+            FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+            if (firebaseUser != null && firebaseUser.getDisplayName() != null) {
+                binding.senderNameInput.setText(firebaseUser.getDisplayName());
+            }
         }
         
         setupWebView();

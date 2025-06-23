@@ -17,6 +17,12 @@ import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.databinding.FragmentProfileBinding;
 import com.google.android.material.tabs.TabLayoutMediator;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
+import androidx.appcompat.app.AlertDialog;
+import android.content.DialogInterface;
+import android.widget.Button;
 
 public class ProfileFragment extends Fragment {
 
@@ -43,20 +49,34 @@ public class ProfileFragment extends Fragment {
             Toast.makeText(getContext(), "Settings clicked", Toast.LENGTH_SHORT).show();
         });
         
+        // Set up swipe refresh
+        setupSwipeRefresh();
+        
         // Set up user profile
         setupUserProfile();
         
         // Set up stats
         setupStats();
         
-        // Set up edit profile button
-        binding.editProfileButton.setOnClickListener(v -> {
-            // Handle edit profile click
-            Toast.makeText(getContext(), "Edit profile feature coming soon", Toast.LENGTH_SHORT).show();
-        });
-        
         // Set up ViewPager and TabLayout
         setupViewPager();
+    }
+    
+    private void setupSwipeRefresh() {
+        binding.swipeRefreshLayout.setColorSchemeResources(
+            com.google.android.material.R.color.design_default_color_primary,
+            com.google.android.material.R.color.design_default_color_secondary
+        );
+        
+        binding.swipeRefreshLayout.setOnRefreshListener(() -> {
+            // Refresh all data
+            profileViewModel.refreshUserData();
+            
+            // Observe refresh completion
+            profileViewModel.isRefreshing().observe(getViewLifecycleOwner(), isRefreshing -> {
+                binding.swipeRefreshLayout.setRefreshing(isRefreshing);
+            });
+        });
     }
     
     private void setupUserProfile() {
@@ -70,6 +90,48 @@ public class ProfileFragment extends Fragment {
         
         // Set bio text
         binding.bioText.setText(getString(R.string.profile_bio_default));
+
+        // Set up edit profile button
+        binding.editProfileButton.setOnClickListener(v -> {
+            showEditProfileDialog();
+        });
+    }
+
+    private void showEditProfileDialog() {
+        // Create dialog with edit text for name
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireContext());
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_edit_profile, null);
+        
+        TextInputLayout nameInputLayout = dialogView.findViewById(R.id.nameInputLayout);
+        TextInputEditText nameInput = dialogView.findViewById(R.id.nameInput);
+        nameInput.setText(binding.usernameText.getText());
+        
+        AlertDialog dialog = builder.setTitle(R.string.edit_profile_title)
+               .setView(dialogView)
+               .setPositiveButton(R.string.save, null) // Set to null initially
+               .setNegativeButton(R.string.cancel, null)
+               .create();
+
+        dialog.setOnShowListener(dialogInterface -> {
+            Button positiveButton = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
+            positiveButton.setOnClickListener(v -> {
+                String newName = nameInput.getText().toString().trim();
+                if (newName.isEmpty()) {
+                    nameInputLayout.setError(getString(R.string.name_required));
+                    return;
+                }
+
+                // Clear any previous errors
+                nameInputLayout.setError(null);
+
+                // Update profile
+                profileViewModel.updateProfile(newName, binding.emailText.getText().toString());
+                Toast.makeText(requireContext(), R.string.profile_updated, Toast.LENGTH_SHORT).show();
+                dialog.dismiss();
+            });
+        });
+
+        dialog.show();
     }
     
     private void setupStats() {

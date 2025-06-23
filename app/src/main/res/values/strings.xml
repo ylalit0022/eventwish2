@@ -588,4 +588,8 @@
     <string name="analytics">Analytics</string>
     
     <!-- Cooldown Timer - using existing strings -->
+    <string name="edit_profile_title">Edit Profile</string>
+    <string name="name_hint">Name</string>
+    <string name="profile_updated">Profile updated successfully</string>
+    <string name="name_required">Name is required</string>
 </resources>

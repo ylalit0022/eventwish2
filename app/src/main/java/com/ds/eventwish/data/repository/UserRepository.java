@@ -1496,4 +1496,75 @@ public class UserRepository {
         
         return user;
     }
+
+    /**
+     * Update user profile in both Firebase and MongoDB
+     * @param displayName New display name
+     * @param email New email
+     */
+    public void updateUserProfile(String displayName, String email) {
+        FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (firebaseUser == null) {
+            Log.e(TAG, "Cannot update profile: No user logged in");
+            return;
+        }
+
+        // Create user data for MongoDB update
+        Map<String, Object> userData = new HashMap<>();
+        userData.put("uid", firebaseUser.getUid());
+        userData.put("displayName", displayName);
+        userData.put("email", email);
+        userData.put("deviceId", getDeviceId());
+        userData.put("lastOnline", System.currentTimeMillis());
+
+        // Get Firebase token and update MongoDB
+        authManager.getIdToken(new AuthManager.TokenCallback() {
+            @Override
+            public void onTokenReceived(String token) {
+                String authHeader = "Bearer " + token;
+                Call<JsonObject> call = apiService.updateUserProfile(userData, authHeader);
+                call.enqueue(new Callback<JsonObject>() {
+                    @Override
+                    public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
+                        if (response.isSuccessful()) {
+                            Log.d(TAG, "Profile updated successfully in MongoDB");
+                            // Update local cache
+                            updateLocalUserCache(displayName, email);
+                        } else {
+                            Log.e(TAG, "Failed to update profile in MongoDB: " + response.code());
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable t) {
+                        Log.e(TAG, "Network error updating profile: " + t.getMessage());
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                Log.e(TAG, "Auth error updating profile: " + errorMessage);
+            }
+        });
+    }
+
+    private void updateLocalUserCache(String displayName, String email) {
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            try {
+                AppDatabase db = AppDatabase.getInstance(context);
+                UserDao userDao = db.userDao();
+                UserEntity userEntity = userDao.getCurrentUser();
+
+                if (userEntity != null) {
+                    userEntity.setDisplayName(displayName);
+                    userEntity.setEmail(email);
+                    userDao.insertOrUpdate(userEntity);
+                    Log.d(TAG, "Local user cache updated");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error updating local user cache: " + e.getMessage());
+            }
+        });
+    }
 } 

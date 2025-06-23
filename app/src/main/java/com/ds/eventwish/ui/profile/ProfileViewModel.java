@@ -19,6 +19,7 @@ import com.ds.eventwish.data.repository.UserRepository;
 import com.ds.eventwish.util.AppExecutors;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.UserProfileChangeRequest;
 
 import java.util.Collections;
 import java.util.List;
@@ -32,6 +33,7 @@ public class ProfileViewModel extends AndroidViewModel {
     private final TemplateRepository templateRepository;
     private final UserRepository userRepository;
     private final AuthManager authManager;
+    private final MutableLiveData<Boolean> isRefreshing = new MutableLiveData<>(false);
 
     private LiveData<List<Template>> recentlyLikedTemplates;
     private LiveData<List<Template>> recentlyFavoritedTemplates;
@@ -53,6 +55,30 @@ public class ProfileViewModel extends AndroidViewModel {
 
         // Load user profile data
         loadUserProfile();
+    }
+
+    public void refreshUserData() {
+        isRefreshing.setValue(true);
+        
+        // Clear cached data
+        recentlyLikedTemplates = null;
+        recentlyFavoritedTemplates = null;
+        
+        // Reload user profile
+        loadUserProfile();
+        
+        // Reload templates
+        loadLikedTemplates();
+        loadFavoriteTemplates();
+        
+        // Notify refresh complete after a short delay
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            isRefreshing.setValue(false);
+        }, 1000);
+    }
+    
+    public LiveData<Boolean> isRefreshing() {
+        return isRefreshing;
     }
 
     private void loadUserProfile() {
@@ -103,9 +129,27 @@ public class ProfileViewModel extends AndroidViewModel {
     }
 
     public void updateProfile(String username, String email) {
+        // Update UI immediately
         this.username.setValue(username);
         this.email.setValue(email);
-        // Save to repository or preferences
+
+        // Update in Firebase and MongoDB
+        FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (firebaseUser != null) {
+            // Update Firebase profile
+            UserProfileChangeRequest profileUpdates = new UserProfileChangeRequest.Builder()
+                .setDisplayName(username)
+                .build();
+
+            firebaseUser.updateProfile(profileUpdates)
+                .addOnSuccessListener(aVoid -> {
+                    // After Firebase update, sync with MongoDB and local cache
+                    userRepository.updateUserProfile(username, email);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("ProfileViewModel", "Error updating Firebase profile: " + e.getMessage());
+                });
+        }
     }
 
     /**
