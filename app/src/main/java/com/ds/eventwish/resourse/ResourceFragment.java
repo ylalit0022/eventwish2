@@ -3,6 +3,7 @@ package com.ds.eventwish.resourse;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -22,6 +23,7 @@ import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.NavController;
 import androidx.navigation.NavDirections;
 import androidx.navigation.Navigation;
+import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -39,6 +41,7 @@ import com.google.android.material.snackbar.Snackbar;
 import com.google.gson.Gson;
 import com.ds.eventwish.utils.AnalyticsUtils;
 import com.ds.eventwish.ads.AdMobManager;
+import com.ds.eventwish.utils.EdgeToEdgeManager;
 
 // Stub Palette class
 class Palette {
@@ -123,6 +126,9 @@ public class ResourceFragment extends BaseFragment {
     private boolean originalLightStatusBar;
     private boolean originalLightNavigationBar;
 
+    // Add EdgeToEdgeManager reference
+    private EdgeToEdgeManager edgeToEdgeManager;
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -148,6 +154,10 @@ public class ResourceFragment extends BaseFragment {
         } catch (IllegalStateException e) {
             Log.e(TAG, "Error initializing AdMobManager: " + e.getMessage());
         }
+
+        // Initialize EdgeToEdgeManager
+        edgeToEdgeManager = EdgeToEdgeManager.getInstance();
+        Log.d(TAG, "EdgeToEdgeManager initialized successfully");
     }
 
     @Override
@@ -331,41 +341,72 @@ public class ResourceFragment extends BaseFragment {
     }
     
     private void setupTouchListener() {
-        // Set up touch listener to show/hide UI elements on tap
-        binding.webView.setOnTouchListener((v, event) -> {
+        if (binding == null || binding.webView == null) return;
+        
+        // Setup touch listener for WebView to handle UI visibility in edge-to-edge mode
+        binding.webView.setOnTouchListener((view, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                // Toggle system bar protection and UI visibility on touch
                 if (isFullScreenMode) {
-                    // Toggle visibility of UI elements
-                    if (isBottomNavVisible) {
-                        hideBottomNav();
-                    } else {
-                        showBottomNav();
-                        // Auto-hide after delay
-                        delayedHide();
-                    }
+                    toggleSystemUIVisibility();
                 }
             }
-            // Return false to allow the WebView to handle the touch event as well
-            return false;
+            return false; // Allow WebView to handle the touch normally
         });
         
-        // Set up touch listener for the entire fragment view
-        binding.getRoot().setOnTouchListener((v, event) -> {
+        // Setup touch listener for root view as fallback
+        binding.getRoot().setOnTouchListener((view, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 if (isFullScreenMode) {
-                    // Toggle visibility of UI elements
-                    if (isBottomNavVisible) {
-                        hideBottomNav();
-                    } else {
-                        showBottomNav();
-                        // Auto-hide after delay
-                        delayedHide();
-                    }
+                    toggleSystemUIVisibility();
                 }
             }
-            // Return false to allow other views to handle the touch event
-            return false;
+            return false; // Allow normal touch handling
         });
+        
+        Log.d(TAG, "Edge-to-edge touch listeners setup for immersive experience");
+    }
+    
+    /**
+     * Toggle system UI visibility for immersive experience
+     */
+    private void toggleSystemUIVisibility() {
+        if (binding == null) return;
+        
+        // Toggle system bar protection visibility
+        boolean isProtectionVisible = binding.topSystemBarProtection != null && 
+                                    binding.topSystemBarProtection.getVisibility() == View.VISIBLE;
+        
+        if (isProtectionVisible) {
+            // Hide protection for full immersion
+            if (binding.topSystemBarProtection != null) {
+                binding.topSystemBarProtection.setVisibility(View.GONE);
+            }
+            if (binding.bottomSystemBarProtection != null) {
+                binding.bottomSystemBarProtection.setVisibility(View.GONE);
+            }
+        } else {
+            // Show protection for better readability
+            if (binding.topSystemBarProtection != null) {
+                binding.topSystemBarProtection.setVisibility(View.VISIBLE);
+            }
+            if (binding.bottomSystemBarProtection != null) {
+                binding.bottomSystemBarProtection.setVisibility(View.VISIBLE);
+            }
+        }
+        
+        // Schedule auto-hide after a delay
+        autoHideHandler.removeCallbacks(autoHideRunnable);
+        autoHideHandler.postDelayed(() -> {
+            if (binding != null && isFullScreenMode) {
+                if (binding.topSystemBarProtection != null) {
+                    binding.topSystemBarProtection.setVisibility(View.GONE);
+                }
+                if (binding.bottomSystemBarProtection != null) {
+                    binding.bottomSystemBarProtection.setVisibility(View.GONE);
+                }
+            }
+        }, AUTO_HIDE_DELAY_MILLIS);
     }
 
     private void setupWebView() {
@@ -377,6 +418,9 @@ public class ResourceFragment extends BaseFragment {
             webSettings.setUseWideViewPort(true);
             webSettings.setDomStorageEnabled(true);
             
+            // Ensure WebView is properly configured for edge-to-edge
+            binding.webView.setFitsSystemWindows(false);
+            
             // Set up WebView client with background color extraction
             binding.webView.setWebViewClient(new SafeWebViewClient() {
                 @Override
@@ -385,6 +429,14 @@ public class ResourceFragment extends BaseFragment {
                     
                     // Show fullscreen toggle once content is loaded
                     binding.fullscreenToggle.setVisibility(View.VISIBLE);
+                    
+                    // Ensure system bar protections are visible
+                    if (binding.topSystemBarProtection != null) {
+                        binding.topSystemBarProtection.setVisibility(View.VISIBLE);
+                    }
+                    if (binding.bottomSystemBarProtection != null) {
+                        binding.bottomSystemBarProtection.setVisibility(View.VISIBLE);
+                    }
                     
                     // Capture the WebView as a bitmap to extract dominant color
                     binding.webView.setDrawingCacheEnabled(true);
@@ -538,8 +590,11 @@ public class ResourceFragment extends BaseFragment {
             Log.d(TAG, "CSS content length: " + finalCss.length());
             Log.d(TAG, "JS content length: " + finalJs.length());
             
-            // Add background color matching to the CSS
-            final String finalCssWithBackground = finalCss + "\nbody { background-color: transparent !important; }\n";
+            // Add background color matching and edge-to-edge adjustments to the CSS
+            final String finalCssWithBackground = finalCss + 
+                "\nbody { background-color: transparent !important; margin: 0; padding: 0; }\n" +
+                "html { height: 100%; overflow-x: hidden; }\n" +
+                ".content-wrapper { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }\n";
             
             // Better HTML construction with StringBuilder
             StringBuilder htmlBuilder = new StringBuilder();
@@ -547,7 +602,7 @@ public class ResourceFragment extends BaseFragment {
             htmlBuilder.append("<html>\n");
             htmlBuilder.append("<head>\n");
             htmlBuilder.append("  <meta charset=\"UTF-8\">\n");
-            htmlBuilder.append("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=2.0, minimum-scale=0.5\">\n");
+            htmlBuilder.append("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, viewport-fit=cover\">\n");
             
             // Add CSS with debug comment
             htmlBuilder.append("  <style type='text/css'>\n");
@@ -572,8 +627,10 @@ public class ResourceFragment extends BaseFragment {
             htmlBuilder.append("</head>\n");
             htmlBuilder.append("<body>\n");
             
-            // Add HTML Content
+            // Wrap HTML content in a div with padding for safe areas
+            htmlBuilder.append("<div class=\"content-wrapper\">\n");
             htmlBuilder.append(finalHtml);
+            htmlBuilder.append("</div>\n");
             
             // Add JavaScript with debug comment and validation
             htmlBuilder.append("\n<script type='text/javascript'>\n");
@@ -619,6 +676,14 @@ public class ResourceFragment extends BaseFragment {
                     // Show fullscreen toggle once content is loaded
                     binding.fullscreenToggle.setVisibility(View.VISIBLE);
                     
+                    // Ensure system bar protections are visible for edge-to-edge design
+                    if (binding.topSystemBarProtection != null) {
+                        binding.topSystemBarProtection.setVisibility(View.VISIBLE);
+                    }
+                    if (binding.bottomSystemBarProtection != null) {
+                        binding.bottomSystemBarProtection.setVisibility(View.VISIBLE);
+                    }
+                    
                     // Call test functions to verify CSS and JS are working
                     binding.webView.evaluateJavascript("checkCssLoaded()", 
                         value -> Log.d(TAG, "CSS loaded check: " + value));
@@ -660,8 +725,11 @@ public class ResourceFragment extends BaseFragment {
                 null
             );
             
-            // Make WebView background transparent to match fragment background
+            // Make WebView background transparent and ensure it draws behind system bars
             binding.webView.setBackgroundColor(Color.TRANSPARENT);
+            
+            // Ensure WebView draws edge-to-edge
+            binding.webView.setFitsSystemWindows(false);
         }
     }
 
@@ -679,8 +747,14 @@ public class ResourceFragment extends BaseFragment {
         // Remove any pending callbacks
         autoHideHandler.removeCallbacks(autoHideRunnable);
         
-        // Restore Material 3 immersive mode
+        // Disable immersive mode and restore system UI
         disableMaterial3ImmersiveMode();
+        
+        // Cleanup EdgeToEdgeManager
+        if (edgeToEdgeManager != null) {
+            edgeToEdgeManager.disableEdgeToEdge();
+            edgeToEdgeManager.cleanup();
+        }
         
         // Restore bottom navigation visibility
         if (bottomNav != null) {
@@ -879,7 +953,8 @@ public class ResourceFragment extends BaseFragment {
     }
     
     /**
-     * Enable Material 3 immersive mode (without hiding status bar)
+     * Enable Material 3 immersive mode with transparent status bar and edge-to-edge design
+     * Following Android's edge-to-edge design guidelines
      */
     private void enableMaterial3ImmersiveMode() {
         Activity activity = getActivity();
@@ -898,13 +973,51 @@ public class ResourceFragment extends BaseFragment {
             originalLightNavigationBar = windowInsetsController.isAppearanceLightNavigationBars();
         }
         
-        // Keep status bar visible, only change colors
-        // Don't apply immersive mode - WindowCompat.setDecorFitsSystemWindows(window, false);
+        // Enable edge-to-edge design - content draws behind system bars
+        WindowCompat.setDecorFitsSystemWindows(window, false);
         
-        // Set system bars to adapt to content (navigation bar only)
+        // Set transparent system bars for immersive experience
+        window.setStatusBarColor(Color.TRANSPARENT);
         window.setNavigationBarColor(Color.TRANSPARENT);
         
-        Log.d(TAG, "Material 3 immersive mode enabled (status bar kept visible)");
+        // Configure system bar appearance for optimal contrast
+        if (windowInsetsController != null) {
+            // Use dark content for better visibility on light backgrounds
+            windowInsetsController.setAppearanceLightStatusBars(false);
+            windowInsetsController.setAppearanceLightNavigationBars(false);
+            
+            // Set system bar behavior
+            windowInsetsController.setSystemBarsBehavior(
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            );
+        }
+        
+        // Set window flags for navigation bar handling
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.setNavigationBarContrastEnforced(false);
+        }
+        
+        // Make sure the WebView is properly configured for edge-to-edge
+        if (binding != null && binding.webView != null) {
+            // Ensure WebView draws behind system bars
+            ViewCompat.setOnApplyWindowInsetsListener(binding.webView, (v, insets) -> {
+                // Don't apply insets to WebView to allow it to draw edge-to-edge
+                return insets;
+            });
+            
+            // Make sure system bar protection views are visible
+            if (binding.topSystemBarProtection != null) {
+                binding.topSystemBarProtection.setVisibility(View.VISIBLE);
+            }
+            if (binding.bottomSystemBarProtection != null) {
+                binding.bottomSystemBarProtection.setVisibility(View.VISIBLE);
+            }
+        }
+        
+        // Setup window insets handling for proper content padding
+        setupWindowInsetsHandling();
+        
+        Log.d(TAG, "Material 3 immersive mode enabled with transparent system bars and edge-to-edge design");
     }
     
     /**
@@ -917,7 +1030,10 @@ public class ResourceFragment extends BaseFragment {
         Window window = activity.getWindow();
         if (window == null) return;
         
-        // Restore system bars (status bar was never hidden)
+        // Restore window insets behavior
+        WindowCompat.setDecorFitsSystemWindows(window, true);
+        
+        // Restore system bar appearance
         WindowInsetsControllerCompat windowInsetsController = WindowCompat.getInsetsController(window, window.getDecorView());
         if (windowInsetsController != null) {
             windowInsetsController.setAppearanceLightStatusBars(originalLightStatusBar);
@@ -933,7 +1049,22 @@ public class ResourceFragment extends BaseFragment {
             bottomNav.setVisibility(View.VISIBLE);
         }
         
-        Log.d(TAG, "Material 3 immersive mode disabled");
+        // Hide system bar protection
+        if (binding != null) {
+            if (binding.topSystemBarProtection != null) {
+                binding.topSystemBarProtection.setVisibility(View.GONE);
+            }
+            if (binding.bottomSystemBarProtection != null) {
+                binding.bottomSystemBarProtection.setVisibility(View.GONE);
+            }
+        }
+        
+        // Remove window insets listener
+        if (binding != null && binding.getRoot() != null) {
+            ViewCompat.setOnApplyWindowInsetsListener(binding.getRoot(), null);
+        }
+        
+        Log.d(TAG, "Material 3 immersive mode disabled and original system UI restored");
     }
     
     /**
@@ -971,5 +1102,133 @@ public class ResourceFragment extends BaseFragment {
         }
         
         Log.d(TAG, "Applied dynamic theming with status bar color: " + Integer.toHexString(statusBarColor));
+    }
+    
+    /**
+     * Setup window insets handling for edge-to-edge design
+     * Ensures content is properly positioned relative to system bars
+     */
+    private void setupWindowInsetsHandling() {
+        if (binding == null || binding.getRoot() == null) return;
+        
+        // Apply window insets to the root view
+        ViewCompat.setOnApplyWindowInsetsListener(binding.getRoot(), (view, insets) -> {
+            // Get system bar insets
+            androidx.core.graphics.Insets systemBarsInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            androidx.core.graphics.Insets displayCutoutInsets = insets.getInsets(WindowInsetsCompat.Type.displayCutout());
+            androidx.core.graphics.Insets navigationBarsInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars());
+            androidx.core.graphics.Insets gestureInsets = insets.getInsets(WindowInsetsCompat.Type.systemGestures());
+            
+            // Combine all insets for proper edge-to-edge handling
+            int topInset = Math.max(systemBarsInsets.top, displayCutoutInsets.top);
+            int bottomInset = Math.max(Math.max(systemBarsInsets.bottom, displayCutoutInsets.bottom),
+                                     Math.max(navigationBarsInsets.bottom, gestureInsets.bottom));
+            int leftInset = Math.max(Math.max(systemBarsInsets.left, displayCutoutInsets.left),
+                                   Math.max(navigationBarsInsets.left, gestureInsets.left));
+            int rightInset = Math.max(Math.max(systemBarsInsets.right, displayCutoutInsets.right),
+                                    Math.max(navigationBarsInsets.right, gestureInsets.right));
+            
+            Log.d(TAG, "Window insets - top: " + topInset + ", bottom: " + bottomInset + 
+                      ", left: " + leftInset + ", right: " + rightInset);
+            
+            // Apply insets to critical UI elements that shouldn't be obscured
+            applyInsetsToUI(topInset, bottomInset, leftInset, rightInset);
+            
+            // Show system bar protection when needed
+            updateSystemBarProtection(topInset, bottomInset);
+            
+            // Return insets to allow other views to handle them
+            return insets;
+        });
+    }
+    
+    /**
+     * Apply window insets to UI elements that need to avoid system bars
+     */
+    private void applyInsetsToUI(int topInset, int bottomInset, int leftInset, int rightInset) {
+        if (binding == null) return;
+        
+        // Apply top inset to back button
+        if (binding.backButton != null) {
+            ViewGroup.MarginLayoutParams backButtonParams = 
+                (ViewGroup.MarginLayoutParams) binding.backButton.getLayoutParams();
+            backButtonParams.topMargin = topInset + getResources().getDimensionPixelSize(R.dimen.standard_margin);
+            backButtonParams.leftMargin = leftInset + getResources().getDimensionPixelSize(R.dimen.standard_margin);
+            binding.backButton.setLayoutParams(backButtonParams);
+        }
+        
+        // Apply bottom inset to floating action buttons
+        if (binding.fullscreenToggle != null) {
+            ViewGroup.MarginLayoutParams toggleParams = 
+                (ViewGroup.MarginLayoutParams) binding.fullscreenToggle.getLayoutParams();
+            toggleParams.bottomMargin = bottomInset + getResources().getDimensionPixelSize(R.dimen.standard_margin);
+            toggleParams.rightMargin = rightInset + getResources().getDimensionPixelSize(R.dimen.standard_margin);
+            binding.fullscreenToggle.setLayoutParams(toggleParams);
+        }
+        
+        if (binding.reuseTemplateButton != null) {
+            ViewGroup.MarginLayoutParams reuseParams = 
+                (ViewGroup.MarginLayoutParams) binding.reuseTemplateButton.getLayoutParams();
+            reuseParams.rightMargin = rightInset + getResources().getDimensionPixelSize(R.dimen.standard_margin);
+            binding.reuseTemplateButton.setLayoutParams(reuseParams);
+        }
+        
+        // WebView should draw edge-to-edge (no insets applied)
+        // This allows content to draw behind system bars for immersive experience
+    }
+    
+    /**
+     * Update system bar protection visibility based on content and insets
+     */
+    private void updateSystemBarProtection(int topInset, int bottomInset) {
+        if (binding == null) return;
+        
+        // Always show top protection for status bar when in edge-to-edge mode
+        if (binding.topSystemBarProtection != null) {
+            if (topInset > 0) {
+                binding.topSystemBarProtection.setVisibility(View.VISIBLE);
+                
+                // Adjust protection height based on inset
+                ViewGroup.LayoutParams topParams = binding.topSystemBarProtection.getLayoutParams();
+                topParams.height = topInset + getResources().getDimensionPixelSize(R.dimen.gradient_protection_extra);
+                binding.topSystemBarProtection.setLayoutParams(topParams);
+                
+                Log.d(TAG, "Top system bar protection enabled with height: " + topParams.height);
+            } else {
+                binding.topSystemBarProtection.setVisibility(View.GONE);
+            }
+        }
+        
+        // Always show bottom protection for navigation bar when in edge-to-edge mode
+        if (binding.bottomSystemBarProtection != null) {
+            if (bottomInset > 0) {
+                binding.bottomSystemBarProtection.setVisibility(View.VISIBLE);
+                
+                // Adjust protection height based on inset
+                ViewGroup.LayoutParams bottomParams = binding.bottomSystemBarProtection.getLayoutParams();
+                bottomParams.height = bottomInset + getResources().getDimensionPixelSize(R.dimen.gradient_protection_extra);
+                binding.bottomSystemBarProtection.setLayoutParams(bottomParams);
+                
+                Log.d(TAG, "Bottom system bar protection enabled with height: " + bottomParams.height);
+            } else {
+                binding.bottomSystemBarProtection.setVisibility(View.GONE);
+            }
+        }
+    }
+    
+    /**
+     * Check if content is drawing behind status bar
+     */
+    private boolean isContentBehindStatusBar() {
+        // In edge-to-edge mode, content always draws behind status bar
+        return true;
+    }
+    
+    /**
+     * Check if content is drawing behind navigation bar
+     */
+    private boolean isContentBehindNavigationBar() {
+        // In edge-to-edge mode, content always draws behind navigation bar
+        return true;
     }
 }

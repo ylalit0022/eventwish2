@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Selected state with stroke -->
+    <item android:state_selected="true">
+        <ripple android:color="?attr/colorPrimaryContainer">
+            <item>
+                <shape>
+                    <corners android:radius="32dp" />
+                    <solid android:color="@android:color/transparent" />
+                    <stroke android:width="2dp" android:color="?attr/colorPrimary" />
+                </shape>
+            </item>
+        </ripple>
+    </item>
+    
+    <!-- Pressed state with subtle background -->
+    <item android:state_pressed="true">
+        <ripple android:color="?attr/colorPrimaryContainer">
+            <item>
+                <shape>
+                    <corners android:radius="32dp" />
+                    <solid android:color="?attr/colorSurfaceVariant" />
+                    <stroke android:width="1dp" android:color="?attr/colorOutlineVariant" />
+                </shape>
+            </item>
+        </ripple>
+    </item>
+    
+    <!-- Default state - transparent background with subtle outline -->
+    <item>
+        <shape>
+            <corners android:radius="32dp" />
+            <solid android:color="@android:color/transparent" />
+            <stroke android:width="1dp" android:color="?attr/colorOutlineVariant" />
+        </shape>
+    </item>
+</selector> 

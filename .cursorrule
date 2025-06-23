@@ -759,3 +759,348 @@ These improvements will significantly enhance the user experience in the admin p
 - **Week 3**: Phase 3 - Complete layout folder analysis and updates
 - **Week 4**: Phase 4 - Advanced features and optimization
 - **Week 5**: Testing, refinement, and documentation
+
+## 🎯 Edge-to-Edge & Picture-in-Picture Implementation Scratchpad
+
+## 🔍 Analysis First:
+
+### Understanding the Task Goal:
+Implement edge-to-edge display and picture-in-picture (PiP) mode throughout the EventWish app with proper error handling and premium design aesthetics. The app should provide immersive experiences for greeting card viewing/editing while maintaining festive, warm, and engaging Material 3 design standards.
+
+### Linked/Related Files Working Together:
+1. **app/src/main/java/com/ds/eventwish/MainActivity.java** - Main activity for global edge-to-edge setup
+2. **app/src/main/java/com/ds/eventwish/ui/detail/TemplateDetailFragment.java** - Template viewing with WebView (PiP candidate)
+3. **app/src/main/java/com/ds/eventwish/ui/shared/SharedWishFragment.java** - Shared greeting cards (PiP candidate)
+4. **app/src/main/java/com/ds/eventwish/resourse/ResourceFragment.java** - Resource viewing with WebView
+5. **app/src/main/AndroidManifest.xml** - Activity configurations and permissions
+6. **app/src/main/res/values/themes.xml** - Material 3 theme with edge-to-edge support
+7. **app/src/main/java/com/ds/eventwish/utils/EdgeToEdgeManager.java** - New utility for edge-to-edge management
+8. **app/src/main/java/com/ds/eventwish/utils/PictureInPictureManager.java** - New utility for PiP management
+
+### Key Design Principles:
+- **Immersive Edge-to-Edge**: Full-screen content with adaptive system bars
+- **Smart PiP Integration**: Context-aware picture-in-picture for greeting cards
+- **Premium Error Handling**: Graceful fallbacks with Material 3 design
+- **Festive Aesthetics**: Maintain warm, celebratory design language
+- **Accessibility First**: WCAG compliance and inclusive design
+
+## 📝 Scratchpad Plan:
+
+### 🎯 Objective 
+Implement comprehensive edge-to-edge display and picture-in-picture functionality with premium Material 3 design, proper error handling, and festive aesthetics throughout the EventWish greeting card app.
+
+### 🧩 Related Files
+- **app/src/main/java/com/ds/eventwish/MainActivity.java** (global edge-to-edge setup)
+- **app/src/main/java/com/ds/eventwish/ui/detail/TemplateDetailFragment.java** (template PiP)
+- **app/src/main/java/com/ds/eventwish/ui/shared/SharedWishFragment.java** (shared card PiP)
+- **app/src/main/java/com/ds/eventwish/resourse/ResourceFragment.java** (resource edge-to-edge)
+- **app/src/main/java/com/ds/eventwish/utils/EdgeToEdgeManager.java** (new utility)
+- **app/src/main/java/com/ds/eventwish/utils/PictureInPictureManager.java** (new utility)
+- **app/src/main/AndroidManifest.xml** (permissions and configurations)
+- **Layout files** (edge-to-edge layouts)
+
+### ✅ Checklist
+
+#### **Phase 1: Edge-to-Edge Foundation** 🏗️
+- [ ] **Create EdgeToEdgeManager utility class**:
+  - [ ] Smart system bar color adaptation based on content
+  - [ ] Keyboard-aware inset handling
+  - [ ] Material 3 compliant status bar styling
+  - [ ] Festive color theming integration
+  - [ ] Error handling for older Android versions
+- [ ] **Update MainActivity for global edge-to-edge**:
+  - [ ] Enable edge-to-edge in onCreate()
+  - [ ] Setup global window inset handling
+  - [ ] Preserve bottom navigation behavior
+  - [ ] Handle deep link navigation with edge-to-edge
+- [ ] **Enhance existing edge-to-edge in TemplateDetailFragment**:
+  - [ ] Improve current implementation
+  - [ ] Add premium animations and transitions
+  - [ ] Better keyboard handling
+  - [ ] Dynamic status bar theming based on template colors
+
+#### **Phase 2: Picture-in-Picture Implementation** 📱
+- [ ] **Create PictureInPictureManager utility class**:
+  - [ ] Android 8.0+ PiP support with fallback
+  - [ ] Smart aspect ratio calculation for greeting cards
+  - [ ] Premium PiP UI controls with Material 3 design
+  - [ ] Error handling for unsupported devices
+  - [ ] Festive PiP overlay design
+- [ ] **Add PiP support to TemplateDetailFragment**:
+  - [ ] PiP mode for template preview
+  - [ ] Maintain WebView rendering in PiP
+  - [ ] Custom PiP controls for sharing/saving
+  - [ ] Seamless transition animations
+- [ ] **Add PiP support to SharedWishFragment**:
+  - [ ] PiP mode for shared greeting cards
+  - [ ] Full-screen WebView with PiP capability
+  - [ ] Dynamic system bar adaptation
+  - [ ] Premium sharing controls in PiP mode
+- [ ] **Update AndroidManifest.xml**:
+  - [ ] Add PiP support declarations
+  - [ ] Configure activity launch modes
+  - [ ] Add required permissions
+
+#### **Phase 3: Premium UI/UX Enhancements** ✨
+- [ ] **Enhanced WebView Experience**:
+  - [ ] Hardware-accelerated rendering
+  - [ ] Smooth zoom and pan gestures
+  - [ ] Premium loading animations
+  - [ ] Error state designs with festive theming
+- [ ] **Dynamic System Bar Theming**:
+  - [ ] Extract dominant colors from greeting cards
+  - [ ] Adaptive status bar and navigation bar colors
+  - [ ] Smooth color transition animations
+  - [ ] Maintain accessibility contrast ratios
+- [ ] **Festive Edge-to-Edge Design**:
+  - [ ] Warm gradient backgrounds for special occasions
+  - [ ] Seasonal color adaptations
+  - [ ] Celebratory micro-animations
+  - [ ] Premium elevation and shadow effects
+
+#### **Phase 4: Error Handling & Accessibility** 🛡️
+- [ ] **Comprehensive Error Handling**:
+  - [ ] Graceful PiP fallbacks for unsupported devices
+  - [ ] Edge-to-edge compatibility checks
+  - [ ] Network error handling in PiP mode
+  - [ ] WebView rendering error recovery
+- [ ] **Accessibility Compliance**:
+  - [ ] Screen reader support in edge-to-edge mode
+  - [ ] Touch target accessibility in PiP
+  - [ ] Color contrast validation
+  - [ ] Keyboard navigation support
+- [ ] **Performance Optimization**:
+  - [ ] Memory management in PiP mode
+  - [ ] Efficient WebView lifecycle handling
+  - [ ] Battery optimization considerations
+  - [ ] Smooth 60fps animations
+
+#### **Phase 5: Testing & Refinement** 🧪
+- [ ] **Cross-Device Testing**:
+  - [ ] Test on various screen sizes and aspect ratios
+  - [ ] Validate PiP on different Android versions
+  - [ ] Edge-to-edge behavior on different OEMs
+  - [ ] Accessibility testing with screen readers
+- [ ] **Performance Validation**:
+  - [ ] Memory usage monitoring
+  - [ ] Battery impact assessment
+  - [ ] Animation performance profiling
+  - [ ] WebView rendering optimization
+- [ ] **User Experience Testing**:
+  - [ ] Gesture navigation compatibility
+  - [ ] Intuitive PiP controls
+  - [ ] Seamless transitions
+  - [ ] Error state user experience
+
+### 🎨 Premium Design Implementation:
+
+#### **Edge-to-Edge Festive Design**:
+```xml
+<!-- Enhanced edge-to-edge layout with festive theming -->
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="false"
+    android:background="@drawable/festive_gradient_background">
+    
+    <!-- Status bar color overlay -->
+    <View
+        android:id="@+id/statusBarOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:background="@color/dynamic_status_bar_color"
+        android:alpha="0.8" />
+    
+    <!-- Main content with edge-to-edge -->
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingTop="@dimen/system_bar_height">
+        
+        <!-- WebView for greeting cards -->
+        <WebView
+            android:id="@+id/greetingWebView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@android:color/transparent"
+            android:layerType="hardware" />
+            
+    </androidx.core.widget.NestedScrollView>
+    
+    <!-- Premium PiP trigger FAB -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/pipFab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="@dimen/fab_margin"
+        android:src="@drawable/ic_picture_in_picture_premium"
+        app:backgroundTint="?attr/colorPrimary"
+        app:tint="?attr/colorOnPrimary"
+        app:elevation="@dimen/fab_elevation"
+        style="@style/Widget.EventWish.FloatingActionButton.Festive" />
+        
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
+```
+
+#### **PiP Mode Premium Controls**:
+```java
+public class PictureInPictureManager {
+    
+    /**
+     * Creates premium PiP params with festive design
+     */
+    public PictureInPictureParams createPremiumPipParams(Context context, 
+                                                          int contentWidth, 
+                                                          int contentHeight) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Calculate optimal aspect ratio for greeting cards
+            Rational aspectRatio = calculateOptimalAspectRatio(contentWidth, contentHeight);
+            
+            // Create premium remote actions
+            List<RemoteAction> actions = createFestiveRemoteActions(context);
+            
+            return new PictureInPictureParams.Builder()
+                .setAspectRatio(aspectRatio)
+                .setActions(actions)
+                .setSourceRectHint(calculateSourceRect())
+                .build();
+        }
+        return null;
+    }
+    
+    /**
+     * Creates festive-themed remote actions for PiP
+     */
+    private List<RemoteAction> createFestiveRemoteActions(Context context) {
+        List<RemoteAction> actions = new ArrayList<>();
+        
+        // Share action with festive icon
+        Intent shareIntent = new Intent(context, PipActionReceiver.class);
+        shareIntent.putExtra("action", "share");
+        PendingIntent sharePendingIntent = PendingIntent.getBroadcast(
+            context, 0, shareIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        
+        Icon shareIcon = Icon.createWithResource(context, R.drawable.ic_share_festive);
+        RemoteAction shareAction = new RemoteAction(shareIcon, "Share", "Share greeting", sharePendingIntent);
+        actions.add(shareAction);
+        
+        // Save action with premium styling
+        Intent saveIntent = new Intent(context, PipActionReceiver.class);
+        saveIntent.putExtra("action", "save");
+        PendingIntent savePendingIntent = PendingIntent.getBroadcast(
+            context, 1, saveIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        
+        Icon saveIcon = Icon.createWithResource(context, R.drawable.ic_save_premium);
+        RemoteAction saveAction = new RemoteAction(saveIcon, "Save", "Save greeting", savePendingIntent);
+        actions.add(saveAction);
+        
+        return actions;
+    }
+}
+```
+
+#### **Dynamic System Bar Theming**:
+```java
+public class EdgeToEdgeManager {
+    
+    /**
+     * Applies festive dynamic theming to system bars
+     */
+    public void applyDynamicSystemBarTheming(Activity activity, int dominantColor) {
+        if (activity == null) return;
+        
+        Window window = activity.getWindow();
+        
+        // Calculate festive status bar color
+        int statusBarColor = ColorUtils.blendARGB(dominantColor, 
+            ContextCompat.getColor(activity, R.color.festive_overlay), 0.2f);
+        
+        // Calculate warm navigation bar color
+        int navBarColor = ColorUtils.blendARGB(dominantColor,
+            ContextCompat.getColor(activity, R.color.warm_overlay), 0.1f);
+        
+        // Apply with smooth transition
+        ValueAnimator statusBarAnimator = ValueAnimator.ofArgb(
+            window.getStatusBarColor(), statusBarColor);
+        statusBarAnimator.setDuration(300);
+        statusBarAnimator.addUpdateListener(animator -> 
+            window.setStatusBarColor((int) animator.getAnimatedValue()));
+        
+        ValueAnimator navBarAnimator = ValueAnimator.ofArgb(
+            window.getNavigationBarColor(), navBarColor);
+        navBarAnimator.setDuration(300);
+        navBarAnimator.addUpdateListener(animator -> 
+            window.setNavigationBarColor((int) animator.getAnimatedValue()));
+        
+        // Start animations together
+        AnimatorSet animatorSet = new AnimatorSet();
+        animatorSet.playTogether(statusBarAnimator, navBarAnimator);
+        animatorSet.start();
+        
+        // Update system bar icon colors for accessibility
+        updateSystemBarIconColors(activity, statusBarColor, navBarColor);
+    }
+    
+    /**
+     * Updates system bar icon colors for optimal contrast
+     */
+    private void updateSystemBarIconColors(Activity activity, int statusBarColor, int navBarColor) {
+        WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(
+            activity.getWindow(), activity.getWindow().getDecorView());
+        
+        // Determine icon colors based on background luminance
+        boolean lightStatusBar = ColorUtils.calculateLuminance(statusBarColor) > 0.5;
+        boolean lightNavBar = ColorUtils.calculateLuminance(navBarColor) > 0.5;
+        
+        controller.setAppearanceLightStatusBars(lightStatusBar);
+        controller.setAppearanceLightNavigationBars(lightNavBar);
+    }
+}
+```
+
+### 🚧 Implementation Progress:
+- [ ] **Phase 1**: Edge-to-edge foundation and utilities
+- [ ] **Phase 2**: Picture-in-picture core functionality
+- [ ] **Phase 3**: Premium UI/UX enhancements
+- [ ] **Phase 4**: Error handling and accessibility
+- [ ] **Phase 5**: Testing and refinement
+
+### 🎯 Success Metrics:
+- **Immersive Experience**: Seamless edge-to-edge content display
+- **PiP Adoption**: Users actively use picture-in-picture for greeting cards
+- **Premium Feel**: Enhanced visual appeal with festive theming
+- **Accessibility**: WCAG AA compliance maintained
+- **Performance**: Smooth 60fps animations and transitions
+- **Error Recovery**: Graceful handling of edge cases
+
+### 🔮 Future Enhancements:
+- AI-powered optimal PiP timing suggestions
+- Gesture-based PiP controls
+- Multi-window greeting card comparison
+- Voice-activated PiP mode
+- Seasonal edge-to-edge themes
+- Haptic feedback for premium interactions
+
+### 🚨 Critical Considerations:
+- **Battery Impact**: Optimize PiP mode for battery efficiency
+- **Memory Management**: Proper WebView lifecycle in PiP
+- **Device Compatibility**: Graceful fallbacks for older devices
+- **User Privacy**: Secure handling of greeting card content in PiP
+- **Performance**: Maintain 60fps during transitions
+- **Accessibility**: Screen reader compatibility in all modes
+
+### 📱 Device Support Matrix:
+- **Android 8.0+ (API 26+)**: Full PiP support with premium features
+- **Android 7.0-7.1 (API 24-25)**: Edge-to-edge only, PiP fallback to fullscreen
+- **Android 6.0 (API 23)**: Basic edge-to-edge, legacy fullscreen mode
+- **Below Android 6.0**: Standard fullscreen with compatibility warnings
+
+### 🎨 Festive Design Elements:
+- **Warm Color Gradients**: Celebratory backgrounds for special occasions
+- **Smooth Transitions**: Material 3 motion for premium feel
+- **Seasonal Adaptations**: Dynamic theming based on festivals
+- **Micro-Animations**: Joyful interactions and feedback
+- **Premium Shadows**: Elevated cards with festive depth
+- **Dynamic Typography**: Responsive text scaling in edge-to-edge mode

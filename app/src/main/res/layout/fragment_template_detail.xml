@@ -72,25 +72,24 @@
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/senderNameLayout"
-                        style="@style/Widget.EventWish.TextInputLayout.Compact"
+                        style="@style/Widget.EventWish.TextInputLayout"
                         android:layout_width="0dp"
-                        android:layout_height="48dp"
+                        android:layout_height="wrap_content"
                         android:layout_weight="1"
                         app:counterEnabled="true"
                         app:counterMaxLength="60">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/senderNameInput"
                             android:layout_width="match_parent"
-                            android:layout_height="48dp"
+                            android:layout_height="wrap_content"
                             android:inputType="textPersonName"
-                            android:maxLength="60"
-                            android:textSize="14sp" />
+                            android:maxLength="60" />
                     </com.google.android.material.textfield.TextInputLayout>
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/recipientNameLayout"
-                        style="@style/Widget.EventWish.TextInputLayout.Compact"
+                        style="@style/Widget.EventWish.TextInputLayout"
                         android:layout_width="0dp"
-                        android:layout_height="48dp"
+                        android:layout_height="wrap_content"
                         android:layout_marginStart="16dp"
                         android:layout_weight="1"
                         app:counterEnabled="true"
@@ -98,10 +97,9 @@
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/recipientNameInput"
                             android:layout_width="match_parent"
-                            android:layout_height="48dp"
+                            android:layout_height="wrap_content"
                             android:inputType="textPersonName"
-                            android:maxLength="60"
-                            android:textSize="14sp" />
+                            android:maxLength="60" />
                     </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

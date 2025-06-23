@@ -33,14 +33,17 @@ import com.ds.eventwish.databinding.FragmentTemplateDetailBinding;
 import com.ds.eventwish.data.repository.UserRepository;
 import com.ds.eventwish.ui.render.TemplateRenderer;
 import com.ds.eventwish.utils.AnalyticsUtils;
+import com.ds.eventwish.utils.EdgeToEdgeManager;
+import com.ds.eventwish.utils.PictureInPictureManager;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
-public class TemplateDetailFragment extends BaseFragment implements TemplateRenderer.TemplateRenderListener {
+public class TemplateDetailFragment extends BaseFragment implements TemplateRenderer.TemplateRenderListener, PictureInPictureManager.PipModeCallback {
     private static final String TAG = "TemplateDetailFragment";
     private static final long TEXT_CHANGE_DELAY = 100; // Debounce delay in milliseconds
     private static final long ANALYTICS_HEARTBEAT_INTERVAL = 30000; // 30 seconds
@@ -57,6 +60,12 @@ public class TemplateDetailFragment extends BaseFragment implements TemplateRend
     private Runnable analyticsHeartbeatRunnable;
     private long viewStartTime;
     private boolean isTracking = false;
+    
+    // Edge-to-edge and PiP support
+    private EdgeToEdgeManager edgeToEdgeManager;
+    private PictureInPictureManager pipManager;
+    private FloatingActionButton pipFab;
+    private boolean isInPipMode = false;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -64,6 +73,10 @@ public class TemplateDetailFragment extends BaseFragment implements TemplateRend
         
         // This fragment requires authentication (enforced by BaseFragment)
         viewModel = new ViewModelProvider(this).get(TemplateDetailViewModel.class);
+        
+        // Initialize display managers
+        edgeToEdgeManager = EdgeToEdgeManager.getInstance();
+        pipManager = PictureInPictureManager.getInstance();
     }
 
     @Override
@@ -90,6 +103,7 @@ public class TemplateDetailFragment extends BaseFragment implements TemplateRend
         if (getActivity() instanceof MainActivity) {
             bottomNav = getActivity().findViewById(R.id.bottomNavigation);
             setupWindowInsets();
+            setupPictureInPicture();
         }
         
         setupWebView();
@@ -141,6 +155,10 @@ public class TemplateDetailFragment extends BaseFragment implements TemplateRend
                     if (binding.backButton != null) {
                         binding.backButton.setVisibility(View.GONE);
                     }
+                    // Hide PiP FAB when keyboard is visible
+                    if (pipFab != null) {
+                        pipFab.setVisibility(View.GONE);
+                    }
                     
                     // Adjust content padding
                     binding.contentLayout.setPadding(
@@ -151,14 +169,19 @@ public class TemplateDetailFragment extends BaseFragment implements TemplateRend
                     );
                 } else {
                     // When keyboard is hidden
-                    if (bottomNav != null) {
+                    if (bottomNav != null && !isInPipMode) {
                         bottomNav.setVisibility(View.VISIBLE);
                     }
-                    if (binding.shareButton != null) {
+                    if (binding.shareButton != null && !isInPipMode) {
                         binding.shareButton.setVisibility(View.VISIBLE);
                     }
-                    if (binding.backButton != null) {
+                    if (binding.backButton != null && !isInPipMode) {
                         binding.backButton.setVisibility(View.VISIBLE);
+                    }
+                    // Show PiP FAB when keyboard is hidden and not in PiP mode
+                    if (pipFab != null && !isInPipMode && 
+                        pipManager != null && pipManager.isPictureInPictureSupported(requireContext())) {
+                        pipFab.setVisibility(View.VISIBLE);
                     }
                     
                     // Reset content padding
@@ -183,16 +206,22 @@ public class TemplateDetailFragment extends BaseFragment implements TemplateRend
             InputMethodManager imm = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
             imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
             
-            // Ensure bottom navigation is visible after keyboard is hidden
-            if (bottomNav != null) {
-                bottomNav.setVisibility(View.VISIBLE);
-            }
-            if (binding != null) {
-                if (binding.shareButton != null) {
-                    binding.shareButton.setVisibility(View.VISIBLE);
+            // Ensure UI elements are visible after keyboard is hidden (if not in PiP mode)
+            if (!isInPipMode) {
+                if (bottomNav != null) {
+                    bottomNav.setVisibility(View.VISIBLE);
                 }
-                if (binding.backButton != null) {
-                    binding.backButton.setVisibility(View.VISIBLE);
+                if (binding != null) {
+                    if (binding.shareButton != null) {
+                        binding.shareButton.setVisibility(View.VISIBLE);
+                    }
+                    if (binding.backButton != null) {
+                        binding.backButton.setVisibility(View.VISIBLE);
+                    }
+                }
+                if (pipFab != null && pipManager != null && 
+                    pipManager.isPictureInPictureSupported(requireContext())) {
+                    pipFab.setVisibility(View.VISIBLE);
                 }
             }
         }
@@ -1182,6 +1211,217 @@ public class TemplateDetailFragment extends BaseFragment implements TemplateRend
     private void navigateToHome() {
         if (isAdded()) {
             Navigation.findNavController(requireView()).navigate(R.id.action_template_detail_to_home);
+        }
+    }
+
+    /**
+     * Sets up picture-in-picture functionality for template viewing
+     */
+    private void setupPictureInPicture() {
+        try {
+            if (pipManager != null && pipManager.isPictureInPictureSupported(requireContext())) {
+                // Create PiP FAB if not already in layout
+                if (pipFab == null) {
+                    pipFab = new FloatingActionButton(requireContext());
+                    pipFab.setImageResource(R.drawable.ic_picture_in_picture_alt);
+                    pipFab.setContentDescription("Enter Picture-in-Picture mode");
+                    
+                    // Style the FAB with festive theming
+                    pipFab.setBackgroundTintList(androidx.core.content.ContextCompat.getColorStateList(
+                        requireContext(), R.color.md_theme_light_primary));
+                    pipFab.setImageTintList(androidx.core.content.ContextCompat.getColorStateList(
+                        requireContext(), R.color.md_theme_light_onPrimary));
+                    
+                    // Position the FAB
+                    if (binding.getRoot() instanceof androidx.coordinatorlayout.widget.CoordinatorLayout) {
+                        androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams params = 
+                            new androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams(
+                                androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams.WRAP_CONTENT,
+                                androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams.WRAP_CONTENT);
+                        params.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
+                        params.setMargins(0, 0, 
+                            getResources().getDimensionPixelSize(R.dimen.fab_margin),
+                            getResources().getDimensionPixelSize(R.dimen.fab_margin) + 
+                            getResources().getDimensionPixelSize(R.dimen.bottom_nav_height));
+                        pipFab.setLayoutParams(params);
+                        
+                        ((androidx.coordinatorlayout.widget.CoordinatorLayout) binding.getRoot()).addView(pipFab);
+                    }
+                    
+                    // Set click listener
+                    pipFab.setOnClickListener(v -> enterPictureInPictureMode());
+                }
+                
+                Log.d(TAG, "Picture-in-picture setup completed");
+            } else {
+                Log.d(TAG, "Picture-in-picture not supported on this device");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error setting up picture-in-picture", e);
+        }
+    }
+    
+    /**
+     * Enters picture-in-picture mode for template viewing
+     */
+    private void enterPictureInPictureMode() {
+        try {
+            if (pipManager != null && getActivity() != null && binding.webView != null) {
+                boolean success = pipManager.enterPictureInPictureMode(
+                    requireActivity(), binding.webView, this);
+                
+                if (!success) {
+                    // Fallback to activity-level PiP
+                    if (getActivity() instanceof MainActivity) {
+                        ((MainActivity) getActivity()).enterPictureInPictureMode();
+                    }
+                }
+                
+                Log.d(TAG, "Attempted to enter PiP mode: " + success);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error entering picture-in-picture mode", e);
+        }
+    }
+    
+    /**
+     * Enables enhanced edge-to-edge experience with dynamic theming
+     */
+    public void enableEnhancedEdgeToEdge() {
+        try {
+            if (edgeToEdgeManager != null && getActivity() != null) {
+                // Enable edge-to-edge if not already enabled
+                if (!edgeToEdgeManager.isEdgeToEdgeEnabled()) {
+                    edgeToEdgeManager.enableEdgeToEdge(requireActivity(), true);
+                }
+                
+                // Apply dynamic theming based on template content
+                if (binding.webView != null) {
+                    // Extract dominant color from WebView content (simplified approach)
+                    int primaryColor = androidx.core.content.ContextCompat.getColor(
+                        requireContext(), R.color.md_theme_light_primary);
+                    edgeToEdgeManager.applyDynamicSystemBarTheming(requireActivity(), primaryColor);
+                }
+                
+                Log.d(TAG, "Enhanced edge-to-edge enabled");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error enabling enhanced edge-to-edge", e);
+        }
+    }
+
+    // PictureInPictureManager.PipModeCallback implementation
+    @Override
+    public void onEnterPictureInPicture() {
+        try {
+            isInPipMode = true;
+            Log.d(TAG, "Entered picture-in-picture mode");
+            
+            // Hide UI elements that shouldn't be visible in PiP mode
+            if (bottomNav != null) {
+                bottomNav.setVisibility(View.GONE);
+            }
+            if (binding.shareButton != null) {
+                binding.shareButton.setVisibility(View.GONE);
+            }
+            if (binding.backButton != null) {
+                binding.backButton.setVisibility(View.GONE);
+            }
+            if (pipFab != null) {
+                pipFab.setVisibility(View.GONE);
+            }
+            if (binding.recipientNameInput != null) {
+                binding.recipientNameInput.setVisibility(View.GONE);
+            }
+            if (binding.senderNameInput != null) {
+                binding.senderNameInput.setVisibility(View.GONE);
+            }
+            
+            // Optimize WebView for PiP
+            if (pipManager != null && binding.webView != null) {
+                pipManager.optimizeWebViewForPip(binding.webView);
+            }
+            
+            // Enable enhanced edge-to-edge for PiP
+            enableEnhancedEdgeToEdge();
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onEnterPictureInPicture", e);
+        }
+    }
+    
+    @Override
+    public void onExitPictureInPicture() {
+        try {
+            isInPipMode = false;
+            Log.d(TAG, "Exited picture-in-picture mode");
+            
+            // Restore UI elements
+            if (bottomNav != null) {
+                bottomNav.setVisibility(View.VISIBLE);
+            }
+            if (binding.shareButton != null) {
+                binding.shareButton.setVisibility(View.VISIBLE);
+            }
+            if (binding.backButton != null) {
+                binding.backButton.setVisibility(View.VISIBLE);
+            }
+            if (pipFab != null && pipManager != null && 
+                pipManager.isPictureInPictureSupported(requireContext())) {
+                pipFab.setVisibility(View.VISIBLE);
+            }
+            if (binding.recipientNameInput != null) {
+                binding.recipientNameInput.setVisibility(View.VISIBLE);
+            }
+            if (binding.senderNameInput != null) {
+                binding.senderNameInput.setVisibility(View.VISIBLE);
+            }
+            
+            // Restore WebView settings
+            if (pipManager != null && binding.webView != null) {
+                pipManager.restoreWebViewFromPip(binding.webView);
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onExitPictureInPicture", e);
+        }
+    }
+    
+    @Override
+    public void onPipAction(String action) {
+        try {
+            Log.d(TAG, "PiP action received: " + action);
+            
+            switch (action) {
+                case PictureInPictureManager.ACTION_SHARE:
+                    // Trigger share functionality
+                    if (binding.shareButton != null) {
+                        binding.shareButton.performClick();
+                    }
+                    break;
+                case PictureInPictureManager.ACTION_SAVE:
+                    // Trigger save functionality (if available)
+                    // You can implement save logic here
+                    break;
+                default:
+                    Log.w(TAG, "Unknown PiP action: " + action);
+                    break;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error handling PiP action", e);
+        }
+    }
+    
+    @Override
+    public void onPipError(String error) {
+        try {
+            Log.e(TAG, "PiP error: " + error);
+            // Show user-friendly error message
+            if (isAdded() && getContext() != null) {
+                Snackbar.make(binding.getRoot(), "Picture-in-picture not available", Snackbar.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onPipError", e);
         }
     }
 }

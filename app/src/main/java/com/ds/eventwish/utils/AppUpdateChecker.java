@@ -111,22 +111,27 @@ public class AppUpdateChecker implements DefaultLifecycleObserver {
             
             if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE) {
                 Integer stalenessDays = appUpdateInfo.clientVersionStalenessDays();
-                // Always consider update available for silent check, but use staleness for actual update flow
-                boolean isStale = forceUpdate || stalenessDays == null || 
-                    (forceUpdate ? stalenessDays >= DAYS_FOR_IMMEDIATE_UPDATE 
-                                : stalenessDays >= DAYS_FOR_FLEXIBLE_UPDATE);
+                Log.d(TAG, "Update available! Staleness days: " + stalenessDays);
                 
-                if ((forceUpdate || isStale) && appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)) {
-                    Log.d(TAG, "Starting immediate update");
+                // Determine update type based on staleness and force flag
+                boolean shouldUseImmediate = forceUpdate || (stalenessDays != null && stalenessDays >= DAYS_FOR_IMMEDIATE_UPDATE);
+                
+                if (shouldUseImmediate && appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)) {
+                    Log.d(TAG, "Starting immediate update flow");
                     startImmediateUpdate(appUpdateInfo);
                     if (updateCallback != null) {
                         updateCallback.onUpdateAvailable(true);
                     }
                 } else if (appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)) {
-                    Log.d(TAG, "Starting flexible update");
+                    Log.d(TAG, "Starting flexible update flow");
                     startFlexibleUpdate(appUpdateInfo);
                     if (updateCallback != null) {
                         updateCallback.onUpdateAvailable(false);
+                    }
+                } else {
+                    Log.w(TAG, "Update available but no update type is allowed");
+                    if (updateCallback != null) {
+                        updateCallback.onUpdateNotAvailable();
                     }
                 }
             } else {
@@ -335,5 +340,71 @@ public class AppUpdateChecker implements DefaultLifecycleObserver {
 
     private void logInstallState(InstallState state) {
         Log.d(TAG, "Install state updated: " + state.installStatus());
+    }
+
+    /**
+     * Check for updates immediately on app launch
+     * This will show the Google Play native dialog if an update is available
+     */
+    public void checkForUpdateOnLaunch() {
+        if (!connectivityChecker.isNetworkAvailable()) {
+            Log.d(TAG, "No internet connection available, skipping update check");
+            return;
+        }
+        
+        Log.d(TAG, "Checking for app updates on launch...");
+        
+        Task<AppUpdateInfo> appUpdateInfoTask = appUpdateManager.getAppUpdateInfo();
+        appUpdateInfoTask.addOnSuccessListener(appUpdateInfo -> {
+            Log.d(TAG, "Launch update check - Availability: " + appUpdateInfo.updateAvailability() +
+                      ", Version code: " + appUpdateInfo.availableVersionCode() +
+                      ", Staleness days: " + appUpdateInfo.clientVersionStalenessDays());
+            
+            if (appUpdateInfo.installStatus() == InstallStatus.DOWNLOADED) {
+                Log.d(TAG, "Update already downloaded, showing completion snackbar");
+                popupSnackbarForCompleteUpdate();
+                return;
+            }
+            
+            if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE) {
+                Log.d(TAG, "Update available on launch! Showing Google Play dialog...");
+                
+                // For launch checks, prefer flexible updates for better UX
+                if (appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)) {
+                    Log.d(TAG, "Starting flexible update flow on launch");
+                    startFlexibleUpdate(appUpdateInfo);
+                    if (updateCallback != null) {
+                        updateCallback.onUpdateAvailable(false);
+                    }
+                } else if (appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)) {
+                    Log.d(TAG, "Starting immediate update flow on launch");
+                    startImmediateUpdate(appUpdateInfo);
+                    if (updateCallback != null) {
+                        updateCallback.onUpdateAvailable(true);
+                    }
+                } else {
+                    Log.w(TAG, "Update available but no update type is allowed");
+                }
+            } else {
+                Log.d(TAG, "No update available on launch");
+            }
+        }).addOnFailureListener(e -> {
+            Log.e(TAG, "Error checking for update on launch: " + e.getMessage(), e);
+        });
+    }
+    
+    /**
+     * Complete a downloaded update by restarting the app
+     */
+    public void completeUpdate() {
+        try {
+            Log.d(TAG, "Completing downloaded update...");
+            appUpdateManager.completeUpdate();
+        } catch (Exception e) {
+            Log.e(TAG, "Error completing update", e);
+            if (updateCallback != null) {
+                updateCallback.onUpdateError(e);
+            }
+        }
     }
 } 

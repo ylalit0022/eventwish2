@@ -2,10 +2,12 @@ package com.ds.eventwish;
 
 import android.Manifest;
 import android.app.AlarmManager;
+import android.app.PictureInPictureParams;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
@@ -13,6 +15,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.provider.Settings;
 import android.util.Log;
+import android.util.Rational;
 import android.view.MenuItem;
 import android.view.Menu;
 import android.view.View;
@@ -41,6 +44,8 @@ import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.databinding.ActivityMainBinding;
 import com.ds.eventwish.ui.reminder.ReminderFragment;
 import com.ds.eventwish.utils.DeepLinkHandler;
+import com.ds.eventwish.utils.EdgeToEdgeManager;
+import com.ds.eventwish.utils.PictureInPictureManager;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.badge.BadgeDrawable;
@@ -74,7 +79,7 @@ import com.ds.eventwish.data.remote.FirestoreManager;
 import com.google.firebase.auth.FirebaseUser;
 import com.ds.eventwish.ui.splash.SplashActivity;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements PictureInPictureManager.PipModeCallback {
     private static final String TAG = "MainActivity";
     private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 100;
     private static final int REQUEST_CODE_UPDATE = AppUpdateChecker.getRequestCode();
@@ -99,6 +104,11 @@ public class MainActivity extends AppCompatActivity {
     private SharedViewModel sharedViewModel;
     private SharedPrefsManager prefsManager;
     private FirebaseAuth auth;
+    
+    // Edge-to-edge and PiP managers
+    private EdgeToEdgeManager edgeToEdgeManager;
+    private PictureInPictureManager pipManager;
+    private boolean isEdgeToEdgeEnabled = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -109,9 +119,13 @@ public class MainActivity extends AppCompatActivity {
         Trace appStartupTrace = PerformanceTracker.startPerformanceTrace("app_startup");
         
         try {
+            // Initialize edge-to-edge and PiP managers early
+            initializeDisplayManagers();
+            
             binding = ActivityMainBinding.inflate(getLayoutInflater());
             setContentView(binding.getRoot());
 
+            // Apply premium Material 3 styling
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 Window window = getWindow();
                 window.setNavigationBarColor(Color.TRANSPARENT);
@@ -181,7 +195,7 @@ public class MainActivity extends AppCompatActivity {
                     } else {
                         // For production builds, use AppUpdateChecker with Play Store
                         if (appUpdateChecker != null) {
-                            appUpdateChecker.checkForUpdate();
+                            appUpdateChecker.checkForUpdateOnLaunch();
                         }
                     }
                 }
@@ -205,51 +219,37 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onUpdateError(Exception error) {
-                    Log.e(TAG, "Update error: " + error.getMessage());
-                    if (error.getMessage() != null && error.getMessage().contains("internet")) {
-                        showConnectivityMessage(false);
-                    }
+                    Log.e(TAG, "Update check error", error);
+                    FirebaseCrashManager.logException(error);
                 }
 
                 @Override
                 public void onDownloadProgress(long bytesDownloaded, long totalBytesToDownload) {
-                    if (totalBytesToDownload > 0) {
-                        int progress = (int) ((bytesDownloaded * 100) / totalBytesToDownload);
-                        Log.d(TAG, "Download progress: " + progress + "%");
-                        // You could show this in a progress bar if desired
-                    }
+                    double progress = (100.0 * bytesDownloaded) / totalBytesToDownload;
+                    Log.d(TAG, "Update download progress: " + (int) progress + "%");
                 }
             });
 
-            // Check for updates if we have internet
-            if (connectivityChecker.isNetworkAvailable()) {
-                if (BuildConfig.DEBUG) {
-                    // For debug builds, use AppUpdateViewModel with Remote Config
-                    AppUpdateViewModel appUpdateViewModel = AppUpdateViewModel.getInstance(this);
-                    appUpdateViewModel.init(this);
-                    appUpdateViewModel.checkForUpdatesWithRemoteConfigSilently();
-                } else {
-                    // For production builds, use AppUpdateChecker with Play Store
-                    appUpdateChecker.checkForUpdate();
+            // Initialize shared view model
+            sharedViewModel = new ViewModelProvider(this).get(SharedViewModel.class);
+
+            // Initialize analytics with consent
+            initializeAnalytics();
+
+            // Initialize UI with saved state
+            initializeUI(savedInstanceState);
+
+            // Check for updates on launch
+            if (BuildConfig.DEBUG) {
+                AppUpdateViewModel appUpdateViewModel = AppUpdateViewModel.getInstance(this);
+                appUpdateViewModel.init(this);
+                appUpdateViewModel.checkForUpdatesWithRemoteConfigSilently();
+            } else {
+                if (appUpdateChecker != null) {
+                    appUpdateChecker.checkForUpdateOnLaunch();
                 }
             }
 
-            // Log app started
-            Log.d(TAG, "MainActivity created");
-
-            // Set up view model
-            sharedViewModel = new ViewModelProvider(this).get(SharedViewModel.class);
-            
-            // Handle intent (deep links)
-            if (getIntent() != null) {
-                DeepLinkHandler.handleDeepLink(this, getIntent());
-            }
-
-            // Initialize analytics based on user consent
-            initializeAnalytics();
-            
-            // Set custom keys for crash reports
-            FirebaseCrashManager.setCustomKey("main_activity_initialized", true);
         } catch (Exception e) {
             Log.e(TAG, "Error in onCreate", e);
             FirebaseCrashManager.logException(e);
@@ -258,32 +258,195 @@ public class MainActivity extends AppCompatActivity {
                 appStartupTrace.stop();
             }
         }
-
-        initializeUI(savedInstanceState);
     }
-
+    
     /**
-     * Initialize analytics and show consent dialog if needed
+     * Initializes edge-to-edge and picture-in-picture display managers
      */
-    private void initializeAnalytics() {
+    private void initializeDisplayManagers() {
         try {
-            // Initialize analytics with current consent status
-            AnalyticsConsentManager.initializeAnalytics(this);
+            // Initialize EdgeToEdgeManager
+            edgeToEdgeManager = EdgeToEdgeManager.getInstance();
             
-            // Track app open event if analytics is enabled
-            if (AnalyticsUtils.isAnalyticsEnabled()) {
-                AnalyticsUtils.trackAppOpen();
-            }
+            // Initialize PictureInPictureManager
+            pipManager = PictureInPictureManager.getInstance();
             
-            // Show consent dialog if it hasn't been shown before
-            // Use a slight delay to ensure UI is fully loaded
-            if (AnalyticsConsentManager.shouldShowConsentDialog(this)) {
-                new Handler().postDelayed(() -> {
-                    AnalyticsConsentManager.showConsentDialog(this);
-                }, 1000);
+            Log.d(TAG, "Display managers initialized - Edge-to-edge: " + 
+                edgeToEdgeManager.isEdgeToEdgeEnabled() + ", PiP supported: " + 
+                pipManager.isPictureInPictureSupported(this));
+                
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing display managers", e);
+            FirebaseCrashManager.logException(e);
+        }
+    }
+    
+    /**
+     * Enables edge-to-edge display for immersive experience
+     */
+    public void enableEdgeToEdge() {
+        try {
+            if (edgeToEdgeManager != null && !isEdgeToEdgeEnabled) {
+                edgeToEdgeManager.enableEdgeToEdge(this, false);
+                isEdgeToEdgeEnabled = true;
+                
+                // Apply festive dynamic theming
+                int primaryColor = ContextCompat.getColor(this, R.color.md_theme_light_primary);
+                edgeToEdgeManager.applyDynamicSystemBarTheming(this, primaryColor);
+                
+                Log.d(TAG, "Edge-to-edge enabled");
             }
         } catch (Exception e) {
-            Log.e(TAG, "Error initializing analytics", e);
+            Log.e(TAG, "Error enabling edge-to-edge", e);
+        }
+    }
+    
+    /**
+     * Disables edge-to-edge display
+     */
+    public void disableEdgeToEdge() {
+        try {
+            if (edgeToEdgeManager != null && isEdgeToEdgeEnabled) {
+                edgeToEdgeManager.disableEdgeToEdge(this);
+                isEdgeToEdgeEnabled = false;
+                Log.d(TAG, "Edge-to-edge disabled");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error disabling edge-to-edge", e);
+        }
+    }
+    
+    /**
+     * Enters picture-in-picture mode for the current content
+     */
+    public boolean enterCustomPictureInPictureMode() {
+        try {
+            if (pipManager != null && pipManager.isPictureInPictureSupported(this)) {
+                // Find the current WebView or content view
+                View contentView = findViewById(R.id.nav_host_fragment);
+                return pipManager.enterPictureInPictureMode(this, contentView, this);
+            } else {
+                Log.w(TAG, "Picture-in-picture not supported");
+                return false;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error entering PiP mode", e);
+            return false;
+        }
+    }
+    
+    @Override
+    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, @NonNull Configuration newConfig) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
+        
+        try {
+            if (pipManager != null) {
+                pipManager.onPictureInPictureModeChanged(isInPictureInPictureMode);
+            }
+            
+            // Handle UI changes for PiP mode
+            if (isInPictureInPictureMode) {
+                // Hide bottom navigation in PiP mode
+                if (bottomNavigationView != null) {
+                    bottomNavigationView.setVisibility(View.GONE);
+                }
+            } else {
+                // Show bottom navigation when exiting PiP mode
+                if (bottomNavigationView != null) {
+                    bottomNavigationView.setVisibility(View.VISIBLE);
+                }
+            }
+            
+            Log.d(TAG, "PiP mode changed: " + isInPictureInPictureMode);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error handling PiP mode change", e);
+        }
+    }
+    
+    @Override
+    public void onConfigurationChanged(@NonNull Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        
+        try {
+            // Handle edge-to-edge configuration changes
+            if (edgeToEdgeManager != null && isEdgeToEdgeEnabled) {
+                edgeToEdgeManager.handleConfigurationChange(this, newConfig);
+            }
+            
+            Log.d(TAG, "Configuration changed - Orientation: " + 
+                (newConfig.orientation == Configuration.ORIENTATION_PORTRAIT ? "Portrait" : "Landscape"));
+                
+        } catch (Exception e) {
+            Log.e(TAG, "Error handling configuration change", e);
+        }
+    }
+    
+    // PictureInPictureManager.PipModeCallback implementation
+    @Override
+    public void onEnterPictureInPicture() {
+        try {
+            Log.d(TAG, "Entered picture-in-picture mode");
+            // Notify fragments about PiP mode
+            // You can add specific logic here for when PiP is entered
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onEnterPictureInPicture", e);
+        }
+    }
+    
+    @Override
+    public void onExitPictureInPicture() {
+        try {
+            Log.d(TAG, "Exited picture-in-picture mode");
+            // Notify fragments about exiting PiP mode
+            // You can add specific logic here for when PiP is exited
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onExitPictureInPicture", e);
+        }
+    }
+    
+    @Override
+    public void onPipAction(String action) {
+        try {
+            Log.d(TAG, "PiP action received: " + action);
+            
+            switch (action) {
+                case PictureInPictureManager.ACTION_SHARE:
+                    // Handle share action
+                    // You can implement sharing logic here
+                    break;
+                case PictureInPictureManager.ACTION_SAVE:
+                    // Handle save action
+                    // You can implement saving logic here
+                    break;
+                case PictureInPictureManager.ACTION_FULLSCREEN:
+                    // Return to fullscreen
+                    if (pipManager != null && pipManager.isInPictureInPictureMode()) {
+                        // This will trigger onPictureInPictureModeChanged with false
+                        moveTaskToBack(false);
+                    }
+                    break;
+                default:
+                    Log.w(TAG, "Unknown PiP action: " + action);
+                    break;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error handling PiP action", e);
+        }
+    }
+    
+    @Override
+    public void onPipError(String error) {
+        try {
+            Log.e(TAG, "PiP error: " + error);
+            // Show user-friendly error message
+            runOnUiThread(() -> {
+                if (!isFinishing() && !isDestroyed()) {
+                    Toast.makeText(this, "Picture-in-picture not available", Toast.LENGTH_SHORT).show();
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onPipError", e);
         }
     }
 
@@ -604,7 +767,7 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     // For production builds, use AppUpdateChecker with Play Store
                     if (appUpdateChecker != null && !appUpdateChecker.isUpdateInProgress()) {
-                        appUpdateChecker.checkForUpdate();
+                        appUpdateChecker.checkForUpdateOnLaunch();
                     }
                 }
             }
@@ -867,5 +1030,38 @@ public class MainActivity extends AppCompatActivity {
 
     private void showError(String message) {
         // Implement the logic to show an error message to the user
+    }
+    
+    /**
+     * Shows dialog when update is downloaded and ready to install
+     */
+    private void showUpdateDownloadedDialog() {
+        try {
+            new MaterialAlertDialogBuilder(this)
+                .setTitle("Update Downloaded")
+                .setMessage("A new version has been downloaded. Restart the app to apply the update.")
+                .setPositiveButton("Restart", (dialog, which) -> {
+                    if (appUpdateChecker != null) {
+                        appUpdateChecker.completeUpdate();
+                    }
+                })
+                .setNegativeButton("Later", null)
+                .setCancelable(false)
+                .show();
+        } catch (Exception e) {
+            Log.e(TAG, "Error showing update downloaded dialog", e);
+        }
+    }
+    
+    /**
+     * Initializes analytics with user consent
+     */
+    private void initializeAnalytics() {
+        try {
+            AnalyticsConsentManager.initializeAnalytics(this);
+            Log.d(TAG, "Analytics initialized");
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing analytics", e);
+        }
     }
 }

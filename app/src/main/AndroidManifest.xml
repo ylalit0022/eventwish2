@@ -86,7 +86,9 @@
             android:screenOrientation="portrait"
             android:exported="true"
             android:launchMode="singleTask"
-            android:alwaysRetainTaskState="true">
+            android:alwaysRetainTaskState="true"
+            android:supportsPictureInPicture="true"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation">
 
             <!-- HTTPS/HTTP deep links for wishes -->
             <intent-filter android:autoVerify="true">
