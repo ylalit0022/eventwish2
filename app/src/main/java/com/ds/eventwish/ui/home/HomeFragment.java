@@ -788,13 +788,6 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
                     }
                 }
 
-                // Add More category explicitly if there are more than 3 categories
-                if (categoryObjectList.size() > 3) {
-                    Category moreCategory = createCategory("more", "More", null);
-                    moreCategory.setDisplayOrder(1000); // High number to ensure it's last
-                    categoryObjectList.add(moreCategory);
-                }
-
                 // Prevent categoriesAdapter changes during update to avoid UI flickering
                 if (categoriesAdapter != null) {
                     // Get currently selected category before updating
@@ -1958,12 +1951,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
                     }
                 }
                 
-                // Add More category explicitly if there are more than 3 categories
-                if (categoryObjectList.size() > 3) {
-                    Category moreCategory = createCategory("more", "More", null);
-                    moreCategory.setDisplayOrder(1000); // High number to ensure it's last
-                    categoryObjectList.add(moreCategory);
-                }
+
 
                 // Prevent categoriesAdapter changes during update to avoid UI flickering
                 categoriesAdapter.preventCategoryChanges(true);

@@ -67,3 +67,61 @@ The blocking system involves multiple components working together:
    - Add proper error handling
    - Implement admin verification
    - Fix notification registration
+
+# More Category Section Implementation Plan
+
+## 🎯 Objective
+Analyze and fix the "More" category section in the HomeFragment and CategoriesAdapter to properly handle category overflow.
+
+## 🧹 Related Files
+1. **UI Files**:
+   - `app/src/main/java/com/ds/eventwish/ui/home/HomeFragment.java`
+   - `app/src/main/java/com/ds/eventwish/ui/home/adapter/CategoriesAdapter.java`
+
+2. **Models**:
+   - `Category.java` - Category model with name, icon, and display order
+   - `CategoryIcon.java` - Icon model for categories
+
+## ✅ Checklist
+1. [ ] HomeFragment Implementation:
+   - [ ] Check how "More" category is added
+   - [ ] Verify category list handling
+   - [ ] Review category icon loading
+   - [ ] Check category selection logic
+
+2. [ ] CategoriesAdapter Implementation:
+   - [ ] Analyze OnMoreClickListener interface
+   - [ ] Check category list management
+   - [ ] Review category sorting
+   - [ ] Verify selection handling
+
+3. [ ] UI/UX Flow:
+   - [ ] Verify "More" category visibility
+   - [ ] Check category overflow handling
+   - [ ] Test category selection
+   - [ ] Validate icon loading
+
+## 🧠 Context
+The "More" category system works through:
+1. HomeFragment adds "More" category when list > 3 items
+2. CategoriesAdapter handles display and interaction
+3. OnMoreClickListener interface manages overflow
+4. Category selection preserved during updates
+
+## 🚧 Progress Log
+1. Initial Analysis:
+   - Found "More" category addition in HomeFragment
+   - Located OnMoreClickListener in CategoriesAdapter
+   - Identified category sorting and selection logic
+
+2. Issues Found:
+   - [ ] "More" category may not be properly sorted
+   - [ ] Selection handling needs review
+   - [ ] Icon loading for "More" category
+   - [ ] Category overflow management
+
+3. Next Steps:
+   - Review category sorting implementation
+   - Check selection preservation
+   - Verify icon loading system
+   - Test overflow handling

@@ -38,7 +38,6 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
     private final Context context;
     private List<Category> categories;
     private OnCategoryClickListener onCategoryClickListener;
-    private OnMoreClickListener onMoreClickListener;
     private String selectedCategoryId; // Track the selected category ID
     
     // State flags for loading states
@@ -52,10 +51,6 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         void onCategoryClick(Category category, int position);
     }
     
-    public interface OnMoreClickListener {
-        void onMoreClick(List<Category> remainingCategories);
-    }
-    
     /**
      * Constructor
      * @param context Context
@@ -66,6 +61,7 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
         this.context = context;
         this.categories = sortCategoriesStably(categories != null ? categories : new ArrayList<>());
         this.onCategoryClickListener = listener;
+        setHasStableIds(true);
     }
     
     /**
@@ -78,10 +74,6 @@ public class CategoriesAdapter extends RecyclerView.Adapter<CategoriesAdapter.Ca
     
     public void setOnCategoryClickListener(OnCategoryClickListener listener) {
         this.onCategoryClickListener = listener;
-    }
-    
-    public void setOnMoreClickListener(OnMoreClickListener listener) {
-        this.onMoreClickListener = listener;
     }
     
     @NonNull
