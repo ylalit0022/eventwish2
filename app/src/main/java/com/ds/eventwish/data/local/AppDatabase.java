@@ -41,7 +41,7 @@ import com.ds.eventwish.data.model.Festival;
         CategoryClickEntity.class,
         SponsoredAdEntity.class
     },
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters({

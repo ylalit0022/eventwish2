@@ -5,6 +5,10 @@ import androidx.room.Entity;
 import androidx.room.Ignore;
 import androidx.room.Index;
 import androidx.room.PrimaryKey;
+import androidx.room.TypeConverters;
+import com.ds.eventwish.data.local.converter.StringListConverter;
+
+import java.util.List;
 
 /**
  * Entity class for storing user authentication data in Room database.
@@ -15,6 +19,7 @@ import androidx.room.PrimaryKey;
         @Index(value = {"phoneNumber"}, unique = true)
     }
 )
+@TypeConverters(StringListConverter.class)
 public class UserEntity {
     
     @PrimaryKey
@@ -32,6 +37,8 @@ public class UserEntity {
     private long lastLoginTime;
     private long createdAt;
     private long updatedAt;
+    private List<String> likes;
+    private List<String> favorites;
     
     // Default constructor required by Room
     public UserEntity(@NonNull String uid) {
@@ -168,6 +175,24 @@ public class UserEntity {
     
     public void setUpdatedAt(long updatedAt) {
         this.updatedAt = updatedAt;
+    }
+    
+    public List<String> getLikes() {
+        return likes;
+    }
+    
+    public void setLikes(List<String> likes) {
+        this.likes = likes;
+        this.updatedAt = System.currentTimeMillis();
+    }
+    
+    public List<String> getFavorites() {
+        return favorites;
+    }
+    
+    public void setFavorites(List<String> favorites) {
+        this.favorites = favorites;
+        this.updatedAt = System.currentTimeMillis();
     }
     
     // Helper methods

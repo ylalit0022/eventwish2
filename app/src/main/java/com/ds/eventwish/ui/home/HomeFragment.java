@@ -2640,14 +2640,21 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
     }
 
     /**
-     * Get current scroll position of the templates RecyclerView
+     * Get the current scroll position of the templates RecyclerView
      */
     private int getCurrentScrollPosition() {
-        if (binding.templatesRecyclerView != null && binding.templatesRecyclerView.getLayoutManager() != null) {
+        if (binding == null || binding.templatesRecyclerView == null || 
+            binding.templatesRecyclerView.getLayoutManager() == null || 
+            !(binding.templatesRecyclerView.getLayoutManager() instanceof LinearLayoutManager)) {
+            return 0;
+        }
+        try {
             LinearLayoutManager layoutManager = (LinearLayoutManager) binding.templatesRecyclerView.getLayoutManager();
             return layoutManager.findFirstVisibleItemPosition();
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting scroll position", e);
+            return 0;
         }
-        return 0;
     }
 
     /**

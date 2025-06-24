@@ -418,3 +418,96 @@ private void handleError(Exception e) {
 - Minimize layout passes
 - Use efficient ViewHolder pattern
 - Optimize animations
+
+# Profile Like and Favorite Counts Implementation Plan
+
+## 🔍 Analysis First:
+
+### Understanding the Task Goal:
+Implement accurate like and favorite counts in ProfileFragment by fetching data based on the current user's UID. The counts should be displayed in the stats section of the profile layout and update properly.
+
+### Linked/Related Files Working Together:
+1. **UI Files**:
+   - `app/src/main/java/com/ds/eventwish/ui/profile/ProfileFragment.java` - Main profile UI with stats
+   - `app/src/main/res/layout/fragment_profile.xml` - Profile layout with stats section
+
+2. **Data & Repository**:
+   - `app/src/main/java/com/ds/eventwish/data/model/User.java` - User model with likes/favorites lists
+   - `app/src/main/java/com/ds/eventwish/data/repository/UserRepository.java` - User data operations
+   - `app/src/main/java/com/ds/eventwish/data/remote/ApiService.java` - API endpoints for likes/favorites
+
+3. **ViewModel**:
+   - `app/src/main/java/com/ds/eventwish/ui/profile/ProfileViewModel.java` - Profile data management
+
+### Key References and Import Analysis:
+- **User Model**: Contains likes and favorites lists
+- **ApiService**: Has endpoints for fetching user likes/favorites
+- **LiveData**: For reactive UI updates
+- **Firebase Auth**: For getting current user UID
+
+## 📝 Implementation Plan:
+
+### 🎯 Objective 
+Implement accurate like and favorite counts that:
+1. Fetch data based on current user's UID
+2. Display counts in profile stats section
+3. Update counts when data changes
+4. Handle all edge cases and errors
+
+### 🧩 Related Files
+- **ProfileFragment.java** (main implementation)
+- **fragment_profile.xml** (stats UI)
+- **ProfileViewModel.java** (data management)
+- **UserRepository.java** (data operations)
+- **ApiService.java** (API endpoints)
+
+### ✅ Checklist
+1. [ ] **Data Fetching**:
+   - [ ] Get current user UID
+   - [ ] Implement API calls for counts
+   - [ ] Handle response parsing
+   - [ ] Implement error handling
+
+2. [ ] **ViewModel Updates**:
+   - [ ] Add LiveData for counts
+   - [ ] Implement count fetching methods
+   - [ ] Add refresh functionality
+   - [ ] Handle loading states
+
+3. [ ] **UI Implementation**:
+   - [ ] Update stats display
+   - [ ] Handle loading states
+   - [ ] Show error states
+   - [ ] Implement refresh
+
+4. [ ] **Error Handling**:
+   - [ ] Network errors
+   - [ ] Auth errors
+   - [ ] Empty/null responses
+   - [ ] Edge cases
+
+### 🧠 Context
+The stats system works through:
+1. ProfileFragment displays counts
+2. ProfileViewModel manages data
+3. UserRepository fetches from API
+4. ApiService makes network calls
+5. User model stores data
+
+### 🚧 Progress Log
+1. Initial Analysis:
+   - Found current stats implementation
+   - Located API endpoints
+   - Identified data flow
+
+2. Issues Found:
+   - [ ] Missing count fetching logic
+   - [ ] Incomplete error handling
+   - [ ] No loading states
+   - [ ] Missing refresh implementation
+
+3. Next Steps:
+   - Implement count fetching
+   - Add error handling
+   - Add loading states
+   - Implement refresh logic

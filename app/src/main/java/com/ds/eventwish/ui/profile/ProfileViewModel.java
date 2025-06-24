@@ -8,21 +8,26 @@ import android.util.Log;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
+import androidx.lifecycle.Observer;
 
 import com.ds.eventwish.data.auth.AuthManager;
 import com.ds.eventwish.data.local.AppDatabase;
 import com.ds.eventwish.data.local.dao.UserDao;
 import com.ds.eventwish.data.local.entity.UserEntity;
 import com.ds.eventwish.data.model.Template;
+import com.ds.eventwish.data.model.User;
 import com.ds.eventwish.data.repository.TemplateRepository;
 import com.ds.eventwish.data.repository.UserRepository;
 import com.ds.eventwish.util.AppExecutors;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.Collections;
 import java.util.List;
+
+import io.reactivex.disposables.CompositeDisposable;
 
 public class ProfileViewModel extends AndroidViewModel {
 
@@ -36,6 +41,9 @@ public class ProfileViewModel extends AndroidViewModel {
     private final UserRepository userRepository;
     private final AuthManager authManager;
     private final MutableLiveData<Boolean> isRefreshing = new MutableLiveData<>(false);
+    private final CompositeDisposable disposables = new CompositeDisposable();
+    private Observer<User> likesObserver;
+    private Observer<User> favoritesObserver;
 
     private LiveData<List<Template>> recentlyLikedTemplates;
     private LiveData<List<Template>> recentlyFavoritedTemplates;
@@ -210,7 +218,26 @@ public class ProfileViewModel extends AndroidViewModel {
      * @return LiveData containing the count of user's likes
      */
     public LiveData<Integer> getLikesCount() {
-        return templateRepository.getUserLikesCount();
+        MutableLiveData<Integer> likesCount = new MutableLiveData<>(0);
+        
+        String uid = authManager.getCurrentUser() != null ? authManager.getCurrentUser().getUid() : null;
+        if (uid == null) {
+            return likesCount;
+        }
+
+        // Transform user profile LiveData to likes count
+        likesObserver = user -> {
+            if (user != null && user.getLikes() != null) {
+                likesCount.setValue(user.getLikes().size());
+                Log.d("ProfileViewModel", "Updated likes count: " + user.getLikes().size());
+            } else {
+                likesCount.setValue(0);
+                Log.d("ProfileViewModel", "No likes data available");
+            }
+        };
+        userRepository.getUserProfile(uid).observeForever(likesObserver);
+
+        return likesCount;
     }
 
     /**
@@ -218,7 +245,26 @@ public class ProfileViewModel extends AndroidViewModel {
      * @return LiveData containing the count of user's favorites
      */
     public LiveData<Integer> getFavoritesCount() {
-        return templateRepository.getUserFavoritesCount();
+        MutableLiveData<Integer> favoritesCount = new MutableLiveData<>(0);
+        
+        String uid = authManager.getCurrentUser() != null ? authManager.getCurrentUser().getUid() : null;
+        if (uid == null) {
+            return favoritesCount;
+        }
+
+        // Transform user profile LiveData to favorites count
+        favoritesObserver = user -> {
+            if (user != null && user.getFavorites() != null) {
+                favoritesCount.setValue(user.getFavorites().size());
+                Log.d("ProfileViewModel", "Updated favorites count: " + user.getFavorites().size());
+            } else {
+                favoritesCount.setValue(0);
+                Log.d("ProfileViewModel", "No favorites data available");
+            }
+        };
+        userRepository.getUserProfile(uid).observeForever(favoritesObserver);
+
+        return favoritesCount;
     }
 
     /**
@@ -257,5 +303,21 @@ public class ProfileViewModel extends AndroidViewModel {
         // For now, use empty list as placeholder
         // In a real app, this would fetch from repository
         favoriteTemplates.setValue(Collections.emptyList());
+    }
+
+    @Override
+    protected void onCleared() {
+        super.onCleared();
+        // Remove observers to prevent memory leaks
+        String uid = authManager.getCurrentUser() != null ? authManager.getCurrentUser().getUid() : null;
+        if (uid != null) {
+            if (likesObserver != null) {
+                userRepository.getUserProfile(uid).removeObserver(likesObserver);
+            }
+            if (favoritesObserver != null) {
+                userRepository.getUserProfile(uid).removeObserver(favoritesObserver);
+            }
+        }
+        disposables.clear();
     }
 }

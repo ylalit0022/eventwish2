@@ -3306,4 +3306,62 @@ public class TemplateRepository {
         
         return countLiveData;
     }
+
+    /**
+     * Track when a template is viewed by the user
+     * @param templateId The ID of the template that was viewed
+     * @return A Task that completes when the view is tracked
+     */
+    @NonNull
+    public Task<Void> trackTemplateView(String templateId) {
+        if (templateId == null || templateId.isEmpty()) {
+            return Tasks.forException(new IllegalArgumentException("Template ID cannot be null or empty"));
+        }
+
+        TaskCompletionSource<Void> tcs = new TaskCompletionSource<>();
+        
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            tcs.setException(new IllegalStateException("User must be logged in to track template views"));
+            return tcs.getTask();
+        }
+
+        // Get auth token for API call
+        user.getIdToken(true)
+            .addOnSuccessListener(getTokenResult -> {
+                String authToken = "Bearer " + getTokenResult.getToken();
+                
+                // Create request body
+                Map<String, Object> body = new HashMap<>();
+                body.put("uid", user.getUid());
+                body.put("templateId", templateId);
+                
+                // Make API call to track the view
+                apiService.recordTemplateView(body, authToken)
+                    .enqueue(new Callback<JsonObject>() {
+                        @Override
+                        public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                            if (response.isSuccessful()) {
+                                Log.d(TAG, "Successfully tracked template view: " + templateId);
+                                tcs.setResult(null);
+                            } else {
+                                Log.e(TAG, "Failed to track template view: " + response.code());
+                                tcs.setException(new Exception("Failed to track template view: " + response.code()));
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(Call<JsonObject> call, Throwable t) {
+                            Log.e(TAG, "Error tracking template view", t);
+                            tcs.setException(new Exception("Error tracking template view", t));
+                        }
+                    });
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Error getting auth token", e);
+                tcs.setException(e);
+            });
+
+        return tcs.getTask();
+    }
 }

@@ -5,6 +5,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -172,19 +173,27 @@ public class ProfileFragment extends Fragment {
     }
     
     private void setupStats() {
+        // Show loading state initially
+        binding.postsCount.setText("-");
+        binding.likesCount.setText("-");
+        binding.favoritesCount.setText("-");
+        
         // Set up posts count
         profileViewModel.getPostsCount().observe(getViewLifecycleOwner(), count -> {
             binding.postsCount.setText(String.valueOf(count));
+            Log.d("ProfileFragment", "Posts count updated: " + count);
         });
         
         // Set up likes count
         profileViewModel.getLikesCount().observe(getViewLifecycleOwner(), count -> {
             binding.likesCount.setText(String.valueOf(count));
+            Log.d("ProfileFragment", "Likes count updated: " + count);
         });
         
         // Set up favorites count
         profileViewModel.getFavoritesCount().observe(getViewLifecycleOwner(), count -> {
             binding.favoritesCount.setText(String.valueOf(count));
+            Log.d("ProfileFragment", "Favorites count updated: " + count);
         });
         
         // Set click listeners for stats
@@ -195,6 +204,17 @@ public class ProfileFragment extends Fragment {
         binding.favoritesStatsContainer.setOnClickListener(v -> {
             binding.tabLayout.getTabAt(2).select();
         });
+
+        // Observe refresh state
+        profileViewModel.isRefreshing().observe(getViewLifecycleOwner(), isRefreshing -> {
+            binding.swipeRefreshLayout.setRefreshing(isRefreshing);
+            if (isRefreshing) {
+                Log.d("ProfileFragment", "Refreshing profile data...");
+            }
+        });
+
+        // Force a refresh to ensure we have latest data
+        profileViewModel.refreshUserData();
     }
     
     private void setupViewPager() {

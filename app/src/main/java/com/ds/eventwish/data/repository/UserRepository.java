@@ -1171,10 +1171,16 @@ public class UserRepository {
                 userEntity.setLastLoginTime(user.getLastActive());
                 userEntity.setAuthenticated(true);
                 
+                // Store likes and favorites
+                userEntity.setLikes(user.getLikes());
+                userEntity.setFavorites(user.getFavorites());
+                
                 // Insert or update user
                 userDao.insertOrUpdate(userEntity);
                 
-                Log.d(TAG, "User data cached locally: " + user.getUid());
+                Log.d(TAG, "User data cached locally: " + user.getUid() + 
+                      ", likes: " + (user.getLikes() != null ? user.getLikes().size() : 0) + 
+                      ", favorites: " + (user.getFavorites() != null ? user.getFavorites().size() : 0));
             } catch (Exception e) {
                 Log.e(TAG, "Error caching user data", e);
             }
@@ -1211,6 +1217,8 @@ public class UserRepository {
                     user.setProfilePhoto(userEntity.getPhotoUrl());
                     user.setDeviceId(userEntity.getPhoneNumber());
                     user.setLastActive(userEntity.getLastLoginTime());
+                    user.setLikes(userEntity.getLikes());
+                    user.setFavorites(userEntity.getFavorites());
                     
                     // Post the cached user while we fetch from network
                     result.postValue(user);
