@@ -137,20 +137,107 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
                 binding.newBadge.setVisibility(newTemplates.contains(template.getId()) ? 
                     View.VISIBLE : View.GONE);
                 
-                // Load image if URL is available
-                String thumbnailUrl = template.getThumbnailUrl();
-                if (thumbnailUrl != null && !thumbnailUrl.isEmpty()) {
-                    Glide.with(binding.getRoot().getContext())
-                        .load(thumbnailUrl)
-                        .diskCacheStrategy(DiskCacheStrategy.ALL)
-                        .centerCrop()
-                        .into(binding.templateImage);
-                } else {
-                    binding.templateImage.setImageResource(android.R.color.transparent);
+                // Handle different template types
+                String templateType = template.getTemplateType();
+                if (templateType == null || templateType.isEmpty()) {
+                    templateType = "image"; // Default to image if not specified
                 }
+                
+                Log.d(TAG, "Binding template " + template.getId() + " with type: " + templateType);
+                
+                // Hide all template containers first
+                binding.templateImage.setVisibility(View.GONE);
+                binding.htmlTemplateContainer.setVisibility(View.GONE);
+                binding.videoTemplateContainer.setVisibility(View.GONE);
+                binding.templateTypeBadge.setVisibility(View.VISIBLE);
+                
+                switch (templateType.toLowerCase()) {
+                    case "html":
+                        setupHtmlTemplate(template);
+                        break;
+                    case "video":
+                        setupVideoTemplate(template);
+                        break;
+                    case "image":
+                    default:
+                        setupImageTemplate(template);
+                        break;
+                }
+                
             } catch (Exception e) {
                 Log.e(TAG, "Error binding template: " + e.getMessage());
+                // Fallback to image template on error
+                setupImageTemplate(template);
             }
+        }
+        
+        private void setupImageTemplate(Template template) {
+            Log.d(TAG, "Setting up image template: " + template.getId());
+            
+            // Show image container
+            binding.templateImage.setVisibility(View.VISIBLE);
+            binding.templateTypeBadge.setText("IMAGE");
+            
+            // Load image
+            String imageUrl = template.getThumbnailUrl() != null ? template.getThumbnailUrl() : template.getImageUrl();
+            if (imageUrl != null && !imageUrl.isEmpty()) {
+                Glide.with(binding.getRoot().getContext())
+                    .load(imageUrl)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .centerCrop()
+                    .into(binding.templateImage);
+            } else {
+                binding.templateImage.setImageResource(android.R.color.transparent);
+            }
+        }
+        
+        private void setupHtmlTemplate(Template template) {
+            Log.d(TAG, "Setting up HTML template: " + template.getId());
+            
+            // Show HTML container
+            binding.htmlTemplateContainer.setVisibility(View.VISIBLE);
+            binding.templateTypeBadge.setText("HTML");
+            
+            // Set HTML template title and description
+            binding.htmlTemplateTitle.setText(template.getTitle());
+            
+            // Use category or festival tag as description, or default text
+            String description = null;
+            if (template.getFestivalTag() != null && !template.getFestivalTag().isEmpty()) {
+                description = "Festival: " + template.getFestivalTag();
+            } else if (template.getCategory() != null && !template.getCategory().isEmpty()) {
+                description = "Category: " + template.getCategory();
+            } else {
+                description = "Interactive HTML template";
+            }
+            
+            binding.htmlTemplateDescription.setText(description);
+            binding.htmlTemplateDescription.setVisibility(View.VISIBLE);
+        }
+        
+        private void setupVideoTemplate(Template template) {
+            Log.d(TAG, "Setting up video template: " + template.getId());
+            
+            // Show video container
+            binding.videoTemplateContainer.setVisibility(View.VISIBLE);
+            binding.templateTypeBadge.setText("VIDEO");
+            
+            // Load video thumbnail if available
+            String thumbnailUrl = template.getThumbnailUrl();
+            if (thumbnailUrl != null && !thumbnailUrl.isEmpty()) {
+                Glide.with(binding.getRoot().getContext())
+                    .load(thumbnailUrl)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .centerCrop()
+                    .into(binding.videoThumbnail);
+            } else {
+                // Use a default video placeholder
+                binding.videoThumbnail.setImageResource(android.R.color.transparent);
+            }
+            
+            // Set video duration if available (you might need to add this field to Template model)
+            // For now, we'll show a default duration
+            binding.videoDuration.setText("0:30");
         }
     }
 }

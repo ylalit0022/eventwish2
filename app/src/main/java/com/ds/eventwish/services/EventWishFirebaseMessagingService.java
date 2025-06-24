@@ -121,6 +121,9 @@ public class EventWishFirebaseMessagingService extends FirebaseMessagingService 
                 case "update":
                     handleUpdateNotification(data);
                     break;
+                case "unblocked":
+                    handleUnblockingNotification(data);
+                    break;
                 default:
                     Log.d(TAG, "Unknown message type: " + type);
                     break;
@@ -172,6 +175,22 @@ public class EventWishFirebaseMessagingService extends FirebaseMessagingService 
      * @param data Message data
      */
     private void handleUpdateNotification(Map<String, String> data) {
+        String title = data.get("title");
+        String body = data.get("body");
+        
+        if (title != null && body != null) {
+            EventWishNotificationManager.showUpdateNotification(
+                    getApplicationContext(),
+                    title,
+                    body);
+        }
+    }
+    
+    /**
+     * Handle unblocking notifications
+     * @param data Message data
+     */
+    private void handleUnblockingNotification(Map<String, String> data) {
         String title = data.get("title");
         String body = data.get("body");
         

@@ -1567,4 +1567,102 @@ public class UserRepository {
             }
         });
     }
+
+    /**
+     * Check if user is blocked
+     * @param userId Firebase UID of the user
+     * @param callback Callback to handle the result
+     */
+    public void checkUserBlockStatus(String userId, BlockStatusCallback callback) {
+        Log.d(TAG, "checkUserBlockStatus: Checking block status for user " + userId);
+        
+        if (apiService == null) {
+            Log.e(TAG, "checkUserBlockStatus: ApiService is null");
+            callback.onError("API service not available");
+            return;
+        }
+        
+        Call<JsonObject> call = apiService.checkUserBlockStatus(userId);
+        call.enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
+                try {
+                    if (response.isSuccessful() && response.body() != null) {
+                        JsonObject responseBody = response.body();
+                        
+                        if (responseBody.has("success") && responseBody.get("success").getAsBoolean()) {
+                            boolean isBlocked = responseBody.has("isBlocked") && 
+                                              responseBody.get("isBlocked").getAsBoolean();
+                            
+                            if (isBlocked && responseBody.has("blockInfo")) {
+                                JsonObject blockInfo = responseBody.getAsJsonObject("blockInfo");
+                                
+                                String reason = blockInfo.has("reason") ? 
+                                              blockInfo.get("reason").getAsString() : "Account has been blocked";
+                                String contactEmail = blockInfo.has("contactEmail") ? 
+                                                    blockInfo.get("contactEmail").getAsString() : "support@eventwish.com";
+                                long blockedAt = blockInfo.has("blockedAt") ? 
+                                               blockInfo.get("blockedAt").getAsLong() : System.currentTimeMillis();
+                                
+                                Log.w(TAG, "checkUserBlockStatus: User is blocked - Reason: " + reason);
+                                callback.onUserBlocked(reason, contactEmail, blockedAt);
+                            } else {
+                                Log.d(TAG, "checkUserBlockStatus: User is not blocked");
+                                callback.onUserNotBlocked();
+                            }
+                        } else {
+                            String errorMessage = responseBody.has("message") ? 
+                                                 responseBody.get("message").getAsString() : "Unknown error";
+                            Log.e(TAG, "checkUserBlockStatus: API error - " + errorMessage);
+                            callback.onError(errorMessage);
+                        }
+                    } else {
+                        String errorMessage = "HTTP " + response.code() + ": " + response.message();
+                        Log.e(TAG, "checkUserBlockStatus: HTTP error - " + errorMessage);
+                        callback.onError(errorMessage);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "checkUserBlockStatus: Error parsing response", e);
+                    callback.onError("Error parsing server response: " + e.getMessage());
+                }
+            }
+            
+            @Override
+            public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable t) {
+                String errorMessage = "Network error: " + t.getMessage();
+                Log.e(TAG, "checkUserBlockStatus: Network error", t);
+                callback.onError(errorMessage);
+            }
+        });
+    }
+    
+    /**
+     * Interface for blocking status callbacks
+     */
+    public interface BlockStatusCallback {
+        void onUserBlocked(String reason, String contactEmail, long blockedAt);
+        void onUserNotBlocked();
+        void onError(String errorMessage);
+    }
+    
+    /**
+     * Save blocking dialog interaction details
+     * @param userId Firebase UID of the user
+     * @param reason Blocking reason
+     * @param contactEmail Contact email
+     * @param timestamp Timestamp when user acknowledged the blocking
+     */
+    public void saveBlockingDialogInteraction(String userId, String reason, String contactEmail, long timestamp) {
+        Log.d(TAG, "saveBlockingDialogInteraction: Saving interaction for user " + userId);
+        
+        SharedPreferences blockingPrefs = context.getSharedPreferences("blocking_prefs", Context.MODE_PRIVATE);
+        blockingPrefs.edit()
+            .putString("last_blocked_user", userId)
+            .putString("last_blocking_reason", reason)
+            .putString("last_contact_email", contactEmail)
+            .putLong("last_acknowledgment_timestamp", timestamp)
+            .apply();
+        
+        Log.d(TAG, "saveBlockingDialogInteraction: Saved blocking interaction details");
+    }
 } 

@@ -462,4 +462,67 @@ public class EventWishNotificationManager {
             Log.e(TAG, "Error cancelling all notifications", e);
         }
     }
+    
+    /**
+     * Show a notification for account unblocking
+     * @param context Application context
+     * @param title Unblocking notification title
+     * @param content Unblocking notification content
+     * @return Notification ID or -1 if failed
+     */
+    public static int showUnblockingNotification(Context context, String title, String content) {
+        // Check notification permission
+        if (!NotificationPermissionManager.hasNotificationPermission(context)) {
+            Log.d(TAG, "Notification permission not granted");
+            return -1;
+        }
+        
+        try {
+            Log.d(TAG, "Showing notification for account unblocking: " + title);
+            
+            // Generate a unique notification ID
+            int notificationId = notificationIdGenerator.getAndIncrement();
+            
+            // Create an intent for when the notification is tapped
+            Intent intent = new Intent(context, MainActivity.class);
+            intent.putExtra("unblocked", true);
+            intent.putExtra("navigate_to", "home");
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            intent.setData(android.net.Uri.parse("unblocked://" + System.currentTimeMillis()));
+            
+            PendingIntent pendingIntent = PendingIntent.getActivity(
+                    context,
+                    0,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            
+            // Build the notification with higher priority for important account status change
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_UPDATES)
+                    .setSmallIcon(R.drawable.ic_notification)
+                    .setContentTitle(title)
+                    .setContentText(content)
+                    .setStyle(new NotificationCompat.BigTextStyle().bigText(content))
+                    .setPriority(NotificationCompat.PRIORITY_HIGH) // High priority for account status
+                    .setContentIntent(pendingIntent)
+                    .setAutoCancel(true)
+                    .setColor(0xFF4CAF50) // Green color for positive news
+                    .setCategory(NotificationCompat.CATEGORY_STATUS); // Account status category
+            
+            // Show the notification
+            NotificationManager notificationManager = 
+                    (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            
+            if (notificationManager != null) {
+                notificationManager.notify(notificationId, builder.build());
+                Log.d(TAG, "Unblocking notification shown with ID: " + notificationId);
+                return notificationId;
+            } else {
+                Log.e(TAG, "NotificationManager is null");
+                return -1;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error showing unblocking notification", e);
+            return -1;
+        }
+    }
 } 

@@ -1222,6 +1222,22 @@ public interface ApiService {
         @retrofit2.http.Header("Authorization") String authToken
     );
 
+    /**
+     * Check user blocking status
+     * @param uid User ID (Firebase UID)
+     * @return Response with blocking status and details
+     */
+    @GET("users/{uid}/block-status")
+    Call<JsonObject> checkUserBlockStatus(@Path("uid") String uid);
+
+    /**
+     * Get all blocked users (Admin only)
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response with list of blocked users
+     */
+    @GET("users/blocked")
+    Call<JsonObject> getBlockedUsers(@retrofit2.http.Header("Authorization") String authToken);
+
     // =============================================================================
     // BULK OPERATIONS
     // =============================================================================

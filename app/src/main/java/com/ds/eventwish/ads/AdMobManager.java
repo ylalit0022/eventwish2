@@ -2,6 +2,7 @@ package com.ds.eventwish.ads;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -45,6 +46,16 @@ public class AdMobManager {
     private boolean isLoading = false;
     private int retryAttempts = 0;
     private static final int MAX_RETRY_ATTEMPTS = 3;
+    
+    // Subscription and user-specific ad control
+    private SharedPreferences adPreferences;
+    private boolean adsGloballyEnabled = true;
+    private boolean userHasActiveSubscription = false;
+    private String currentUserId = null;
+    private static final String AD_PREFS_NAME = "ad_preferences";
+    private static final String KEY_GLOBAL_ADS_ENABLED = "global_ads_enabled";
+    private static final String KEY_USER_SUBSCRIPTION_STATUS = "user_subscription_status_";
+    private static final String KEY_USER_ADS_ENABLED = "user_ads_enabled_";
 
     private AdMobManager() {
         // Private constructor to prevent direct instantiation
@@ -112,9 +123,9 @@ public class AdMobManager {
      * Loads an interstitial ad from the server.
      */
     private void loadInterstitialAd() {
-        if (isLoading || !isInitialized) {
+        if (isLoading || !isInitialized || !shouldShowAds()) {
             Log.d(TAG, "Skipping interstitial ad load: " + 
-                (isLoading ? "Already loading" : "Not initialized"));
+                (isLoading ? "Already loading" : !isInitialized ? "Not initialized" : "Ads disabled"));
             return;
         }
 
@@ -219,18 +230,24 @@ public class AdMobManager {
     }
 
     /**
-     * Shows an interstitial ad if one is loaded.
+     * Shows the loaded interstitial ad.
      *
-     * @param activity The activity context to show the ad
+     * @param activity The activity to show the ad in
      * @return true if ad was shown, false otherwise
      */
     public boolean showInterstitialAd(Activity activity) {
+        if (!shouldShowAds()) {
+            Log.d(TAG, "Ads disabled, not showing interstitial ad");
+            return false;
+        }
+        
         if (interstitialAd != null) {
             interstitialAd.show(activity);
             return true;
         } else {
-            Log.d(TAG, "Interstitial ad not ready yet");
-            loadInterstitialAd(); // Try to load next ad
+            Log.d(TAG, "Interstitial ad not ready");
+            // Try to load ad for next time
+            loadInterstitialAd();
             return false;
         }
     }
@@ -541,5 +558,180 @@ public class AdMobManager {
     public interface NativeAdCallback {
         void onAdLoaded(NativeAd nativeAd);
         void onError(String message);
+    }
+
+    // =============================================================================
+    // SUBSCRIPTION AND USER-SPECIFIC AD CONTROL METHODS
+    // =============================================================================
+    
+    /**
+     * Initialize ad preferences and load saved settings
+     */
+    private void initializeAdPreferences() {
+        if (adPreferences == null) {
+            adPreferences = context.getSharedPreferences(AD_PREFS_NAME, Context.MODE_PRIVATE);
+            adsGloballyEnabled = adPreferences.getBoolean(KEY_GLOBAL_ADS_ENABLED, true);
+        }
+    }
+    
+    /**
+     * Set the current user ID for personalized ad control
+     * @param userId Firebase UID of the current user
+     */
+    public void setCurrentUser(String userId) {
+        this.currentUserId = userId;
+        initializeAdPreferences();
+        
+        if (userId != null) {
+            // Load user-specific subscription status
+            userHasActiveSubscription = adPreferences.getBoolean(KEY_USER_SUBSCRIPTION_STATUS + userId, false);
+            Log.d(TAG, "User " + userId + " subscription status: " + userHasActiveSubscription);
+        } else {
+            userHasActiveSubscription = false;
+        }
+    }
+    
+    /**
+     * Update user's subscription status
+     * @param userId Firebase UID
+     * @param hasActiveSubscription Whether user has active subscription
+     */
+    public void updateUserSubscriptionStatus(String userId, boolean hasActiveSubscription) {
+        if (userId == null) return;
+        
+        initializeAdPreferences();
+        
+        SharedPreferences.Editor editor = adPreferences.edit();
+        editor.putBoolean(KEY_USER_SUBSCRIPTION_STATUS + userId, hasActiveSubscription);
+        editor.apply();
+        
+        // Update current user status if it's the same user
+        if (userId.equals(currentUserId)) {
+            userHasActiveSubscription = hasActiveSubscription;
+            Log.d(TAG, "Updated subscription status for current user " + userId + ": " + hasActiveSubscription);
+            
+            // If user just got subscription, clear any loaded ads
+            if (hasActiveSubscription) {
+                clearLoadedAds();
+            } else {
+                // If subscription expired, reload ads
+                loadInterstitialAd();
+            }
+        }
+    }
+    
+    /**
+     * Enable or disable ads globally (admin control)
+     * @param enabled Whether ads should be enabled globally
+     */
+    public void setAdsGloballyEnabled(boolean enabled) {
+        initializeAdPreferences();
+        
+        adsGloballyEnabled = enabled;
+        SharedPreferences.Editor editor = adPreferences.edit();
+        editor.putBoolean(KEY_GLOBAL_ADS_ENABLED, enabled);
+        editor.apply();
+        
+        Log.d(TAG, "Ads globally " + (enabled ? "enabled" : "disabled"));
+        
+        if (!enabled) {
+            clearLoadedAds();
+        } else {
+            loadInterstitialAd();
+        }
+    }
+    
+    /**
+     * Enable or disable ads for a specific user
+     * @param userId Firebase UID
+     * @param enabled Whether ads should be enabled for this user
+     */
+    public void setUserAdsEnabled(String userId, boolean enabled) {
+        if (userId == null) return;
+        
+        initializeAdPreferences();
+        
+        SharedPreferences.Editor editor = adPreferences.edit();
+        editor.putBoolean(KEY_USER_ADS_ENABLED + userId, enabled);
+        editor.apply();
+        
+        Log.d(TAG, "Ads " + (enabled ? "enabled" : "disabled") + " for user " + userId);
+        
+        // If it's the current user, apply changes immediately
+        if (userId.equals(currentUserId)) {
+            if (!enabled) {
+                clearLoadedAds();
+            } else if (shouldShowAds()) {
+                loadInterstitialAd();
+            }
+        }
+    }
+    
+    /**
+     * Check if ads should be shown based on subscription and user preferences
+     * @return true if ads should be shown, false otherwise
+     */
+    public boolean shouldShowAds() {
+        initializeAdPreferences();
+        
+        // Check global ad setting first
+        if (!adsGloballyEnabled) {
+            Log.d(TAG, "Ads disabled globally");
+            return false;
+        }
+        
+        // Check if current user has active subscription
+        if (userHasActiveSubscription) {
+            Log.d(TAG, "User has active subscription, ads disabled");
+            return false;
+        }
+        
+        // Check user-specific ad setting
+        if (currentUserId != null) {
+            boolean userAdsEnabled = adPreferences.getBoolean(KEY_USER_ADS_ENABLED + currentUserId, true);
+            if (!userAdsEnabled) {
+                Log.d(TAG, "Ads disabled for user " + currentUserId);
+                return false;
+            }
+        }
+        
+        Log.d(TAG, "Ads should be shown");
+        return true;
+    }
+    
+    /**
+     * Check if current user has active subscription
+     * @return true if user has active subscription
+     */
+    public boolean hasActiveSubscription() {
+        return userHasActiveSubscription;
+    }
+    
+    /**
+     * Clear all loaded ads (used when ads are disabled)
+     */
+    private void clearLoadedAds() {
+        if (interstitialAd != null) {
+            interstitialAd = null;
+            Log.d(TAG, "Cleared interstitial ad");
+        }
+        
+        if (nativeAd != null) {
+            nativeAd.destroy();
+            nativeAd = null;
+            Log.d(TAG, "Cleared native ad");
+        }
+    }
+    
+    /**
+     * Get ad control status for debugging
+     * @return String with current ad control status
+     */
+    public String getAdControlStatus() {
+        return "AdControl Status: " +
+                "GloballyEnabled=" + adsGloballyEnabled +
+                ", UserSubscription=" + userHasActiveSubscription +
+                ", CurrentUser=" + currentUserId +
+                ", ShouldShowAds=" + shouldShowAds();
     }
 } 

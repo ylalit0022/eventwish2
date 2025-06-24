@@ -687,10 +687,117 @@ public class SplashActivity extends AppCompatActivity {
     private void completeSignIn(FirebaseUser user) {
         Log.d(TAG, "completeSignIn: Starting sign-in completion process for user " + user.getUid());
         
+        // First, check if user is blocked
+        UserRepository userRepository = UserRepository.getInstance(this);
+        userRepository.checkUserBlockStatus(user.getUid(), new UserRepository.BlockStatusCallback() {
+            @Override
+            public void onUserBlocked(String reason, String contactEmail, long blockedAt) {
+                Log.w(TAG, "completeSignIn: User is blocked - Reason: " + reason);
+                
+                // User is blocked, show blocking dialog
+                runOnUiThread(() -> showBlockingDialog(user.getUid(), reason, contactEmail, blockedAt));
+            }
+            
+            @Override
+            public void onUserNotBlocked() {
+                Log.d(TAG, "completeSignIn: User is not blocked, proceeding with MongoDB sync");
+                
+                // User is not blocked, proceed with normal sign-in flow
+                proceedWithSignIn(user);
+            }
+            
+            @Override
+            public void onError(String errorMessage) {
+                Log.e(TAG, "completeSignIn: Error checking block status: " + errorMessage);
+                
+                // Error checking block status, proceed with sign-in anyway
+                // (Fail open to avoid blocking legitimate users due to network issues)
+                proceedWithSignIn(user);
+            }
+        });
+    }
+    
+    /**
+     * Show blocking dialog to user
+     * @param userId Firebase UID
+     * @param reason Blocking reason
+     * @param contactEmail Contact email
+     * @param blockedAt Timestamp when user was blocked
+     */
+    private void showBlockingDialog(String userId, String reason, String contactEmail, long blockedAt) {
+        Log.d(TAG, "showBlockingDialog: Showing blocking dialog for user " + userId);
+        
+        // Hide progress indicators
+        loadingProgressBar.setVisibility(View.GONE);
+        signInProgressContainer.setVisibility(View.GONE);
+        
+        try {
+            // Import the dialog class
+            com.ds.eventwish.ui.dialog.BlockedUserDialog dialog = 
+                com.ds.eventwish.ui.dialog.BlockedUserDialog.newInstance(userId, reason, contactEmail, blockedAt);
+            
+            // Set dialog dismissal listener
+            dialog.setOnDialogDismissedListener(() -> {
+                Log.d(TAG, "showBlockingDialog: Dialog dismissed, signing out user");
+                
+                // Sign out the user after they acknowledge the blocking
+                signOutBlockedUser();
+            });
+            
+            // Show dialog
+            dialog.show(getSupportFragmentManager(), "BlockedUserDialog");
+            
+            Log.d(TAG, "showBlockingDialog: Dialog shown successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "showBlockingDialog: Error showing dialog", e);
+            
+            // Fallback: sign out user directly
+            signOutBlockedUser();
+        }
+    }
+    
+    /**
+     * Sign out blocked user and return to sign-in screen
+     */
+    private void signOutBlockedUser() {
+        Log.d(TAG, "signOutBlockedUser: Signing out blocked user");
+        
+        // Sign out from Firebase
+        FirebaseAuth.getInstance().signOut();
+        
+        // Sign out from Google and clear authentication state
+        authManager.signOut(new AuthManager.SignOutCallback() {
+            @Override
+            public void onSignOutComplete() {
+                Log.d(TAG, "signOutBlockedUser: Sign-out completed");
+                
+                // Clear authentication preferences
+                getSharedPreferences("auth_prefs", MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("user_authenticated", false)
+                    .putBoolean("access_revoked", true)
+                    .apply();
+                
+                // Show sign-in button
+                runOnUiThread(() -> {
+                    isSigningIn = false;
+                    showSignInButton();
+                });
+            }
+        });
+    }
+    
+    /**
+     * Proceed with normal sign-in flow (MongoDB sync)
+     * @param user Firebase user
+     */
+    private void proceedWithSignIn(FirebaseUser user) {
+        Log.d(TAG, "proceedWithSignIn: Proceeding with MongoDB sync for user " + user.getUid());
+        
         // Sync user with MongoDB after successful Firebase authentication
         authManager.syncUserWithMongoDB(user)
             .addOnSuccessListener(mongoUser -> {
-                Log.d(TAG, "completeSignIn: MongoDB sync successful - User: " + mongoUser.getUid() + 
+                Log.d(TAG, "proceedWithSignIn: MongoDB sync successful - User: " + mongoUser.getUid() + 
                           ", Display name: " + mongoUser.getDisplayName());
                 
                 // Store authentication state
@@ -700,20 +807,20 @@ public class SplashActivity extends AppCompatActivity {
                     .putBoolean("access_revoked", false) // Clear access revoked flag
                     .apply();
                 
-                Log.d(TAG, "completeSignIn: Updated auth_prefs - user_authenticated=true, access_revoked=false");
+                Log.d(TAG, "proceedWithSignIn: Updated auth_prefs - user_authenticated=true, access_revoked=false");
                 
                 // Resume in-app messaging
                 resumeInAppMessaging();
                 
                 // Add a delay before navigating to main
-                Log.d(TAG, "completeSignIn: Adding 1-second delay before navigating to main");
+                Log.d(TAG, "proceedWithSignIn: Adding 1-second delay before navigating to main");
                 new Handler().postDelayed(() -> {
-                    Log.d(TAG, "completeSignIn: Delay completed, navigating to main");
+                    Log.d(TAG, "proceedWithSignIn: Delay completed, navigating to main");
                     navigateToMain();
                 }, 1000);
             })
             .addOnFailureListener(e -> {
-                Log.w(TAG, "completeSignIn: MongoDB sync failed, but continuing with Firebase auth", e);
+                Log.w(TAG, "proceedWithSignIn: MongoDB sync failed, but continuing with Firebase auth", e);
                 
                 // Store authentication state anyway since Firebase auth was successful
                 getSharedPreferences("auth_prefs", MODE_PRIVATE)
@@ -722,16 +829,16 @@ public class SplashActivity extends AppCompatActivity {
                     .putBoolean("access_revoked", false) // Clear access revoked flag
                     .apply();
                 
-                Log.d(TAG, "completeSignIn: Updated auth_prefs despite MongoDB sync failure - " +
+                Log.d(TAG, "proceedWithSignIn: Updated auth_prefs despite MongoDB sync failure - " +
                           "user_authenticated=true, access_revoked=false");
                 
                 // Resume in-app messaging
                 resumeInAppMessaging();
                 
                 // Add a delay before navigating to main
-                Log.d(TAG, "completeSignIn: Adding 1-second delay before navigating to main");
+                Log.d(TAG, "proceedWithSignIn: Adding 1-second delay before navigating to main");
                 new Handler().postDelayed(() -> {
-                    Log.d(TAG, "completeSignIn: Delay completed, navigating to main");
+                    Log.d(TAG, "proceedWithSignIn: Delay completed, navigating to main");
                     navigateToMain();
                 }, 1000);
             });

@@ -252,3 +252,270 @@ From the log analysis, I can see:
 - **✅ Build Successful**: App compiles without errors with the new deserializer
 - **✅ Fix Ready**: Template deserialization issue should now be resolved
 - **Next**: Test the app to verify templates are now loading and displaying correctly
+
+# User Blocking System & AdMob Centralization Implementation Scratchpad
+
+## 🔍 Analysis First:
+
+### Understanding the Task Goal:
+Implement a comprehensive user management and monetization system with the following components:
+1. **Server-side**: Create blocked user table and management system
+2. **Client-side**: User blocking detection, alert system, and contact mechanism
+3. **AdMob Centralization**: Subscription-based ad management with user-specific controls
+4. **Template Display**: Support for HTML, image, and video template types with appropriate UI
+
+### Linked/Related Files Working Together:
+**Backend (Server-side)**:
+1. **backend/models/BlockedUser.js** - New model for blocked user data
+2. **backend/routes/users/** - User management routes (existing modular structure)
+3. **backend/controllers/users/admin.js** - Admin operations for blocking/unblocking
+4. **backend/middleware/auth.js** - Authentication middleware for blocked user checks
+5. **backend/models/User.js** - Existing user model (reference for user data)
+
+**Android Client-side**:
+1. **app/src/main/java/com/ds/eventwish/data/model/BlockedUser.java** - Blocked user data model
+2. **app/src/main/java/com/ds/eventwish/data/remote/ApiService.java** - API endpoints for blocked user operations
+3. **app/src/main/java/com/ds/eventwish/ui/splash/SplashActivity.java** - Sign-in flow with blocking check
+4. **app/src/main/java/com/ds/eventwish/data/auth/AuthManager.java** - Authentication with blocking integration
+5. **app/src/main/java/com/ds/eventwish/ads/AdMobManager.java** - Centralized AdMob management
+6. **app/src/main/java/com/ds/eventwish/data/repository/UserRepository.java** - User operations and subscription status
+7. **app/src/main/java/com/ds/eventwish/ui/home/adapter/RecommendedTemplateAdapter.java** - Template display logic
+8. **app/src/main/res/layout/item_template.xml** - Template item layout for different types
+9. **app/src/main/java/com/ds/eventwish/data/model/Template.java** - Template model with type enum
+10. **app/src/main/java/com/ds/eventwish/utils/NotificationManager.java** - Push notifications for unblocking
+
+### Key References and Import Analysis:
+- **Firebase Authentication**: Integration with blocking system
+- **MongoDB**: Blocked user storage and queries
+- **AdMob SDK**: Centralized initialization and control
+- **Push Notifications**: FCM for unblocking notifications
+- **Template Types**: Enum handling for HTML, image, video
+- **Subscription Management**: Integration with ad control
+
+## 📝 Scratchpad Plan:
+
+### 🎯 Objective 
+Implement a comprehensive user blocking system with centralized AdMob management and enhanced template type display, ensuring seamless user experience and proper monetization control.
+
+### 🧩 Related Files
+
+**Backend Implementation**:
+- **backend/models/BlockedUser.js** (new model)
+- **backend/routes/users/admin.js** (existing - extend with blocking operations)
+- **backend/controllers/users/admin.js** (existing - add blocking logic)
+- **backend/middleware/auth.js** (existing - add blocking checks)
+- **backend/models/User.js** (existing - reference)
+
+**Android Implementation**:
+- **app/src/main/java/com/ds/eventwish/data/model/BlockedUser.java** (new model)
+- **app/src/main/java/com/ds/eventwish/data/remote/ApiService.java** (existing - add endpoints)
+- **app/src/main/java/com/ds/eventwish/ads/AdMobManager.java** (new centralized manager)
+- **app/src/main/java/com/ds/eventwish/ui/splash/SplashActivity.java** (existing - add blocking check)
+- **app/src/main/java/com/ds/eventwish/data/auth/AuthManager.java** (existing - integrate blocking)
+- **app/src/main/java/com/ds/eventwish/ui/home/adapter/RecommendedTemplateAdapter.java** (existing - enhance display)
+- **app/src/main/res/layout/item_template.xml** (existing - add type-specific views)
+- **app/src/main/java/com/ds/eventwish/data/model/Template.java** (existing - verify enum)
+
+### ✅ Checklist
+
+**Phase 1: Backend - Blocked User System**
+- [ ] **Check existing admin routes**: Verify current admin.js structure in modular routes
+- [ ] **Create BlockedUser model**: MongoDB schema with uid, name, email, reason, timestamps
+- [ ] **Add blocking endpoints**: Block user, unblock user, check blocked status, get blocked users
+- [ ] **Enhance auth middleware**: Add blocked user check during authentication
+- [ ] **Add admin operations**: Extend existing admin controller with blocking functions
+- [ ] **Test blocking API**: Verify all endpoints work correctly
+
+**Phase 2: Android - Blocked User Detection**
+- [ ] **Create BlockedUser model**: Android data model matching backend schema
+- [ ] **Add API endpoints**: Extend ApiService with blocking-related calls
+- [ ] **Enhance AuthManager**: Add blocked user check during sign-in
+- [ ] **Update SplashActivity**: Add blocking detection and alert dialog
+- [ ] **Create blocking dialog**: Custom dialog with reason, contact email, and timestamp logging
+- [ ] **Add contact mechanism**: Email intent for user appeals
+- [ ] **Test blocking flow**: Verify complete user blocking experience
+
+**Phase 3: Centralized AdMob Management**
+- [ ] **Create AdMobManager**: Centralized singleton for ad initialization and control
+- [ ] **Subscription integration**: Connect with UserRepository for subscription status
+- [ ] **Auto ad control**: Enable/disable ads based on subscription status
+- [ ] **User-specific controls**: Per-user ad enable/disable functionality
+- [ ] **Initialize centrally**: Replace scattered ad initialization with centralized approach
+- [ ] **Test ad control**: Verify subscription-based ad management
+
+**Phase 4: Template Type Display Enhancement**
+- [ ] **Verify Template enum**: Check templateType field supports html, image, video
+- [ ] **Enhance item_template.xml**: Add conditional views for different template types
+- [ ] **Update adapter logic**: Implement type-based display in RecommendedTemplateAdapter
+- [ ] **Add video support**: VideoView or thumbnail for video templates
+- [ ] **Add HTML preview**: WebView or preview image for HTML templates
+- [ ] **Maintain image support**: Ensure existing image display continues working
+- [ ] **Test template types**: Verify all three types display correctly
+
+**Phase 5: Push Notification Integration**
+- [ ] **Check existing FCM**: Verify current notification system
+- [ ] **Add unblocking notifications**: Send push when user is unblocked
+- [ ] **Handle notification**: Open app with appropriate message when unblocked
+- [ ] **Test notification flow**: Verify complete unblocking notification experience
+
+### 🧠 Context
+
+**Current Architecture Understanding**:
+1. **Backend**: Uses modular route structure with separate files for different operations
+2. **Android**: Has existing auth flow, user management, and template display system
+3. **AdMob**: Currently scattered initialization - needs centralization
+4. **Templates**: Support multiple types but UI only shows images currently
+
+**Integration Points**:
+- **Authentication Flow**: SplashActivity → AuthManager → Backend auth check → Blocking verification
+- **Subscription System**: UserRepository tracks subscription → AdMobManager controls ads
+- **Template Display**: Template model → Adapter → Layout (needs type-specific rendering)
+- **Admin Operations**: Existing admin routes → Extended with blocking operations
+
+**Key Design Decisions**:
+- **Blocking Check**: Perform during sign-in to prevent blocked users from accessing app
+- **AdMob Control**: Centralized manager with subscription-aware initialization
+- **Template Types**: Conditional UI based on templateType enum value
+- **Notification Flow**: FCM integration for unblocking alerts
+
+### 🚧 Progress Log
+- **✅ Foundation Complete**: All backend and API infrastructure ready
+- **✅ Phase 4a Complete**: Blocking detection in authentication flow implemented
+  - ✅ Added checkUserBlockStatus method to UserRepository with comprehensive error handling
+  - ✅ Integrated blocking check into SplashActivity.completeSignIn() method
+  - ✅ Added fail-open approach for network errors to avoid blocking legitimate users
+  - ✅ Implemented proper user sign-out flow for blocked users
+- **✅ Phase 4b Complete**: Blocking alert dialog implemented
+  - ✅ Created dialog_blocked_user.xml with Material 3 design
+  - ✅ Implemented BlockedUserDialog.java with blocking info display
+  - ✅ Added contact email, blocking reason, and timestamp display
+  - ✅ Implemented "OK" button functionality with timestamp saving
+  - ✅ Created missing drawable resources (ic_warning.xml, ic_email.xml)
+  - ✅ Added proper error handling and accessibility features
+  - ✅ Build successful with all blocking system changes
+- **✅ Phase 4c Complete**: Push notification handling for unblocking events implemented
+  - ✅ Added unblocking notification handling to Firebase messaging service
+  - ✅ Created showUnblockingNotification method with high priority and green styling
+  - ✅ Configured notification to launch MainActivity with unblocked context
+  - ✅ Added proper notification category (STATUS) for account-related notifications
+  - ✅ Build successful with all notification system changes
+- **⏳ Phase 4d Next**: End-to-end testing and integration verification
+- **⏳ Phase 5 Pending**: Integration testing and user acceptance testing
+
+## 🎉 Key Achievements So Far:
+1. **Complete Blocking Detection**: Users are checked for blocking status during authentication
+2. **User-Friendly Dialog**: Material 3 designed dialog shows blocking information clearly
+3. **Contact Information**: Users can easily contact support via provided email
+4. **Timestamp Tracking**: All user interactions with blocking dialog are logged
+5. **Graceful Fallbacks**: Network errors don't prevent legitimate users from accessing the app
+6. **Proper Sign-Out**: Blocked users are properly signed out and returned to sign-in screen
+7. **Push Notifications**: Unblocking events trigger high-priority notifications to users
+8. **Visual Feedback**: Green-colored notifications provide positive visual feedback for unblocking
+9. **Deep Linking**: Unblocking notifications open the app directly to the home screen
+
+## 🔄 Next Steps for Phase 4d:
+1. **Test blocking workflow**: Verify blocking detection works during sign-in
+2. **Test dialog display**: Confirm blocking dialog shows correct information
+3. **Test notification delivery**: Verify unblocking notifications are received and displayed
+4. **Test deep linking**: Ensure notifications properly open the app
+5. **Verify user experience**: Test complete user journey from blocking to unblocking
+
+## 📱 User Experience Flow:
+1. **User attempts sign-in** → Blocking check performed automatically
+2. **If blocked** → Dialog shows with reason, contact email, and timestamp
+3. **User acknowledges** → Signed out automatically, can contact support
+4. **Admin unblocks user** → Push notification sent with positive message
+5. **User receives notification** → Taps to open app and can sign in normally
+
+# Next Phase Implementation - User Blocking Detection & Notification System
+
+## 🔍 Analysis First:
+
+### Understanding the Task Goal:
+Implement the complete user blocking detection and notification system:
+1. **✅ Phase 4a**: Implement blocking detection in SplashActivity/AuthManager
+2. **✅ Phase 4b**: Create blocking alert dialog with contact information  
+3. **✅ Phase 4c**: Add push notification handling for unblocking events
+4. **⏳ Phase 4d**: Test end-to-end blocking workflow
+5. **⏳ Phase 5**: Integration testing and user acceptance testing
+
+### Linked/Related Files Working Together:
+**Authentication Flow**:
+1. **app/src/main/java/com/ds/eventwish/ui/splash/SplashActivity.java** - Main authentication entry point
+2. **app/src/main/java/com/ds/eventwish/data/auth/AuthManager.java** - Authentication management
+3. **app/src/main/java/com/ds/eventwish/data/repository/UserRepository.java** - User operations and blocking checks
+
+**Blocking System**:
+1. **app/src/main/java/com/ds/eventwish/data/remote/ApiService.java** - API endpoints for blocking operations
+2. **app/src/main/java/com/ds/eventwish/ui/dialog/BlockedUserDialog.java** - Blocking information dialog
+3. **app/src/main/res/layout/dialog_blocked_user.xml** - Dialog layout
+4. **app/src/main/res/drawable/ic_warning.xml** - Warning icon for dialog
+5. **app/src/main/res/drawable/ic_email.xml** - Email icon for contact
+
+**Push Notifications**:
+1. **app/src/main/java/com/ds/eventwish/services/EventWishFirebaseMessagingService.java** - FCM message handling
+2. **app/src/main/java/com/ds/eventwish/utils/EventWishNotificationManager.java** - Notification display management
+
+**Backend Integration**:
+1. **backend/routes/users/admin.js** - Admin blocking/unblocking operations
+2. **backend/models/User.js** - User model with blocking information
+3. **backend/middleware/auth.js** - Authentication middleware with blocking checks
+
+### ✅ Checklist
+- [x] **Phase 4a**: Blocking detection in authentication flow
+  - [x] Added checkUserBlockStatus method to UserRepository
+  - [x] Integrated blocking check into SplashActivity.completeSignIn()
+  - [x] Added fail-open approach for network errors
+  - [x] Implemented proper user sign-out flow for blocked users
+- [x] **Phase 4b**: Blocking alert dialog implementation
+  - [x] Created dialog_blocked_user.xml with Material 3 design
+  - [x] Implemented BlockedUserDialog.java with blocking info display
+  - [x] Added contact email, blocking reason, and timestamp display
+  - [x] Implemented "OK" button functionality with timestamp saving
+  - [x] Created missing drawable resources (ic_warning.xml, ic_email.xml)
+- [x] **Phase 4c**: Push notification handling for unblocking events
+  - [x] Added "unblocked" case to EventWishFirebaseMessagingService
+  - [x] Implemented showUnblockingNotification method in EventWishNotificationManager
+  - [x] Added high priority notification with green color for positive news
+  - [x] Configured notification to open MainActivity with unblocked flag
+  - [x] Added proper notification category and styling
+- [ ] **Phase 4d**: End-to-end testing and integration verification
+- [ ] **Phase 5**: Integration testing and user acceptance testing
+
+### 🚧 Progress Log
+- **✅ Foundation Complete**: All backend and API infrastructure ready
+- **✅ Phase 4a Complete**: Blocking detection in authentication flow implemented
+- **✅ Phase 4b Complete**: Blocking alert dialog implemented  
+- **✅ Phase 4c Complete**: Push notification handling for unblocking events implemented
+  - ✅ Added unblocking notification handling to Firebase messaging service
+  - ✅ Created showUnblockingNotification method with high priority and green styling
+  - ✅ Configured notification to launch MainActivity with unblocked context
+  - ✅ Added proper notification category (STATUS) for account-related notifications
+  - ✅ Build successful with all notification system changes
+- **⏳ Phase 4d Next**: End-to-end testing and integration verification
+- **⏳ Phase 5 Pending**: Integration testing and user acceptance testing
+
+## 🎉 Key Achievements So Far:
+1. **Complete Blocking Detection**: Users are checked for blocking status during authentication
+2. **User-Friendly Dialog**: Material 3 designed dialog shows blocking information clearly
+3. **Contact Information**: Users can easily contact support via provided email
+4. **Timestamp Tracking**: All user interactions with blocking dialog are logged
+5. **Graceful Fallbacks**: Network errors don't prevent legitimate users from accessing the app
+6. **Proper Sign-Out**: Blocked users are properly signed out and returned to sign-in screen
+7. **Push Notifications**: Unblocking events trigger high-priority notifications to users
+8. **Visual Feedback**: Green-colored notifications provide positive visual feedback for unblocking
+9. **Deep Linking**: Unblocking notifications open the app directly to the home screen
+
+## 🔄 Next Steps for Phase 4d:
+1. **Test blocking workflow**: Verify blocking detection works during sign-in
+2. **Test dialog display**: Confirm blocking dialog shows correct information
+3. **Test notification delivery**: Verify unblocking notifications are received and displayed
+4. **Test deep linking**: Ensure notifications properly open the app
+5. **Verify user experience**: Test complete user journey from blocking to unblocking
+
+## 📱 User Experience Flow:
+1. **User attempts sign-in** → Blocking check performed automatically
+2. **If blocked** → Dialog shows with reason, contact email, and timestamp
+3. **User acknowledges** → Signed out automatically, can contact support
+4. **Admin unblocks user** → Push notification sent with positive message
+5. **User receives notification** → Taps to open app and can sign in normally

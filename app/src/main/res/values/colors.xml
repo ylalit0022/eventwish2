@@ -214,6 +214,10 @@
     <color name="template_recommended_background">#FFF8E1</color>
     <color name="template_text_primary">#212121</color>
     <color name="template_text_secondary">#757575</color>
+    
+    <!-- Template Type Background Colors -->
+    <color name="html_preview_background">#F8F9FA</color>
+    <color name="video_preview_background">#1A1A1A</color>
 
     <!-- Back button background with transparency -->
     <color name="back_button_background">#80000000</color>

@@ -152,11 +152,12 @@
                     tools:text="Beautiful birthday template for celebrating special moments with friends and family. Perfect for social media posts and greetings." />
             </LinearLayout>
 
-            <!-- Main Image Content -->
+            <!-- Main Content Area - Supports HTML, Image, and Video -->
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
+                <!-- Image Template Display -->
                 <com.google.android.material.imageview.ShapeableImageView
                     android:id="@+id/template_image"
                     android:layout_width="match_parent"
@@ -166,7 +167,177 @@
                     android:clickable="true"
                     android:focusable="true"
                     android:foreground="?attr/selectableItemBackground"
+                    android:visibility="visible"
                     tools:src="@drawable/placeholder_image" />
+
+                <!-- HTML Template Display -->
+                <LinearLayout
+                    android:id="@+id/html_template_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="380dp"
+                    android:orientation="vertical"
+                    android:background="@color/html_preview_background"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:visibility="gone"
+                    android:padding="16dp">
+                    
+                    <!-- HTML Icon -->
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:src="@drawable/ic_html_template"
+                        android:layout_gravity="center_horizontal"
+                        android:layout_marginBottom="16dp"
+                        app:tint="?attr/colorPrimary" />
+                    
+                    <!-- HTML Template Title -->
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/html_template_title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="@style/TextAppearance.EventWish.Headline6"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textAlignment="center"
+                        android:maxLines="2"
+                        android:ellipsize="end"
+                        android:layout_marginBottom="8dp"
+                        tools:text="Interactive Birthday Card" />
+                    
+                    <!-- HTML Template Description -->
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/html_template_description"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="@style/TextAppearance.EventWish.Body2"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textAlignment="center"
+                        android:maxLines="3"
+                        android:ellipsize="end"
+                        android:layout_marginBottom="16dp"
+                        tools:text="Customizable HTML template with animations and interactive elements" />
+                    
+                    <!-- HTML Features -->
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_gravity="center_horizontal">
+                        
+                        <com.google.android.material.chip.Chip
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Interactive"
+                            android:textSize="12sp"
+                            style="@style/Widget.EventWish.Chip"
+                            android:layout_marginEnd="8dp" />
+                        
+                        <com.google.android.material.chip.Chip
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Animated"
+                            android:textSize="12sp"
+                            style="@style/Widget.EventWish.Chip" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Video Template Display -->
+                <LinearLayout
+                    android:id="@+id/video_template_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="380dp"
+                    android:orientation="vertical"
+                    android:background="@color/video_preview_background"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:visibility="gone"
+                    android:gravity="center">
+                    
+                    <!-- Video Thumbnail -->
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1">
+                        
+                        <com.google.android.material.imageview.ShapeableImageView
+                            android:id="@+id/video_thumbnail"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop"
+                            android:contentDescription="Video thumbnail"
+                            tools:src="@drawable/placeholder_image" />
+                        
+                        <!-- Play Button Overlay -->
+                        <com.google.android.material.imageview.ShapeableImageView
+                            android:id="@+id/video_play_button"
+                            android:layout_width="64dp"
+                            android:layout_height="64dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_play_circle"
+                            android:contentDescription="Play video"
+                            android:background="@drawable/bg_play_button"
+                            android:elevation="4dp"
+                            app:tint="@color/white" />
+                    </FrameLayout>
+                    
+                    <!-- Video Info -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:padding="12dp"
+                        android:gravity="center_vertical">
+                        
+                        <com.google.android.material.imageview.ShapeableImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@drawable/ic_video_template"
+                            android:layout_marginEnd="8dp"
+                            app:tint="?attr/colorPrimary" />
+                        
+                        <com.google.android.material.textview.MaterialTextView
+                            android:id="@+id/video_duration"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textAppearance="@style/TextAppearance.EventWish.Caption"
+                            android:textColor="?attr/colorOnSurfaceVariant"
+                            tools:text="0:30" />
+                        
+                        <View
+                            android:layout_width="0dp"
+                            android:layout_height="1dp"
+                            android:layout_weight="1" />
+                        
+                        <com.google.android.material.chip.Chip
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="HD Video"
+                            android:textSize="11sp"
+                            style="@style/Widget.EventWish.Chip" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Template Type Badge -->
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/template_type_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom|start"
+                    android:layout_margin="12dp"
+                    android:background="@drawable/bg_type_badge"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/white"
+                    android:elevation="2dp"
+                    android:visibility="gone"
+                    tools:text="HTML"
+                    tools:visibility="visible" />
 
                 <!-- Badges at top-right -->
                 <LinearLayout

@@ -116,6 +116,30 @@ const verifyFirebaseToken = async (req, res, next) => {
         });
       }
       
+      // Check if user is blocked
+      try {
+        const User = require('../models/User');
+        const user = await User.findOne({ uid: decodedToken.uid });
+        
+        if (user && user.isCurrentlyBlocked()) {
+          logger.warn(`Blocked user attempted access: ${decodedToken.uid}`);
+          return res.status(403).json({
+            success: false,
+            message: 'Account blocked',
+            code: 'USER_BLOCKED',
+            blockInfo: {
+              reason: user.blockInfo?.reason || 'Account has been blocked',
+              blockedAt: user.blockInfo?.blockedAt,
+              blockExpiresAt: user.blockInfo?.blockExpiresAt,
+              contactEmail: 'support@eventwish.com'
+            }
+          });
+        }
+      } catch (blockCheckError) {
+        logger.error(`Error checking user blocking status: ${blockCheckError.message}`);
+        // Continue with the request if we can't check blocking status
+      }
+      
       logger.info(`User ${decodedToken.uid} authenticated successfully`);
       next();
     } catch (verifyError) {
