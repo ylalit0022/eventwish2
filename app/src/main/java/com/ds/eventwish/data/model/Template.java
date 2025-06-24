@@ -111,6 +111,210 @@ public class Template {
     @SerializedName("generatedByUserUid")
     private String generatedByUserUid;  // Firebase UID of the user who generated this template
 
+    // Media URLs (from backend Template.js)
+    @SerializedName("videoUrl")
+    @ColumnInfo(name = "videoUrl")
+    private String videoUrl;
+    
+    @SerializedName("imageUrl")
+    @ColumnInfo(name = "imageUrl")
+    private String imageUrl;
+
+    // Monetization & Access Control (from backend Template.js)
+    @SerializedName("status")
+    @ColumnInfo(name = "status")
+    private boolean status = true;
+    
+    @SerializedName("isPremium")
+    @ColumnInfo(name = "isPremium")
+    private boolean isPremium = false;
+    
+    @SerializedName("isFeatured")
+    @ColumnInfo(name = "isFeatured")
+    private boolean isFeatured = false;
+    
+    @SerializedName("isTrending")
+    @ColumnInfo(name = "isTrending")
+    private boolean isTrending = false;
+    
+    @SerializedName("isFlagged")
+    @ColumnInfo(name = "isFlagged")
+    private boolean isFlagged = false;
+    
+    @SerializedName("isLowPerforming")
+    @ColumnInfo(name = "isLowPerforming")
+    private boolean isLowPerforming = false;
+    
+    @SerializedName("price")
+    @ColumnInfo(name = "price")
+    private double price = 0.0;
+    
+    @SerializedName("moderationStatus")
+    @ColumnInfo(name = "moderationStatus")
+    private String moderationStatus = "approved"; // approved, pending, rejected
+
+    // Engagement Metrics (from backend Template.js)
+    @SerializedName("usageCount")
+    @ColumnInfo(name = "usageCount")
+    private long usageCount = 0;
+    
+    @SerializedName("viewCount")
+    @ColumnInfo(name = "viewCount")
+    private long viewCount = 0;
+    
+    @SerializedName("downloadCount")
+    @ColumnInfo(name = "downloadCount")
+    private long downloadCount = 0;
+    
+    @SerializedName("reportCount")
+    @ColumnInfo(name = "reportCount")
+    private long reportCount = 0;
+    
+    @SerializedName("rating")
+    @ColumnInfo(name = "rating")
+    private double rating = 0.0;
+    
+    @SerializedName("ratingCount")
+    @ColumnInfo(name = "ratingCount")
+    private long ratingCount = 0;
+
+    // Weekly Metrics (from backend Template.js)
+    @SerializedName("weeklyUsageCount")
+    @ColumnInfo(name = "weeklyUsageCount")
+    private long weeklyUsageCount = 0;
+    
+    @SerializedName("weeklyLikes")
+    @ColumnInfo(name = "weeklyLikes")
+    private long weeklyLikes = 0;
+    
+    @SerializedName("weeklyFavorites")
+    @ColumnInfo(name = "weeklyFavorites")
+    private long weeklyFavorites = 0;
+    
+    @SerializedName("weeklyViewCount")
+    @ColumnInfo(name = "weeklyViewCount")
+    private long weeklyViewCount = 0;
+    
+    @SerializedName("weeklySharedCount")
+    @ColumnInfo(name = "weeklySharedCount")
+    private long weeklySharedCount = 0;
+    
+    @SerializedName("weeklyDownloadCount")
+    @ColumnInfo(name = "weeklyDownloadCount")
+    private long weeklyDownloadCount = 0;
+    
+    @SerializedName("weeklyReportCount")
+    @ColumnInfo(name = "weeklyReportCount")
+    private long weeklyReportCount = 0;
+    
+    @SerializedName("weeklyScoreLastReset")
+    @ColumnInfo(name = "weeklyScoreLastReset")
+    @TypeConverters(DateConverter.class)
+    private Date weeklyScoreLastReset;
+
+    // AI Metadata (from backend Template.js)
+    @SerializedName("isAIGenerated")
+    @ColumnInfo(name = "isAIGenerated")
+    private boolean isAIGenerated = false;
+    
+    @SerializedName("aiPrompt")
+    @ColumnInfo(name = "aiPrompt")
+    private String aiPrompt = "";
+    
+    @SerializedName("aiModel")
+    @ColumnInfo(name = "aiModel")
+    private String aiModel = "";
+    
+    @SerializedName("aiStyle")
+    @ColumnInfo(name = "aiStyle")
+    private String aiStyle = "";
+    
+    @SerializedName("aiGenerationStage")
+    @ColumnInfo(name = "aiGenerationStage")
+    private String aiGenerationStage = "initial"; // initial, on_edit, variation
+    
+    @SerializedName("generationMetadata")
+    @ColumnInfo(name = "generationMetadata")
+    private String generationMetadata; // JSON string for nested object
+
+    // Categorization & Tags (from backend Template.js)
+    @SerializedName("festivalTag")
+    @ColumnInfo(name = "festivalTag")
+    private String festivalTag = "";
+    
+    @SerializedName("tags")
+    @ColumnInfo(name = "tags")
+    @TypeConverters(StringListConverter.class)
+    private List<String> tags;
+    
+    @SerializedName("styleTags")
+    @ColumnInfo(name = "styleTags")
+    @TypeConverters(StringListConverter.class)
+    private List<String> styleTags;
+    
+    @SerializedName("searchKeywords")
+    @ColumnInfo(name = "searchKeywords")
+    @TypeConverters(StringListConverter.class)
+    private List<String> searchKeywords;
+    
+    @SerializedName("variationOf")
+    @ColumnInfo(name = "variationOf")
+    private String variationOf; // Template ID this is a variation of
+    
+    @SerializedName("relatedTemplates")
+    @ColumnInfo(name = "relatedTemplates")
+    @TypeConverters(StringListConverter.class)
+    private List<String> relatedTemplates; // List of related template IDs
+
+    // Visibility & Ranking (from backend Template.js)
+    @SerializedName("templateType")
+    @ColumnInfo(name = "templateType")
+    private String templateType = "html"; // html, image, video
+    
+    @SerializedName("visibilityScore")
+    @ColumnInfo(name = "visibilityScore")
+    private double visibilityScore = 0.0;
+    
+    @SerializedName("boostPriority")
+    @ColumnInfo(name = "boostPriority")
+    private double boostPriority = 0.0;
+    
+    @SerializedName("lastBoostedAt")
+    @ColumnInfo(name = "lastBoostedAt")
+    @TypeConverters(DateConverter.class)
+    private Date lastBoostedAt;
+    
+    @SerializedName("ignoredByUsers")
+    @ColumnInfo(name = "ignoredByUsers")
+    @TypeConverters(StringListConverter.class)
+    private List<String> ignoredByUsers; // List of user IDs who ignored this template
+
+    // Customization Options (from backend Template.js)
+    @SerializedName("customizationOptions")
+    @ColumnInfo(name = "customizationOptions")
+    private String customizationOptions; // JSON string for nested object with allowNameEdit, allowPhotoEdit, etc.
+
+    // Legacy & Compatibility (from backend Template.js)
+    @SerializedName("categoryIcon")
+    @ColumnInfo(name = "categoryIcon")
+    private String categoryIcon;
+    
+    @SerializedName("language")
+    @ColumnInfo(name = "language")
+    private String language; // Language ID reference
+    
+    @SerializedName("region")
+    @ColumnInfo(name = "region")
+    private String region; // Region ID reference
+    
+    @SerializedName("experimentTag")
+    @ColumnInfo(name = "experimentTag")
+    private String experimentTag = "";
+    
+    @SerializedName("performanceLog")
+    @ColumnInfo(name = "performanceLog")
+    private String performanceLog; // JSON string for nested object with dailyUsage, weeklyUsage, lastUsedAt
+
     // Default constructor required by Room
     public Template() {
         // Required empty constructor for Firestore
@@ -317,6 +521,167 @@ public class Template {
     public String getGeneratedByUserUid() { return generatedByUserUid; }
     public void setGeneratedByUserUid(String generatedByUserUid) { this.generatedByUserUid = generatedByUserUid; }
     
+    // Media URLs getters and setters
+    public String getVideoUrl() { return videoUrl; }
+    public void setVideoUrl(String videoUrl) { this.videoUrl = videoUrl; }
+    
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+
+    // Monetization & Access Control getters and setters
+    public boolean isStatus() { return status; }
+    public void setStatus(boolean status) { this.status = status; }
+    
+    public boolean isPremium() { return isPremium; }
+    public void setIsPremium(boolean isPremium) { this.isPremium = isPremium; }
+    
+    public boolean isFeatured() { return isFeatured; }
+    public void setIsFeatured(boolean isFeatured) { this.isFeatured = isFeatured; }
+    
+    public boolean isTrending() { return isTrending; }
+    public void setIsTrending(boolean isTrending) { this.isTrending = isTrending; }
+    
+    public boolean isFlagged() { return isFlagged; }
+    public void setIsFlagged(boolean isFlagged) { this.isFlagged = isFlagged; }
+    
+    public boolean isLowPerforming() { return isLowPerforming; }
+    public void setIsLowPerforming(boolean isLowPerforming) { this.isLowPerforming = isLowPerforming; }
+    
+    public double getPrice() { return price; }
+    public void setPrice(double price) { this.price = Math.max(0.0, price); }
+    
+    public String getModerationStatus() { return moderationStatus; }
+    public void setModerationStatus(String moderationStatus) { this.moderationStatus = moderationStatus; }
+
+    // Engagement Metrics getters and setters
+    public long getUsageCount() { return usageCount; }
+    public void setUsageCount(long usageCount) { this.usageCount = Math.max(0L, usageCount); }
+    
+    public long getViewCount() { return viewCount; }
+    public void setViewCount(long viewCount) { this.viewCount = Math.max(0L, viewCount); }
+    
+    public long getDownloadCount() { return downloadCount; }
+    public void setDownloadCount(long downloadCount) { this.downloadCount = Math.max(0L, downloadCount); }
+    
+    public long getReportCount() { return reportCount; }
+    public void setReportCount(long reportCount) { this.reportCount = Math.max(0L, reportCount); }
+    
+    public double getRating() { return rating; }
+    public void setRating(double rating) { this.rating = Math.max(0.0, Math.min(5.0, rating)); }
+    
+    public long getRatingCount() { return ratingCount; }
+    public void setRatingCount(long ratingCount) { this.ratingCount = Math.max(0L, ratingCount); }
+
+    // Weekly Metrics getters and setters
+    public long getWeeklyUsageCount() { return weeklyUsageCount; }
+    public void setWeeklyUsageCount(long weeklyUsageCount) { this.weeklyUsageCount = Math.max(0L, weeklyUsageCount); }
+    
+    public long getWeeklyLikes() { return weeklyLikes; }
+    public void setWeeklyLikes(long weeklyLikes) { this.weeklyLikes = Math.max(0L, weeklyLikes); }
+    
+    public long getWeeklyFavorites() { return weeklyFavorites; }
+    public void setWeeklyFavorites(long weeklyFavorites) { this.weeklyFavorites = Math.max(0L, weeklyFavorites); }
+    
+    public long getWeeklyViewCount() { return weeklyViewCount; }
+    public void setWeeklyViewCount(long weeklyViewCount) { this.weeklyViewCount = Math.max(0L, weeklyViewCount); }
+    
+    public long getWeeklySharedCount() { return weeklySharedCount; }
+    public void setWeeklySharedCount(long weeklySharedCount) { this.weeklySharedCount = Math.max(0L, weeklySharedCount); }
+    
+    public long getWeeklyDownloadCount() { return weeklyDownloadCount; }
+    public void setWeeklyDownloadCount(long weeklyDownloadCount) { this.weeklyDownloadCount = Math.max(0L, weeklyDownloadCount); }
+    
+    public long getWeeklyReportCount() { return weeklyReportCount; }
+    public void setWeeklyReportCount(long weeklyReportCount) { this.weeklyReportCount = Math.max(0L, weeklyReportCount); }
+    
+    public Date getWeeklyScoreLastReset() { return weeklyScoreLastReset; }
+    public void setWeeklyScoreLastReset(Date weeklyScoreLastReset) { this.weeklyScoreLastReset = weeklyScoreLastReset; }
+
+    // AI Metadata getters and setters
+    public boolean isAIGenerated() { return isAIGenerated; }
+    public void setIsAIGenerated(boolean isAIGenerated) { this.isAIGenerated = isAIGenerated; }
+    
+    public String getAiPrompt() { return aiPrompt; }
+    public void setAiPrompt(String aiPrompt) { this.aiPrompt = aiPrompt != null ? aiPrompt : ""; }
+    
+    public String getAiModel() { return aiModel; }
+    public void setAiModel(String aiModel) { this.aiModel = aiModel != null ? aiModel : ""; }
+    
+    public String getAiStyle() { return aiStyle; }
+    public void setAiStyle(String aiStyle) { this.aiStyle = aiStyle != null ? aiStyle : ""; }
+    
+    public String getAiGenerationStage() { return aiGenerationStage; }
+    public void setAiGenerationStage(String aiGenerationStage) { 
+        this.aiGenerationStage = aiGenerationStage != null ? aiGenerationStage : "initial"; 
+    }
+    
+    public String getGenerationMetadata() { return generationMetadata; }
+    public void setGenerationMetadata(String generationMetadata) { this.generationMetadata = generationMetadata; }
+
+    // Categorization & Tags getters and setters
+    public String getFestivalTag() { return festivalTag; }
+    public void setFestivalTag(String festivalTag) { this.festivalTag = festivalTag != null ? festivalTag : ""; }
+    
+    public List<String> getTags() { return tags; }
+    public void setTags(List<String> tags) { this.tags = tags; }
+    
+    public List<String> getStyleTags() { return styleTags; }
+    public void setStyleTags(List<String> styleTags) { this.styleTags = styleTags; }
+    
+    public List<String> getSearchKeywords() { return searchKeywords; }
+    public void setSearchKeywords(List<String> searchKeywords) { this.searchKeywords = searchKeywords; }
+    
+    public String getVariationOf() { return variationOf; }
+    public void setVariationOf(String variationOf) { this.variationOf = variationOf; }
+    
+    public List<String> getRelatedTemplates() { return relatedTemplates; }
+    public void setRelatedTemplates(List<String> relatedTemplates) { this.relatedTemplates = relatedTemplates; }
+
+    // Visibility & Ranking getters and setters
+    public String getTemplateType() { return templateType; }
+    public void setTemplateType(String templateType) { this.templateType = templateType != null ? templateType : "html"; }
+    
+    public double getVisibilityScore() { return visibilityScore; }
+    public void setVisibilityScore(double visibilityScore) { this.visibilityScore = Math.max(0.0, visibilityScore); }
+    
+    public double getBoostPriority() { return boostPriority; }
+    public void setBoostPriority(double boostPriority) { this.boostPriority = Math.max(0.0, boostPriority); }
+    
+    public Date getLastBoostedAt() { return lastBoostedAt; }
+    public void setLastBoostedAt(Date lastBoostedAt) { this.lastBoostedAt = lastBoostedAt; }
+    
+    public List<String> getIgnoredByUsers() { return ignoredByUsers; }
+    public void setIgnoredByUsers(List<String> ignoredByUsers) { this.ignoredByUsers = ignoredByUsers; }
+
+    // Customization Options getters and setters
+    public String getCustomizationOptions() { return customizationOptions; }
+    public void setCustomizationOptions(String customizationOptions) { this.customizationOptions = customizationOptions; }
+
+    // Legacy & Compatibility getters and setters
+    public String getCategoryIcon() { return categoryIcon; }
+    public void setCategoryIcon(String categoryIcon) { this.categoryIcon = categoryIcon; }
+    
+    public String getLanguage() { return language; }
+    public void setLanguage(String language) { this.language = language; }
+    
+    public String getRegion() { return region; }
+    public void setRegion(String region) { this.region = region; }
+    
+    public String getExperimentTag() { return experimentTag; }
+    public void setExperimentTag(String experimentTag) { this.experimentTag = experimentTag != null ? experimentTag : ""; }
+    
+    public String getPerformanceLog() { return performanceLog; }
+    public void setPerformanceLog(String performanceLog) { this.performanceLog = performanceLog; }
+
+    // Computed fields (virtual fields from server)
+    public double getTrendingScore() {
+        return (usageCount * 3 + likeCount * 2 + favoriteCount * 2 + viewCount + shareCount + downloadCount - reportCount * 5);
+    }
+    
+    public double getWeeklyTrendingScore() {
+        return (weeklyUsageCount * 3 + weeklyLikes * 2 + weeklyFavorites * 2 + weeklyViewCount + weeklySharedCount + weeklyDownloadCount - weeklyReportCount * 5);
+    }
+    
     /**
      * Get the display name for the template creator
      * @return Creator name or fallback to "eventwish" if not available
@@ -357,8 +722,6 @@ public class Template {
     
     public String getThumbnailUrl() { return getPreviewUrl(); }
     public void setThumbnailUrl(String url) { setPreviewUrl(url); }
-    
-    public String getImageUrl() { return getPreviewUrl(); }
     
     public String getHtml() { return getHtmlContent(); }
     public void setHtml(String html) { setHtmlContent(html); }

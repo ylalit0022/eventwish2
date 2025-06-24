@@ -30,7 +30,13 @@
     "seed:sponsored-ads": "node scripts/seedSponsoredAds.js",
     "test:sponsored-ads": "node tools/test-sponsored-ads.js",
     "test:firebase-auth": "node scripts/test-firebase-auth.js",
-    "test:server-and-firebase-auth": "concurrently \"npm run dev:no-auth\" \"wait-on http://localhost:3001/api/server/time && npx cross-env NODE_ENV=development SKIP_AUTH=true node scripts/test-firebase-auth.js\""
+    "test:server-and-firebase-auth": "concurrently \"npm run dev:no-auth\" \"wait-on http://localhost:3001/api/server/time && npx cross-env NODE_ENV=development SKIP_AUTH=true node scripts/test-firebase-auth.js\"",
+    "test:templates": "node tests/templates/test-runner.js",
+    "test:templates:core": "jest tests/templates/core.test.js --verbose",
+    "test:templates:monetization": "jest tests/templates/monetization.test.js --verbose",
+    "test:templates:integration": "jest tests/templates/integration.test.js --verbose",
+    "test:templates:simple": "jest tests/templates/simple-test.js --verbose",
+    "test:templates:coverage": "jest tests/templates/ --coverage --verbose"
   },
   "keywords": [],
   "author": "EventWish Team",

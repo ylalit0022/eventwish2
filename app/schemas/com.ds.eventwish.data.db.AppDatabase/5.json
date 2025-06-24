@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 5,
-    "identityHash": "90bc48a0ff968164c277d662f3bb220b",
+    "identityHash": "d63993a330b3ff10a8cdf9f4c87c8733",
     "entities": [
       {
         "tableName": "templates",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT, `categoryId` TEXT, `previewUrl` TEXT, `likeCount` INTEGER NOT NULL, `favoriteCount` INTEGER NOT NULL, `shareCount` INTEGER NOT NULL, `isLiked` INTEGER NOT NULL, `isFavorited` INTEGER NOT NULL, `lastUpdated` INTEGER, `likeChanged` INTEGER NOT NULL, `favoriteChanged` INTEGER NOT NULL, `htmlContent` TEXT, `cssContent` TEXT, `jsContent` TEXT, `createdAt` INTEGER, `creatorId` TEXT, `creatorUid` TEXT, `creatorName` TEXT, `creatorProfilePhoto` TEXT, `generatedByUser` TEXT, `generatedByUserUid` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`categoryId`) REFERENCES `category`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT, `categoryId` TEXT, `previewUrl` TEXT, `likeCount` INTEGER NOT NULL, `favoriteCount` INTEGER NOT NULL, `shareCount` INTEGER NOT NULL, `isLiked` INTEGER NOT NULL, `isFavorited` INTEGER NOT NULL, `lastUpdated` INTEGER, `likeChanged` INTEGER NOT NULL, `favoriteChanged` INTEGER NOT NULL, `htmlContent` TEXT, `cssContent` TEXT, `jsContent` TEXT, `createdAt` INTEGER, `creatorId` TEXT, `creatorUid` TEXT, `creatorName` TEXT, `creatorProfilePhoto` TEXT, `generatedByUser` TEXT, `generatedByUserUid` TEXT, `videoUrl` TEXT, `imageUrl` TEXT, `status` INTEGER NOT NULL, `isPremium` INTEGER NOT NULL, `isFeatured` INTEGER NOT NULL, `isTrending` INTEGER NOT NULL, `isFlagged` INTEGER NOT NULL, `isLowPerforming` INTEGER NOT NULL, `price` REAL NOT NULL, `moderationStatus` TEXT, `usageCount` INTEGER NOT NULL, `viewCount` INTEGER NOT NULL, `downloadCount` INTEGER NOT NULL, `reportCount` INTEGER NOT NULL, `rating` REAL NOT NULL, `ratingCount` INTEGER NOT NULL, `weeklyUsageCount` INTEGER NOT NULL, `weeklyLikes` INTEGER NOT NULL, `weeklyFavorites` INTEGER NOT NULL, `weeklyViewCount` INTEGER NOT NULL, `weeklySharedCount` INTEGER NOT NULL, `weeklyDownloadCount` INTEGER NOT NULL, `weeklyReportCount` INTEGER NOT NULL, `weeklyScoreLastReset` INTEGER, `isAIGenerated` INTEGER NOT NULL, `aiPrompt` TEXT, `aiModel` TEXT, `aiStyle` TEXT, `aiGenerationStage` TEXT, `generationMetadata` TEXT, `festivalTag` TEXT, `tags` TEXT, `styleTags` TEXT, `searchKeywords` TEXT, `variationOf` TEXT, `relatedTemplates` TEXT, `templateType` TEXT, `visibilityScore` REAL NOT NULL, `boostPriority` REAL NOT NULL, `lastBoostedAt` INTEGER, `ignoredByUsers` TEXT, `customizationOptions` TEXT, `categoryIcon` TEXT, `language` TEXT, `region` TEXT, `experimentTag` TEXT, `performanceLog` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`categoryId`) REFERENCES `category`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "id",
@@ -137,6 +137,288 @@
           {
             "fieldPath": "generatedByUserUid",
             "columnName": "generatedByUserUid",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "videoUrl",
+            "columnName": "videoUrl",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "imageUrl",
+            "columnName": "imageUrl",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isPremium",
+            "columnName": "isPremium",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isFeatured",
+            "columnName": "isFeatured",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isTrending",
+            "columnName": "isTrending",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isFlagged",
+            "columnName": "isFlagged",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isLowPerforming",
+            "columnName": "isLowPerforming",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "price",
+            "columnName": "price",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "moderationStatus",
+            "columnName": "moderationStatus",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "usageCount",
+            "columnName": "usageCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "viewCount",
+            "columnName": "viewCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "downloadCount",
+            "columnName": "downloadCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reportCount",
+            "columnName": "reportCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rating",
+            "columnName": "rating",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ratingCount",
+            "columnName": "ratingCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weeklyUsageCount",
+            "columnName": "weeklyUsageCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weeklyLikes",
+            "columnName": "weeklyLikes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weeklyFavorites",
+            "columnName": "weeklyFavorites",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weeklyViewCount",
+            "columnName": "weeklyViewCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weeklySharedCount",
+            "columnName": "weeklySharedCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weeklyDownloadCount",
+            "columnName": "weeklyDownloadCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weeklyReportCount",
+            "columnName": "weeklyReportCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weeklyScoreLastReset",
+            "columnName": "weeklyScoreLastReset",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "isAIGenerated",
+            "columnName": "isAIGenerated",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "aiPrompt",
+            "columnName": "aiPrompt",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "aiModel",
+            "columnName": "aiModel",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "aiStyle",
+            "columnName": "aiStyle",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "aiGenerationStage",
+            "columnName": "aiGenerationStage",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "generationMetadata",
+            "columnName": "generationMetadata",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "festivalTag",
+            "columnName": "festivalTag",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "tags",
+            "columnName": "tags",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "styleTags",
+            "columnName": "styleTags",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "searchKeywords",
+            "columnName": "searchKeywords",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "variationOf",
+            "columnName": "variationOf",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "relatedTemplates",
+            "columnName": "relatedTemplates",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "templateType",
+            "columnName": "templateType",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "visibilityScore",
+            "columnName": "visibilityScore",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "boostPriority",
+            "columnName": "boostPriority",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastBoostedAt",
+            "columnName": "lastBoostedAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "ignoredByUsers",
+            "columnName": "ignoredByUsers",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "customizationOptions",
+            "columnName": "customizationOptions",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "categoryIcon",
+            "columnName": "categoryIcon",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "language",
+            "columnName": "language",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "region",
+            "columnName": "region",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "experimentTag",
+            "columnName": "experimentTag",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "performanceLog",
+            "columnName": "performanceLog",
             "affinity": "TEXT",
             "notNull": false
           }
@@ -606,7 +888,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '90bc48a0ff968164c277d662f3bb220b')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd63993a330b3ff10a8cdf9f4c87c8733')"
     ]
   }
 }

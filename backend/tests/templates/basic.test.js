@@ -1,0 +1,1 @@
+const request = require('supertest'); const app = require('../../server'); describe('Template API Basic Tests', () => { it('should respond to health check', async () => { const response = await request(app).get('/api/health').expect(200); expect(response.body.success).toBe(true); }); });

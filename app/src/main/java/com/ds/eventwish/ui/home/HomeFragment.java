@@ -736,7 +736,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
             }
         });
 
-        categoriesAdapter.setOnMoreClickListener(this::showCategoriesBottomSheet);
+       
         
         // Make sure to initialize the category icon repository if needed
         if (categoryIconRepository != null && !categoryIconRepository.isInitialized()) {
@@ -845,80 +845,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
         }
     }
 
-    private void showCategoriesBottomSheet(List<Category> remainingCategories) {
-        // Use BottomSheetDialog for better appearance and behavior
-        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(requireContext(), R.style.BottomSheetDialogTheme);
-        View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_categories, null);
-        bottomSheetDialog.setContentView(bottomSheetView);
-
-        // Get views
-        RecyclerView categoriesRecyclerView = bottomSheetView.findViewById(R.id.categoriesRecyclerView);
-        TextView titleView = bottomSheetView.findViewById(R.id.title);
-        TextView subtitleView = bottomSheetView.findViewById(R.id.subtitle);
-
-        // Set the title and subtitle with template counts
-        int totalTemplates = 0;
-        for (Category category : remainingCategories) {
-            totalTemplates += category.getTemplateCount();
-        }
-        titleView.setText("All Categories");
-        subtitleView.setText(String.format("Browse %d categories with %d templates", 
-                remainingCategories.size(), totalTemplates));
-
-        // Set up the grid for categories
-        BottomSheetCategoriesAdapter bottomSheetAdapter = new BottomSheetCategoriesAdapter(requireContext());
-        GridLayoutManager gridLayoutManager = new GridLayoutManager(requireContext(), 2);
-        categoriesRecyclerView.setLayoutManager(gridLayoutManager);
-        categoriesRecyclerView.setAdapter(bottomSheetAdapter);
-        
-        // Apply item decoration for spacing
-        int spacingInPixels = getResources().getDimensionPixelSize(R.dimen.grid_spacing);
-        categoriesRecyclerView.addItemDecoration(new GridSpacingItemDecoration(2, spacingInPixels, true));
-        
-        // Set the current selected category
-        String selectedCategory = viewModel.getSelectedCategory();
-        bottomSheetAdapter.setSelectedCategory(selectedCategory);
-        
-        // Update with categories
-        bottomSheetAdapter.updateCategories(remainingCategories);
-
-        // Set click listener
-        bottomSheetAdapter.setOnCategoryClickListener((category, position) -> {
-            String categoryId = category.getId();
-            String categoryName = category.getName();
-            
-            if ("All".equals(categoryName) || categoryId == null) {
-                viewModel.setCategory(null);
-                
-                // Track "All" category click
-                AnalyticsUtils.trackCategoryClick("All");
-            } else {
-                viewModel.setCategory(categoryName);
-                
-                // Track category click in UserRepository
-                UserRepository.getInstance(requireContext()).trackCategoryClick(categoryName);
-                
-                // Also track in Analytics
-                AnalyticsUtils.trackCategoryClick(categoryName);
-                
-                // Show loading indicator for selected category
-                showCategoryLoadingSnackbar(categoryName);
-            }
-            
-            // Update the main adapter with the new selection
-            categoriesAdapter.updateSelectedCategory(categoryId);
-            
-            // Dismiss the bottom sheet with a slight delay for better UX
-            new Handler().postDelayed(bottomSheetDialog::dismiss, 150);
-        });
-
-        // Set behavior for expanded state
-        BottomSheetBehavior<View> behavior = BottomSheetBehavior.from((View) bottomSheetView.getParent());
-        behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
-        
-        // Show the sheet
-        bottomSheetDialog.show();
-    }
+  
 
     private void setupChips() {
         binding.chipGroupSort.setOnCheckedStateChangeListener((group, checkedIds) -> {

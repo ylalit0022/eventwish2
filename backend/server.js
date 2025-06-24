@@ -419,15 +419,18 @@ if (process.env.NODE_ENV === 'development') {
   });
 }
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  logger.error(`Unhandled error: ${err.message}`, { error: err, path: req.path });
-  res.status(500).json({
-    success: false,
-    message: 'Server error',
-    error: process.env.NODE_ENV === 'development' ? err.message : 'An unexpected error occurred'
-  });
-});
+// Enhanced Error handling middleware
+const { errorHandler, notFoundHandler } = require('./middleware/errorMiddleware');
+const { addRequestId } = require('./middleware/validationMiddleware');
+
+// Add request ID to all requests
+app.use(addRequestId);
+
+// 404 handler for unmatched routes
+app.use(notFoundHandler);
+
+// Enhanced error handling middleware
+app.use(errorHandler);
 
 // Update the MongoDB connection error handling
 mongoose.connect(process.env.MONGODB_URI, {
