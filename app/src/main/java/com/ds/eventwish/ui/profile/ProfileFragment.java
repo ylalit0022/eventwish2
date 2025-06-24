@@ -23,6 +23,7 @@ import com.google.android.material.textfield.TextInputLayout;
 import androidx.appcompat.app.AlertDialog;
 import android.content.DialogInterface;
 import android.widget.Button;
+import com.bumptech.glide.Glide;
 
 public class ProfileFragment extends Fragment {
 
@@ -80,16 +81,44 @@ public class ProfileFragment extends Fragment {
     }
     
     private void setupUserProfile() {
+        // Observe username changes
         profileViewModel.getUsername().observe(getViewLifecycleOwner(), username -> {
-            binding.usernameText.setText(username);
+            if (username != null && !username.isEmpty()) {
+                binding.usernameText.setText(username);
+            } else {
+                binding.usernameText.setText(R.string.default_username);
+            }
         });
         
+        // Observe email changes
         profileViewModel.getEmail().observe(getViewLifecycleOwner(), email -> {
-            binding.emailText.setText(email);
+            if (email != null && !email.isEmpty()) {
+                binding.emailText.setText(email);
+            } else {
+                binding.emailText.setText(R.string.default_email);
+            }
         });
         
-        // Set bio text
-        binding.bioText.setText(getString(R.string.profile_bio_default));
+        // Observe profile photo changes
+        profileViewModel.getProfilePhoto().observe(getViewLifecycleOwner(), photoUrl -> {
+            if (photoUrl != null) {
+                Glide.with(this)
+                    .load(photoUrl)
+                    .placeholder(R.drawable.default_profile)
+                    .error(R.drawable.default_profile)
+                    .circleCrop()
+                    .into(binding.profileImage);
+            } else {
+                binding.profileImage.setImageResource(R.drawable.default_profile);
+            }
+        });
+
+        // Observe error messages
+        profileViewModel.getErrorMessage().observe(getViewLifecycleOwner(), error -> {
+            if (error != null && !error.isEmpty()) {
+                Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show();
+            }
+        });
 
         // Set up edit profile button
         binding.editProfileButton.setOnClickListener(v -> {
@@ -98,7 +127,6 @@ public class ProfileFragment extends Fragment {
     }
 
     private void showEditProfileDialog() {
-        // Create dialog with edit text for name
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireContext());
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_edit_profile, null);
         
@@ -108,7 +136,7 @@ public class ProfileFragment extends Fragment {
         
         AlertDialog dialog = builder.setTitle(R.string.edit_profile_title)
                .setView(dialogView)
-               .setPositiveButton(R.string.save, null) // Set to null initially
+               .setPositiveButton(R.string.save, null)
                .setNegativeButton(R.string.cancel, null)
                .create();
 
@@ -124,10 +152,19 @@ public class ProfileFragment extends Fragment {
                 // Clear any previous errors
                 nameInputLayout.setError(null);
 
-                // Update profile
-                profileViewModel.updateProfile(newName, binding.emailText.getText().toString());
-                Toast.makeText(requireContext(), R.string.profile_updated, Toast.LENGTH_SHORT).show();
-                dialog.dismiss();
+                // Update profile - keep existing email
+                String currentEmail = binding.emailText.getText().toString();
+                profileViewModel.updateProfile(newName, currentEmail);
+                
+                // Error handling is now done through the ViewModel's error LiveData
+                profileViewModel.getErrorMessage().observe(getViewLifecycleOwner(), error -> {
+                    if (error != null) {
+                        Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(requireContext(), R.string.profile_updated, Toast.LENGTH_SHORT).show();
+                        dialog.dismiss();
+                    }
+                });
             });
         });
 

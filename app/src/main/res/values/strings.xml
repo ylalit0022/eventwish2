@@ -151,7 +151,6 @@
     <string name="update_available">New update available</string>
     <string name="update_required">Update required</string>
     <string name="update_downloading">Downloading update…</string>
-    <string name="update_failed">Update failed</string>
     <string name="update_cancelled">Update cancelled</string>
     <string name="update_no_network">No network connection</string>
     <string name="update_message">A new version of the app is available. Please update to continue using the app.</string>
@@ -592,4 +591,14 @@
     <string name="name_hint">Name</string>
     <string name="profile_updated">Profile updated successfully</string>
     <string name="name_required">Name is required</string>
+
+    <!-- Profile Screen -->
+    <string name="profile_image_description">Profile picture</string>
+    <string name="edit_profile">Edit Profile</string>
+    <string name="posts">Posts</string>
+    <string name="likes">Likes</string>
+    <string name="favorites">Favorites</string>
+    <string name="default_username">User</string>
+    <string name="default_email">user@example.com</string>
+    <string name="update_failed">Failed to update profile: %1$s</string>
 </resources>

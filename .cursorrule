@@ -125,3 +125,296 @@ The "More" category system works through:
    - Check selection preservation
    - Verify icon loading system
    - Test overflow handling
+
+# User Profile Implementation with Google Auth
+
+## 🔍 Analysis First:
+
+### Understanding the Task Goal:
+Implement user profile display and editing functionality in ProfileFragment, showing the current user's information from Google Auth and allowing targeted edits. The profile should display the authenticated user's name, email, and profile picture from their Google account.
+
+### Linked/Related Files Working Together:
+1. **UI Files**:
+   - `app/src/main/java/com/ds/eventwish/ui/profile/ProfileFragment.java` - Main profile UI logic
+   - `app/src/main/res/layout/fragment_profile.xml` - Profile layout
+   - `app/src/main/res/layout/dialog_edit_profile.xml` - Edit dialog layout
+
+2. **Auth & User Data**:
+   - `app/src/main/java/com/ds/eventwish/data/auth/AuthManager.java` - Google Auth management
+   - `app/src/main/java/com/ds/eventwish/data/model/User.java` - User model
+   - `app/src/main/java/com/ds/eventwish/data/repository/UserRepository.java` - User data operations
+
+3. **ViewModel & LiveData**:
+   - `app/src/main/java/com/ds/eventwish/ui/profile/ProfileViewModel.java` - Profile data management
+   - Firebase Auth dependencies and GoogleSignIn client
+
+### Key References and Import Analysis:
+- **Firebase Auth**: For getting current user data
+- **GoogleSignIn**: For accessing Google user info
+- **Glide**: For loading profile images
+- **ViewModel & LiveData**: For reactive UI updates
+- **MaterialAlertDialog**: For edit profile dialog
+
+## 📝 Scratchpad Plan:
+
+### 🎯 Objective 
+Implement user profile display and editing functionality that:
+1. Shows current Google-authenticated user's info
+2. Allows targeted profile edits
+3. Updates both local and remote data
+4. Handles all edge cases and errors
+
+### 🧩 Related Files
+- **app/src/main/java/com/ds/eventwish/ui/profile/ProfileFragment.java** (main implementation)
+- **app/src/main/res/layout/fragment_profile.xml** (profile UI)
+- **app/src/main/java/com/ds/eventwish/data/auth/AuthManager.java** (auth handling)
+- **app/src/main/java/com/ds/eventwish/data/repository/UserRepository.java** (data operations)
+- **app/src/main/java/com/ds/eventwish/ui/profile/ProfileViewModel.java** (data management)
+
+### ✅ Checklist
+1. [ ] **Auth Integration**:
+   - [ ] Get current Firebase user
+   - [ ] Access Google Sign-In account
+   - [ ] Handle auth state changes
+   - [ ] Implement proper error handling
+
+2. [ ] **Profile Display**:
+   - [ ] Load user data from Firebase
+   - [ ] Display profile picture using Glide
+   - [ ] Show name and email
+   - [ ] Handle loading states
+   - [ ] Implement error states
+
+3. [ ] **Edit Functionality**:
+   - [ ] Create edit dialog
+   - [ ] Validate input
+   - [ ] Update Firebase profile
+   - [ ] Update Google profile if needed
+   - [ ] Handle edit errors
+   - [ ] Show success/failure feedback
+
+4. [ ] **Data Synchronization**:
+   - [ ] Sync with remote database
+   - [ ] Handle offline mode
+   - [ ] Implement retry logic
+   - [ ] Cache user data
+
+5. [ ] **Error Handling**:
+   - [ ] Auth errors
+   - [ ] Network errors
+   - [ ] Validation errors
+   - [ ] Edge cases
+
+### 🧠 Context
+The profile system works through:
+1. Firebase Auth provides base user data
+2. Google Sign-In gives additional profile info
+3. UserRepository syncs with remote database
+4. ProfileViewModel manages UI state
+5. ProfileFragment displays and handles edits
+
+### 🚧 Progress Log
+1. Initial Analysis:
+   - Found current profile implementation
+   - Located auth integration points
+   - Identified data flow paths
+
+2. Issues Found:
+   - [ ] Missing Firebase user integration
+   - [ ] No Google profile sync
+   - [ ] Incomplete error handling
+   - [ ] Missing loading states
+
+3. Next Steps:
+   - Implement Firebase Auth integration
+   - Add Google profile sync
+   - Enhance error handling
+   - Add loading states
+
+## 🔑 Implementation Details
+
+### 1. Auth Integration
+```java
+// In ProfileViewModel
+private final FirebaseAuth firebaseAuth = FirebaseAuth.getInstance();
+private final GoogleSignInClient googleSignInClient;
+
+public ProfileViewModel() {
+    // Initialize Google Sign-In
+    GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+        .requestIdToken(getString(R.string.default_web_client_id))
+        .requestEmail()
+        .build();
+    googleSignInClient = GoogleSignIn.getClient(this, gso);
+}
+```
+
+### 2. Profile Display
+```java
+// In ProfileFragment
+private void setupUserProfile() {
+    profileViewModel.getCurrentUser().observe(getViewLifecycleOwner(), user -> {
+        if (user != null) {
+            binding.usernameText.setText(user.getDisplayName());
+            binding.emailText.setText(user.getEmail());
+            
+            // Load profile image
+            Glide.with(this)
+                .load(user.getPhotoUrl())
+                .placeholder(R.drawable.profile_placeholder)
+                .error(R.drawable.profile_error)
+                .into(binding.profileImage);
+        }
+    });
+}
+```
+
+### 3. Edit Implementation
+```java
+// In ProfileFragment
+private void showEditProfileDialog() {
+    MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireContext());
+    View dialogView = getLayoutInflater().inflate(R.layout.dialog_edit_profile, null);
+    
+    TextInputLayout nameInput = dialogView.findViewById(R.id.nameInputLayout);
+    TextInputEditText nameEdit = dialogView.findViewById(R.id.nameInput);
+    
+    // Pre-fill current data
+    FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+    if (user != null) {
+        nameEdit.setText(user.getDisplayName());
+    }
+    
+    builder.setView(dialogView)
+           .setTitle(R.string.edit_profile)
+           .setPositiveButton(R.string.save, null)
+           .setNegativeButton(R.string.cancel, null);
+           
+    AlertDialog dialog = builder.create();
+    
+    dialog.setOnShowListener(dialogInterface -> {
+        Button positiveButton = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
+        positiveButton.setOnClickListener(v -> {
+            String newName = nameEdit.getText().toString().trim();
+            
+            if (newName.isEmpty()) {
+                nameInput.setError(getString(R.string.name_required));
+                return;
+            }
+            
+            // Update profile
+            profileViewModel.updateProfile(newName)
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(requireContext(), 
+                        R.string.profile_updated, 
+                        Toast.LENGTH_SHORT).show();
+                    dialog.dismiss();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(requireContext(),
+                        getString(R.string.update_failed, e.getMessage()),
+                        Toast.LENGTH_LONG).show();
+                });
+        });
+    });
+    
+    dialog.show();
+}
+```
+
+### 4. Error Handling
+```java
+// In ProfileViewModel
+private void handleError(Exception e) {
+    if (e instanceof FirebaseAuthInvalidUserException) {
+        // Handle invalid user
+        _errorState.setValue(new ErrorState(
+            ErrorType.AUTH_ERROR,
+            R.string.auth_error_message
+        ));
+    } else if (e instanceof NetworkErrorException) {
+        // Handle network error
+        _errorState.setValue(new ErrorState(
+            ErrorType.NETWORK_ERROR,
+            R.string.network_error_message
+        ));
+    } else {
+        // Handle general error
+        _errorState.setValue(new ErrorState(
+            ErrorType.GENERAL_ERROR,
+            R.string.general_error_message
+        ));
+    }
+}
+```
+
+## 🔍 Testing Strategy
+
+### 1. Unit Tests
+- Test profile data validation
+- Test error handling
+- Test data transformations
+- Test auth state management
+
+### 2. Integration Tests
+- Test Firebase Auth integration
+- Test Google Sign-In flow
+- Test profile updates
+- Test data sync
+
+### 3. UI Tests
+- Test profile display
+- Test edit dialog
+- Test error states
+- Test loading states
+
+## 📱 UI/UX Considerations
+
+### 1. Loading States
+- Show progress during profile load
+- Show progress during updates
+- Disable edit button while updating
+
+### 2. Error States
+- Show appropriate error messages
+- Provide retry options
+- Handle offline mode gracefully
+
+### 3. Success States
+- Show success confirmations
+- Animate profile updates
+- Provide visual feedback
+
+## 🔒 Security Considerations
+
+### 1. Auth State
+- Verify user authentication
+- Handle token expiration
+- Secure sensitive data
+
+### 2. Data Validation
+- Validate all user input
+- Sanitize data before saving
+- Prevent injection attacks
+
+### 3. Error Exposure
+- Hide sensitive error details
+- Log securely
+- Handle security exceptions
+
+## 📈 Performance Optimization
+
+### 1. Image Loading
+- Use Glide caching
+- Handle image resizing
+- Optimize network requests
+
+### 2. Data Caching
+- Cache user profile data
+- Implement offline support
+- Use efficient data structures
+
+### 3. UI Performance
+- Minimize layout passes
+- Use efficient ViewHolder pattern
+- Optimize animations

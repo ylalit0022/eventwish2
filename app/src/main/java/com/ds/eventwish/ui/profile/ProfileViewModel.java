@@ -30,6 +30,8 @@ public class ProfileViewModel extends AndroidViewModel {
 
     private final MutableLiveData<String> username = new MutableLiveData<>();
     private final MutableLiveData<String> email = new MutableLiveData<>();
+    private final MutableLiveData<String> profilePhoto = new MutableLiveData<>();
+    private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
     private final TemplateRepository templateRepository;
     private final UserRepository userRepository;
     private final AuthManager authManager;
@@ -82,40 +84,26 @@ public class ProfileViewModel extends AndroidViewModel {
     }
 
     private void loadUserProfile() {
-        // Try to get user from local database
-        AppExecutors.getInstance().diskIO().execute(() -> {
-            try {
-                AppDatabase db = AppDatabase.getInstance(getApplication());
-                UserDao userDao = db.userDao();
-                UserEntity userEntity = userDao.getCurrentUser();
+        FirebaseUser currentUser = authManager.getCurrentUser();
+        if (currentUser == null) {
+            Log.e("ProfileViewModel", "No authenticated user found");
+            return;
+        }
 
-                if (userEntity != null) {
-                    // Update UI on main thread
-                    new Handler(Looper.getMainLooper()).post(() -> {
-                        username.setValue(userEntity.getDisplayName() != null ?
-                                          userEntity.getDisplayName() : "User");
-                        email.setValue(userEntity.getEmail() != null ?
-                                      userEntity.getEmail() : "");
-                    });
-                } else {
-                    // Fallback to Firebase user
-                    FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
-                    if (firebaseUser != null) {
-                        new Handler(Looper.getMainLooper()).post(() -> {
-                            username.setValue(firebaseUser.getDisplayName() != null ?
-                                             firebaseUser.getDisplayName() : "User");
-                            email.setValue(firebaseUser.getEmail() != null ?
-                                         firebaseUser.getEmail() : "");
-                        });
-                    }
-                }
-            } catch (Exception e) {
-                Log.e("ProfileViewModel", "Error loading user profile: " + e.getMessage());
-                // Fallback to default values
-                new Handler(Looper.getMainLooper()).post(() -> {
-                    username.setValue("User");
-                    email.setValue("");
-                });
+        String uid = currentUser.getUid();
+        userRepository.getUserProfile(uid).observeForever(user -> {
+            if (user != null) {
+                username.setValue(user.getDisplayName() != null ? user.getDisplayName() : "User");
+                email.setValue(user.getEmail() != null ? user.getEmail() : "");
+                profilePhoto.setValue(user.getProfilePhoto());
+            } else {
+                // Fallback to Firebase user data if MongoDB data is not available
+                username.setValue(currentUser.getDisplayName() != null ? 
+                               currentUser.getDisplayName() : "User");
+                email.setValue(currentUser.getEmail() != null ? 
+                            currentUser.getEmail() : "");
+                profilePhoto.setValue(currentUser.getPhotoUrl() != null ? 
+                                   currentUser.getPhotoUrl().toString() : null);
             }
         });
     }
@@ -128,7 +116,20 @@ public class ProfileViewModel extends AndroidViewModel {
         return email;
     }
 
+    public LiveData<String> getProfilePhoto() {
+        return profilePhoto;
+    }
+
+    public LiveData<String> getErrorMessage() {
+        return errorMessage;
+    }
+
     public void updateProfile(String username, String email) {
+        if (username == null || username.trim().isEmpty()) {
+            errorMessage.setValue("Username cannot be empty");
+            return;
+        }
+
         // Update UI immediately
         this.username.setValue(username);
         this.email.setValue(email);
@@ -145,10 +146,14 @@ public class ProfileViewModel extends AndroidViewModel {
                 .addOnSuccessListener(aVoid -> {
                     // After Firebase update, sync with MongoDB and local cache
                     userRepository.updateUserProfile(username, email);
+                    errorMessage.setValue(null); // Clear any previous errors
                 })
                 .addOnFailureListener(e -> {
                     Log.e("ProfileViewModel", "Error updating Firebase profile: " + e.getMessage());
+                    errorMessage.setValue("Failed to update profile: " + e.getMessage());
                 });
+        } else {
+            errorMessage.setValue("No user is currently signed in");
         }
     }
 
