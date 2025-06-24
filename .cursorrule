@@ -180,3 +180,75 @@ Create comprehensive client-side API endpoints in ApiService.java that correspon
 - **✅ Performance**: Efficient API calls with proper error handling
 - **✅ Maintainability**: Clean, organized code following established patterns
 - **✅ Build Success**: Project compiles and builds without errors
+
+# Template Deserialization Fix Scratchpad
+
+## 🔍 Analysis First:
+
+### Understanding the Task Goal:
+Fix the Template deserialization issue where individual Template objects are failing to deserialize, resulting in 0 templates being returned to the UI. The log shows that the ApiClient is receiving valid JSON data from the server, but the Gson deserialization is failing for individual Template objects, causing them to be skipped.
+
+### Linked/Related Files Working Together:
+1. **app/src/main/java/com/ds/eventwish/data/model/Template.java** - Template model with 40+ fields and @SerializedName annotations
+2. **app/src/main/java/com/ds/eventwish/data/remote/ApiClient.java** - Gson configuration and EmptyListDeserializer
+3. **app/src/main/java/com/ds/eventwish/data/repository/TemplateRepository.java** - Template fetching and filtering logic
+4. **app/src/main/java/com/ds/eventwish/data/model/response/TemplateResponse.java** - Response wrapper for template data
+5. **app/src/main/java/com/ds/eventwish/data/converter/** - Type converters for complex fields
+6. **backend/models/Template.js** - Server-side Template schema (reference for field mapping)
+
+### Key References and Import Analysis:
+- **Gson Annotations**: @SerializedName mappings in Template.java
+- **Type Converters**: StringListConverter, DateConverter, CustomizationOptionsConverter, etc.
+- **Server Response**: JSON structure with nested objects (customizationOptions, generationMetadata, performanceLog)
+- **Room Annotations**: @ColumnInfo, @TypeConverters for database storage
+
+## 📝 Scratchpad Plan:
+
+### 🎯 Objective 
+Fix Template deserialization failure by identifying and resolving field mapping issues between server JSON response and Android Template model, ensuring templates are properly parsed and displayed in the UI.
+
+### 🧩 Related Files
+- **app/src/main/java/com/ds/eventwish/data/model/Template.java** (main model with field mappings)
+- **app/src/main/java/com/ds/eventwish/data/remote/ApiClient.java** (Gson configuration)
+- **app/src/main/java/com/ds/eventwish/data/converter/** (type converters for complex fields)
+- **app/src/main/java/com/ds/eventwish/data/repository/TemplateRepository.java** (error handling)
+- **app/src/main/java/com/ds/eventwish/data/model/response/TemplateResponse.java** (response structure)
+
+### ✅ Checklist
+- [x] **Analyze server JSON structure**: Review actual JSON data from logs to identify field structure
+- [x] **Check Template.java field mappings**: Verify @SerializedName annotations match server fields
+- [x] **Identify problematic fields**: Found fields causing deserialization failures (customizationOptions, generationMetadata, performanceLog)
+- [x] **Fix type converter issues**: Created TemplateDeserializer to convert nested objects to JSON strings
+- [x] **Add custom deserializer**: Added TemplateDeserializer to ApiClient Gson configuration
+- [x] **Update Gson configuration**: Added proper type adapter for Template class
+- [x] **Build successful**: App compiles without errors with the new deserializer
+- [ ] **Test deserialization**: Verify templates are properly parsed and displayed in UI
+- [ ] **Check categories response**: Ensure categories are also being parsed correctly
+- [ ] **Validate UI updates**: Confirm templates and categories appear in HomeFragment
+
+### 🧠 Context
+From the log analysis, I can see:
+
+1. **Server Response Structure**: The server is returning valid JSON with nested objects:
+   - `customizationOptions`: Object with boolean flags like `{"allowNameEdit":true,"allowPhotoEdit":false,...}`
+   - `generationMetadata`: Object with info like `{"resolution":"1024x1024"}`
+   - `performanceLog`: Object with stats like `{"dailyUsage":0,"weeklyUsage":0}`
+   - Various arrays: `tags`, `styleTags`, `searchKeywords`, `relatedTemplates`, `ignoredByUsers`
+
+2. **Root Cause Identified**: The EmptyListDeserializer was catching exceptions during Template deserialization and skipping problematic elements because the server sends nested objects but Template.java expects JSON strings.
+
+3. **✅ Solution Implemented**: Created TemplateDeserializer that:
+   - Converts nested objects (`customizationOptions`, `generationMetadata`, `performanceLog`) to JSON strings
+   - Preserves all other fields as-is
+   - Uses default Gson for final Template deserialization
+   - Provides comprehensive logging for debugging
+
+4. **Categories**: Should work fine as they're simple `Map<String, Integer>` in TemplateResponse
+
+### 🚧 Progress Log
+- **✅ Analysis Complete**: Identified deserialization failure in ApiClient logs
+- **✅ Root Cause Found**: Server sends nested objects but Template.java expects JSON strings for complex fields
+- **✅ Solution Implemented**: Created TemplateDeserializer with object-to-string conversion for complex fields
+- **✅ Build Successful**: App compiles without errors with the new deserializer
+- **✅ Fix Ready**: Template deserialization issue should now be resolved
+- **Next**: Test the app to verify templates are now loading and displaying correctly

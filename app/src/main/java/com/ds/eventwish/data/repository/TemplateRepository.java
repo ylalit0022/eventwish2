@@ -426,22 +426,41 @@ public class TemplateRepository {
                             if (fetchedTemplates != null && !fetchedTemplates.isEmpty()) {
                                 Log.d(TAG, "Received " + fetchedTemplates.size() + " templates from API");
                                 
-                                // Log the first template's details for debugging
-                                Template firstTemplate = fetchedTemplates.get(0);
-                                Log.d(TAG, "First template details: " +
-                                      "id=" + firstTemplate.getId() + 
-                                      ", title=" + firstTemplate.getTitle() + 
-                                      ", createdAt=" + (firstTemplate.getCreatedAt() != null ? firstTemplate.getCreatedAt() : "null") +
-                                      ", raw JSON=" + new Gson().toJson(firstTemplate));
-                                
-                                // Ensure all templates have a createdAt date
-                                for (Template template : fetchedTemplates) {
-                                    if (template.getCreatedAt() == null) {
-                                        Log.d(TAG, "Template " + template.getId() + " has null createdAt, setting to current date");
-                                        template.setCreatedAt(new Date());
+                                // Filter out any non-Template objects that might have been added by deserializer
+                                List<Template> validTemplates = new ArrayList<>();
+                                for (Object item : fetchedTemplates) {
+                                    if (item instanceof Template) {
+                                        validTemplates.add((Template) item);
                                     } else {
-                                        Log.d(TAG, "Template " + template.getId() + " has createdAt: " + template.getCreatedAt());
+                                        Log.w(TAG, "Skipping non-Template object: " + item.getClass().getName() + 
+                                                   " - Content: " + item.toString());
                                     }
+                                }
+                                
+                                // Update fetchedTemplates to only include valid Template objects
+                                fetchedTemplates = validTemplates;
+                                Log.d(TAG, "Filtered to " + fetchedTemplates.size() + " valid Template objects");
+                                
+                                if (!fetchedTemplates.isEmpty()) {
+                                    // Log the first template's details for debugging
+                                    Template firstTemplate = fetchedTemplates.get(0);
+                                    Log.d(TAG, "First template details: " +
+                                          "id=" + firstTemplate.getId() + 
+                                          ", title=" + firstTemplate.getTitle() + 
+                                          ", createdAt=" + (firstTemplate.getCreatedAt() != null ? firstTemplate.getCreatedAt() : "null") +
+                                          ", raw JSON=" + new Gson().toJson(firstTemplate));
+                                
+                                    // Ensure all templates have a createdAt date
+                                    for (Template template : fetchedTemplates) {
+                                        if (template.getCreatedAt() == null) {
+                                            Log.d(TAG, "Template " + template.getId() + " has null createdAt, setting to current date");
+                                            template.setCreatedAt(new Date());
+                                        } else {
+                                            Log.d(TAG, "Template " + template.getId() + " has createdAt: " + template.getCreatedAt());
+                                        }
+                                    }
+                                } else {
+                                    Log.w(TAG, "No valid Template objects found after filtering");
                                 }
                                 
                                 // Save categories from response if available

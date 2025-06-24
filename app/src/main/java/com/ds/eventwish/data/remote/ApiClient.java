@@ -11,6 +11,7 @@ import com.ds.eventwish.utils.NetworkUtils;
 import com.ds.eventwish.utils.DeviceUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
@@ -213,9 +214,11 @@ public class ApiClient {
         String apiKey = getApiKey();
         Log.d(TAG, "Creating API service with API key: " + (apiKey != null ? "valid key" : "null key"));
 
-        // Create Gson converter that properly handles empty arrays
+        // Create Gson converter that properly handles dates, empty arrays, and nested objects
         Gson gson = new GsonBuilder()
+            .setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
             .registerTypeAdapter(List.class, new EmptyListDeserializer())
+            .registerTypeAdapter(com.ds.eventwish.data.model.Template.class, new TemplateDeserializer())
             .create();
 
         // Create OkHttp client with interceptors
@@ -776,34 +779,13 @@ public class ApiClient {
         public List<?> deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
             // Log the typeOfT for debugging
             Log.d(TAG, "Deserializing List with type: " + typeOfT.toString());
+            Log.d(TAG, "JSON element type: " + json.getClass().getSimpleName());
+            Log.d(TAG, "JSON content preview: " + json.toString().substring(0, Math.min(200, json.toString().length())));
             
             // Handle arrays directly
             if (json.isJsonArray()) {
-                List<Object> list = new ArrayList<>();
-                for (JsonElement element : json.getAsJsonArray()) {
-                    if (element.isJsonPrimitive()) {
-                        list.add(element.getAsString());
-                    } else if (element.isJsonObject()) {
-                        // Use context to properly deserialize objects
-                        // Extract the type parameter from the List type
-                        Type elementType = ((java.lang.reflect.ParameterizedType) typeOfT).getActualTypeArguments()[0];
-                        try {
-                            list.add(context.deserialize(element, elementType));
-                        } catch (Exception e) {
-                            Log.e(TAG, "Error deserializing object: " + e.getMessage(), e);
-                            // Fallback to JsonObject if deserialization fails
-                            list.add(element.getAsJsonObject());
-                        }
-                    } else if (element.isJsonArray()) {
-                        list.add(element.getAsJsonArray());
-                    } else if (element.isJsonNull()) {
-                        list.add(null);
-                    }
-                }
-                return list;
-            } else if (json.isJsonObject()) {
-                // If we got an object when expecting an array, check for empty data field
-                JsonObject jsonObject = json.getAsJsonObject();
+                JsonArray jsonArray = json.getAsJsonArray();
+                Log.d(TAG, "Processing JSON array with " + jsonArray.size() + " elements");
                 
                 // Extract the element type from the List type parameter
                 Type elementType = null;
@@ -814,42 +796,42 @@ public class ApiClient {
                     Log.e(TAG, "Error getting element type: " + e.getMessage(), e);
                 }
                 
+                List<Object> dataList = new ArrayList<>();
+                for (JsonElement element : jsonArray) {
+                    Log.d(TAG, "Element type for deserialization: " + elementType);
+                    if (elementType != null) {
+                        try {
+                            Object deserializedObject = context.deserialize(element, elementType);
+                            if (deserializedObject != null) {
+                                dataList.add(deserializedObject);
+                            } else {
+                                Log.w(TAG, "Deserialized object is null, skipping element");
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error deserializing data element: " + e.getMessage(), e);
+                            Log.e(TAG, "Problematic JSON element: " + element.toString());
+                            // Skip problematic elements instead of adding JsonObject
+                        }
+                    } else {
+                        Log.w(TAG, "Element type is null, skipping element");
+                    }
+                }
+                
+                Log.d(TAG, "Successfully processed " + dataList.size() + " elements out of " + jsonArray.size() + " total");
+                return dataList;
+            }
+            
+            // Handle objects that might contain arrays
+            if (json.isJsonObject()) {
+                JsonObject jsonObject = json.getAsJsonObject();
+                Log.d(TAG, "Processing JSON object, checking for data/templates fields");
+                
                 if (jsonObject.has("data") && jsonObject.get("data").isJsonArray()) {
-                    Log.d(TAG, "Found data array in object, returning properly deserialized objects");
-                    List<Object> dataList = new ArrayList<>();
-                    for (JsonElement element : jsonObject.getAsJsonArray("data")) {
-                        if (element.isJsonObject()) {
-                            if (elementType != null) {
-                                try {
-                                    dataList.add(context.deserialize(element, elementType));
-                                } catch (Exception e) {
-                                    Log.e(TAG, "Error deserializing data element: " + e.getMessage(), e);
-                                    dataList.add(element.getAsJsonObject());
-                                }
-                            } else {
-                                dataList.add(element.getAsJsonObject());
-                            }
-                        }
-                    }
-                    return dataList;
+                    Log.d(TAG, "Found data array in object, recursing");
+                    return deserialize(jsonObject.get("data"), typeOfT, context);
                 } else if (jsonObject.has("templates") && jsonObject.get("templates").isJsonArray()) {
-                    Log.d(TAG, "Found templates array in object, returning properly deserialized objects");
-                    List<Object> templatesList = new ArrayList<>();
-                    for (JsonElement element : jsonObject.getAsJsonArray("templates")) {
-                        if (element.isJsonObject()) {
-                            if (elementType != null) {
-                                try {
-                                    templatesList.add(context.deserialize(element, elementType));
-                                } catch (Exception e) {
-                                    Log.e(TAG, "Error deserializing template element: " + e.getMessage(), e);
-                                    templatesList.add(element.getAsJsonObject());
-                                }
-                            } else {
-                                templatesList.add(element.getAsJsonObject());
-                            }
-                        }
-                    }
-                    return templatesList;
+                    Log.d(TAG, "Found templates array in object, recursing");
+                    return deserialize(jsonObject.get("templates"), typeOfT, context);
                 }
                 // Return empty list for other object types
                 Log.d(TAG, "Object doesn't contain expected array field, returning empty list");
@@ -859,6 +841,62 @@ public class ApiClient {
             // For other cases, return empty list
             Log.d(TAG, "Unexpected JSON type, returning empty list");
             return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Custom deserializer for handling Template class to handle nested objects by converting them to JSON strings
+     */
+    private static class TemplateDeserializer implements JsonDeserializer<com.ds.eventwish.data.model.Template> {
+        @Override
+        public com.ds.eventwish.data.model.Template deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
+            Log.d(TAG, "TemplateDeserializer: Starting deserialization");
+            
+            if (!json.isJsonObject()) {
+                Log.w(TAG, "TemplateDeserializer: JSON is not an object, returning null");
+                return null;
+            }
+            
+            JsonObject jsonObject = json.getAsJsonObject();
+            
+            try {
+                // Create a new JsonObject with converted nested objects
+                JsonObject convertedObject = new JsonObject();
+                
+                // Copy all properties, converting nested objects to JSON strings where needed
+                for (String key : jsonObject.keySet()) {
+                    JsonElement value = jsonObject.get(key);
+                    
+                    // Convert nested objects to JSON strings for specific fields
+                    if (("customizationOptions".equals(key) || "generationMetadata".equals(key) || 
+                         "performanceLog".equals(key)) && value.isJsonObject()) {
+                        // Convert object to JSON string
+                        String jsonString = value.toString();
+                        convertedObject.addProperty(key, jsonString);
+                        Log.d(TAG, "TemplateDeserializer: Converted " + key + " object to JSON string: " + jsonString.substring(0, Math.min(100, jsonString.length())));
+                    } else {
+                        // Copy as-is for other fields
+                        convertedObject.add(key, value);
+                    }
+                }
+                
+                // Use default Gson to deserialize the converted object
+                Gson defaultGson = new Gson();
+                com.ds.eventwish.data.model.Template template = defaultGson.fromJson(convertedObject, com.ds.eventwish.data.model.Template.class);
+                
+                if (template != null) {
+                    Log.d(TAG, "TemplateDeserializer: Successfully deserialized template with ID: " + template.getId());
+                } else {
+                    Log.w(TAG, "TemplateDeserializer: Template deserialization resulted in null");
+                }
+                
+                return template;
+                
+            } catch (Exception e) {
+                Log.e(TAG, "TemplateDeserializer: Error deserializing template: " + e.getMessage(), e);
+                Log.e(TAG, "TemplateDeserializer: Problematic JSON: " + json.toString().substring(0, Math.min(500, json.toString().length())));
+                return null;
+            }
         }
     }
 }
