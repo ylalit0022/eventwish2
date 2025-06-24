@@ -1,3 +1,113 @@
+# .cursorrules — Context & Guidelines for EventWish App
+
+## 🔧 Project Tech Stack
+- Mobile: Android (Java/Kotlin, MVVM)
+- Backend: Node.js + Express + MongoDB (Mongoose)
+- Realtime: Firebase Auth, Firestore, Firebase Cloud Messaging, Firebase Remote Config
+- Monetization: Google AdMob, Google Play Billing
+- Hosting: Firebase + Cloudways (Node.js)
+- AI Support: Prompt-based template generation via OpenAI or Claude
+
+---
+
+## 📱 App Summary
+**EventWish** is a greeting card sharing app that supports:
+- HTML/image/video templates
+- Personalized card creation
+- Monetization via subscriptions + AdMob
+- Scheduled greeting notifications
+- Custom AI-generated templates
+- Admin dashboard for push + moderation
+- Dynamic theme switcher via Remote Config
+
+---
+
+## 📦 Modular Features & Responsibilities
+
+### 🧩 1. Template System
+- Templates can be: `HTML`, `IMAGE`, `VIDEO` (via enum)
+- `Template.java` must match `Template.js`
+- Display logic in RecyclerView must branch on enum type
+
+### 🚫 2. Blocked Users
+- MongoDB: `BlockedUsers` collection
+- If a blocked user logs in:
+  - Show alert: `reason`, `contact email`, OK
+  - Store block event with timestamp
+  - Notify on unblock via FCM
+
+### 💰 3. Monetization
+- AdMob is **centralized**: enable/disable from one point
+- If user has subscription:
+  - Disable AdMob globally
+  - Re-enable on expiration
+- Support per-user AdMob override (from Firestore)
+
+### 📲 4. Push Notifications
+- Support both:
+  - Manual admin push
+  - Festival/cron-triggered push
+- Must support personalization (via Firestore `senderName`)
+
+### 🎨 5. Theming & Customization
+- Theme controlled by Firebase Remote Config
+- Template options:
+  - `allowTextEdit`, `allowColorChange`, `allowImageUpload`, etc.
+- UI must follow customization flags per template
+
+### 📈 6. Metrics Tracking
+- Record: `view`, `like`, `share`, `download`, `report`
+- Also track weekly metrics: `weeklyViewCount`, etc.
+- Trending score = weighted formula (used in API filter)
+
+---
+
+## 🧠 Naming & Style Guidelines
+- Always use snake_case in Mongo fields
+- Use camelCase in Firebase + Android models
+- Firebase document names = lowercase (e.g. `blocked_users`, `user_preferences`)
+- Enum values are UPPER_SNAKE (e.g. `TEMPLATE_TYPE: HTML`, `VIDEO`)
+
+---
+
+## 🗂️ Project Workflow Rules
+- All Firebase-authenticated API routes must validate JWT
+- Use `@Header("Authorization")` in all protected client API calls
+- Use `Call<JsonObject>` or `Call<BaseResponse<T>>` for typed API response handling
+- TypeConverters are mandatory for:
+  - Nested objects (`customizationOptions`)
+  - Arrays (`tags`, `relatedTemplates`)
+- Always test Room DB compatibility when model changes
+
+---
+
+## 🧪 Required QA Coverage (per feature)
+- UI test for block alert and unblock
+- Subscription state switch test (AdMob visibility)
+- Template rendering by type test
+- Push test (manual + festival)
+- Field sync test (Template.js vs Template.java)
+
+---
+
+## 🧠 Lessons (Learned from Iteration)
+- 🟡 Don't skip Firebase JWT validation — it causes unauthorized access bugs
+- 🟢 Always match server schema updates with Room DB migrations
+- 🟠 Avoid hardcoding template content type — always check `templateType`
+
+---
+
+## ✅ Example Tasks (Scratchpad Reference Format)
+
+
+---
+
+## 📌 Final Notes
+Always start tasks by updating the scratchpad first. If anything changes in schema/API/model — reflect it in this `.cursorrules` to keep Claude 3.5 accurate in memory simulation.
+
+
+
+
 # Instructions
 
 During your interaction with the user, if you find anything reusable in this project (e.g. version of a library, model name), especially about a fix to a mistake you made or a correction you received, you should take note in the `Lessons` section in the `.cursorrules` file so you will not make the same mistake again. 

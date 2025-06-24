@@ -17,6 +17,7 @@ const referralRoutes = require('./referrals');
 const cacheRoutes = require('./cache');
 const healthRoutes = require('./health');
 const preferencesRoutes = require('./preferences');
+const statusRoutes = require('./status');
 
 // Use route modules
 router.use('/', profileRoutes);
@@ -34,5 +35,6 @@ router.use('/', referralRoutes);
 router.use('/', cacheRoutes);
 router.use('/', healthRoutes);
 router.use('/', preferencesRoutes);
+router.use('/', statusRoutes);
 
 module.exports = router; 

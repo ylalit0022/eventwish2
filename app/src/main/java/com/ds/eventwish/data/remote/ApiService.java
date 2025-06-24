@@ -1203,7 +1203,7 @@ public interface ApiService {
      * @param authToken Firebase authentication token (for Authorization header)
      * @return Response with block info
      */
-    @PUT("users/{uid}/block")
+    @POST("admin/users/{uid}/block")
     Call<JsonObject> blockUser(
         @Path("uid") String uid,
         @Body Map<String, Object> body,
