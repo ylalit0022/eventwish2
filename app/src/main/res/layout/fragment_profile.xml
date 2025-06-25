@@ -51,16 +51,16 @@
                     app:layout_constraintTop_toTopOf="parent">
 
                     <!-- Profile Image - Centered -->
-                    <com.google.android.material.imageview.ShapeableImageView
-                        android:id="@+id/profileImage"
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/profileImage"
                         android:layout_width="96dp"
                         android:layout_height="96dp"
-                        android:layout_marginTop="16dp"
-                        android:scaleType="centerCrop"
+                    android:layout_marginTop="16dp"
+                    android:scaleType="centerCrop"
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintTop_toTopOf="parent"
-                        app:shapeAppearanceOverlay="@style/CircleImageView"
+                    app:shapeAppearanceOverlay="@style/CircleImageView"
                         android:contentDescription="@string/profile_image_description"
                         tools:src="@drawable/default_profile"/>
 
@@ -72,7 +72,7 @@
                         android:layout_marginTop="8dp"
                         android:textAppearance="?attr/textAppearanceHeadline6"
                         android:textStyle="bold"
-                        app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintTop_toBottomOf="@+id/profileImage"
                         tools:text="John Doe"/>
@@ -81,12 +81,12 @@
                     <com.google.android.material.textview.MaterialTextView
                         android:id="@+id/emailText"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
+                    android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
                         android:textAppearance="?attr/textAppearanceBody2"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintTop_toBottomOf="@+id/usernameText"
                         tools:text="john.doe@example.com"/>
 
@@ -105,88 +105,88 @@
                         <!-- Posts Stats -->
                         <LinearLayout
                             android:id="@+id/postsStatsContainer"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
                             android:gravity="center"
                             android:orientation="vertical">
 
-                            <com.google.android.material.textview.MaterialTextView
-                                android:id="@+id/postsCount"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
+                        <com.google.android.material.textview.MaterialTextView
+                            android:id="@+id/postsCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
                                 android:textAppearance="?attr/textAppearanceHeadline6"
-                                android:textStyle="bold"
+                            android:textStyle="bold"
                                 tools:text="0"/>
 
-                            <com.google.android.material.textview.MaterialTextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
+                        <com.google.android.material.textview.MaterialTextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
                                 android:text="@string/posts"
                                 android:textAppearance="?attr/textAppearanceBody2"
                                 android:textColor="?attr/colorOnSurfaceVariant"/>
-                        </LinearLayout>
+                    </LinearLayout>
 
-                        <!-- Likes Stats -->
-                        <LinearLayout
-                            android:id="@+id/likesStatsContainer"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
+                    <!-- Likes Stats -->
+                    <LinearLayout
+                        android:id="@+id/likesStatsContainer"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
                             android:gravity="center"
                             android:orientation="vertical">
 
-                            <com.google.android.material.textview.MaterialTextView
-                                android:id="@+id/likesCount"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
+                        <com.google.android.material.textview.MaterialTextView
+                            android:id="@+id/likesCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
                                 android:textAppearance="?attr/textAppearanceHeadline6"
-                                android:textStyle="bold"
+                            android:textStyle="bold"
                                 tools:text="0"/>
 
-                            <com.google.android.material.textview.MaterialTextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
+                        <com.google.android.material.textview.MaterialTextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
                                 android:text="@string/likes"
                                 android:textAppearance="?attr/textAppearanceBody2"
                                 android:textColor="?attr/colorOnSurfaceVariant"/>
-                        </LinearLayout>
+                    </LinearLayout>
 
-                        <!-- Favorites Stats -->
-                        <LinearLayout
-                            android:id="@+id/favoritesStatsContainer"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
+                    <!-- Favorites Stats -->
+                    <LinearLayout
+                        android:id="@+id/favoritesStatsContainer"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
                             android:gravity="center"
                             android:orientation="vertical">
 
-                            <com.google.android.material.textview.MaterialTextView
-                                android:id="@+id/favoritesCount"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
+                        <com.google.android.material.textview.MaterialTextView
+                            android:id="@+id/favoritesCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
                                 android:textAppearance="?attr/textAppearanceHeadline6"
-                                android:textStyle="bold"
+                            android:textStyle="bold"
                                 tools:text="0"/>
 
-                            <com.google.android.material.textview.MaterialTextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
+                        <com.google.android.material.textview.MaterialTextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
                                 android:text="@string/favorites"
                                 android:textAppearance="?attr/textAppearanceBody2"
                                 android:textColor="?attr/colorOnSurfaceVariant"/>
-                        </LinearLayout>
                     </LinearLayout>
+                </LinearLayout>
 
                     <!-- Edit Profile Button - Full width -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/editProfileButton"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/editProfileButton"
                         style="@style/Widget.Material3.Button.OutlinedButton"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
                         android:text="@string/edit_profile"
-                        android:textAllCaps="false"
+                    android:textAllCaps="false"
                         app:layout_constraintTop_toBottomOf="@+id/statsSection"/>
 
                 </androidx.constraintlayout.widget.ConstraintLayout>

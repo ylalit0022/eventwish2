@@ -1,3 +1,50 @@
+# EventWish Development Documentation
+
+This directory contains development documentation for the EventWish project.
+
+## Available Documentation
+
+### ADB Wireless Commands
+- [`adb_wireless_commands.md`](adb_wireless_commands.md) - Comprehensive guide for ADB wireless debugging commands
+  - Initial setup for wireless debugging
+  - Device information commands
+  - App installation and management
+  - File transfer operations
+  - Debugging tools
+  - Network diagnostics
+  - System commands
+  - Troubleshooting guide
+  - Best practices
+
+## Using the Documentation
+
+1. Start with `adb_wireless_commands.md` for setting up wireless debugging
+2. Use the table of contents to quickly find specific commands
+3. Follow the best practices section to avoid common issues
+4. Refer to the troubleshooting section if you encounter problems
+
+## Quick Start
+
+For wireless debugging setup:
+```bash
+# 1. Connect via USB first
+adb tcpip 5555
+
+# 2. Connect wirelessly (replace with your hotspot IP)
+adb connect YOUR_IP:5555
+
+# 3. Verify connection
+adb devices
+```
+
+## Contributing
+
+Feel free to:
+- Add new documentation
+- Improve existing guides
+- Report any errors or missing information
+- Suggest new sections or topics
+
 # EventWish Notification Documentation
 
 This directory contains documentation and tools for the EventWish notification system.

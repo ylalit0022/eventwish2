@@ -17,6 +17,7 @@ import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.remote.TemplateInteractionManager;
@@ -61,19 +62,16 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
     public void onBindViewHolder(@NonNull final ViewHolder holder, int position) {
         Template template = templates.get(position);
         
-        Log.d(TAG, "onBindViewHolder: Binding template at position " + position + 
-              ", ID: " + template.getId() + 
-              ", Title: " + template.getTitle() +
-              ", Preview URL: " + template.getPreviewUrl());
+        Log.d(TAG, "🎯 BINDING TEMPLATE: " + template.getId() + 
+              ", Type: " + template.getTemplateType() + 
+              ", Title: " + template.getTitle());
         
         // Set title and category
         holder.titleText.setText(template.getTitle());
         holder.categoryText.setText(template.getCategoryId());
         
-        // Add detailed logging for time display debugging
-        Log.d(TAG, "Template " + template.getId() + " time display: " +
-              "createdAt=" + (template.getCreatedAt() != null ? template.getCreatedAt().toString() : "null") + 
-              ", timestamp=" + template.getCreatedAtTimestamp());
+        // Handle template type rendering
+        renderTemplateByType(holder, template);
         
         // Set creation time using actual template data
         String timeAgoText;
@@ -123,63 +121,232 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         // Note: Recommendation system removed
         holder.recommendedBadge.setVisibility(View.GONE);
         
-        // Load image
-        Log.d(TAG, "Loading image for template " + template.getId() + " from URL: " + template.getPreviewUrl());
-        Glide.with(holder.itemView.getContext())
-                .load(template.getPreviewUrl())
+        // Set up interaction listeners
+        setupInteractionListeners(holder, template);
+    }
+    
+    /**
+     * 🎨 Render template based on its type (HTML, VIDEO, IMAGE)
+     * This is the main method that handles type-based rendering
+     */
+    private void renderTemplateByType(@NonNull ViewHolder holder, @NonNull Template template) {
+        String templateType = template.getTemplateType();
+        if (templateType == null || templateType.isEmpty()) {
+            templateType = "image"; // Default to image if not specified
+        }
+        
+        Log.d(TAG, "🎨 RENDERING TEMPLATE TYPE: " + templateType + " for template: " + template.getId());
+        
+        // Hide all template containers first
+        holder.templateImage.setVisibility(View.GONE);
+        holder.htmlTemplateContainer.setVisibility(View.GONE);
+        holder.videoTemplateContainer.setVisibility(View.GONE);
+        
+        // Show template type badge
+        holder.templateTypeBadge.setVisibility(View.VISIBLE);
+        
+        // Render based on template type
+        switch (templateType.toLowerCase()) {
+            case "html":
+                renderHtmlTemplate(holder, template);
+                break;
+            case "video":
+                renderVideoTemplate(holder, template);
+                break;
+            case "image":
+            default:
+                renderImageTemplate(holder, template);
+                break;
+        }
+    }
+    
+    /**
+     * 🖼️ Render IMAGE template
+     */
+    private void renderImageTemplate(@NonNull ViewHolder holder, @NonNull Template template) {
+        Log.d(TAG, "🖼️ RENDERING IMAGE TEMPLATE: " + template.getId());
+        
+        // Show image container
+        holder.templateImage.setVisibility(View.VISIBLE);
+        holder.templateTypeBadge.setText("IMAGE");
+        
+        // Load image with enhanced options
+        String imageUrl = template.getPreviewUrl();
+        if (imageUrl == null || imageUrl.isEmpty()) {
+            imageUrl = template.getImageUrl();
+        }
+        
+        if (imageUrl != null && !imageUrl.isEmpty()) {
+            Log.d(TAG, "🖼️ Loading image from URL: " + imageUrl);
+            Glide.with(context)
+                    .load(imageUrl)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
                 .placeholder(R.drawable.placeholder_image)
                 .error(R.drawable.placeholder_image)
                 .centerCrop()
                 .into(holder.templateImage);
-                
-        // Set click listeners
-        holder.templateImage.setOnClickListener(v -> {
+        } else {
+            Log.w(TAG, "🖼️ No image URL available for template: " + template.getId());
+            holder.templateImage.setImageResource(R.drawable.placeholder_image);
+        }
+    }
+    
+    /**
+     * 🌐 Render HTML template
+     */
+    private void renderHtmlTemplate(@NonNull ViewHolder holder, @NonNull Template template) {
+        Log.d(TAG, "🌐 RENDERING HTML TEMPLATE: " + template.getId());
+        
+        // Show HTML container
+        holder.htmlTemplateContainer.setVisibility(View.VISIBLE);
+        holder.templateTypeBadge.setText("HTML");
+        
+        // Set HTML template title
+        holder.htmlTemplateTitle.setText(template.getTitle());
+        
+        // Set description based on available data
+        String description = getTemplateDescription(template, "Interactive HTML template with animations and customizable content");
+        holder.htmlTemplateDescription.setText(description);
+        holder.htmlTemplateDescription.setVisibility(View.VISIBLE);
+        
+        Log.d(TAG, "🌐 HTML template rendered with title: " + template.getTitle());
+    }
+    
+    /**
+     * 🎥 Render VIDEO template
+     */
+    private void renderVideoTemplate(@NonNull ViewHolder holder, @NonNull Template template) {
+        Log.d(TAG, "🎥 RENDERING VIDEO TEMPLATE: " + template.getId());
+        
+        // Show video container
+        holder.videoTemplateContainer.setVisibility(View.VISIBLE);
+        holder.templateTypeBadge.setText("VIDEO");
+        
+        // Load video thumbnail
+        String thumbnailUrl = template.getPreviewUrl();
+        if (thumbnailUrl == null || thumbnailUrl.isEmpty()) {
+            thumbnailUrl = template.getImageUrl();
+        }
+        
+        if (thumbnailUrl != null && !thumbnailUrl.isEmpty()) {
+            Log.d(TAG, "🎥 Loading video thumbnail from URL: " + thumbnailUrl);
+            Glide.with(context)
+                    .load(thumbnailUrl)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .placeholder(R.drawable.placeholder_image)
+                    .error(R.drawable.placeholder_image)
+                    .centerCrop()
+                    .into(holder.videoThumbnail);
+        } else {
+            Log.w(TAG, "🎥 No thumbnail URL available for video template: " + template.getId());
+            holder.videoThumbnail.setImageResource(R.drawable.placeholder_image);
+        }
+        
+        // Set video duration (default for now, could be enhanced with actual duration)
+        holder.videoDuration.setText("0:30");
+        
+        Log.d(TAG, "🎥 Video template rendered with thumbnail");
+    }
+    
+    /**
+     * 📝 Get template description based on available data
+     */
+    private String getTemplateDescription(@NonNull Template template, @NonNull String defaultDescription) {
+        // Try festival tag first
+        if (template.getFestivalTag() != null && !template.getFestivalTag().isEmpty()) {
+            return "Festival: " + template.getFestivalTag();
+        }
+        
+        // Try category
+        if (template.getCategory() != null && !template.getCategory().isEmpty()) {
+            return "Category: " + template.getCategory();
+        }
+        
+        // Try categoryId as fallback
+        if (template.getCategoryId() != null && !template.getCategoryId().isEmpty()) {
+            return "Category: " + template.getCategoryId();
+        }
+        
+        // Return default description
+        return defaultDescription;
+    }
+    
+    /**
+     * 🎯 Set up interaction listeners for template actions
+     */
+    private void setupInteractionListeners(@NonNull ViewHolder holder, @NonNull Template template) {
+        // Template click listener (works for all types)
+        View.OnClickListener templateClickListener = v -> {
             if (onItemClickListener != null) {
-                Log.d(TAG, "Template clicked: " + template.getId());
+                Log.d(TAG, "🎯 Template clicked: " + template.getId() + " (Type: " + template.getTemplateType() + ")");
                 onItemClickListener.onItemClick(template);
             }
-        });
+        };
         
-        holder.likeIcon.setOnClickListener(v -> {
-            Log.d(TAG, "=== LIKE BUTTON CLICKED ===");
-            Log.d(TAG, "Template ID: " + template.getId());
-            Log.d(TAG, "Current position: " + holder.getAdapterPosition());
-            Log.d(TAG, "Layout position: " + holder.getLayoutPosition());
+        // Set click listener on appropriate view based on template type
+        String templateType = template.getTemplateType();
+        if (templateType != null) {
+            switch (templateType.toLowerCase()) {
+                case "html":
+                    holder.htmlTemplateContainer.setOnClickListener(templateClickListener);
+                    break;
+                case "video":
+                    holder.videoTemplateContainer.setOnClickListener(templateClickListener);
+                    break;
+                case "image":
+                default:
+                    holder.templateImage.setOnClickListener(templateClickListener);
+                    break;
+            }
+        } else {
+            // Fallback to image click
+            holder.templateImage.setOnClickListener(templateClickListener);
+        }
+        
+        // Like button listener
+        holder.likeIcon.setOnClickListener(v -> handleLikeClick(holder, template));
+        
+        // Favorite button listener  
+        holder.favoriteIcon.setOnClickListener(v -> handleFavoriteClick(holder, template));
+    }
+    
+    /**
+     * ❤️ Handle like button click with debouncing
+     */
+    private void handleLikeClick(@NonNull ViewHolder holder, @NonNull Template template) {
+        Log.d(TAG, "❤️ LIKE BUTTON CLICKED for template: " + template.getId());
             Log.d(TAG, "Current liked state: " + template.isLiked());
             Log.d(TAG, "Current like count: " + template.getLikeCount());
             
             // Prevent rapid clicks
-            if (!v.isEnabled()) {
-                Log.w(TAG, "Like button disabled - preventing rapid clicks");
+        if (!holder.likeIcon.isEnabled()) {
+            Log.w(TAG, "❤️ Like button disabled - preventing rapid clicks");
                 return;
             }
             
             // Disable button temporarily to prevent rapid clicks
-            v.setEnabled(false);
-            v.postDelayed(() -> v.setEnabled(true), 1000);
+        holder.likeIcon.setEnabled(false);
+        holder.likeIcon.postDelayed(() -> holder.likeIcon.setEnabled(true), 1000);
             
             // Get current adapter position
             int currentPosition = holder.getAdapterPosition();
             if (currentPosition == RecyclerView.NO_POSITION) {
-                Log.e(TAG, "Invalid adapter position - aborting like action");
+            Log.e(TAG, "❤️ Invalid adapter position - aborting like action");
                 return;
             }
             
-            Log.d(TAG, "Performing optimistic UI update at position: " + currentPosition);
+        Log.d(TAG, "❤️ Performing optimistic UI update at position: " + currentPosition);
             
-            // Optimistic UI update - THIS MIGHT CAUSE JUMPING!
+        // Optimistic UI update
             boolean newLikedState = !template.isLiked();
             long newLikeCount = template.getLikeCount() + (newLikedState ? 1 : -1);
             
-            Log.d(TAG, "Optimistic update: liked " + template.isLiked() + " -> " + newLikedState);
-            Log.d(TAG, "Optimistic update: count " + template.getLikeCount() + " -> " + newLikeCount);
+        Log.d(TAG, "❤️ Optimistic update: liked " + template.isLiked() + " -> " + newLikedState);
+        Log.d(TAG, "❤️ Optimistic update: count " + template.getLikeCount() + " -> " + newLikeCount);
             
             // Update template state immediately for UI responsiveness
             template.setLiked(newLikedState);
             template.setLikeCount(Math.max(0, newLikeCount));
-            
-            // Update UI immediately - THIS MIGHT CAUSE JUMPING!
-            Log.w(TAG, "Updating like button UI immediately - POTENTIAL JUMPING CAUSE!");
             
             // Animate the like button
             animateLikeButton(holder.likeIcon, newLikedState);
@@ -191,123 +358,114 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             if (template.getLikeCount() > 0) {
                 holder.likeCountText.setText(String.valueOf(template.getLikeCount()));
                 holder.likeCountText.setVisibility(View.VISIBLE);
-                Log.d(TAG, "Like count updated to: " + template.getLikeCount());
+            Log.d(TAG, "❤️ Like count updated to: " + template.getLikeCount());
             } else {
                 holder.likeCountText.setVisibility(View.GONE);
-                Log.d(TAG, "Like count hidden (count is 0)");
+            Log.d(TAG, "❤️ Like count hidden (count is 0)");
             }
             
             // Show toast message
-            Toast.makeText(context, newLikedState ? "Liked" : "Unliked", Toast.LENGTH_SHORT).show();
-            
-            // Notify the listener
-            if (onTemplateInteractionListener != null) {
-                Log.d(TAG, "Notifying interaction listener of like action");
-                onTemplateInteractionListener.onTemplateLiked(template, newLikedState);
-            } else {
-                Log.w(TAG, "No interaction listener set!");
-            }
-            
-            Log.d(TAG, "=== LIKE BUTTON CLICK COMPLETED ===");
-        });
+        String message = newLikedState ? "Liked!" : "Unliked!";
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
         
-        holder.favoriteIcon.setOnClickListener(v -> {
-            boolean newFavoriteState = !template.isFavorited();
-            template.setFavorited(newFavoriteState);
-            
-            Log.d(TAG, "Template " + template.getId() + " favorite toggled to: " + newFavoriteState);
-            
-            // Animate the favorite button
-            animateFavoriteButton(holder.favoriteIcon, newFavoriteState);
-            
-            // Update UI
-            updateFavoriteState(holder, newFavoriteState);
-            
-            // Show toast message
-            Toast.makeText(context, newFavoriteState ? "Added to favorites" : "Removed from favorites", Toast.LENGTH_SHORT).show();
-            
-            // Notify listener
+        // Notify listener for network operation
             if (onTemplateInteractionListener != null) {
-                onTemplateInteractionListener.onTemplateFavorited(template, newFavoriteState);
-            }
-        });
+            Log.d(TAG, "❤️ Notifying interaction listener: liked=" + newLikedState);
+            onTemplateInteractionListener.onTemplateLiked(template, newLikedState);
+        }
     }
     
     /**
-     * Determines if a template is new based on its creation date
-     * @param template The template to check
-     * @return true if the template is new (less than 7 days old)
+     * ⭐ Handle favorite button click with debouncing
      */
-    private boolean isNewTemplate(Template template) {
-        if (template.getCreatedAt() == null) return false;
+    private void handleFavoriteClick(@NonNull ViewHolder holder, @NonNull Template template) {
+        Log.d(TAG, "⭐ FAVORITE BUTTON CLICKED for template: " + template.getId());
+        Log.d(TAG, "Current favorited state: " + template.isFavorited());
         
-        long now = System.currentTimeMillis();
-        long createdTime = template.getCreatedAt().getTime();
-        long daysDiff = (now - createdTime) / (1000 * 60 * 60 * 24);
+        // Prevent rapid clicks
+        if (!holder.favoriteIcon.isEnabled()) {
+            Log.w(TAG, "⭐ Favorite button disabled - preventing rapid clicks");
+            return;
+        }
         
-        return daysDiff < 7; // Template is new if less than 7 days old
+        // Disable button temporarily to prevent rapid clicks
+        holder.favoriteIcon.setEnabled(false);
+        holder.favoriteIcon.postDelayed(() -> holder.favoriteIcon.setEnabled(true), 1000);
+        
+        // Get current adapter position
+        int currentPosition = holder.getAdapterPosition();
+        if (currentPosition == RecyclerView.NO_POSITION) {
+            Log.e(TAG, "⭐ Invalid adapter position - aborting favorite action");
+            return;
+        }
+        
+        Log.d(TAG, "⭐ Performing optimistic UI update at position: " + currentPosition);
+        
+        // Optimistic UI update
+        boolean newFavoritedState = !template.isFavorited();
+        
+        Log.d(TAG, "⭐ Optimistic update: favorited " + template.isFavorited() + " -> " + newFavoritedState);
+        
+        // Update template state immediately for UI responsiveness
+        template.setFavorited(newFavoritedState);
+        
+        // Animate the favorite button
+        animateFavoriteButton(holder.favoriteIcon, newFavoritedState);
+        
+        // Update UI state
+        updateFavoriteState(holder, newFavoritedState);
+        
+        // Show toast message
+        String message = newFavoritedState ? "Added to favorites!" : "Removed from favorites!";
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
+        
+        // Notify listener for network operation
+        if (onTemplateInteractionListener != null) {
+            Log.d(TAG, "⭐ Notifying interaction listener: favorited=" + newFavoritedState);
+            onTemplateInteractionListener.onTemplateFavorited(template, newFavoritedState);
+        }
     }
     
     private void animateLikeButton(ImageView likeIcon, boolean liked) {
-        if (liked) {
-            likeIcon.setImageResource(R.drawable.ic_heart_filled);
-            likeIcon.setColorFilter(Color.RED);
-        } else {
-            likeIcon.setImageResource(R.drawable.ic_heart_outline);
-            likeIcon.setColorFilter(null);
-        }
-        
-        // Scale animation
+        // Animate scale
         likeIcon.animate()
-                .scaleX(1.2f)
-                .scaleY(1.2f)
-                .setDuration(100)
-                .withEndAction(() -> 
+                .scaleX(liked ? 1.2f : 1.0f)
+                .scaleY(liked ? 1.2f : 1.0f)
+                .setDuration(150)
+                .withEndAction(() -> {
                     likeIcon.animate()
                             .scaleX(1.0f)
                             .scaleY(1.0f)
-                            .setDuration(100)
-                            .start())
+                            .setDuration(150)
+                            .start();
+                })
                 .start();
     }
 
     private void animateFavoriteButton(ImageView favoriteIcon, boolean favorited) {
-        if (favorited) {
-            favoriteIcon.setImageResource(R.drawable.ic_bookmark_filled);
-        } else {
-            favoriteIcon.setImageResource(R.drawable.ic_bookmark_outline);
-        }
-        
-        // Scale animation
+        // Animate scale
         favoriteIcon.animate()
-                .scaleX(1.2f)
-                .scaleY(1.2f)
-                .setDuration(100)
-                .withEndAction(() -> 
+                .scaleX(favorited ? 1.2f : 1.0f)
+                .scaleY(favorited ? 1.2f : 1.0f)
+                .setDuration(150)
+                .withEndAction(() -> {
                     favoriteIcon.animate()
                             .scaleX(1.0f)
                             .scaleY(1.0f)
-                            .setDuration(100)
-                            .start())
+                            .setDuration(150)
+                            .start();
+                })
                 .start();
     }
 
     private void updateLikeState(ViewHolder holder, boolean liked) {
-        if (liked) {
-            holder.likeIcon.setImageResource(R.drawable.ic_heart_filled);
-            holder.likeIcon.setColorFilter(Color.RED);
-        } else {
-            holder.likeIcon.setImageResource(R.drawable.ic_heart_outline);
-            holder.likeIcon.setColorFilter(null);
-        }
+        holder.likeIcon.setImageResource(liked ? R.drawable.ic_heart_filled : R.drawable.ic_heart_outline);
+        holder.likeIcon.setColorFilter(ContextCompat.getColor(context, liked ? R.color.like_icon_filled : R.color.like_icon_outline));
     }
 
     private void updateFavoriteState(ViewHolder holder, boolean favorited) {
-        if (favorited) {
-            holder.favoriteIcon.setImageResource(R.drawable.ic_bookmark_filled);
-        } else {
-            holder.favoriteIcon.setImageResource(R.drawable.ic_bookmark_outline);
-        }
+        holder.favoriteIcon.setImageResource(favorited ? R.drawable.ic_bookmark_filled : R.drawable.ic_bookmark_outline);
+        holder.favoriteIcon.setColorFilter(ContextCompat.getColor(context, favorited ? R.color.favorite_icon_filled : R.color.favorite_icon_outline));
     }
 
     @Override
@@ -438,6 +596,13 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         final LinearLayout recommendedBadge;
         final TextView timeText;
         final TextView fallbackTimeText;
+        final TextView htmlTemplateTitle;
+        final TextView htmlTemplateDescription;
+        final LinearLayout htmlTemplateContainer;
+        final ImageView videoThumbnail;
+        final TextView videoDuration;
+        final LinearLayout videoTemplateContainer;
+        final TextView templateTypeBadge;
 
         public ViewHolder(View itemView) {
             super(itemView);
@@ -454,6 +619,13 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             recommendedBadge = itemView.findViewById(R.id.recommendedBadge);
             timeText = itemView.findViewById(R.id.timeText);
             fallbackTimeText = itemView.findViewById(R.id.fallbackTimeText);
+            htmlTemplateTitle = itemView.findViewById(R.id.html_template_title);
+            htmlTemplateDescription = itemView.findViewById(R.id.html_template_description);
+            htmlTemplateContainer = itemView.findViewById(R.id.html_template_container);
+            videoThumbnail = itemView.findViewById(R.id.video_thumbnail);
+            videoDuration = itemView.findViewById(R.id.video_duration);
+            videoTemplateContainer = itemView.findViewById(R.id.video_template_container);
+            templateTypeBadge = itemView.findViewById(R.id.template_type_badge);
         }
     }
 
@@ -567,5 +739,20 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         } else {
             Log.d(TAG, "TimeText appears to be displayed correctly");
         }
+    }
+
+    /**
+     * Determines if a template is new based on its creation date
+     * @param template The template to check
+     * @return true if the template is new (less than 7 days old)
+     */
+    private boolean isNewTemplate(Template template) {
+        if (template.getCreatedAt() == null) return false;
+        
+        long now = System.currentTimeMillis();
+        long createdTime = template.getCreatedAt().getTime();
+        long daysDiff = (now - createdTime) / (1000 * 60 * 60 * 24);
+        
+        return daysDiff < 7; // Template is new if less than 7 days old
     }
 } 

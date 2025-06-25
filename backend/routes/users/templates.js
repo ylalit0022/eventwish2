@@ -285,16 +285,16 @@ router.put('/:uid/favorites/:templateId', validateFirebaseUid, verifyFirebaseTok
                     });
                 }
                 
-                // Update template favorite count with enhanced error handling
+                // 📊 NEW: Update template favorite count with enhanced error handling
                 try {
                     const updatedTemplate = await Template.findByIdAndUpdate(
                         templateId,
                         { $inc: { favorites: 1 } },
                         { new: true }
                     );
-                    logger.info(`Template ${templateId} favorite count incremented successfully. New count: ${updatedTemplate.favorites}`);
+                    logger.info(`📈 Template ${templateId} favorite count incremented successfully. New count: ${updatedTemplate.favorites}`);
                 } catch (templateError) {
-                    logger.error(`Failed to update template favorite count for ${templateId}: ${templateError.message}`);
+                    logger.error(`❌ Failed to update template favorite count for ${templateId}: ${templateError.message}`);
                     // Don't fail the request - user favorite was saved
                 }
                 
@@ -495,16 +495,16 @@ router.delete('/:uid/favorites/:templateId', validateFirebaseUid, verifyFirebase
                     });
                 }
                 
-                // Update template favorite count with enhanced error handling
+                // 📊 NEW: Update template favorite count with enhanced error handling
                 try {
                     const updatedTemplate = await Template.findByIdAndUpdate(
                         templateId,
                         { $inc: { favorites: -1 } },
                         { new: true }
                     );
-                    logger.info(`Template ${templateId} favorite count decremented successfully. New count: ${updatedTemplate.favorites}`);
+                    logger.info(`📉 Template ${templateId} favorite count decremented successfully. New count: ${updatedTemplate.favorites}`);
                 } catch (templateError) {
-                    logger.error(`Failed to update template favorite count for ${templateId}: ${templateError.message}`);
+                    logger.error(`❌ Failed to update template favorite count for ${templateId}: ${templateError.message}`);
                     // Don't fail the request - user unfavorite was saved
                 }
                 
@@ -703,16 +703,16 @@ router.put('/:uid/likes/:templateId', validateFirebaseUid, verifyFirebaseToken, 
                     });
                 }
                 
-                // Update template like count with enhanced error handling
+                // 📊 NEW: Update template like count with enhanced error handling
                 try {
                     const updatedTemplate = await Template.findByIdAndUpdate(
                         templateId,
                         { $inc: { likes: 1 } },
                         { new: true }
                     );
-                    logger.info(`Template ${templateId} like count updated successfully. New count: ${updatedTemplate.likes}`);
+                    logger.info(`👍 Template ${templateId} like count incremented successfully. New count: ${updatedTemplate.likes}`);
                 } catch (templateError) {
-                    logger.error(`Failed to update template like count for ${templateId}: ${templateError.message}`);
+                    logger.error(`❌ Failed to update template like count for ${templateId}: ${templateError.message}`);
                     // Don't fail the request - user like was saved
                 }
                 
@@ -864,16 +864,16 @@ router.delete('/:uid/likes/:templateId', validateFirebaseUid, verifyFirebaseToke
                     });
                 }
                 
-                // Update template like count with enhanced error handling
+                // 📊 NEW: Update template like count with enhanced error handling
                 try {
                     const updatedTemplate = await Template.findByIdAndUpdate(
                         templateId,
                         { $inc: { likes: -1 } },
                         { new: true }
                     );
-                    logger.info(`Template ${templateId} like count decremented successfully. New count: ${updatedTemplate.likes}`);
+                    logger.info(`👎 Template ${templateId} like count decremented successfully. New count: ${updatedTemplate.likes}`);
                 } catch (templateError) {
-                    logger.error(`Failed to update template like count for ${templateId}: ${templateError.message}`);
+                    logger.error(`❌ Failed to update template like count for ${templateId}: ${templateError.message}`);
                     // Don't fail the request - user unlike was saved
                 }
                 

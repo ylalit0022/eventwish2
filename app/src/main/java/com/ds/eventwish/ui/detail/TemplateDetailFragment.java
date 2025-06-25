@@ -689,37 +689,53 @@ public class TemplateDetailFragment extends BaseFragment implements TemplateRend
     }
 
     private void setupObservers() {
+        if (!isAdded()) return;
+
+        // Observe template data
         viewModel.getTemplate().observe(getViewLifecycleOwner(), template -> {
-            if (template != null) {
-                // Show loading state when starting to render template
-                showLoading();
+            Log.d(TAG, "Template data received: " + (template != null ? template.getId() : "null"));
+            if (template != null && isViewCreated) {
+                Log.d(TAG, "🎯 TEMPLATE TYPE DETECTED: " + template.getTemplateType());
+                Log.d(TAG, "🎯 TEMPLATE TYPE ENUM: " + template.getTemplateTypeEnum());
+                Log.d(TAG, "🎯 SUPPORTS EDITING: " + template.supportsEditing());
+                Log.d(TAG, "🎯 REQUIRES MEDIA PLAYER: " + template.requiresMediaPlayer());
+                Log.d(TAG, "🎯 IS IMAGE BASED: " + template.isImageBased());
+                Log.d(TAG, "🎯 CAN RENDER: " + template.canRender());
                 
-                // Initialize template renderer with the correct constructor
-                templateRenderer = new TemplateRenderer(binding.webView, this);
+                // Setup type-based rendering and interactions
+                setupTemplateTypeInteractions(template);
                 
-                // Track template category view
-                if (template.getCategory() != null) {
-                    UserRepository.getInstance(requireContext()).trackCategoryClick(template.getCategory());
+                // Initialize template renderer with type awareness
+                if (templateRenderer == null) {
+                    templateRenderer = new TemplateRenderer(
+                        binding.webView, 
+                        this
+                    );
                 }
                 
-                // Render template using the correct method
-                templateRenderer.renderTemplate(template);
+                // Load template content based on type
+                loadTemplateByType(template);
+                
+                // Update UI based on template capabilities
+                updateUIForTemplateType(template);
+                
+                startAnalyticsTracking();
             }
         });
-        
+
         // Observe loading state
         viewModel.isLoading().observe(getViewLifecycleOwner(), isLoading -> {
-            if (binding != null && isAdded()) {
-                if (isLoading) {
-                    showLoading();
-                }
+            if (isLoading) {
+                showLoading();
+            } else {
+                hideLoading();
             }
         });
-        
-        // Observe error messages
+
+        // Observe errors
         viewModel.getError().observe(getViewLifecycleOwner(), error -> {
-            if (error != null && !error.isEmpty() && binding != null && isAdded()) {
-                hideLoading();
+            if (error != null && !error.isEmpty()) {
+                Log.e(TAG, "Error observed: " + error);
                 showError(error);
             }
         });
@@ -733,6 +749,357 @@ public class TemplateDetailFragment extends BaseFragment implements TemplateRend
                 Navigation.findNavController(requireView()).navigate(action);
             }
         });
+    }
+    
+    /**
+     * Setup interactions based on template type
+     * @param template Template object with type information
+     */
+    private void setupTemplateTypeInteractions(com.ds.eventwish.data.model.Template template) {
+        if (template == null) return;
+        
+        com.ds.eventwish.data.model.Template.TemplateType type = template.getTemplateTypeEnum();
+        Log.d(TAG, "🔧 Setting up interactions for template type: " + type);
+        
+        // Configure interaction capabilities
+        switch (type) {
+            case HTML:
+                setupHtmlInteractions(template);
+                break;
+            case VIDEO:
+                setupVideoInteractions(template);
+                break;
+            case IMAGE:
+                setupImageInteractions(template);
+                break;
+            default:
+                Log.w(TAG, "Unknown template type, defaulting to HTML interactions");
+                setupHtmlInteractions(template);
+                break;
+        }
+    }
+    
+    /**
+     * Setup interactions for HTML templates
+     * @param template HTML template
+     */
+    private void setupHtmlInteractions(com.ds.eventwish.data.model.Template template) {
+        Log.d(TAG, "🌐 Setting up HTML template interactions");
+        
+        // Enable editing capabilities
+        if (binding.senderNameInput != null) {
+            binding.senderNameInput.setEnabled(true);
+            binding.senderNameInput.setVisibility(View.VISIBLE);
+        }
+        if (binding.recipientNameInput != null) {
+            binding.recipientNameInput.setEnabled(true);
+            binding.recipientNameInput.setVisibility(View.VISIBLE);
+        }
+        
+        // Configure WebView for interactive HTML
+        if (binding.webView != null) {
+            WebSettings webSettings = binding.webView.getSettings();
+            webSettings.setJavaScriptEnabled(true);
+            webSettings.setDomStorageEnabled(true);
+            webSettings.setAllowFileAccess(true);
+            webSettings.setAllowContentAccess(true);
+            webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+            
+            Log.d(TAG, "✅ HTML template WebView configured for interactive editing");
+        }
+        
+        // Show edit-related UI elements
+        showEditingUI(true);
+    }
+    
+    /**
+     * Setup interactions for VIDEO templates
+     * @param template Video template
+     */
+    private void setupVideoInteractions(com.ds.eventwish.data.model.Template template) {
+        Log.d(TAG, "🎥 Setting up VIDEO template interactions");
+        
+        // Limited editing for video templates
+        if (binding.senderNameInput != null) {
+            binding.senderNameInput.setEnabled(true);
+            binding.senderNameInput.setVisibility(View.VISIBLE);
+        }
+        if (binding.recipientNameInput != null) {
+            binding.recipientNameInput.setEnabled(true);
+            binding.recipientNameInput.setVisibility(View.VISIBLE);
+        }
+        
+        // Configure WebView for video playback
+        if (binding.webView != null) {
+            WebSettings webSettings = binding.webView.getSettings();
+            webSettings.setJavaScriptEnabled(true);
+            webSettings.setMediaPlaybackRequiresUserGesture(false);
+            webSettings.setAllowFileAccess(true);
+            webSettings.setAllowContentAccess(true);
+            webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+            
+            Log.d(TAG, "✅ VIDEO template WebView configured for media playback");
+        }
+        
+        // Show limited editing UI
+        showEditingUI(false);
+        
+        // Add video-specific controls if needed
+        // TODO: Add video player controls, replace video option, etc.
+    }
+    
+    /**
+     * Setup interactions for IMAGE templates
+     * @param template Image template
+     */
+    private void setupImageInteractions(com.ds.eventwish.data.model.Template template) {
+        Log.d(TAG, "🖼️ Setting up IMAGE template interactions");
+        
+        // Basic editing for image templates
+        if (binding.senderNameInput != null) {
+            binding.senderNameInput.setEnabled(true);
+            binding.senderNameInput.setVisibility(View.VISIBLE);
+        }
+        if (binding.recipientNameInput != null) {
+            binding.recipientNameInput.setEnabled(true);
+            binding.recipientNameInput.setVisibility(View.VISIBLE);
+        }
+        
+        // Configure WebView for image display
+        if (binding.webView != null) {
+            WebSettings webSettings = binding.webView.getSettings();
+            webSettings.setJavaScriptEnabled(false); // Images don't need JS
+            webSettings.setAllowFileAccess(true);
+            webSettings.setAllowContentAccess(true);
+            webSettings.setBuiltInZoomControls(true);
+            webSettings.setDisplayZoomControls(false);
+            webSettings.setUseWideViewPort(true);
+            webSettings.setLoadWithOverviewMode(true);
+            
+            Log.d(TAG, "✅ IMAGE template WebView configured for image display");
+        }
+        
+        // Show basic editing UI
+        showEditingUI(false);
+        
+        // Add image-specific controls if needed
+        // TODO: Add image editor, replace image option, filters, etc.
+    }
+    
+    /**
+     * Load template content based on its type
+     * @param template Template to load
+     */
+    private void loadTemplateByType(com.ds.eventwish.data.model.Template template) {
+        if (template == null || !template.canRender()) {
+            Log.e(TAG, "❌ Template cannot be rendered: " + (template != null ? template.getId() : "null"));
+            showError("Template cannot be displayed");
+            return;
+        }
+        
+        com.ds.eventwish.data.model.Template.TemplateType type = template.getTemplateTypeEnum();
+        Log.d(TAG, "📥 Loading template content for type: " + type);
+        
+        switch (type) {
+            case HTML:
+                loadHtmlTemplate(template);
+                break;
+            case VIDEO:
+                loadVideoTemplate(template);
+                break;
+            case IMAGE:
+                loadImageTemplate(template);
+                break;
+            default:
+                Log.w(TAG, "Unknown template type, attempting HTML load");
+                loadHtmlTemplate(template);
+                break;
+        }
+    }
+    
+    /**
+     * Load HTML template content
+     * @param template HTML template
+     */
+    private void loadHtmlTemplate(com.ds.eventwish.data.model.Template template) {
+        Log.d(TAG, "🌐 Loading HTML template: " + template.getId());
+        
+        if (templateRenderer != null) {
+            // Use existing renderer logic for HTML templates
+            templateRenderer.renderTemplate(template);
+            
+            // Update names from input fields
+            String senderName = binding.senderNameInput.getText().toString().trim();
+            String recipientName = binding.recipientNameInput.getText().toString().trim();
+            
+            if (!senderName.isEmpty()) {
+                templateRenderer.setSenderName(senderName);
+            }
+            if (!recipientName.isEmpty()) {
+                templateRenderer.setRecipientName(recipientName);
+            }
+        } else {
+            Log.e(TAG, "TemplateRenderer is null, cannot load HTML template");
+        }
+    }
+    
+    /**
+     * Load VIDEO template content
+     * @param template Video template
+     */
+    private void loadVideoTemplate(com.ds.eventwish.data.model.Template template) {
+        Log.d(TAG, "🎥 Loading VIDEO template: " + template.getId());
+        
+        String videoUrl = template.getVideoUrl();
+        if (videoUrl == null || videoUrl.isEmpty()) {
+            Log.w(TAG, "No video URL found, falling back to preview URL");
+            videoUrl = template.getPreviewUrl();
+        }
+        
+        if (videoUrl != null && !videoUrl.isEmpty()) {
+            // Create HTML wrapper for video
+            String videoHtml = createVideoHtml(videoUrl, template);
+            binding.webView.loadDataWithBaseURL(null, videoHtml, "text/html", "UTF-8", null);
+            Log.d(TAG, "✅ Video template loaded with URL: " + videoUrl);
+        } else {
+            Log.e(TAG, "❌ No valid video URL found for template: " + template.getId());
+            showError("Video content not available");
+        }
+    }
+    
+    /**
+     * Load IMAGE template content
+     * @param template Image template
+     */
+    private void loadImageTemplate(com.ds.eventwish.data.model.Template template) {
+        Log.d(TAG, "🖼️ Loading IMAGE template: " + template.getId());
+        
+        String imageUrl = template.getImageUrl();
+        if (imageUrl == null || imageUrl.isEmpty()) {
+            Log.w(TAG, "No image URL found, falling back to preview URL");
+            imageUrl = template.getPreviewUrl();
+        }
+        
+        if (imageUrl != null && !imageUrl.isEmpty()) {
+            // Create HTML wrapper for image
+            String imageHtml = createImageHtml(imageUrl, template);
+            binding.webView.loadDataWithBaseURL(null, imageHtml, "text/html", "UTF-8", null);
+            Log.d(TAG, "✅ Image template loaded with URL: " + imageUrl);
+        } else {
+            Log.e(TAG, "❌ No valid image URL found for template: " + template.getId());
+            showError("Image content not available");
+        }
+    }
+    
+    /**
+     * Create HTML wrapper for video content
+     * @param videoUrl URL of the video
+     * @param template Template object
+     * @return HTML string for video display
+     */
+    private String createVideoHtml(String videoUrl, com.ds.eventwish.data.model.Template template) {
+        String senderName = binding.senderNameInput.getText().toString().trim();
+        String recipientName = binding.recipientNameInput.getText().toString().trim();
+        
+        return "<!DOCTYPE html>" +
+                "<html><head>" +
+                "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+                "<style>" +
+                "body { margin: 0; padding: 20px; background: #f5f5f5; font-family: Arial, sans-serif; }" +
+                "video { width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }" +
+                ".template-info { text-align: center; margin: 20px 0; }" +
+                ".sender { font-size: 18px; font-weight: bold; color: #333; }" +
+                ".recipient { font-size: 16px; color: #666; margin-top: 8px; }" +
+                "</style>" +
+                "</head><body>" +
+                "<div class='template-info'>" +
+                "<div class='sender'>From: " + (senderName.isEmpty() ? "Your Name" : senderName) + "</div>" +
+                "<div class='recipient'>To: " + (recipientName.isEmpty() ? "Recipient Name" : recipientName) + "</div>" +
+                "</div>" +
+                "<video controls autoplay muted loop>" +
+                "<source src='" + videoUrl + "' type='video/mp4'>" +
+                "Your browser does not support the video tag." +
+                "</video>" +
+                "</body></html>";
+    }
+    
+    /**
+     * Create HTML wrapper for image content
+     * @param imageUrl URL of the image
+     * @param template Template object
+     * @return HTML string for image display
+     */
+    private String createImageHtml(String imageUrl, com.ds.eventwish.data.model.Template template) {
+        String senderName = binding.senderNameInput.getText().toString().trim();
+        String recipientName = binding.recipientNameInput.getText().toString().trim();
+        
+        return "<!DOCTYPE html>" +
+                "<html><head>" +
+                "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+                "<style>" +
+                "body { margin: 0; padding: 20px; background: #f5f5f5; font-family: Arial, sans-serif; }" +
+                "img { width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }" +
+                ".template-info { text-align: center; margin: 20px 0; }" +
+                ".sender { font-size: 18px; font-weight: bold; color: #333; }" +
+                ".recipient { font-size: 16px; color: #666; margin-top: 8px; }" +
+                "</style>" +
+                "</head><body>" +
+                "<div class='template-info'>" +
+                "<div class='sender'>From: " + (senderName.isEmpty() ? "Your Name" : senderName) + "</div>" +
+                "<div class='recipient'>To: " + (recipientName.isEmpty() ? "Recipient Name" : recipientName) + "</div>" +
+                "</div>" +
+                "<img src='" + imageUrl + "' alt='Template Image' />" +
+                "</body></html>";
+    }
+    
+    /**
+     * Update UI elements based on template type capabilities
+     * @param template Template object
+     */
+    private void updateUIForTemplateType(com.ds.eventwish.data.model.Template template) {
+        com.ds.eventwish.data.model.Template.TemplateType type = template.getTemplateTypeEnum();
+        Log.d(TAG, "🎨 Updating UI for template type: " + type);
+        
+        // Update share button text based on template type
+        if (binding.shareButton != null) {
+            String shareText = "Share";
+            switch (type) {
+                case VIDEO:
+                    shareText = "Share Video";
+                    break;
+                case IMAGE:
+                    shareText = "Share Image";
+                    break;
+                case HTML:
+                default:
+                    shareText = "Share Greeting";
+                    break;
+            }
+            binding.shareButton.setText(shareText);
+        }
+        
+        // Show/hide editing capabilities based on template type
+        boolean supportsEditing = template.supportsEditing();
+        showEditingUI(supportsEditing);
+        
+        Log.d(TAG, "✅ UI updated for template type: " + type + ", editing: " + supportsEditing);
+    }
+    
+    /**
+     * Show or hide editing UI elements
+     * @param showEditing Whether to show editing capabilities
+     */
+    private void showEditingUI(boolean showEditing) {
+        // For now, all templates support basic name editing
+        // Future enhancement: different editing UIs for different types
+        if (binding.senderNameInput != null) {
+            binding.senderNameInput.setVisibility(View.VISIBLE);
+        }
+        if (binding.recipientNameInput != null) {
+            binding.recipientNameInput.setVisibility(View.VISIBLE);
+        }
+        
+        Log.d(TAG, "📝 Editing UI visibility: " + (showEditing ? "shown" : "limited"));
     }
 
     private void showLoading() {

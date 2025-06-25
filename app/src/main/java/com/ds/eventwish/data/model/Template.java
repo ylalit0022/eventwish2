@@ -43,6 +43,120 @@ import java.util.Objects;
 )
 @TypeConverters({DateConverter.class})
 public class Template {
+    
+    /**
+     * Enum for template types with proper validation and helper methods
+     */
+    public enum TemplateType {
+        HTML("html", "Interactive templates with HTML, CSS, and JavaScript"),
+        IMAGE("image", "Static image-based templates"),
+        VIDEO("video", "Video-based templates and animations");
+        
+        private final String value;
+        private final String description;
+        
+        TemplateType(String value, String description) {
+            this.value = value;
+            this.description = description;
+        }
+        
+        public String getValue() {
+            return value;
+        }
+        
+        public String getDescription() {
+            return description;
+        }
+        
+        /**
+         * Parse template type from string value
+         * @param value String value of template type
+         * @return TemplateType enum or HTML as default
+         */
+        public static TemplateType fromString(String value) {
+            if (value == null || value.trim().isEmpty()) {
+                return HTML; // Default fallback
+            }
+            
+            String normalizedValue = value.toLowerCase().trim();
+            for (TemplateType type : values()) {
+                if (type.value.equals(normalizedValue)) {
+                    return type;
+                }
+            }
+            
+            // Fallback to HTML for unknown types
+            Log.w("Template", "Unknown template type: " + value + ", defaulting to HTML");
+            return HTML;
+        }
+        
+        /**
+         * Check if template type supports interactive editing
+         * @return true if template supports editing
+         */
+        public boolean supportsEditing() {
+            return this == HTML;
+        }
+        
+        /**
+         * Check if template type requires media player
+         * @return true if template needs media player
+         */
+        public boolean requiresMediaPlayer() {
+            return this == VIDEO;
+        }
+        
+        /**
+         * Check if template type is image-based
+         * @return true if template is image-based
+         */
+        public boolean isImageBased() {
+            return this == IMAGE;
+        }
+        
+        /**
+         * Get appropriate MIME type for template rendering
+         * @return MIME type string
+         */
+        public String getMimeType() {
+            switch (this) {
+                case HTML:
+                    return "text/html";
+                case VIDEO:
+                    return "video/*";
+                case IMAGE:
+                default:
+                    return "image/*";
+            }
+        }
+    }
+    
+    /**
+     * Enum for template interaction types
+     */
+    public enum InteractionType {
+        VIEW("view", "View template"),
+        EDIT("edit", "Edit template"),
+        PREVIEW("preview", "Preview template"),
+        SHARE("share", "Share template");
+        
+        private final String value;
+        private final String description;
+        
+        InteractionType(String value, String description) {
+            this.value = value;
+            this.description = description;
+        }
+        
+        public String getValue() {
+            return value;
+        }
+        
+        public String getDescription() {
+            return description;
+        }
+    }
+
     @PrimaryKey
     @NonNull
     private String id;
@@ -765,5 +879,168 @@ public class Template {
                           isLiked, isFavorited, lastUpdated, likeChanged, favoriteChanged,
                           htmlContent, cssContent, jsContent, createdAt,
                           creatorId, creatorName, creatorProfilePhoto, generatedByUser);
+    }
+
+    // Template Type Helper Methods
+    
+    /**
+     * Get template type as enum with proper validation
+     * @return TemplateType enum value
+     */
+    public TemplateType getTemplateTypeEnum() {
+        return TemplateType.fromString(this.templateType);
+    }
+    
+    /**
+     * Set template type using enum
+     * @param templateType TemplateType enum value
+     */
+    public void setTemplateTypeEnum(TemplateType templateType) {
+        this.templateType = templateType != null ? templateType.getValue() : TemplateType.HTML.getValue();
+    }
+    
+    /**
+     * Check if template supports interactive editing
+     * @return true if template can be edited interactively
+     */
+    public boolean supportsEditing() {
+        return getTemplateTypeEnum().supportsEditing();
+    }
+    
+    /**
+     * Check if template requires a media player for rendering
+     * @return true if template needs media player
+     */
+    public boolean requiresMediaPlayer() {
+        return getTemplateTypeEnum().requiresMediaPlayer();
+    }
+    
+    /**
+     * Check if template is image-based
+     * @return true if template is primarily image-based
+     */
+    public boolean isImageBased() {
+        return getTemplateTypeEnum().isImageBased();
+    }
+    
+    /**
+     * Get appropriate MIME type for template content
+     * @return MIME type string for rendering
+     */
+    public String getMimeType() {
+        return getTemplateTypeEnum().getMimeType();
+    }
+    
+    /**
+     * Get the primary content URL based on template type
+     * @return URL string for the main content
+     */
+    public String getPrimaryContentUrl() {
+        TemplateType type = getTemplateTypeEnum();
+        switch (type) {
+            case VIDEO:
+                return getVideoUrl() != null ? getVideoUrl() : getPreviewUrl();
+            case IMAGE:
+                return getImageUrl() != null ? getImageUrl() : getPreviewUrl();
+            case HTML:
+            default:
+                return getPreviewUrl();
+        }
+    }
+    
+    /**
+     * Check if template has valid content for its type
+     * @return true if template has appropriate content
+     */
+    public boolean hasValidContent() {
+        TemplateType type = getTemplateTypeEnum();
+        switch (type) {
+            case HTML:
+                return getHtmlContent() != null && !getHtmlContent().trim().isEmpty();
+            case VIDEO:
+                return getVideoUrl() != null && !getVideoUrl().trim().isEmpty();
+            case IMAGE:
+                return (getImageUrl() != null && !getImageUrl().trim().isEmpty()) ||
+                       (getPreviewUrl() != null && !getPreviewUrl().trim().isEmpty());
+            default:
+                return getPreviewUrl() != null && !getPreviewUrl().trim().isEmpty();
+        }
+    }
+    
+    /**
+     * Get template description based on type and content
+     * @return descriptive string for the template
+     */
+    public String getTypeDescription() {
+        TemplateType type = getTemplateTypeEnum();
+        String baseDescription = type.getDescription();
+        
+        if (isAIGenerated()) {
+            baseDescription += " (AI Generated)";
+        }
+        if (isPremium()) {
+            baseDescription += " (Premium)";
+        }
+        if (isFeatured()) {
+            baseDescription += " (Featured)";
+        }
+        
+        return baseDescription;
+    }
+    
+    /**
+     * Check if template can be rendered in the current context
+     * @return true if template can be displayed
+     */
+    public boolean canRender() {
+        return hasValidContent() && 
+               getModerationStatus() != null && 
+               getModerationStatus().equals("approved") &&
+               isStatus(); // Template is active
+    }
+    
+    /**
+     * Get interaction capabilities for this template type
+     * @return array of supported InteractionType values
+     */
+    public InteractionType[] getSupportedInteractions() {
+        TemplateType type = getTemplateTypeEnum();
+        switch (type) {
+            case HTML:
+                return new InteractionType[]{
+                    InteractionType.VIEW, 
+                    InteractionType.EDIT, 
+                    InteractionType.PREVIEW, 
+                    InteractionType.SHARE
+                };
+            case VIDEO:
+                return new InteractionType[]{
+                    InteractionType.VIEW, 
+                    InteractionType.PREVIEW, 
+                    InteractionType.SHARE
+                };
+            case IMAGE:
+            default:
+                return new InteractionType[]{
+                    InteractionType.VIEW, 
+                    InteractionType.PREVIEW, 
+                    InteractionType.SHARE
+                };
+        }
+    }
+    
+    /**
+     * Check if specific interaction is supported
+     * @param interaction InteractionType to check
+     * @return true if interaction is supported
+     */
+    public boolean supportsInteraction(InteractionType interaction) {
+        InteractionType[] supported = getSupportedInteractions();
+        for (InteractionType supportedType : supported) {
+            if (supportedType == interaction) {
+                return true;
+            }
+        }
+        return false;
     }
 }

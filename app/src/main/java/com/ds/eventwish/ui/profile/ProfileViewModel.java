@@ -104,7 +104,7 @@ public class ProfileViewModel extends AndroidViewModel {
                 username.setValue(user.getDisplayName() != null ? user.getDisplayName() : "User");
                 email.setValue(user.getEmail() != null ? user.getEmail() : "");
                 profilePhoto.setValue(user.getProfilePhoto());
-            } else {
+                } else {
                 // Fallback to Firebase user data if MongoDB data is not available
                 username.setValue(currentUser.getDisplayName() != null ? 
                                currentUser.getDisplayName() : "User");

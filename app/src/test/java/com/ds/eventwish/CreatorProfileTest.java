@@ -12,7 +12,7 @@ import java.util.List;
 /**
  * Unit tests for Template Creator Profile Display functionality
  * 
- * Tests the logic implemented in RecommendedTemplateAdapter.setCreatorProfile()
+ * Tests the logic implemented in TemplateAdapter.setCreatorProfile()
  * to ensure proper fallback behavior and creator information display.
  */
 public class CreatorProfileTest {

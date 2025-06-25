@@ -85,7 +85,7 @@ public class ProfileFragment extends Fragment {
         // Observe username changes
         profileViewModel.getUsername().observe(getViewLifecycleOwner(), username -> {
             if (username != null && !username.isEmpty()) {
-                binding.usernameText.setText(username);
+            binding.usernameText.setText(username);
             } else {
                 binding.usernameText.setText(R.string.default_username);
             }
@@ -94,7 +94,7 @@ public class ProfileFragment extends Fragment {
         // Observe email changes
         profileViewModel.getEmail().observe(getViewLifecycleOwner(), email -> {
             if (email != null && !email.isEmpty()) {
-                binding.emailText.setText(email);
+            binding.emailText.setText(email);
             } else {
                 binding.emailText.setText(R.string.default_email);
             }
@@ -162,8 +162,8 @@ public class ProfileFragment extends Fragment {
                     if (error != null) {
                         Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show();
                     } else {
-                        Toast.makeText(requireContext(), R.string.profile_updated, Toast.LENGTH_SHORT).show();
-                        dialog.dismiss();
+                Toast.makeText(requireContext(), R.string.profile_updated, Toast.LENGTH_SHORT).show();
+                dialog.dismiss();
                     }
                 });
             });
