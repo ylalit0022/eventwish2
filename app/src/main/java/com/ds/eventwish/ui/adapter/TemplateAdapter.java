@@ -29,6 +29,20 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import androidx.core.content.ContextCompat;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.text.Html;
+import android.text.method.LinkMovementMethod;
+import android.text.Spanned;
+import android.text.style.URLSpan;
+import android.text.style.ClickableSpan;
+import android.text.style.UnderlineSpan;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.BackgroundColorSpan;
+import android.text.style.StrikethroughSpan;
+import android.text.style.SuperscriptSpan;
+import android.text.style.SubscriptSpan;
+import android.text.style.TextAppearanceSpan;
 
 public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHolder> {
 
@@ -44,6 +58,13 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
     // Add debouncing for setTemplates to prevent excessive updates
     private long lastSetTemplatesTime = 0;
     private static final long SET_TEMPLATES_DEBOUNCE_TIME = 1000; // 1 second debounce
+    
+    // Video auto-play management
+    private RecyclerView recyclerView;
+    private ViewHolder currentPlayingVideoHolder;
+    private String currentPlayingVideoId;
+    private boolean isAutoPlayEnabled = true;
+    private static final float VISIBILITY_THRESHOLD = 0.5f; // 50% visibility required for auto-play
 
     public TemplateAdapter(Context context) {
         this.context = context;
@@ -109,6 +130,14 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             holder.likeCountText.setText(String.valueOf(template.getLikeCount()));
         } else {
             holder.likeCountText.setVisibility(View.GONE);
+        }
+        
+        // Set favorite count
+        if (template.getFavoriteCount() > 0) {
+            holder.favoriteCountText.setVisibility(View.VISIBLE);
+            holder.favoriteCountText.setText(String.valueOf(template.getFavoriteCount()));
+        } else {
+            holder.favoriteCountText.setVisibility(View.GONE);
         }
         
         // Set badges
@@ -192,7 +221,7 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
     }
     
     /**
-     * 🌐 Render HTML template
+     * 🌐 Render HTML template with WebView preview
      */
     private void renderHtmlTemplate(@NonNull ViewHolder holder, @NonNull Template template) {
         Log.d(TAG, "🌐 RENDERING HTML TEMPLATE: " + template.getId());
@@ -204,12 +233,235 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         // Set HTML template title
         holder.htmlTemplateTitle.setText(template.getTitle());
         
-        // Set description based on available data
-        String description = getTemplateDescription(template, "Interactive HTML template with animations and customizable content");
-        holder.htmlTemplateDescription.setText(description);
-        holder.htmlTemplateDescription.setVisibility(View.VISIBLE);
+        // Configure WebView for secure HTML preview
+        if (holder.htmlPreviewWebView != null) {
+            WebSettings webSettings = holder.htmlPreviewWebView.getSettings();
+            
+            // Security settings - disable JavaScript for safety in preview
+            webSettings.setJavaScriptEnabled(false);
+            webSettings.setAllowFileAccess(false);
+            webSettings.setAllowContentAccess(false);
+            webSettings.setAllowFileAccessFromFileURLs(false);
+            webSettings.setAllowUniversalAccessFromFileURLs(false);
+            webSettings.setBlockNetworkLoads(true);
+            webSettings.setBlockNetworkImage(true);
+            
+            // Display settings - Enhanced for better preview
+            webSettings.setLoadWithOverviewMode(true);
+            webSettings.setUseWideViewPort(true);
+            webSettings.setBuiltInZoomControls(false);
+            webSettings.setDisplayZoomControls(false);
+            webSettings.setSupportZoom(false);
+            webSettings.setDefaultTextEncodingName("UTF-8");
+            
+            // Enable DOM storage for better HTML rendering
+            webSettings.setDomStorageEnabled(true);
+            
+            // Set WebView client for error handling
+            holder.htmlPreviewWebView.setWebViewClient(new android.webkit.WebViewClient() {
+                @Override
+                public void onPageFinished(android.webkit.WebView view, String url) {
+                    super.onPageFinished(view, url);
+                    Log.d(TAG, "🌐 HTML page finished loading for template: " + template.getId());
+                }
+                
+                @Override
+                public void onReceivedError(android.webkit.WebView view, int errorCode, String description, String failingUrl) {
+                    super.onReceivedError(view, errorCode, description, failingUrl);
+                    Log.e(TAG, "🌐 WebView error for template " + template.getId() + ": " + description);
+                    renderHtmlPlaceholder(holder, template);
+                }
+            });
+            
+            // Render HTML content
+            renderHtmlContentInWebView(holder, template);
+        } else {
+            Log.e(TAG, "🌐 WebView is null for template: " + template.getId());
+            renderHtmlPlaceholder(holder, template);
+        }
         
         Log.d(TAG, "🌐 HTML template rendered with title: " + template.getTitle());
+    }
+    
+    /**
+     * Render HTML content in WebView with fallback handling
+     */
+    private void renderHtmlContentInWebView(@NonNull ViewHolder holder, @NonNull Template template) {
+        String htmlContent = template.getHtmlContent();
+        String cssContent = template.getCssContent();
+        
+        if (htmlContent != null && !htmlContent.trim().isEmpty()) {
+            Log.d(TAG, "🌐 Rendering HTML content for template: " + template.getId());
+            
+            // Create responsive HTML with enhanced preview styling
+            String responsiveHtml = createResponsiveHtmlForPreview(htmlContent, cssContent, template);
+            
+            try {
+                holder.htmlPreviewWebView.loadDataWithBaseURL(
+                    null, 
+                    responsiveHtml, 
+                    "text/html", 
+                    "UTF-8", 
+                    null
+                );
+                Log.d(TAG, "🌐 HTML content loaded successfully for template: " + template.getId());
+            } catch (Exception e) {
+                Log.e(TAG, "🌐 Error loading HTML content for template " + template.getId() + ": " + e.getMessage());
+                renderHtmlPlaceholder(holder, template);
+            }
+        } else {
+            Log.w(TAG, "🌐 No HTML content available for template: " + template.getId());
+            renderHtmlPlaceholder(holder, template);
+        }
+    }
+    
+    /**
+     * 📱 Create responsive HTML optimized for preview mode
+     * This version is optimized for small preview containers in RecyclerView
+     */
+    private String createResponsiveHtmlForPreview(String htmlContent, String cssContent, Template template) {
+        // Preview-specific CSS for compact display
+        String previewCss = 
+            "/* Preview Mode Styles - Optimized for RecyclerView */ " +
+            "body { " +
+                "margin: 0 !important; " +
+                "padding: 8px !important; " +
+                "font-family: 'Roboto', Arial, sans-serif !important; " +
+                "font-size: 12px !important; " +
+                "line-height: 1.3 !important; " +
+                "background: #ffffff !important; " +
+                "overflow: hidden !important; " +
+                "transform-origin: top left !important; " +
+                "transform: scale(0.75) !important; " + // Scale down for preview
+                "width: 133.33% !important; " + // Compensate for scale
+                "height: 133.33% !important; " +
+            "} " +
+            "* { " +
+                "box-sizing: border-box !important; " +
+                "max-width: 100% !important; " +
+            "} " +
+            "img { " +
+                "max-width: 100% !important; " +
+                "height: auto !important; " +
+                "object-fit: contain !important; " +
+                "border-radius: 4px !important; " +
+            "} " +
+            "h1, h2, h3, h4, h5, h6 { " +
+                "font-size: 14px !important; " +
+                "margin: 4px 0 !important; " +
+                "line-height: 1.2 !important; " +
+                "font-weight: bold !important; " +
+            "} " +
+            "p { " +
+                "font-size: 11px !important; " +
+                "margin: 2px 0 !important; " +
+                "line-height: 1.3 !important; " +
+            "} " +
+            "table { " +
+                "width: 100% !important; " +
+                "border-collapse: collapse !important; " +
+                "font-size: 10px !important; " +
+            "} " +
+            "td, th { " +
+                "padding: 2px !important; " +
+                "font-size: 10px !important; " +
+            "} " +
+            "div { " +
+                "max-width: 100% !important; " +
+            "} " +
+            "/* Hide elements that might cause overflow in preview */ " +
+            ".preview-hide { " +
+                "display: none !important; " +
+            "} " +
+            "/* Responsive breakpoints for preview */ " +
+            "@media (max-width: 400px) { " +
+                "body { transform: scale(0.6) !important; width: 166.67% !important; } " +
+            "} ";
+        
+        // Combine original CSS with preview CSS (preview CSS takes precedence)
+        String combinedCss = "";
+        if (cssContent != null && !cssContent.trim().isEmpty()) {
+            combinedCss = cssContent + " " + previewCss;
+        } else {
+            combinedCss = previewCss;
+        }
+        
+        // Create complete HTML with responsive viewport and preview optimizations
+        String responsiveHtml = 
+            "<!DOCTYPE html>" +
+            "<html>" +
+            "<head>" +
+                "<meta charset='UTF-8'>" +
+                "<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'>" +
+                "<title>" + (template.getTitle() != null ? template.getTitle() : "Preview") + "</title>" +
+                "<style>" + combinedCss + "</style>" +
+            "</head>" +
+            "<body>" +
+                "<div class='preview-container'>" +
+                    htmlContent +
+                "</div>" +
+                "<script>" +
+                    "// Preview mode optimizations" +
+                    "document.addEventListener('DOMContentLoaded', function() {" +
+                        "// Remove any scripts that might interfere with preview" +
+                        "var scripts = document.querySelectorAll('script[src]');" +
+                        "scripts.forEach(function(script) { script.remove(); });" +
+                        
+                        "// Optimize images for preview" +
+                        "var images = document.querySelectorAll('img');" +
+                        "images.forEach(function(img) {" +
+                            "img.style.maxWidth = '100%';" +
+                            "img.style.height = 'auto';" +
+                        "});" +
+                        
+                        "// Add preview mode class to body" +
+                        "document.body.classList.add('preview-mode');" +
+                        
+                        "console.log('HTML preview optimized for RecyclerView');" +
+                    "});" +
+                "</script>" +
+            "</body>" +
+            "</html>";
+        
+        Log.d(TAG, "📱 Created responsive HTML for preview mode (length: " + responsiveHtml.length() + ")");
+        return responsiveHtml;
+    }
+    
+    /**
+     * Render HTML placeholder when content is not available
+     */
+    private void renderHtmlPlaceholder(@NonNull ViewHolder holder, @NonNull Template template) {
+        String placeholderHtml = "<!DOCTYPE html>" +
+            "<html><head>" +
+            "<meta charset='UTF-8'>" +
+            "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+            "<style>" +
+            "body { margin: 0; padding: 20px; font-family: Arial, sans-serif; " +
+            "background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); " +
+            "color: white; text-align: center; display: flex; " +
+            "flex-direction: column; justify-content: center; height: 100vh; }" +
+            ".icon { font-size: 48px; margin-bottom: 16px; }" +
+            ".title { font-size: 18px; font-weight: bold; margin-bottom: 8px; }" +
+            ".subtitle { font-size: 14px; opacity: 0.8; }" +
+            "</style>" +
+            "</head><body>" +
+            "<div class='icon'>🌐</div>" +
+            "<div class='title'>HTML Template</div>" +
+            "<div class='subtitle'>Interactive content preview</div>" +
+            "</body></html>";
+            
+        try {
+            holder.htmlPreviewWebView.loadDataWithBaseURL(
+                null, 
+                placeholderHtml, 
+                "text/html", 
+                "UTF-8", 
+                null
+            );
+            Log.d(TAG, "🌐 HTML placeholder rendered for template: " + template.getId());
+        } catch (Exception e) {
+            Log.e(TAG, "🌐 Error rendering HTML placeholder for template: " + template.getId(), e);
+        }
     }
     
     /**
@@ -288,7 +540,8 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         if (templateType != null) {
             switch (templateType.toLowerCase()) {
                 case "html":
-                    holder.htmlTemplateContainer.setOnClickListener(templateClickListener);
+                    // Enhanced HTML WebView navigation
+                    setupHtmlWebViewNavigation(holder, template, templateClickListener);
                     break;
                 case "video":
                     holder.videoTemplateContainer.setOnClickListener(templateClickListener);
@@ -308,6 +561,41 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         
         // Favorite button listener  
         holder.favoriteIcon.setOnClickListener(v -> handleFavoriteClick(holder, template));
+    }
+    
+    /**
+     * 🌐 Setup enhanced HTML WebView navigation with visual feedback
+     */
+    private void setupHtmlWebViewNavigation(@NonNull ViewHolder holder, @NonNull Template template, View.OnClickListener templateClickListener) {
+        // Set click listener on HTML container for better touch target
+        holder.htmlTemplateContainer.setOnClickListener(templateClickListener);
+        
+        // Enhanced WebView click listener with visual feedback
+        if (holder.htmlPreviewWebView != null) {
+            holder.htmlPreviewWebView.setOnTouchListener((v, event) -> {
+                switch (event.getAction()) {
+                    case android.view.MotionEvent.ACTION_DOWN:
+                        // Visual feedback on touch down
+                        holder.htmlTemplateContainer.setAlpha(0.8f);
+                        break;
+                    case android.view.MotionEvent.ACTION_UP:
+                    case android.view.MotionEvent.ACTION_CANCEL:
+                        // Reset visual state
+                        holder.htmlTemplateContainer.setAlpha(1.0f);
+                        break;
+                }
+                return true; // Consume the touch event
+            });
+        }
+        
+        // Add ripple effect to HTML container for better UX
+        android.util.TypedValue outValue = new android.util.TypedValue();
+        context.getTheme().resolveAttribute(android.R.attr.selectableItemBackground, outValue, true);
+        holder.htmlTemplateContainer.setBackground(
+            androidx.core.content.ContextCompat.getDrawable(context, outValue.resourceId)
+        );
+        
+        Log.d(TAG, "🌐 Enhanced HTML WebView navigation setup complete for template: " + template.getId());
     }
     
     /**
@@ -381,6 +669,7 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
     private void handleFavoriteClick(@NonNull ViewHolder holder, @NonNull Template template) {
         Log.d(TAG, "⭐ FAVORITE BUTTON CLICKED for template: " + template.getId());
         Log.d(TAG, "Current favorited state: " + template.isFavorited());
+        Log.d(TAG, "Current favorite count: " + template.getFavoriteCount());
         
         // Prevent rapid clicks
         if (!holder.favoriteIcon.isEnabled()) {
@@ -403,17 +692,30 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         
         // Optimistic UI update
         boolean newFavoritedState = !template.isFavorited();
+        long newFavoriteCount = template.getFavoriteCount() + (newFavoritedState ? 1 : -1);
         
         Log.d(TAG, "⭐ Optimistic update: favorited " + template.isFavorited() + " -> " + newFavoritedState);
+        Log.d(TAG, "⭐ Optimistic update: count " + template.getFavoriteCount() + " -> " + newFavoriteCount);
         
         // Update template state immediately for UI responsiveness
         template.setFavorited(newFavoritedState);
+        template.setFavoriteCount(Math.max(0, newFavoriteCount));
         
         // Animate the favorite button
         animateFavoriteButton(holder.favoriteIcon, newFavoritedState);
         
         // Update UI state
         updateFavoriteState(holder, newFavoritedState);
+        
+        // Update favorite count display - FIXED: Added proper count update logic
+        if (template.getFavoriteCount() > 0) {
+            holder.favoriteCountText.setText(String.valueOf(template.getFavoriteCount()));
+            holder.favoriteCountText.setVisibility(View.VISIBLE);
+            Log.d(TAG, "⭐ Favorite count updated to: " + template.getFavoriteCount());
+        } else {
+            holder.favoriteCountText.setVisibility(View.GONE);
+            Log.d(TAG, "⭐ Favorite count hidden (count is 0)");
+        }
         
         // Show toast message
         String message = newFavoritedState ? "Added to favorites!" : "Removed from favorites!";
@@ -597,8 +899,8 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         final TextView timeText;
         final TextView fallbackTimeText;
         final TextView htmlTemplateTitle;
-        final TextView htmlTemplateDescription;
         final LinearLayout htmlTemplateContainer;
+        final WebView htmlPreviewWebView;
         final ImageView videoThumbnail;
         final TextView videoDuration;
         final LinearLayout videoTemplateContainer;
@@ -620,8 +922,8 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             timeText = itemView.findViewById(R.id.timeText);
             fallbackTimeText = itemView.findViewById(R.id.fallbackTimeText);
             htmlTemplateTitle = itemView.findViewById(R.id.html_template_title);
-            htmlTemplateDescription = itemView.findViewById(R.id.html_template_description);
             htmlTemplateContainer = itemView.findViewById(R.id.html_template_container);
+            htmlPreviewWebView = itemView.findViewById(R.id.html_preview_webview);
             videoThumbnail = itemView.findViewById(R.id.video_thumbnail);
             videoDuration = itemView.findViewById(R.id.video_duration);
             videoTemplateContainer = itemView.findViewById(R.id.video_template_container);
@@ -754,5 +1056,215 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         long daysDiff = (now - createdTime) / (1000 * 60 * 60 * 24);
         
         return daysDiff < 7; // Template is new if less than 7 days old
+    }
+
+    /**
+     * 🎥 Attach adapter to RecyclerView to enable video auto-play functionality
+     */
+    @Override
+    public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
+        super.onAttachedToRecyclerView(recyclerView);
+        this.recyclerView = recyclerView;
+        setupVideoAutoPlayScrollListener();
+        Log.d(TAG, "🎥 Adapter attached to RecyclerView - video auto-play enabled");
+    }
+    
+    @Override
+    public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
+        super.onDetachedFromRecyclerView(recyclerView);
+        pauseCurrentPlayingVideo();
+        this.recyclerView = null;
+        Log.d(TAG, "🎥 Adapter detached from RecyclerView - video auto-play disabled");
+    }
+    
+    /**
+     * 🎥 Setup scroll listener for video auto-play detection
+     */
+    private void setupVideoAutoPlayScrollListener() {
+        if (recyclerView == null) return;
+        
+        recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
+                super.onScrollStateChanged(recyclerView, newState);
+                
+                // Check video visibility when scroll stops
+                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                    checkVideoVisibilityAndAutoPlay();
+                }
+            }
+            
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                
+                // Continuously check during scroll for smooth experience
+                checkVideoVisibilityAndAutoPlay();
+            }
+        });
+    }
+    
+    /**
+     * 🎥 Check video visibility and manage auto-play
+     */
+    private void checkVideoVisibilityAndAutoPlay() {
+        if (!isAutoPlayEnabled || recyclerView == null) return;
+        
+        ViewHolder mostVisibleVideoHolder = null;
+        float maxVisibilityPercentage = 0f;
+        String mostVisibleVideoId = null;
+        
+        // Find the most visible video template
+        for (int i = 0; i < recyclerView.getChildCount(); i++) {
+            View child = recyclerView.getChildAt(i);
+            ViewHolder holder = (ViewHolder) recyclerView.getChildViewHolder(child);
+            
+            if (holder != null && holder.getAdapterPosition() >= 0 && 
+                holder.getAdapterPosition() < templates.size()) {
+                
+                Template template = templates.get(holder.getAdapterPosition());
+                if ("video".equalsIgnoreCase(template.getTemplateType())) {
+                    float visibilityPercentage = getVisibilityPercentage(child);
+                    
+                    if (visibilityPercentage > maxVisibilityPercentage && 
+                        visibilityPercentage >= VISIBILITY_THRESHOLD) {
+                        maxVisibilityPercentage = visibilityPercentage;
+                        mostVisibleVideoHolder = holder;
+                        mostVisibleVideoId = template.getId();
+                    }
+                }
+            }
+        }
+        
+        // Manage video playback based on visibility
+        if (mostVisibleVideoHolder != null && !mostVisibleVideoId.equals(currentPlayingVideoId)) {
+            // Pause current playing video
+            pauseCurrentPlayingVideo();
+            
+            // Start playing the most visible video
+            playVideo(mostVisibleVideoHolder, mostVisibleVideoId);
+        } else if (mostVisibleVideoHolder == null && currentPlayingVideoHolder != null) {
+            // No video is sufficiently visible, pause current playing video
+            pauseCurrentPlayingVideo();
+        }
+    }
+    
+    /**
+     * 🎥 Calculate visibility percentage of a view
+     */
+    private float getVisibilityPercentage(View view) {
+        if (recyclerView == null) return 0f;
+        
+        android.graphics.Rect scrollBounds = new android.graphics.Rect();
+        recyclerView.getHitRect(scrollBounds);
+        
+        android.graphics.Rect viewBounds = new android.graphics.Rect();
+        view.getHitRect(viewBounds);
+        
+        if (viewBounds.intersect(scrollBounds)) {
+            int visibleArea = viewBounds.width() * viewBounds.height();
+            int totalArea = view.getWidth() * view.getHeight();
+            
+            return totalArea > 0 ? (float) visibleArea / totalArea : 0f;
+        }
+        
+        return 0f;
+    }
+    
+    /**
+     * 🎥 Start playing video with smooth animation
+     */
+    private void playVideo(ViewHolder holder, String videoId) {
+        if (holder == null || holder.videoTemplateContainer == null) return;
+        
+        Log.d(TAG, "🎥 Starting video playback for template: " + videoId);
+        
+        currentPlayingVideoHolder = holder;
+        currentPlayingVideoId = videoId;
+        
+        // Add play animation
+        if (holder.videoThumbnail != null) {
+            holder.videoThumbnail.animate()
+                .alpha(0.7f)
+                .scaleX(1.05f)
+                .scaleY(1.05f)
+                .setDuration(300)
+                .start();
+        }
+        
+        // Show visual indicator that video is playing
+        if (holder.videoDuration != null) {
+            holder.videoDuration.setText("▶ PLAYING");
+            holder.videoDuration.setTextColor(androidx.core.content.ContextCompat.getColor(context, android.R.color.holo_red_dark));
+        }
+        
+        // TODO: Implement actual video playback here
+        // For now, we simulate video playback with visual feedback
+        // In a real implementation, you would:
+        // 1. Load video URL into a VideoView or ExoPlayer
+        // 2. Start playback
+        // 3. Handle video events (buffering, error, completion)
+        
+        Log.d(TAG, "🎥 Video playback started for template: " + videoId);
+    }
+    
+    /**
+     * 🎥 Pause current playing video with smooth animation
+     */
+    private void pauseCurrentPlayingVideo() {
+        if (currentPlayingVideoHolder == null) return;
+        
+        Log.d(TAG, "🎥 Pausing video playback for template: " + currentPlayingVideoId);
+        
+        ViewHolder holder = currentPlayingVideoHolder;
+        
+        // Restore normal appearance
+        if (holder.videoThumbnail != null) {
+            holder.videoThumbnail.animate()
+                .alpha(1.0f)
+                .scaleX(1.0f)
+                .scaleY(1.0f)
+                .setDuration(300)
+                .start();
+        }
+        
+        // Reset duration text with properly resolved theme color
+        if (holder.videoDuration != null) {
+            holder.videoDuration.setText("0:30");
+            
+            // Properly resolve the textColorSecondary theme attribute
+            android.util.TypedValue typedValue = new android.util.TypedValue();
+            context.getTheme().resolveAttribute(android.R.attr.textColorSecondary, typedValue, true);
+            holder.videoDuration.setTextColor(androidx.core.content.ContextCompat.getColor(context, typedValue.resourceId));
+        }
+        
+        // TODO: Implement actual video pause here
+        // In a real implementation, you would:
+        // 1. Pause the VideoView or ExoPlayer
+        // 2. Save current playback position
+        // 3. Release resources if needed
+        
+        currentPlayingVideoHolder = null;
+        currentPlayingVideoId = null;
+        
+        Log.d(TAG, "🎥 Video playback paused");
+    }
+    
+    /**
+     * 🎥 Enable or disable video auto-play
+     */
+    public void setAutoPlayEnabled(boolean enabled) {
+        this.isAutoPlayEnabled = enabled;
+        if (!enabled) {
+            pauseCurrentPlayingVideo();
+        }
+        Log.d(TAG, "🎥 Video auto-play " + (enabled ? "enabled" : "disabled"));
+    }
+    
+    /**
+     * 🎥 Check if auto-play is enabled
+     */
+    public boolean isAutoPlayEnabled() {
+        return isAutoPlayEnabled;
     }
 } 

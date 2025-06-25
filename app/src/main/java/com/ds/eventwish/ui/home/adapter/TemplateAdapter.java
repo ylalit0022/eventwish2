@@ -198,21 +198,11 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
             binding.htmlTemplateContainer.setVisibility(View.VISIBLE);
             binding.templateTypeBadge.setText("HTML");
             
-            // Set HTML template title and description
+            // Set HTML template title
             binding.htmlTemplateTitle.setText(template.getTitle());
             
-            // Use category or festival tag as description, or default text
-            String description = null;
-            if (template.getFestivalTag() != null && !template.getFestivalTag().isEmpty()) {
-                description = "Festival: " + template.getFestivalTag();
-            } else if (template.getCategory() != null && !template.getCategory().isEmpty()) {
-                description = "Category: " + template.getCategory();
-            } else {
-                description = "Interactive HTML template";
-            }
-            
-            binding.htmlTemplateDescription.setText(description);
-            binding.htmlTemplateDescription.setVisibility(View.VISIBLE);
+            // Note: htmlTemplateDescription view doesn't exist in the layout
+            // Description functionality can be added later if needed
         }
         
         private void setupVideoTemplate(Template template) {
