@@ -339,6 +339,9 @@ try {
   try { app.use('/api/users', require('./routes/users')); console.log('✅ Loaded users routes (refactored)'); } 
   catch (e) { console.error('❌ Failed to load users routes:', e.message); }
   
+  try { app.use('/api/feed', require('./routes/feed')); console.log('✅ Loaded feed routes (personalized)'); } 
+  catch (e) { console.error('❌ Failed to load feed routes:', e.message); }
+  
   try { app.use('/api/sponsored-ads', require('./routes/sponsoredAds')); console.log('✅ Loaded sponsoredAds routes'); } 
   catch (e) { console.error('❌ Failed to load sponsoredAds routes:', e.message); }
   
