@@ -46,6 +46,17 @@ import android.text.style.SubscriptSpan;
 import android.text.style.TextAppearanceSpan;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.android.material.imageview.ShapeableImageView;
+import com.ds.eventwish.utils.TemplateOverlayHelper;
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
+import android.widget.FrameLayout;
+import androidx.media3.ui.PlayerView;
+import android.webkit.WebViewClient;
+import android.graphics.Bitmap;
+import android.view.Gravity;
+import com.ds.eventwish.BuildConfig;
 
 public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHolder> {
 
@@ -69,10 +80,33 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
     private boolean isAutoPlayEnabled = true;
     private static final float VISIBILITY_THRESHOLD = 0.5f; // 50% visibility required for auto-play
 
-    // Cache for user display name
+    // Cache for user display name and profile photo
     private static String cachedUserName = null;
+    private static String cachedUserPhotoUrl = null;
     private static long lastNameFetchTime = 0;
+    private static long lastPhotoFetchTime = 0;
     private static final long NAME_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+    private static final long PHOTO_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes cache for photos
+
+    // Cache for creator profiles
+    private static final Map<String, CreatorProfile> creatorProfileCache = new HashMap<>();
+    private static final long CREATOR_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+    private static class CreatorProfile {
+        String displayName;
+        String photoUrl;
+        long timestamp;
+
+        CreatorProfile(String displayName, String photoUrl) {
+            this.displayName = displayName;
+            this.photoUrl = photoUrl;
+            this.timestamp = System.currentTimeMillis();
+        }
+
+        boolean isExpired() {
+            return System.currentTimeMillis() - timestamp > CREATOR_CACHE_DURATION;
+        }
+    }
 
     public TemplateAdapter(Context context) {
         this.context = context;
@@ -119,9 +153,11 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
     public void onBindViewHolder(@NonNull final ViewHolder holder, int position) {
         Template template = templates.get(position);
         
-        Log.d(TAG, "🎯 BINDING TEMPLATE: " + template.getId() + 
-              ", Type: " + template.getTemplateType() + 
-              ", Title: " + template.getTitle());
+        // Log template data for debugging
+        Log.d(TAG, "🔍 Template data for position " + position + ":");
+        Log.d(TAG, "   • Template ID: " + template.getId());
+        Log.d(TAG, "   • Type: " + template.getTemplateType());
+        Log.d(TAG, "   • Creator UID: " + template.getCreatorUid());
         
         // Set title and category
         holder.titleText.setText(template.getTitle());
@@ -129,6 +165,9 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         
         // Handle template type rendering
         renderTemplateByType(holder, template);
+        
+        // Load creator profile
+        loadCreatorProfile(holder, template);
         
         // Set creation time using actual template data
         String timeAgoText;
@@ -188,6 +227,59 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         
         // Set up interaction listeners
         setupInteractionListeners(holder, template);
+    }
+    
+    private void loadCreatorProfile(@NonNull ViewHolder holder, @NonNull Template template) {
+        // Get creator UID from template
+        String creatorUid = template.getCreatorUid();
+        
+        // If no creator ID, show default app branding
+        if (creatorUid == null || creatorUid.isEmpty()) {
+            setDefaultProfile(holder);
+            return;
+        }
+
+        // Get creator info from Firebase
+        FirebaseFirestore.getInstance()
+            .collection("users")
+            .whereEqualTo("uid", creatorUid)
+            .get()
+            .addOnSuccessListener(querySnapshot -> {
+                if (!querySnapshot.isEmpty()) {
+                    DocumentSnapshot userDoc = querySnapshot.getDocuments().get(0);
+                    String displayName = userDoc.getString("displayName");
+                    String profilePhoto = userDoc.getString("profilePhoto");
+                    
+                    // If either display name or photo is missing, use default
+                    if (displayName == null || displayName.isEmpty() || profilePhoto == null || profilePhoto.isEmpty()) {
+                        setDefaultProfile(holder);
+                        return;
+                    }
+                    
+                    // Set profile with creator info
+                    holder.usernameText.setText(displayName);
+                    Glide.with(holder.itemView.getContext())
+                        .load(profilePhoto)
+                        .placeholder(R.drawable.app_logo)
+                        .error(R.drawable.app_logo)
+                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                        .into(holder.profileImage);
+                } else {
+                    // User not found, use default
+                    setDefaultProfile(holder);
+                }
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Error loading creator profile", e);
+                setDefaultProfile(holder);
+            });
+    }
+
+    private void setDefaultProfile(@NonNull ViewHolder holder) {
+        // Set app logo
+        holder.profileImage.setImageResource(R.drawable.app_logo);
+        // Set app name
+        holder.usernameText.setText(R.string.app_name);
     }
     
     /**
@@ -380,6 +472,9 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         // Replace name placeholders with proper error handling
         htmlContent = replaceNamePlaceholders(htmlContent);
         
+        // Replace user profile placeholders for video overlays and dynamic content
+        htmlContent = replaceUserProfilePlaceholders(htmlContent);
+        
         // Create complete HTML with responsive viewport and preview optimizations
         String responsiveHtml = 
             "<!DOCTYPE html>" +
@@ -394,6 +489,34 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
                     ".sender-name { " +
                         "font-weight: bold; " +
                         "display: inline-block; " +
+                    "} " +
+                    // Add styles for user profile elements
+                    ".user-name { " +
+                        "font-weight: bold; " +
+                        "display: inline-block; " +
+                        "color: inherit; " +
+                    "} " +
+                    ".user-photo { " +
+                        "width: 32px; " +
+                        "height: 32px; " +
+                        "border-radius: 50%; " +
+                        "object-fit: cover; " +
+                        "display: inline-block; " +
+                        "vertical-align: middle; " +
+                    "} " +
+                    ".user-photo-placeholder { " +
+                        "width: 32px; " +
+                        "height: 32px; " +
+                        "border-radius: 50%; " +
+                        "background-color: #ccc; " +
+                        "display: inline-block; " +
+                        "vertical-align: middle; " +
+                    "} " +
+                    ".user-profile { " +
+                        "display: flex; " +
+                        "align-items: center; " +
+                        "gap: 8px; " +
+                        "flex-wrap: wrap; " +
                     "} " +
                 "</style>" +
             "</head>" +
@@ -445,44 +568,208 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             return cachedUserName;
         }
         
-        // Default fallback name
-        String userName = "User";
+        String userName = null;
         
         try {
             FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
             if (currentUser != null) {
-                // Try to get display name
-                String displayName = currentUser.getDisplayName();
-                if (displayName != null && !displayName.trim().isEmpty()) {
-                    userName = displayName;
-                    Log.d(TAG, "Got user's display name from Firebase: " + userName);
-                } else {
-                    // Try email as fallback
+                // Try display name first
+                userName = currentUser.getDisplayName();
+                
+                // If no display name, try email
+                if (userName == null || userName.trim().isEmpty()) {
                     String email = currentUser.getEmail();
                     if (email != null && !email.isEmpty()) {
                         userName = email.split("@")[0]; // Use part before @ as name
                         Log.d(TAG, "Using email username as fallback: " + userName);
-                    } else {
-                        Log.w(TAG, "No display name or email available, using default name");
                     }
+                }
+                
+                // If still no name, use UID prefix
+                if (userName == null || userName.trim().isEmpty()) {
+                    userName = "User " + currentUser.getUid().substring(0, 4);
+                    Log.d(TAG, "Using UID prefix as fallback: " + userName);
                 }
                 
                 // Cache the resolved name
                 cachedUserName = userName;
                 lastNameFetchTime = currentTime;
+                
+                Log.d(TAG, "Updated cached user name: " + userName);
             } else {
                 Log.w(TAG, "No user currently signed in");
+                userName = "Guest User";
             }
         } catch (Exception e) {
             Log.e(TAG, "Error getting user display name", e);
-            // If we have a cached name, use it as fallback during errors
+            // Use cached name as fallback during errors
             if (cachedUserName != null) {
                 Log.d(TAG, "Using cached name during error: " + cachedUserName);
                 return cachedUserName;
             }
+            userName = "Guest User";
         }
         
         return userName;
+    }
+    
+    /**
+     * Get user's profile photo URL with caching and error handling
+     * @return The user's profile photo URL or null for default
+     */
+    private String getUserPhotoUrl() {
+        long currentTime = System.currentTimeMillis();
+        
+        // Check if we have a valid cached photo URL
+        if (cachedUserPhotoUrl != null && (currentTime - lastPhotoFetchTime) < PHOTO_CACHE_DURATION) {
+            Log.d(TAG, "Using cached user photo URL");
+            return cachedUserPhotoUrl;
+        }
+        
+        String photoUrl = null;
+        
+        try {
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            if (currentUser != null) {
+                // Try to get photo URL
+                if (currentUser.getPhotoUrl() != null) {
+                    photoUrl = currentUser.getPhotoUrl().toString();
+                    
+                    // Validate URL format
+                    if (!photoUrl.startsWith("http")) {
+                        Log.w(TAG, "Invalid photo URL format, using default");
+                        photoUrl = null;
+                    } else {
+                        Log.d(TAG, "Got valid user photo URL");
+                    }
+                } else {
+                    Log.d(TAG, "No photo URL available for user");
+                }
+                
+                // Cache the resolved photo URL (even if null)
+                cachedUserPhotoUrl = photoUrl;
+                lastPhotoFetchTime = currentTime;
+            } else {
+                Log.w(TAG, "No user currently signed in for photo URL");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting user photo URL", e);
+            // Use cached photo URL as fallback during errors
+            if (cachedUserPhotoUrl != null) {
+                Log.d(TAG, "Using cached photo URL during error");
+                return cachedUserPhotoUrl;
+            }
+        }
+        
+        return photoUrl;
+    }
+    
+    /**
+     * Set user profile information (name and photo) in ViewHolder with placeholders support
+     * @param holder The ViewHolder to update
+     * @param showPhoto Whether to show the profile photo (false = hide photo, show only name)
+     * @param showName Whether to show the username (false = hide name, show only photo)
+     */
+    private void setUserProfile(@NonNull ViewHolder holder, boolean showPhoto, boolean showName) {
+        try {
+            // Handle username display
+            if (showName && holder.usernameText != null) {
+                String userName = getUserDisplayName();
+                holder.usernameText.setText(userName);
+                holder.usernameText.setVisibility(View.VISIBLE);
+                Log.d(TAG, "👤 Set username: " + userName);
+            } else if (holder.usernameText != null) {
+                holder.usernameText.setVisibility(View.GONE);
+                Log.d(TAG, "👤 Username hidden as requested");
+            }
+            
+            // Handle profile photo display
+            if (showPhoto && holder.profileImage != null) {
+                String photoUrl = getUserPhotoUrl();
+                
+                if (photoUrl != null && !photoUrl.isEmpty()) {
+                    // Load user's actual profile photo
+                    Glide.with(context)
+                            .load(photoUrl)
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .placeholder(R.drawable.app_logo)
+                            .error(R.drawable.app_logo)
+                            .circleCrop()
+                            .into(holder.profileImage);
+                    Log.d(TAG, "👤 Loading user profile photo from: " + photoUrl);
+                } else {
+                    // Use default app logo
+                    holder.profileImage.setImageResource(R.drawable.app_logo);
+                    Log.d(TAG, "👤 Using default app logo for profile photo");
+                }
+                holder.profileImage.setVisibility(View.VISIBLE);
+            } else if (holder.profileImage != null) {
+                holder.profileImage.setVisibility(View.GONE);
+                Log.d(TAG, "👤 Profile photo hidden as requested");
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "👤 Error setting user profile", e);
+            
+            // Fallback to safe defaults
+            if (holder.usernameText != null && showName) {
+                holder.usernameText.setText("User");
+                holder.usernameText.setVisibility(View.VISIBLE);
+            }
+            if (holder.profileImage != null && showPhoto) {
+                holder.profileImage.setImageResource(R.drawable.app_logo);
+                holder.profileImage.setVisibility(View.VISIBLE);
+            }
+        }
+    }
+    
+    /**
+     * Replace user profile placeholders in HTML content for video overlays
+     * @param htmlContent The HTML content to process
+     * @return HTML content with replaced placeholders
+     */
+    private String replaceUserProfilePlaceholders(String htmlContent) {
+        if (htmlContent == null) {
+            Log.w(TAG, "HTML content is null for profile placeholder replacement");
+            return "";
+        }
+        
+        try {
+            String userName = getUserDisplayName();
+            String photoUrl = getUserPhotoUrl();
+            
+            // Replace [USER_NAME] placeholder
+            String userNameSpan = "<span class=\"user-name\">" + userName + "</span>";
+            htmlContent = htmlContent.replace("[USER_NAME]", userNameSpan);
+            
+            // Replace [USER_PHOTO] placeholder
+            if (photoUrl != null && !photoUrl.isEmpty()) {
+                String userPhotoImg = "<img src=\"" + photoUrl + "\" class=\"user-photo\" alt=\"User Photo\" style=\"width: 32px; height: 32px; border-radius: 50%; object-fit: cover;\" />";
+                htmlContent = htmlContent.replace("[USER_PHOTO]", userPhotoImg);
+            } else {
+                // Use default placeholder or remove the placeholder
+                htmlContent = htmlContent.replace("[USER_PHOTO]", "<div class=\"user-photo-placeholder\" style=\"width: 32px; height: 32px; border-radius: 50%; background-color: #ccc;\"></div>");
+            }
+            
+            // Replace [USER_PROFILE] placeholder (both name and photo)
+            String userProfileHtml = "<div class=\"user-profile\" style=\"display: flex; align-items: center; gap: 8px;\">";
+            if (photoUrl != null && !photoUrl.isEmpty()) {
+                userProfileHtml += "<img src=\"" + photoUrl + "\" class=\"user-photo\" alt=\"User Photo\" style=\"width: 24px; height: 24px; border-radius: 50%; object-fit: cover;\" />";
+            }
+            userProfileHtml += "<span class=\"user-name\" style=\"font-weight: bold;\">" + userName + "</span>";
+            userProfileHtml += "</div>";
+            
+            htmlContent = htmlContent.replace("[USER_PROFILE]", userProfileHtml);
+            
+            Log.d(TAG, "👤 Successfully replaced user profile placeholders");
+            
+        } catch (Exception e) {
+            Log.e(TAG, "👤 Error replacing user profile placeholders", e);
+            // Don't modify content if replacement fails
+            return htmlContent;
+        }
+        
+        return htmlContent;
     }
     
     /**
@@ -578,79 +865,187 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             holder.htmlTemplateContainer.setVisibility(View.GONE);
             holder.templateTypeBadge.setText("VIDEO");
             
-            // Initialize video UI state - show thumbnail, hide player
-            if (holder.videoThumbnail != null) {
-                holder.videoThumbnail.setVisibility(View.VISIBLE);
-            }
-            if (holder.videoPlayerView != null) {
-                holder.videoPlayerView.setVisibility(View.GONE);
-            }
-            if (holder.videoPlayButton != null) {
-                holder.videoPlayButton.setVisibility(View.VISIBLE);
-            }
-            if (holder.videoLoadingIndicator != null) {
-                holder.videoLoadingIndicator.setVisibility(View.GONE);
-            }
-            if (holder.videoMuteButton != null) {
-                holder.videoMuteButton.setVisibility(View.GONE);
+            // Initialize video overlay container
+            if (holder.videoOverlayContainer != null) {
+                holder.videoOverlayContainer.setVisibility(View.VISIBLE);
+                holder.videoOverlayContainer.removeAllViews();
+                
+                // Ensure proper z-ordering
+                holder.videoOverlayContainer.bringToFront();
+                holder.videoOverlayContainer.setTranslationZ(8f);
             }
             
+            // Get current user info
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            String userName = currentUser != null ? currentUser.getDisplayName() : null;
+            String photoUrl = currentUser != null && currentUser.getPhotoUrl() != null ? 
+                            currentUser.getPhotoUrl().toString() : null;
+            String userId = currentUser != null ? currentUser.getUid() : null;
+
+            // Create overlay using server templates
+            if (template.hasValidOverlayTemplates()) {
+                Log.d(TAG, "🎥 Template has valid overlay templates, rendering overlay...");
+                renderVideoOverlay(holder, template);
+            } else {
+                Log.d(TAG, "🎥 No valid overlay templates found for template: " + template.getId());
+                Log.d(TAG, "   • HTML Template: " + (template.getOverlayHtmlTemplate().isEmpty() ? "empty" : "present"));
+                Log.d(TAG, "   • CSS Template: " + (template.getOverlayCssTemplate().isEmpty() ? "empty" : "present"));
+            }
+
             // Get video URL for validation
             String videoUrl = template.getVideoUrl();
             if (videoUrl == null || videoUrl.isEmpty()) {
                 videoUrl = template.getPreviewUrl();
             }
-            
-            Log.d(TAG, "🎥 Video URL: " + (videoUrl != null ? videoUrl : "NULL"));
-            
-            // Load video thumbnail
-            String thumbnailUrl = template.getPreviewUrl();
-            if (thumbnailUrl == null || thumbnailUrl.isEmpty()) {
-                thumbnailUrl = template.getImageUrl();
+
+            // Load video thumbnail with improved error handling
+            if (holder.videoThumbnail != null && videoUrl != null) {
+                Log.d(TAG, "🎥 Loading video thumbnail from URL: " + videoUrl);
+                Glide.with(holder.itemView)
+                    .load(videoUrl)
+                    .thumbnail(0.1f)
+                    .transition(DrawableTransitionOptions.withCrossFade())
+                    .into(holder.videoThumbnail);
+            }
+
+            // Initialize video controls
+            if (holder.videoPlayButton != null) {
+                holder.videoPlayButton.setVisibility(View.VISIBLE);
+            }
+            if (holder.videoMuteButton != null) {
+                holder.videoMuteButton.setVisibility(View.GONE);
+            }
+            if (holder.videoLoadingIndicator != null) {
+                holder.videoLoadingIndicator.setVisibility(View.GONE);
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error rendering video template", e);
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * 🎬 Render video overlay
+     */
+    private void renderVideoOverlay(@NonNull ViewHolder holder, @NonNull Template template) {
+        Log.d(TAG, "🎬 Starting video overlay rendering for template: " + template.getId());
+        
+        try {
+            // Get user information
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            if (currentUser == null) {
+                Log.w(TAG, "⚠️ No user logged in for video overlay");
+                return;
             }
             
-            if (thumbnailUrl != null && !thumbnailUrl.isEmpty()) {
-                Log.d(TAG, "🎥 Loading video thumbnail from URL: " + thumbnailUrl);
-                Glide.with(context)
-                        .load(thumbnailUrl)
-                        .diskCacheStrategy(DiskCacheStrategy.ALL)
-                        .placeholder(R.drawable.placeholder_image)
-                        .error(R.drawable.placeholder_image)
-                        .centerCrop()
-                        .into(holder.videoThumbnail);
-            } else {
-                Log.w(TAG, "🎥 No thumbnail URL available for video template: " + template.getId());
-                holder.videoThumbnail.setImageResource(R.drawable.placeholder_image);
+            String userName = getUserDisplayName();
+            String userPhoto = getUserPhotoUrl();
+            String userId = currentUser.getUid();
+            
+            Log.d(TAG, "👤 User data for overlay:");
+            Log.d(TAG, "   • Name: " + userName);
+            Log.d(TAG, "   • Photo: " + userPhoto);
+            Log.d(TAG, "   • UID: " + userId);
+            
+            // Process HTML template with placeholders
+            String htmlTemplate = template.getOverlayHtmlTemplate();
+            String cssTemplate = template.getOverlayCssTemplate();
+            
+            if (htmlTemplate == null || cssTemplate == null) {
+                Log.e(TAG, "Missing overlay templates");
+                return;
             }
             
-            // Set video duration (default for now - can be enhanced with actual duration from metadata)
-            holder.videoDuration.setText("0:30");
-            Log.d(TAG, "🎥 Video duration set to default: 0:30");
+            // Create photo HTML with fallback
+            String photoHtml = !userPhoto.isEmpty() ?
+                "<img class='user-photo' src='" + userPhoto + "' alt='" + userName + "'>" :
+                "<div class='user-photo-placeholder'>" +
+                    "<svg width='20' height='20' viewBox='0 0 24 24'>" +
+                    "<path fill='#757575' d='M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z'/>" +
+                    "</svg>" +
+                "</div>";
+                
+            // Replace placeholders
+            htmlTemplate = htmlTemplate
+                .replace("[USER_PHOTO]", photoHtml)
+                .replace("[USER_NAME]", userName)
+                .replace("[USER_ID]", userId);
+                
+            // Create complete HTML document with CSS
+            String completeHtml = String.format(
+                "<!DOCTYPE html><html><head>" +
+                "<meta charset='UTF-8'>" +
+                "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+                "<style>%s</style>" +
+                "</head><body>%s</body></html>",
+                cssTemplate,
+                htmlTemplate
+            );
             
-            // Add video-specific styling
-            holder.videoDuration.setVisibility(View.VISIBLE);
-            holder.videoDuration.setBackgroundResource(R.drawable.bg_mute_button);
-            holder.videoDuration.setTextColor(android.graphics.Color.WHITE);
+            // Create and configure WebView
+            WebView overlayWebView = new WebView(holder.itemView.getContext());
+            overlayWebView.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM
+            ));
             
-            Log.d(TAG, "🎥 Video template rendered successfully with thumbnail and duration");
+            // Configure WebView settings
+            WebSettings webSettings = overlayWebView.getSettings();
+            webSettings.setJavaScriptEnabled(true);
+            webSettings.setDomStorageEnabled(true);
+            webSettings.setDefaultTextEncodingName("UTF-8");
+            
+            // Make background transparent
+            overlayWebView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+            
+            // Load the HTML content
+            overlayWebView.loadDataWithBaseURL(null, completeHtml, "text/html", "UTF-8", null);
+            
+            // Add WebView to container
+            if (holder.videoOverlayContainer != null) {
+                holder.videoOverlayContainer.removeAllViews();
+                holder.videoOverlayContainer.addView(overlayWebView);
+                holder.videoOverlayContainer.setVisibility(View.VISIBLE);
+                holder.videoOverlayContainer.bringToFront();
+                
+                // Force layout refresh
+                holder.videoOverlayContainer.requestLayout();
+                overlayWebView.requestLayout();
+                
+                Log.d(TAG, "✅ Video overlay added successfully");
+            }
+            
+            // Set up WebView client with loading states
+            overlayWebView.setWebViewClient(new WebViewClient() {
+                @Override
+                public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                    super.onPageStarted(view, url, favicon);
+                    // Add loading class
+                    view.loadUrl("javascript:(function() { document.body.classList.add('loading'); })()");
+                }
+                
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    Log.d(TAG, "🌐 Overlay WebView page finished loading");
+                    // Remove loading class and ensure visibility
+                    view.loadUrl("javascript:(function() { document.body.classList.remove('loading'); })()");
+                    holder.videoOverlayContainer.setVisibility(View.VISIBLE);
+                    holder.videoOverlayContainer.bringToFront();
+                }
+                
+                @Override
+                public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                    Log.e(TAG, "❌ Overlay WebView error: " + description);
+                    // Try to show error state in overlay
+                    view.loadUrl("javascript:(function() { document.body.classList.add('error'); })()");
+                }
+            });
             
         } catch (Exception e) {
-            Log.e(TAG, "🎥 ERROR rendering video template: " + template.getId(), e);
-            
-            // Fallback to show error state
-            holder.videoTemplateContainer.setVisibility(View.VISIBLE);
-            if (holder.videoThumbnail != null) {
-                holder.videoThumbnail.setImageResource(R.drawable.placeholder_image);
-            }
-            holder.videoDuration.setText("ERROR");
-            holder.videoDuration.setTextColor(android.graphics.Color.RED);
-            
-            // Show error toast without crashing
-            try {
-                Toast.makeText(context, "Error loading video: " + template.getTitle(), Toast.LENGTH_SHORT).show();
-            } catch (Exception toastError) {
-                Log.e(TAG, "🎥 Could not show error toast", toastError);
-            }
+            Log.e(TAG, "❌ Error rendering video overlay", e);
+            e.printStackTrace();
         }
     }
     
@@ -1132,10 +1527,15 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         final TextView videoDuration;
         final LinearLayout videoTemplateContainer;
         final TextView templateTypeBadge;
-        final androidx.media3.ui.PlayerView videoPlayerView;
+        final PlayerView videoPlayerView;
         final ImageView videoPlayButton;
         final ImageView videoMuteButton;
         final ProgressBar videoLoadingIndicator;
+        
+        // User profile views for dynamic placeholders
+        final ShapeableImageView profileImage;
+        final TextView usernameText;
+        final FrameLayout videoOverlayContainer;
 
         public ViewHolder(View itemView) {
             super(itemView);
@@ -1155,8 +1555,6 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             htmlTemplateTitle = itemView.findViewById(R.id.html_template_title);
             htmlTemplateContainer = itemView.findViewById(R.id.html_template_container);
             htmlPreviewWebView = itemView.findViewById(R.id.html_preview_webview);
-            videoThumbnail = itemView.findViewById(R.id.video_thumbnail);
-            videoDuration = itemView.findViewById(R.id.video_duration);
             videoTemplateContainer = itemView.findViewById(R.id.video_template_container);
             templateTypeBadge = itemView.findViewById(R.id.template_type_badge);
             
@@ -1165,11 +1563,22 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             videoPlayButton = itemView.findViewById(R.id.video_play_button);
             videoMuteButton = itemView.findViewById(R.id.video_mute_button);
             videoLoadingIndicator = itemView.findViewById(R.id.video_loading_indicator);
+            videoThumbnail = itemView.findViewById(R.id.video_thumbnail);
+            videoDuration = itemView.findViewById(R.id.video_duration);
             
-            // Log video view initialization
+            // Initialize user profile views for dynamic placeholders
+            profileImage = itemView.findViewById(R.id.profileImage);
+            usernameText = itemView.findViewById(R.id.usernameText);
+            
+            // Initialize video overlay container
+            videoOverlayContainer = itemView.findViewById(R.id.video_overlay_container);
+            
+            // Log view initialization
             Log.d(TAG, "🎥 ViewHolder initialized - PlayerView: " + (videoPlayerView != null ? "found" : "null") +
                       ", PlayButton: " + (videoPlayButton != null ? "found" : "null") +
                       ", MuteButton: " + (videoMuteButton != null ? "found" : "null"));
+            Log.d(TAG, "👤 Profile views initialized - ProfileImage: " + (profileImage != null ? "found" : "null") +
+                      ", UsernameText: " + (usernameText != null ? "found" : "null"));
         }
     }
 

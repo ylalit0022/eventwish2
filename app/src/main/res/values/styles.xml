@@ -455,7 +455,7 @@
     </style>
 
     <!-- Circle Image View Style for Profile Pictures -->
-    <style name="CircleImageView">
+    <style name="CircleImageView" parent="">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">50%</item>
     </style>

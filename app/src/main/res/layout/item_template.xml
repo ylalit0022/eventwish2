@@ -67,6 +67,7 @@
                         android:gravity="center_vertical">
 
                         <com.google.android.material.textview.MaterialTextView
+                            android:id="@+id/usernameText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="eventwish"
@@ -248,108 +249,95 @@
                     android:clickable="true"
                     android:focusable="true"
                     android:foreground="?attr/selectableItemBackground"
-                    android:visibility="gone"
-                    android:gravity="center">
-                    
-                    <!-- Video Player Container -->
+                    android:visibility="gone">
+
                     <FrameLayout
                         android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        android:layout_weight="1"
-                        android:background="@android:color/black">
-                        
-                        <!-- ExoPlayer PlayerView for actual video playback -->
-                        <androidx.media3.ui.PlayerView
-                            android:id="@+id/video_player_view"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:visibility="gone"
-                            app:use_controller="false"
-                            app:resize_mode="zoom"
-                            app:surface_type="texture_view" />
-                        
-                        <!-- Video Thumbnail (shown when video is not playing) -->
-                        <com.google.android.material.imageview.ShapeableImageView
+                        android:layout_height="match_parent">
+
+                        <!-- Video Thumbnail -->
+                        <ImageView
                             android:id="@+id/video_thumbnail"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:scaleType="centerCrop"
-                            android:contentDescription="Video thumbnail"
-                            android:visibility="visible"
-                            tools:src="@drawable/placeholder_image" />
-                        
-                        <!-- Loading indicator -->
+                            android:contentDescription="Video thumbnail" />
+
+                        <!-- Video Player View -->
+                        <androidx.media3.ui.PlayerView
+                            android:id="@+id/video_player_view"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:visibility="gone" />
+
+                        <!-- Video Loading Indicator -->
                         <ProgressBar
                             android:id="@+id/video_loading_indicator"
                             android:layout_width="48dp"
                             android:layout_height="48dp"
                             android:layout_gravity="center"
                             android:visibility="gone"
-                            android:indeterminateTint="?attr/colorPrimary" />
-                        
-                        <!-- Play Button Overlay (for manual play) -->
-                        <com.google.android.material.imageview.ShapeableImageView
-                            android:id="@+id/video_play_button"
-                            android:layout_width="64dp"
-                            android:layout_height="64dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_play_circle"
-                            android:contentDescription="Play video"
-                            android:background="@drawable/bg_play_button"
-                            android:elevation="4dp"
+                            android:indeterminate="true" />
+
+                        <!-- Video Overlay Container -->
+                        <FrameLayout
+                            android:id="@+id/video_overlay_container"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="bottom"
+                            android:elevation="8dp"
+                            android:background="@android:color/transparent"
+                            android:clipChildren="false"
+                            android:clipToPadding="false"
+                            android:padding="8dp"
                             android:visibility="visible"
-                            app:tint="@color/white" />
-                        
-                        <!-- Mute/Unmute Button -->
-                        <com.google.android.material.imageview.ShapeableImageView
-                            android:id="@+id/video_mute_button"
-                            android:layout_width="32dp"
-                            android:layout_height="32dp"
-                            android:layout_gravity="bottom|end"
-                            android:layout_margin="12dp"
-                            android:src="@drawable/ic_volume_off"
-                            android:contentDescription="Toggle mute"
-                            android:background="@drawable/bg_mute_button"
-                            android:padding="6dp"
-                            android:visibility="gone"
-                            app:tint="@color/white" />
+                            android:translationZ="8dp"
+                            android:minHeight="48dp"
+                            android:layout_marginBottom="8dp"
+                            android:foregroundGravity="bottom" />
+
+                        <!-- Video Controls -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="bottom"
+                            android:orientation="horizontal"
+                            android:padding="16dp"
+                            android:background="@drawable/gradient_black_transparent">
+
+                            <!-- Play Button -->
+                            <ImageView
+                                android:id="@+id/video_play_button"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:src="@drawable/ic_play_circle"
+                                android:contentDescription="Play video"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                app:tint="@color/white" />
+
+                            <!-- Duration -->
+                            <TextView
+                                android:id="@+id/video_duration"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginStart="8dp"
+                                android:textColor="@color/white"
+                                android:textSize="14sp"
+                                tools:text="0:30" />
+
+                            <!-- Mute Button -->
+                            <ImageView
+                                android:id="@+id/video_mute_button"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:src="@drawable/ic_volume_up"
+                                android:contentDescription="Toggle mute"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                app:tint="@color/white" />
+                        </LinearLayout>
+
                     </FrameLayout>
-                    
-                    <!-- Video Info -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:padding="12dp"
-                        android:gravity="center_vertical">
-                        
-                        <com.google.android.material.imageview.ShapeableImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_video_template"
-                            android:layout_marginEnd="8dp"
-                            app:tint="?attr/colorPrimary" />
-                        
-                        <com.google.android.material.textview.MaterialTextView
-                            android:id="@+id/video_duration"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:textAppearance="@style/TextAppearance.EventWish.Caption"
-                            android:textColor="?attr/colorOnSurfaceVariant"
-                            tools:text="0:30" />
-                        
-                        <View
-                            android:layout_width="0dp"
-                            android:layout_height="1dp"
-                            android:layout_weight="1" />
-                        
-                        <com.google.android.material.chip.Chip
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="HD Video"
-                            android:textSize="11sp"
-                            style="@style/Widget.EventWish.Chip" />
-                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- Template Type Badge -->

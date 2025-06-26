@@ -270,88 +270,69 @@ public class VideoPlayerManager {
      * Create and configure ExoPlayer
      */
     private void createPlayer() {
-        if (currentPlayer != null) {
-            return;
-        }
+        currentPlayer = new ExoPlayer.Builder(context).build();
         
-        try {
-            currentPlayer = new ExoPlayer.Builder(context)
-                .build();
-            
-            // Set up player listeners
-            currentPlayer.addListener(new Player.Listener() {
-                @Override
-                public void onPlaybackStateChanged(int playbackState) {
-                    switch (playbackState) {
-                        case Player.STATE_READY:
-                            isPlayerReady = true;
-                            if (currentTemplateId != null && currentPlayer.isPlaying()) {
-                                notifyVideoStarted(currentTemplateId);
-                            }
-                            break;
-                            
-                        case Player.STATE_BUFFERING:
-                            if (currentTemplateId != null) {
-                                notifyVideoBuffering(currentTemplateId, true);
-                            }
-                            break;
-                            
-                        case Player.STATE_ENDED:
-                            // Loop the video for continuous playback
-                            if (currentPlayer != null) {
-                                currentPlayer.seekTo(0);
-                                currentPlayer.setPlayWhenReady(shouldAutoPlay);
-                            }
-                            break;
-                            
-                        case Player.STATE_IDLE:
-                            isPlayerReady = false;
-                            break;
-                    }
-                }
-                
-                @Override
-                public void onPlayerError(@NonNull PlaybackException error) {
-                    Log.e(TAG, "ExoPlayer error: " + error.getMessage());
-                    if (currentTemplateId != null) {
-                        notifyVideoError(currentTemplateId, error.getMessage());
-                    }
-                    isPlayerReady = false;
-                }
-                
-                @Override
-                public void onIsPlayingChanged(boolean isPlaying) {
-                    if (currentTemplateId != null) {
-                        if (isPlaying) {
+        // Set initial volume to unmuted
+        currentPlayer.setVolume(1.0f);
+        
+        // Add player event listeners
+        currentPlayer.addListener(new Player.Listener() {
+            @Override
+            public void onPlaybackStateChanged(int playbackState) {
+                switch (playbackState) {
+                    case Player.STATE_READY:
+                        isPlayerReady = true;
+                        if (currentTemplateId != null && currentPlayer.isPlaying()) {
                             notifyVideoStarted(currentTemplateId);
-                        } else {
-                            notifyVideoPaused(currentTemplateId);
                         }
+                        break;
+                    case Player.STATE_BUFFERING:
+                        if (currentTemplateId != null) {
+                            notifyVideoBuffering(currentTemplateId, true);
+                        }
+                        break;
+                    case Player.STATE_ENDED:
+                        // Loop video
+                        if (currentPlayer != null) {
+                            currentPlayer.seekTo(0);
+                            currentPlayer.setPlayWhenReady(true);
+                        }
+                        break;
+                }
+            }
+            
+            @Override
+            public void onPlayerError(@NonNull PlaybackException error) {
+                if (currentTemplateId != null) {
+                    notifyVideoError(currentTemplateId, error.getMessage());
+                }
+            }
+            
+            @Override
+            public void onIsPlayingChanged(boolean isPlaying) {
+                if (currentTemplateId != null) {
+                    if (isPlaying) {
+                        notifyVideoStarted(currentTemplateId);
+                    } else {
+                        notifyVideoPaused(currentTemplateId);
                     }
                 }
-            });
-            
-            // Configure for looping and muted playback (like Instagram Reels)
-            currentPlayer.setRepeatMode(Player.REPEAT_MODE_ONE);
-            currentPlayer.setVolume(0f); // Start muted
-            
-            Log.d(TAG, "ExoPlayer created and configured");
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Error creating ExoPlayer", e);
-            currentPlayer = null;
-        }
+            }
+        });
     }
     
     /**
-     * Toggle video mute state
+     * Toggle mute state and return whether the video is now muted
+     * @return true if muted, false if unmuted
      */
-    public void toggleMute() {
+    public boolean toggleMute() {
         if (currentPlayer != null) {
-            float currentVolume = currentPlayer.getVolume();
-            currentPlayer.setVolume(currentVolume > 0 ? 0f : 1f);
-            Log.d(TAG, "Video mute toggled, volume: " + currentPlayer.getVolume());
+            boolean isMuted = currentPlayer.getVolume() > 0;
+            currentPlayer.setVolume(isMuted ? 0f : 1.0f);
+            Log.d(TAG, "Video " + (isMuted ? "muted" : "unmuted") + " for template: " + currentTemplateId);
+            return isMuted;
         }
+        return false;
     }
     
     /**

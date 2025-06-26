@@ -1,0 +1,104 @@
+/* User Profile Container */
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0));
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border-radius: 8px;
+    margin: 8px;
+    transition: opacity 0.3s ease;
+}
+
+/* User Photo Styles */
+.user-photo {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.8);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Photo Placeholder Fallback */
+.user-photo-placeholder {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #e0e0e0, #f5f5f5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(255,255,255,0.8);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* User Info Container */
+.user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* User Name Styles */
+.user-name {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    margin: 0;
+    padding: 0;
+    line-height: 1.2;
+    letter-spacing: 0.2px;
+}
+
+/* User Badge Styles */
+.user-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 12px;
+    color: rgba(255,255,255,0.8);
+    gap: 4px;
+}
+
+/* Hover Effects */
+.user-profile:hover {
+    background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.1));
+}
+
+.user-photo:hover,
+.user-photo-placeholder:hover {
+    transform: scale(1.05);
+    transition: transform 0.2s ease;
+}
+
+/* Animation for Loading State */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+.loading .user-photo-placeholder {
+    animation: pulse 1.5s infinite;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 480px) {
+    .user-profile {
+        padding: 8px;
+        gap: 8px;
+    }
+    
+    .user-photo,
+    .user-photo-placeholder {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .user-name {
+        font-size: 13px;
+    }
+} 

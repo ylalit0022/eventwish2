@@ -205,14 +205,23 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
                 });
             }
             
-            // Mute button click listener
+            // Set up mute button with unmuted state
             if (binding.videoMuteButton != null) {
+                binding.videoMuteButton.setImageResource(com.ds.eventwish.R.drawable.ic_volume_up);
                 binding.videoMuteButton.setOnClickListener(v -> {
-                    if (videoPlayerManager != null) {
-                        videoPlayerManager.toggleMute();
-                        updateMuteButtonIcon();
+                    try {
+                        VideoPlayerManager videoPlayerManager = VideoPlayerManager.getInstance(itemView.getContext());
+                        if (videoPlayerManager != null) {
+                            boolean isMuted = videoPlayerManager.toggleMute();
+                            binding.videoMuteButton.setImageResource(
+                                isMuted ? com.ds.eventwish.R.drawable.ic_volume_off : com.ds.eventwish.R.drawable.ic_volume_up
+                            );
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error toggling mute state", e);
                     }
                 });
+                binding.videoMuteButton.setVisibility(View.VISIBLE);
             }
         }
         
@@ -241,7 +250,6 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
                     // Show mute button
                     if (binding.videoMuteButton != null) {
                         binding.videoMuteButton.setVisibility(View.VISIBLE);
-                        updateMuteButtonIcon();
                     }
                     
                     // Start video playback

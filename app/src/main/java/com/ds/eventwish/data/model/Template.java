@@ -1,5 +1,6 @@
 package com.ds.eventwish.data.model;
 
+import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -429,6 +430,15 @@ public class Template {
     @ColumnInfo(name = "performanceLog")
     private String performanceLog; // JSON string for nested object with dailyUsage, weeklyUsage, lastUsedAt
 
+    @SerializedName("overlayHtmlTemplate")
+    private String overlayHtmlTemplate;
+
+    @SerializedName("overlayCssTemplate")
+    private String overlayCssTemplate;
+
+    @SerializedName("overlayJsTemplate")
+    private String overlayJsTemplate;
+
     // Default constructor required by Room
     public Template() {
         // Required empty constructor for Firestore
@@ -786,6 +796,35 @@ public class Template {
     
     public String getPerformanceLog() { return performanceLog; }
     public void setPerformanceLog(String performanceLog) { this.performanceLog = performanceLog; }
+
+    // Getters and setters for overlay templates
+    public String getOverlayHtmlTemplate() {
+        return overlayHtmlTemplate != null ? overlayHtmlTemplate : "";
+    }
+
+    public void setOverlayHtmlTemplate(String overlayHtmlTemplate) {
+        this.overlayHtmlTemplate = overlayHtmlTemplate;
+    }
+
+    public String getOverlayCssTemplate() {
+        return overlayCssTemplate != null ? overlayCssTemplate : "";
+    }
+
+    public void setOverlayCssTemplate(String overlayCssTemplate) {
+        this.overlayCssTemplate = overlayCssTemplate;
+    }
+
+    public String getOverlayJsTemplate() {
+        return overlayJsTemplate != null ? overlayJsTemplate : "";
+    }
+
+    public void setOverlayJsTemplate(String overlayJsTemplate) {
+        this.overlayJsTemplate = overlayJsTemplate;
+    }
+
+    public boolean hasValidOverlayTemplates() {
+        return !TextUtils.isEmpty(overlayHtmlTemplate) && !TextUtils.isEmpty(overlayCssTemplate);
+    }
 
     // Computed fields (virtual fields from server)
     public double getTrendingScore() {
