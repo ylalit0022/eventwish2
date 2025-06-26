@@ -728,3 +728,145 @@ The stats system works through:
 - **Video Experience**: Instagram-like auto-play behavior with smooth transitions
 - **Performance**: No lag or memory issues with multiple media items
 - **User Experience**: Intuitive and engaging template interaction
+
+# Automatic Video Playback Implementation Scratchpad
+
+## 🔍 Analysis First:
+
+### Understanding the Task Goal:
+Implement automatic video playback for VIDEO type templates in the RecyclerView, similar to Instagram Reels. Videos should automatically play when visible in the viewport without requiring user interaction, and pause when scrolled out of view. This should work seamlessly within the existing HomeFragment without changing fragments.
+
+### Linked/Related Files Working Together:
+1. **UI Components**:
+   - `app/src/main/java/com/ds/eventwish/ui/home/HomeFragment.java` - Main fragment containing RecyclerView
+   - `app/src/main/java/com/ds/eventwish/ui/adapter/TemplateAdapter.java` - Adapter handling template rendering
+   - `app/src/main/res/layout/item_template.xml` - Template item layout with video container
+
+2. **Video Infrastructure**:
+   - `app/src/main/java/com/ds/eventwish/data/model/Template.java` - Template model with video properties
+   - Video playback libraries (ExoPlayer or VideoView)
+   - RecyclerView scroll listeners for visibility detection
+
+3. **Supporting Components**:
+   - Audio management for video playback
+   - Network handling for video streaming
+   - Cache management for video content
+   - Error handling and fallback mechanisms
+
+### Key References and Import Analysis:
+- **RecyclerView.OnScrollListener**: For detecting item visibility
+- **ExoPlayer**: For robust video playback (recommended over VideoView)
+- **Template.getTemplateType()**: Already checks for "video" type
+- **ViewHolder.videoTemplateContainer**: Video UI container exists
+- **Glide**: Already used for thumbnail loading
+- **Background thread handling**: For video operations
+
+## 📝 Scratchpad Plan:
+
+### 🎯 Objective 
+Implement automatic video playback for VIDEO type templates that:
+1. Automatically plays videos when 50%+ visible in viewport
+2. Pauses videos when scrolled out of view
+3. Handles only one video playing at a time
+4. Includes robust error handling and null checks
+5. Avoids blocking the main thread
+6. Provides smooth Instagram Reel-like experience
+
+### 🧩 Related Files
+- **app/src/main/java/com/ds/eventwish/ui/home/HomeFragment.java** (scroll listener setup)
+- **app/src/main/java/com/ds/eventwish/ui/adapter/TemplateAdapter.java** (video playback logic)
+- **app/src/main/res/layout/item_template.xml** (video UI components)
+- **app/src/main/java/com/ds/eventwish/data/model/Template.java** (video properties)
+- **app/build.gradle** (ExoPlayer dependency if needed)
+
+### ✅ Checklist
+1. [ ] **Video Infrastructure Setup**:
+   - [ ] Check if ExoPlayer is already included or add dependency
+   - [ ] Create video player manager class for lifecycle management
+   - [ ] Implement video cache strategy
+   - [ ] Set up audio focus management
+
+2. [ ] **Template Model Enhancement**:
+   - [ ] Verify Template.java has video URL fields
+   - [ ] Add video duration and quality properties
+   - [ ] Implement video metadata handling
+   - [ ] Add video loading state tracking
+
+3. [ ] **TemplateAdapter Video Logic**:
+   - [ ] Enhance renderVideoTemplate() method
+   - [ ] Replace static thumbnail with actual video player
+   - [ ] Implement video player lifecycle in ViewHolder
+   - [ ] Add video state management (playing/paused/loading/error)
+   - [ ] Implement smooth play/pause transitions
+
+4. [ ] **Visibility Detection System**:
+   - [ ] Create robust visibility calculation method
+   - [ ] Implement RecyclerView scroll listener in HomeFragment
+   - [ ] Add viewport visibility threshold (50% minimum)
+   - [ ] Handle edge cases (rapid scrolling, orientation changes)
+
+5. [ ] **Video Playback Management**:
+   - [ ] Ensure only one video plays at a time
+   - [ ] Implement smooth video transitions
+   - [ ] Add mute/unmute functionality
+   - [ ] Handle video loading states with proper UI feedback
+
+6. [ ] **Error Handling & Performance**:
+   - [ ] Add comprehensive null checks throughout
+   - [ ] Implement video loading error fallbacks
+   - [ ] Use background threads for video operations
+   - [ ] Add network connectivity checks
+   - [ ] Implement video quality adaptation
+
+7. [ ] **UI/UX Enhancements**:
+   - [ ] Add video progress indicator
+   - [ ] Implement tap-to-pause functionality
+   - [ ] Add video mute/unmute controls
+   - [ ] Show video loading shimmer effect
+   - [ ] Handle video aspect ratio properly
+
+8. [ ] **Memory & Performance Optimization**:
+   - [ ] Implement video player pooling
+   - [ ] Add proper video player cleanup
+   - [ ] Optimize video cache management
+   - [ ] Handle low memory scenarios
+   - [ ] Implement preloading for smooth scrolling
+
+### 🧠 Context
+The video playback system will work through these components:
+1. **HomeFragment**: Sets up scroll listener to detect item visibility
+2. **TemplateAdapter**: Manages video players in ViewHolders and handles play/pause
+3. **Video Player Manager**: Centralized video player lifecycle and state management
+4. **Visibility Calculator**: Determines when videos should play based on viewport position
+5. **Error Handler**: Manages network issues, video loading failures, and fallbacks
+
+Current infrastructure already supports:
+- Template type detection ("video")
+- Video container UI in item_template.xml
+- Thumbnail loading with Glide
+- Basic video template rendering structure
+
+### 🚧 Progress Log
+- [ ] **Phase 1**: Infrastructure setup (ExoPlayer, dependencies, base classes)
+- [ ] **Phase 2**: Video player integration in TemplateAdapter
+- [ ] **Phase 3**: Visibility detection and scroll listener implementation
+- [ ] **Phase 4**: Video playback management and state handling
+- [ ] **Phase 5**: Error handling and performance optimization
+- [ ] **Phase 6**: UI polish and testing
+
+### 🎯 Success Criteria
+1. Videos automatically play when 50%+ visible
+2. Only one video plays at a time
+3. Smooth scrolling performance maintained
+4. Robust error handling for all edge cases
+5. No main thread blocking
+6. Instagram Reel-like user experience
+7. Proper memory management and cleanup
+
+### ⚠️ Critical Considerations
+1. **Memory Management**: Video players must be properly recycled
+2. **Network Efficiency**: Implement smart preloading and caching
+3. **Battery Optimization**: Pause videos when app goes to background
+4. **Audio Conflicts**: Handle audio focus properly
+5. **Thread Safety**: All video operations on appropriate threads
+6. **Error Recovery**: Graceful fallbacks for video loading failures

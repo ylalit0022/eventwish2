@@ -11,6 +11,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -43,6 +44,8 @@ import android.text.style.StrikethroughSpan;
 import android.text.style.SuperscriptSpan;
 import android.text.style.SubscriptSpan;
 import android.text.style.TextAppearanceSpan;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHolder> {
 
@@ -66,10 +69,43 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
     private boolean isAutoPlayEnabled = true;
     private static final float VISIBILITY_THRESHOLD = 0.5f; // 50% visibility required for auto-play
 
+    // Cache for user display name
+    private static String cachedUserName = null;
+    private static long lastNameFetchTime = 0;
+    private static final long NAME_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+
     public TemplateAdapter(Context context) {
         this.context = context;
         this.templates = new ArrayList<>();
         this.interactionManager = TemplateInteractionManager.getInstance();
+        
+        // Get and log current user's name from Firebase Auth
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser != null) {
+            String displayName = currentUser.getDisplayName();
+            String email = currentUser.getEmail();
+            String uid = currentUser.getUid();
+            
+            Log.d(TAG, "Current user info from Firebase Auth:");
+            Log.d(TAG, "Display Name: " + (displayName != null ? displayName : "Not set"));
+            Log.d(TAG, "Email: " + (email != null ? email : "Not set"));
+            Log.d(TAG, "UID: " + uid);
+            
+            // Check if user is signed in with Google
+            boolean isGoogleUser = false;
+            for (com.google.firebase.auth.UserInfo profile : currentUser.getProviderData()) {
+                if ("google.com".equals(profile.getProviderId())) {
+                    isGoogleUser = true;
+                    Log.d(TAG, "User is signed in with Google");
+                    break;
+                }
+            }
+            if (!isGoogleUser) {
+                Log.d(TAG, "User is not signed in with Google");
+            }
+        } else {
+            Log.d(TAG, "No user currently signed in");
+        }
     }
 
     @NonNull
@@ -233,36 +269,54 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         // Set HTML template title
         holder.htmlTemplateTitle.setText(template.getTitle());
         
-        // Configure WebView for secure HTML preview
+        // Configure WebView for enhanced HTML preview
         if (holder.htmlPreviewWebView != null) {
             WebSettings webSettings = holder.htmlPreviewWebView.getSettings();
             
-            // Security settings - disable JavaScript for safety in preview
+            // Enhanced rendering settings
+            webSettings.setDefaultTextEncodingName("UTF-8");
+            webSettings.setLoadWithOverviewMode(true);
+            webSettings.setUseWideViewPort(true);
+            webSettings.setDisplayZoomControls(false);
+            webSettings.setSupportZoom(false);
+            webSettings.setBuiltInZoomControls(false);
+            webSettings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING);
+            webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+            webSettings.setDomStorageEnabled(true);
+            webSettings.setTextZoom(100);
+            
+            // Security settings
             webSettings.setJavaScriptEnabled(false);
             webSettings.setAllowFileAccess(false);
             webSettings.setAllowContentAccess(false);
             webSettings.setAllowFileAccessFromFileURLs(false);
             webSettings.setAllowUniversalAccessFromFileURLs(false);
-            webSettings.setBlockNetworkLoads(true);
-            webSettings.setBlockNetworkImage(true);
             
-            // Display settings - Enhanced for better preview
-            webSettings.setLoadWithOverviewMode(true);
-            webSettings.setUseWideViewPort(true);
-            webSettings.setBuiltInZoomControls(false);
-            webSettings.setDisplayZoomControls(false);
-            webSettings.setSupportZoom(false);
-            webSettings.setDefaultTextEncodingName("UTF-8");
+            // Allow network loads for images in preview
+            webSettings.setBlockNetworkLoads(false);
+            webSettings.setBlockNetworkImage(false);
             
-            // Enable DOM storage for better HTML rendering
-            webSettings.setDomStorageEnabled(true);
-            
-            // Set WebView client for error handling
+            // Set WebView client for error handling and rendering completion
             holder.htmlPreviewWebView.setWebViewClient(new android.webkit.WebViewClient() {
+                @Override
+                public void onPageStarted(android.webkit.WebView view, String url, android.graphics.Bitmap favicon) {
+                    super.onPageStarted(view, url, favicon);
+                    Log.d(TAG, "🌐 Starting to load HTML for template: " + template.getId());
+                }
+                
                 @Override
                 public void onPageFinished(android.webkit.WebView view, String url) {
                     super.onPageFinished(view, url);
                     Log.d(TAG, "🌐 HTML page finished loading for template: " + template.getId());
+                    
+                    // Inject CSS for better text rendering
+                    String css = "body { -webkit-text-size-adjust: none; }";
+                    view.loadUrl("javascript:(function() {" +
+                        "var style = document.createElement('style');" +
+                        "style.type = 'text/css';" +
+                        "style.innerHTML = '" + css + "';" +
+                        "document.head.appendChild(style);" +
+                    "})()");
                 }
                 
                 @Override
@@ -272,6 +326,9 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
                     renderHtmlPlaceholder(holder, template);
                 }
             });
+            
+            // Enable hardware acceleration for better rendering
+            holder.htmlPreviewWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
             
             // Render HTML content
             renderHtmlContentInWebView(holder, template);
@@ -320,102 +377,50 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
      * This version is optimized for small preview containers in RecyclerView
      */
     private String createResponsiveHtmlForPreview(String htmlContent, String cssContent, Template template) {
-        // Preview-specific CSS for compact display
-        String previewCss = 
-            "/* Preview Mode Styles - Optimized for RecyclerView */ " +
-            "body { " +
-                "margin: 0 !important; " +
-                "padding: 8px !important; " +
-                "font-family: 'Roboto', Arial, sans-serif !important; " +
-                "font-size: 12px !important; " +
-                "line-height: 1.3 !important; " +
-                "background: #ffffff !important; " +
-                "overflow: hidden !important; " +
-                "transform-origin: top left !important; " +
-                "transform: scale(0.75) !important; " + // Scale down for preview
-                "width: 133.33% !important; " + // Compensate for scale
-                "height: 133.33% !important; " +
-            "} " +
-            "* { " +
-                "box-sizing: border-box !important; " +
-                "max-width: 100% !important; " +
-            "} " +
-            "img { " +
-                "max-width: 100% !important; " +
-                "height: auto !important; " +
-                "object-fit: contain !important; " +
-                "border-radius: 4px !important; " +
-            "} " +
-            "h1, h2, h3, h4, h5, h6 { " +
-                "font-size: 14px !important; " +
-                "margin: 4px 0 !important; " +
-                "line-height: 1.2 !important; " +
-                "font-weight: bold !important; " +
-            "} " +
-            "p { " +
-                "font-size: 11px !important; " +
-                "margin: 2px 0 !important; " +
-                "line-height: 1.3 !important; " +
-            "} " +
-            "table { " +
-                "width: 100% !important; " +
-                "border-collapse: collapse !important; " +
-                "font-size: 10px !important; " +
-            "} " +
-            "td, th { " +
-                "padding: 2px !important; " +
-                "font-size: 10px !important; " +
-            "} " +
-            "div { " +
-                "max-width: 100% !important; " +
-            "} " +
-            "/* Hide elements that might cause overflow in preview */ " +
-            ".preview-hide { " +
-                "display: none !important; " +
-            "} " +
-            "/* Responsive breakpoints for preview */ " +
-            "@media (max-width: 400px) { " +
-                "body { transform: scale(0.6) !important; width: 166.67% !important; } " +
-            "} ";
-        
-        // Combine original CSS with preview CSS (preview CSS takes precedence)
-        String combinedCss = "";
-        if (cssContent != null && !cssContent.trim().isEmpty()) {
-            combinedCss = cssContent + " " + previewCss;
-        } else {
-            combinedCss = previewCss;
-        }
+        // Replace name placeholders with proper error handling
+        htmlContent = replaceNamePlaceholders(htmlContent);
         
         // Create complete HTML with responsive viewport and preview optimizations
         String responsiveHtml = 
             "<!DOCTYPE html>" +
-            "<html>" +
+            "<html lang='en'>" +
             "<head>" +
                 "<meta charset='UTF-8'>" +
                 "<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'>" +
+                "<meta http-equiv='X-UA-Compatible' content='ie=edge'>" +
                 "<title>" + (template.getTitle() != null ? template.getTitle() : "Preview") + "</title>" +
-                "<style>" + combinedCss + "</style>" +
+                "<style>" +
+                    // Add styles for sender name spans
+                    ".sender-name { " +
+                        "font-weight: bold; " +
+                        "display: inline-block; " +
+                    "} " +
+                "</style>" +
             "</head>" +
             "<body>" +
                 "<div class='preview-container'>" +
                     htmlContent +
                 "</div>" +
                 "<script>" +
-                    "// Preview mode optimizations" +
                     "document.addEventListener('DOMContentLoaded', function() {" +
-                        "// Remove any scripts that might interfere with preview" +
+                        // Remove any scripts that might interfere with preview
                         "var scripts = document.querySelectorAll('script[src]');" +
                         "scripts.forEach(function(script) { script.remove(); });" +
                         
-                        "// Optimize images for preview" +
+                        // Optimize images for preview
                         "var images = document.querySelectorAll('img');" +
                         "images.forEach(function(img) {" +
                             "img.style.maxWidth = '100%';" +
                             "img.style.height = 'auto';" +
+                            "img.loading = 'lazy';" +
                         "});" +
                         
-                        "// Add preview mode class to body" +
+                        // Add preview mode class to body
                         "document.body.classList.add('preview-mode');" +
+                        
+                        // Disable all form elements in preview
+                        "var forms = document.querySelectorAll('form, input, button, textarea, select');" +
+                        "forms.forEach(function(el) { el.disabled = true; });" +
                         
                         "console.log('HTML preview optimized for RecyclerView');" +
                     "});" +
@@ -425,6 +430,102 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         
         Log.d(TAG, "📱 Created responsive HTML for preview mode (length: " + responsiveHtml.length() + ")");
         return responsiveHtml;
+    }
+    
+    /**
+     * Get user's display name with caching and error handling
+     * @return The user's display name or a default value
+     */
+    private String getUserDisplayName() {
+        long currentTime = System.currentTimeMillis();
+        
+        // Check if we have a valid cached name
+        if (cachedUserName != null && (currentTime - lastNameFetchTime) < NAME_CACHE_DURATION) {
+            Log.d(TAG, "Using cached user name: " + cachedUserName);
+            return cachedUserName;
+        }
+        
+        // Default fallback name
+        String userName = "User";
+        
+        try {
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            if (currentUser != null) {
+                // Try to get display name
+                String displayName = currentUser.getDisplayName();
+                if (displayName != null && !displayName.trim().isEmpty()) {
+                    userName = displayName;
+                    Log.d(TAG, "Got user's display name from Firebase: " + userName);
+                } else {
+                    // Try email as fallback
+                    String email = currentUser.getEmail();
+                    if (email != null && !email.isEmpty()) {
+                        userName = email.split("@")[0]; // Use part before @ as name
+                        Log.d(TAG, "Using email username as fallback: " + userName);
+                    } else {
+                        Log.w(TAG, "No display name or email available, using default name");
+                    }
+                }
+                
+                // Cache the resolved name
+                cachedUserName = userName;
+                lastNameFetchTime = currentTime;
+            } else {
+                Log.w(TAG, "No user currently signed in");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting user display name", e);
+            // If we have a cached name, use it as fallback during errors
+            if (cachedUserName != null) {
+                Log.d(TAG, "Using cached name during error: " + cachedUserName);
+                return cachedUserName;
+            }
+        }
+        
+        return userName;
+    }
+    
+    /**
+     * Replace name placeholders in HTML content with proper error handling
+     */
+    private String replaceNamePlaceholders(String htmlContent) {
+        if (htmlContent == null) {
+            Log.w(TAG, "HTML content is null");
+            return "";
+        }
+        
+        try {
+            String userName = getUserDisplayName();
+            
+            // Create span with user name
+            String userSpan = "<span class=\"sender-name\">" + userName + "</span>";
+            
+            // List of placeholder patterns to replace
+            String[] placeholders = {
+                "[Your Name]",
+                "[SENDER_NAME]",
+                "{sender}",
+                "[sender]",
+                "[Sender]",
+                "{SENDER}",
+                "{Your Name}",
+                "[YOUR_NAME]"
+            };
+            
+            // Replace all placeholder patterns
+            for (String placeholder : placeholders) {
+                htmlContent = htmlContent.replace(placeholder, userSpan);
+            }
+            
+            Log.d(TAG, "Successfully replaced name placeholders with: " + userName);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error replacing name placeholders", e);
+            // Don't modify content if replacement fails
+            return htmlContent;
+        }
+        
+        return htmlContent;
     }
     
     /**
@@ -470,34 +571,87 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
     private void renderVideoTemplate(@NonNull ViewHolder holder, @NonNull Template template) {
         Log.d(TAG, "🎥 RENDERING VIDEO TEMPLATE: " + template.getId());
         
-        // Show video container
-        holder.videoTemplateContainer.setVisibility(View.VISIBLE);
-        holder.templateTypeBadge.setText("VIDEO");
-        
-        // Load video thumbnail
-        String thumbnailUrl = template.getPreviewUrl();
-        if (thumbnailUrl == null || thumbnailUrl.isEmpty()) {
-            thumbnailUrl = template.getImageUrl();
+        try {
+            // Show video container and hide others
+            holder.videoTemplateContainer.setVisibility(View.VISIBLE);
+            holder.templateImage.setVisibility(View.GONE);
+            holder.htmlTemplateContainer.setVisibility(View.GONE);
+            holder.templateTypeBadge.setText("VIDEO");
+            
+            // Initialize video UI state - show thumbnail, hide player
+            if (holder.videoThumbnail != null) {
+                holder.videoThumbnail.setVisibility(View.VISIBLE);
+            }
+            if (holder.videoPlayerView != null) {
+                holder.videoPlayerView.setVisibility(View.GONE);
+            }
+            if (holder.videoPlayButton != null) {
+                holder.videoPlayButton.setVisibility(View.VISIBLE);
+            }
+            if (holder.videoLoadingIndicator != null) {
+                holder.videoLoadingIndicator.setVisibility(View.GONE);
+            }
+            if (holder.videoMuteButton != null) {
+                holder.videoMuteButton.setVisibility(View.GONE);
+            }
+            
+            // Get video URL for validation
+            String videoUrl = template.getVideoUrl();
+            if (videoUrl == null || videoUrl.isEmpty()) {
+                videoUrl = template.getPreviewUrl();
+            }
+            
+            Log.d(TAG, "🎥 Video URL: " + (videoUrl != null ? videoUrl : "NULL"));
+            
+            // Load video thumbnail
+            String thumbnailUrl = template.getPreviewUrl();
+            if (thumbnailUrl == null || thumbnailUrl.isEmpty()) {
+                thumbnailUrl = template.getImageUrl();
+            }
+            
+            if (thumbnailUrl != null && !thumbnailUrl.isEmpty()) {
+                Log.d(TAG, "🎥 Loading video thumbnail from URL: " + thumbnailUrl);
+                Glide.with(context)
+                        .load(thumbnailUrl)
+                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                        .placeholder(R.drawable.placeholder_image)
+                        .error(R.drawable.placeholder_image)
+                        .centerCrop()
+                        .into(holder.videoThumbnail);
+            } else {
+                Log.w(TAG, "🎥 No thumbnail URL available for video template: " + template.getId());
+                holder.videoThumbnail.setImageResource(R.drawable.placeholder_image);
+            }
+            
+            // Set video duration (default for now - can be enhanced with actual duration from metadata)
+            holder.videoDuration.setText("0:30");
+            Log.d(TAG, "🎥 Video duration set to default: 0:30");
+            
+            // Add video-specific styling
+            holder.videoDuration.setVisibility(View.VISIBLE);
+            holder.videoDuration.setBackgroundResource(R.drawable.bg_mute_button);
+            holder.videoDuration.setTextColor(android.graphics.Color.WHITE);
+            
+            Log.d(TAG, "🎥 Video template rendered successfully with thumbnail and duration");
+            
+        } catch (Exception e) {
+            Log.e(TAG, "🎥 ERROR rendering video template: " + template.getId(), e);
+            
+            // Fallback to show error state
+            holder.videoTemplateContainer.setVisibility(View.VISIBLE);
+            if (holder.videoThumbnail != null) {
+                holder.videoThumbnail.setImageResource(R.drawable.placeholder_image);
+            }
+            holder.videoDuration.setText("ERROR");
+            holder.videoDuration.setTextColor(android.graphics.Color.RED);
+            
+            // Show error toast without crashing
+            try {
+                Toast.makeText(context, "Error loading video: " + template.getTitle(), Toast.LENGTH_SHORT).show();
+            } catch (Exception toastError) {
+                Log.e(TAG, "🎥 Could not show error toast", toastError);
+            }
         }
-        
-        if (thumbnailUrl != null && !thumbnailUrl.isEmpty()) {
-            Log.d(TAG, "🎥 Loading video thumbnail from URL: " + thumbnailUrl);
-            Glide.with(context)
-                    .load(thumbnailUrl)
-                    .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .placeholder(R.drawable.placeholder_image)
-                    .error(R.drawable.placeholder_image)
-                    .centerCrop()
-                    .into(holder.videoThumbnail);
-        } else {
-            Log.w(TAG, "🎥 No thumbnail URL available for video template: " + template.getId());
-            holder.videoThumbnail.setImageResource(R.drawable.placeholder_image);
-        }
-        
-        // Set video duration (default for now, could be enhanced with actual duration)
-        holder.videoDuration.setText("0:30");
-        
-        Log.d(TAG, "🎥 Video template rendered with thumbnail");
     }
     
     /**
@@ -527,40 +681,113 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
      * 🎯 Set up interaction listeners for template actions
      */
     private void setupInteractionListeners(@NonNull ViewHolder holder, @NonNull Template template) {
-        // Template click listener (works for all types)
-        View.OnClickListener templateClickListener = v -> {
-            if (onItemClickListener != null) {
-                Log.d(TAG, "🎯 Template clicked: " + template.getId() + " (Type: " + template.getTemplateType() + ")");
-                onItemClickListener.onItemClick(template);
-            }
-        };
+        Log.d(TAG, "🎯 Setting up interaction listeners for template: " + template.getId() + " (Type: " + template.getTemplateType() + ")");
         
-        // Set click listener on appropriate view based on template type
-        String templateType = template.getTemplateType();
-        if (templateType != null) {
-            switch (templateType.toLowerCase()) {
-                case "html":
-                    // Enhanced HTML WebView navigation
-                    setupHtmlWebViewNavigation(holder, template, templateClickListener);
-                    break;
-                case "video":
-                    holder.videoTemplateContainer.setOnClickListener(templateClickListener);
-                    break;
-                case "image":
-                default:
-                    holder.templateImage.setOnClickListener(templateClickListener);
-                    break;
+        try {
+            // Template click listener (works for all types)
+            View.OnClickListener templateClickListener = v -> {
+                try {
+                    if (onItemClickListener != null) {
+                        Log.d(TAG, "🎯 Template clicked: " + template.getId() + " (Type: " + template.getTemplateType() + ")");
+                        Log.d(TAG, "🎯 Navigating to TemplateDetailFragment for template: " + template.getTitle());
+                        onItemClickListener.onItemClick(template);
+                    } else {
+                        Log.w(TAG, "🎯 onItemClickListener is null - cannot navigate");
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "🎯 ERROR handling template click for: " + template.getId(), e);
+                    showErrorToast("Error opening template: " + template.getTitle());
+                }
+            };
+            
+            // Set click listener on appropriate view based on template type
+            String templateType = template.getTemplateType();
+            Log.d(TAG, "🎯 Template type for click handling: " + templateType);
+            
+            if (templateType != null) {
+                switch (templateType.toLowerCase()) {
+                    case "html":
+                        Log.d(TAG, "🎯 Setting up HTML template click listener");
+                        // Enhanced HTML WebView navigation
+                        setupHtmlWebViewNavigation(holder, template, templateClickListener);
+                        break;
+                    case "video":
+                        Log.d(TAG, "🎯 Setting up VIDEO template click listener");
+                        // Video templates should navigate to TemplateDetailFragment for full video playback
+                        holder.videoTemplateContainer.setOnClickListener(templateClickListener);
+                        holder.videoThumbnail.setOnClickListener(templateClickListener);
+                        // Add visual feedback for video clicks
+                        holder.videoTemplateContainer.setOnTouchListener((v, event) -> {
+                            switch (event.getAction()) {
+                                case android.view.MotionEvent.ACTION_DOWN:
+                                    holder.videoTemplateContainer.setAlpha(0.8f);
+                                    Log.d(TAG, "🎯 Video template touch down");
+                                    break;
+                                case android.view.MotionEvent.ACTION_UP:
+                                case android.view.MotionEvent.ACTION_CANCEL:
+                                    holder.videoTemplateContainer.setAlpha(1.0f);
+                                    Log.d(TAG, "🎯 Video template touch up/cancel");
+                                    break;
+                            }
+                            return false; // Let click listener handle the actual click
+                        });
+                        break;
+                    case "image":
+                        Log.d(TAG, "🎯 Setting up IMAGE template click listener");
+                        holder.templateImage.setOnClickListener(templateClickListener);
+                        break;
+                    default:
+                        Log.d(TAG, "🎯 Setting up DEFAULT template click listener for type: " + templateType);
+                        holder.templateImage.setOnClickListener(templateClickListener);
+                        break;
+                }
+            } else {
+                Log.w(TAG, "🎯 Template type is null, using fallback image click");
+                // Fallback to image click
+                holder.templateImage.setOnClickListener(templateClickListener);
             }
-        } else {
-            // Fallback to image click
-            holder.templateImage.setOnClickListener(templateClickListener);
+            
+            // Like button listener with error handling
+            holder.likeIcon.setOnClickListener(v -> {
+                try {
+                    Log.d(TAG, "🎯 Like button clicked for template: " + template.getId());
+                    handleLikeClick(holder, template);
+                } catch (Exception e) {
+                    Log.e(TAG, "🎯 ERROR handling like click for: " + template.getId(), e);
+                    showErrorToast("Error liking template");
+                }
+            });
+            
+            // Favorite button listener with error handling
+            holder.favoriteIcon.setOnClickListener(v -> {
+                try {
+                    Log.d(TAG, "🎯 Favorite button clicked for template: " + template.getId());
+                    handleFavoriteClick(holder, template);
+                } catch (Exception e) {
+                    Log.e(TAG, "🎯 ERROR handling favorite click for: " + template.getId(), e);
+                    showErrorToast("Error favoriting template");
+                }
+            });
+            
+            Log.d(TAG, "🎯 Interaction listeners setup complete for template: " + template.getId());
+            
+        } catch (Exception e) {
+            Log.e(TAG, "🎯 CRITICAL ERROR setting up interaction listeners for: " + template.getId(), e);
+            showErrorToast("Error setting up template interactions");
         }
-        
-        // Like button listener
-        holder.likeIcon.setOnClickListener(v -> handleLikeClick(holder, template));
-        
-        // Favorite button listener  
-        holder.favoriteIcon.setOnClickListener(v -> handleFavoriteClick(holder, template));
+    }
+    
+    /**
+     * 🚨 Show error toast without crashing the app
+     */
+    private void showErrorToast(String message) {
+        try {
+            if (context != null) {
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "🚨 Could not show error toast: " + message, e);
+        }
     }
     
     /**
@@ -905,6 +1132,10 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         final TextView videoDuration;
         final LinearLayout videoTemplateContainer;
         final TextView templateTypeBadge;
+        final androidx.media3.ui.PlayerView videoPlayerView;
+        final ImageView videoPlayButton;
+        final ImageView videoMuteButton;
+        final ProgressBar videoLoadingIndicator;
 
         public ViewHolder(View itemView) {
             super(itemView);
@@ -928,6 +1159,17 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             videoDuration = itemView.findViewById(R.id.video_duration);
             videoTemplateContainer = itemView.findViewById(R.id.video_template_container);
             templateTypeBadge = itemView.findViewById(R.id.template_type_badge);
+            
+            // Initialize video-related views
+            videoPlayerView = itemView.findViewById(R.id.video_player_view);
+            videoPlayButton = itemView.findViewById(R.id.video_play_button);
+            videoMuteButton = itemView.findViewById(R.id.video_mute_button);
+            videoLoadingIndicator = itemView.findViewById(R.id.video_loading_indicator);
+            
+            // Log video view initialization
+            Log.d(TAG, "🎥 ViewHolder initialized - PlayerView: " + (videoPlayerView != null ? "found" : "null") +
+                      ", PlayButton: " + (videoPlayButton != null ? "found" : "null") +
+                      ", MuteButton: " + (videoMuteButton != null ? "found" : "null"));
         }
     }
 
@@ -1108,44 +1350,81 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
      * 🎥 Check video visibility and manage auto-play
      */
     private void checkVideoVisibilityAndAutoPlay() {
-        if (!isAutoPlayEnabled || recyclerView == null) return;
-        
-        ViewHolder mostVisibleVideoHolder = null;
-        float maxVisibilityPercentage = 0f;
-        String mostVisibleVideoId = null;
-        
-        // Find the most visible video template
-        for (int i = 0; i < recyclerView.getChildCount(); i++) {
-            View child = recyclerView.getChildAt(i);
-            ViewHolder holder = (ViewHolder) recyclerView.getChildViewHolder(child);
+        try {
+            if (!isAutoPlayEnabled || recyclerView == null) {
+                Log.d(TAG, "🎥 Auto-play disabled or RecyclerView null - skipping visibility check");
+                return;
+            }
             
-            if (holder != null && holder.getAdapterPosition() >= 0 && 
-                holder.getAdapterPosition() < templates.size()) {
+            Log.d(TAG, "🎥 Checking video visibility for auto-play...");
+            
+            ViewHolder mostVisibleVideoHolder = null;
+            float maxVisibilityPercentage = 0f;
+            String mostVisibleVideoId = null;
+            Template mostVisibleTemplate = null;
+            
+            int videoCount = 0;
+            
+            // Find the most visible video template
+            for (int i = 0; i < recyclerView.getChildCount(); i++) {
+                View child = recyclerView.getChildAt(i);
+                ViewHolder holder = (ViewHolder) recyclerView.getChildViewHolder(child);
                 
-                Template template = templates.get(holder.getAdapterPosition());
-                if ("video".equalsIgnoreCase(template.getTemplateType())) {
-                    float visibilityPercentage = getVisibilityPercentage(child);
+                if (holder != null && holder.getAdapterPosition() >= 0 && 
+                    holder.getAdapterPosition() < templates.size()) {
                     
-                    if (visibilityPercentage > maxVisibilityPercentage && 
-                        visibilityPercentage >= VISIBILITY_THRESHOLD) {
-                        maxVisibilityPercentage = visibilityPercentage;
-                        mostVisibleVideoHolder = holder;
-                        mostVisibleVideoId = template.getId();
+                    Template template = templates.get(holder.getAdapterPosition());
+                    if ("video".equalsIgnoreCase(template.getTemplateType())) {
+                        videoCount++;
+                        float visibilityPercentage = getVisibilityPercentage(child);
+                        
+                        Log.d(TAG, "🎥 Video template found: " + template.getId() + 
+                              " (Position: " + holder.getAdapterPosition() + 
+                              ", Visibility: " + (visibilityPercentage * 100) + "%)");
+                        
+                        if (visibilityPercentage > maxVisibilityPercentage && 
+                            visibilityPercentage >= VISIBILITY_THRESHOLD) {
+                            maxVisibilityPercentage = visibilityPercentage;
+                            mostVisibleVideoHolder = holder;
+                            mostVisibleVideoId = template.getId();
+                            mostVisibleTemplate = template;
+                            
+                            Log.d(TAG, "🎥 New most visible video: " + template.getId() + 
+                                  " (" + (visibilityPercentage * 100) + "%)");
+                        }
                     }
                 }
             }
-        }
-        
-        // Manage video playback based on visibility
-        if (mostVisibleVideoHolder != null && !mostVisibleVideoId.equals(currentPlayingVideoId)) {
-            // Pause current playing video
-            pauseCurrentPlayingVideo();
             
-            // Start playing the most visible video
-            playVideo(mostVisibleVideoHolder, mostVisibleVideoId);
-        } else if (mostVisibleVideoHolder == null && currentPlayingVideoHolder != null) {
-            // No video is sufficiently visible, pause current playing video
-            pauseCurrentPlayingVideo();
+            Log.d(TAG, "🎥 Visibility check complete: " + videoCount + " video(s) found, " +
+                  "most visible: " + (mostVisibleVideoId != null ? mostVisibleVideoId : "none") +
+                  " (" + (maxVisibilityPercentage * 100) + "%)");
+            
+            // Manage video playback based on visibility
+            if (mostVisibleVideoHolder != null && !mostVisibleVideoId.equals(currentPlayingVideoId)) {
+                Log.d(TAG, "🎥 Switching video playback from " + currentPlayingVideoId + " to " + mostVisibleVideoId);
+                
+                // Pause current playing video
+                pauseCurrentPlayingVideo();
+                
+                // Start playing the most visible video
+                playVideo(mostVisibleVideoHolder, mostVisibleVideoId, mostVisibleTemplate);
+                
+            } else if (mostVisibleVideoHolder == null && currentPlayingVideoHolder != null) {
+                Log.d(TAG, "🎥 No video sufficiently visible - pausing current video: " + currentPlayingVideoId);
+                // No video is sufficiently visible, pause current playing video
+                pauseCurrentPlayingVideo();
+                
+            } else if (mostVisibleVideoId != null && mostVisibleVideoId.equals(currentPlayingVideoId)) {
+                Log.d(TAG, "🎥 Same video still most visible: " + currentPlayingVideoId + " - continuing playback");
+                
+            } else {
+                Log.d(TAG, "🎥 No change in video visibility state");
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "🎥 ERROR in checkVideoVisibilityAndAutoPlay", e);
+            showErrorToast("Error checking video visibility");
         }
     }
     
@@ -1174,80 +1453,217 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
     /**
      * 🎥 Start playing video with smooth animation
      */
-    private void playVideo(ViewHolder holder, String videoId) {
-        if (holder == null || holder.videoTemplateContainer == null) return;
-        
-        Log.d(TAG, "🎥 Starting video playback for template: " + videoId);
-        
-        currentPlayingVideoHolder = holder;
-        currentPlayingVideoId = videoId;
-        
-        // Add play animation
-        if (holder.videoThumbnail != null) {
-            holder.videoThumbnail.animate()
-                .alpha(0.7f)
-                .scaleX(1.05f)
-                .scaleY(1.05f)
-                .setDuration(300)
-                .start();
+    private void playVideo(ViewHolder holder, String videoId, Template template) {
+        try {
+            if (holder == null || holder.videoTemplateContainer == null) {
+                Log.w(TAG, "🎥 Cannot play video - holder or container is null");
+                return;
+            }
+            
+            Log.d(TAG, "🎥 Starting video playback for template: " + videoId);
+            
+            // Get video URL
+            String videoUrl = template != null ? template.getVideoUrl() : null;
+            if (videoUrl == null || videoUrl.isEmpty()) {
+                videoUrl = template != null ? template.getPreviewUrl() : null;
+            }
+            
+            if (videoUrl == null || videoUrl.isEmpty()) {
+                Log.w(TAG, "🎥 No video URL available for template: " + videoId + " - showing visual feedback only");
+                // Continue with visual feedback even if no video URL
+            } else {
+                Log.d(TAG, "🎥 Video URL found: " + videoUrl);
+            }
+            
+            currentPlayingVideoHolder = holder;
+            currentPlayingVideoId = videoId;
+            
+            // Add play animation
+            if (holder.videoThumbnail != null) {
+                Log.d(TAG, "🎥 Starting play animation for thumbnail");
+                holder.videoThumbnail.animate()
+                    .alpha(0.7f)
+                    .scaleX(1.05f)
+                    .scaleY(1.05f)
+                    .setDuration(300)
+                    .start();
+            }
+            
+            // Show visual indicator that video is playing
+            if (holder.videoDuration != null) {
+                holder.videoDuration.setText("▶ PLAYING");
+                holder.videoDuration.setTextColor(androidx.core.content.ContextCompat.getColor(context, android.R.color.holo_red_dark));
+                Log.d(TAG, "🎥 Updated duration text to show PLAYING state");
+            }
+            
+            // Try to integrate with VideoPlayerManager if available
+            try {
+                com.ds.eventwish.utils.VideoPlayerManager videoPlayerManager = 
+                    com.ds.eventwish.utils.VideoPlayerManager.getInstance(context);
+                
+                if (videoPlayerManager != null && videoUrl != null && !videoUrl.isEmpty()) {
+                    Log.d(TAG, "🎥 Attempting to play video with VideoPlayerManager: " + videoUrl);
+                    
+                    // Use the properly initialized PlayerView from ViewHolder
+                    if (holder.videoPlayerView != null) {
+                        Log.d(TAG, "🎥 PlayerView found in ViewHolder - starting actual video playback");
+                        
+                        // Show loading indicator
+                        if (holder.videoLoadingIndicator != null) {
+                            holder.videoLoadingIndicator.setVisibility(View.VISIBLE);
+                        }
+                        
+                        // Hide thumbnail and show player view
+                        if (holder.videoThumbnail != null) {
+                            holder.videoThumbnail.setVisibility(View.GONE);
+                        }
+                        
+                        // Hide play button
+                        if (holder.videoPlayButton != null) {
+                            holder.videoPlayButton.setVisibility(View.GONE);
+                        }
+                        
+                        // Show player view
+                        holder.videoPlayerView.setVisibility(View.VISIBLE);
+                        
+                        // Start video playback
+                        videoPlayerManager.playVideo(holder.videoPlayerView, videoUrl, videoId, true);
+                        
+                        // Hide loading indicator after a short delay
+                        holder.videoPlayerView.postDelayed(() -> {
+                            if (holder.videoLoadingIndicator != null) {
+                                holder.videoLoadingIndicator.setVisibility(View.GONE);
+                            }
+                        }, 1000);
+                        
+                    } else {
+                        Log.w(TAG, "🎥 No PlayerView found in ViewHolder - showing visual feedback only");
+                    }
+                } else {
+                    Log.w(TAG, "🎥 VideoPlayerManager unavailable or no video URL - visual feedback only");
+                }
+            } catch (Exception videoPlayerError) {
+                Log.e(TAG, "🎥 Error with VideoPlayerManager - falling back to visual feedback", videoPlayerError);
+                
+                // Hide loading indicator on error
+                if (holder.videoLoadingIndicator != null) {
+                    holder.videoLoadingIndicator.setVisibility(View.GONE);
+                }
+            }
+            
+            Log.d(TAG, "🎥 Video playback setup completed for template: " + videoId);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "🎥 ERROR starting video playback for: " + videoId, e);
+            showErrorToast("Error playing video: " + (template != null ? template.getTitle() : videoId));
+            
+            // Reset state on error
+            currentPlayingVideoHolder = null;
+            currentPlayingVideoId = null;
         }
-        
-        // Show visual indicator that video is playing
-        if (holder.videoDuration != null) {
-            holder.videoDuration.setText("▶ PLAYING");
-            holder.videoDuration.setTextColor(androidx.core.content.ContextCompat.getColor(context, android.R.color.holo_red_dark));
-        }
-        
-        // TODO: Implement actual video playback here
-        // For now, we simulate video playback with visual feedback
-        // In a real implementation, you would:
-        // 1. Load video URL into a VideoView or ExoPlayer
-        // 2. Start playback
-        // 3. Handle video events (buffering, error, completion)
-        
-        Log.d(TAG, "🎥 Video playback started for template: " + videoId);
     }
     
     /**
      * 🎥 Pause current playing video with smooth animation
      */
     private void pauseCurrentPlayingVideo() {
-        if (currentPlayingVideoHolder == null) return;
-        
-        Log.d(TAG, "🎥 Pausing video playback for template: " + currentPlayingVideoId);
-        
-        ViewHolder holder = currentPlayingVideoHolder;
-        
-        // Restore normal appearance
-        if (holder.videoThumbnail != null) {
-            holder.videoThumbnail.animate()
-                .alpha(1.0f)
-                .scaleX(1.0f)
-                .scaleY(1.0f)
-                .setDuration(300)
-                .start();
-        }
-        
-        // Reset duration text with properly resolved theme color
-        if (holder.videoDuration != null) {
-            holder.videoDuration.setText("0:30");
+        try {
+            if (currentPlayingVideoHolder == null) {
+                Log.d(TAG, "🎥 No video currently playing - nothing to pause");
+                return;
+            }
             
-            // Properly resolve the textColorSecondary theme attribute
-            android.util.TypedValue typedValue = new android.util.TypedValue();
-            context.getTheme().resolveAttribute(android.R.attr.textColorSecondary, typedValue, true);
-            holder.videoDuration.setTextColor(androidx.core.content.ContextCompat.getColor(context, typedValue.resourceId));
+            Log.d(TAG, "🎥 Pausing video playback for template: " + currentPlayingVideoId);
+            
+            ViewHolder holder = currentPlayingVideoHolder;
+            
+            // Try to pause with VideoPlayerManager first
+            try {
+                com.ds.eventwish.utils.VideoPlayerManager videoPlayerManager = 
+                    com.ds.eventwish.utils.VideoPlayerManager.getInstance(context);
+                
+                if (videoPlayerManager != null) {
+                    Log.d(TAG, "🎥 Pausing video with VideoPlayerManager");
+                    videoPlayerManager.pauseCurrentVideo();
+                } else {
+                    Log.w(TAG, "🎥 VideoPlayerManager unavailable - visual pause only");
+                }
+            } catch (Exception videoPlayerError) {
+                Log.e(TAG, "🎥 Error pausing with VideoPlayerManager", videoPlayerError);
+            }
+            
+            // Reset video UI elements
+            if (holder.videoPlayerView != null) {
+                holder.videoPlayerView.setVisibility(View.GONE);
+                Log.d(TAG, "🎥 PlayerView hidden");
+            }
+            
+            if (holder.videoThumbnail != null) {
+                holder.videoThumbnail.setVisibility(View.VISIBLE);
+                Log.d(TAG, "🎥 Video thumbnail restored");
+            }
+            
+            if (holder.videoPlayButton != null) {
+                holder.videoPlayButton.setVisibility(View.VISIBLE);
+                Log.d(TAG, "🎥 Play button restored");
+            }
+            
+            if (holder.videoLoadingIndicator != null) {
+                holder.videoLoadingIndicator.setVisibility(View.GONE);
+                Log.d(TAG, "🎥 Loading indicator hidden");
+            }
+            
+            // Restore normal appearance
+            if (holder.videoThumbnail != null) {
+                Log.d(TAG, "🎥 Restoring thumbnail animation");
+                holder.videoThumbnail.animate()
+                    .alpha(1.0f)
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .setDuration(300)
+                    .start();
+            }
+            
+            // Reset duration text with properly resolved theme color
+            if (holder.videoDuration != null) {
+                try {
+                    holder.videoDuration.setText("0:30");
+                    
+                    // Properly resolve the textColorSecondary theme attribute
+                    android.util.TypedValue typedValue = new android.util.TypedValue();
+                    context.getTheme().resolveAttribute(android.R.attr.textColorSecondary, typedValue, true);
+                    
+                    if (typedValue.resourceId != 0) {
+                        holder.videoDuration.setTextColor(androidx.core.content.ContextCompat.getColor(context, typedValue.resourceId));
+                    } else {
+                        // Fallback to a default color
+                        holder.videoDuration.setTextColor(androidx.core.content.ContextCompat.getColor(context, android.R.color.darker_gray));
+                    }
+                    
+                    Log.d(TAG, "🎥 Duration text reset to default state");
+                } catch (Exception colorError) {
+                    Log.e(TAG, "🎥 Error setting duration text color", colorError);
+                    // Fallback to white text
+                    holder.videoDuration.setTextColor(android.graphics.Color.WHITE);
+                }
+            }
+            
+            // Clear current playing state
+            String pausedVideoId = currentPlayingVideoId;
+            currentPlayingVideoHolder = null;
+            currentPlayingVideoId = null;
+            
+            Log.d(TAG, "🎥 Video playback paused successfully for template: " + pausedVideoId);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "🎥 ERROR pausing video playback", e);
+            
+            // Force clear state even on error
+            currentPlayingVideoHolder = null;
+            currentPlayingVideoId = null;
+            
+            showErrorToast("Error pausing video");
         }
-        
-        // TODO: Implement actual video pause here
-        // In a real implementation, you would:
-        // 1. Pause the VideoView or ExoPlayer
-        // 2. Save current playback position
-        // 3. Release resources if needed
-        
-        currentPlayingVideoHolder = null;
-        currentPlayingVideoId = null;
-        
-        Log.d(TAG, "🎥 Video playback paused");
     }
     
     /**
@@ -1266,5 +1682,25 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
      */
     public boolean isAutoPlayEnabled() {
         return isAutoPlayEnabled;
+    }
+    
+    /**
+     * Initialize video player for the RecyclerView
+     * This method is called from HomeFragment to set up video functionality
+     */
+    public void initializeVideoPlayer(RecyclerView recyclerView) {
+        this.recyclerView = recyclerView;
+        setupVideoAutoPlayScrollListener();
+        Log.d(TAG, "Video player initialized for RecyclerView");
+    }
+    
+    /**
+     * Handle video visibility changes (called from scroll listeners)
+     * This method checks which videos are visible and manages auto-play
+     */
+    public void handleVideoVisibilityChange() {
+        if (recyclerView != null) {
+            checkVideoVisibilityAndAutoPlay();
+        }
     }
 } 

@@ -948,23 +948,105 @@ public class TemplateDetailFragment extends BaseFragment implements TemplateRend
      * @param template Video template
      */
     private void loadVideoTemplate(com.ds.eventwish.data.model.Template template) {
-        Log.d(TAG, "🎥 Loading VIDEO template: " + template.getId());
-        
-        String videoUrl = template.getVideoUrl();
-        if (videoUrl == null || videoUrl.isEmpty()) {
-            Log.w(TAG, "No video URL found, falling back to preview URL");
-            videoUrl = template.getPreviewUrl();
+        try {
+            Log.d(TAG, "🎥 Loading VIDEO template: " + template.getId());
+            Log.d(TAG, "🎥 Template title: " + template.getTitle());
+            Log.d(TAG, "🎥 Template category: " + template.getCategory());
+            
+            String videoUrl = template.getVideoUrl();
+            Log.d(TAG, "🎥 Primary video URL: " + (videoUrl != null ? videoUrl : "NULL"));
+            
+            if (videoUrl == null || videoUrl.isEmpty()) {
+                Log.w(TAG, "🎥 No video URL found, falling back to preview URL");
+                videoUrl = template.getPreviewUrl();
+                Log.d(TAG, "🎥 Preview URL fallback: " + (videoUrl != null ? videoUrl : "NULL"));
+            }
+            
+            if (videoUrl != null && !videoUrl.isEmpty()) {
+                Log.d(TAG, "🎥 Creating HTML wrapper for video playback");
+                
+                // Show loading state
+                showLoading();
+                
+                // Create HTML wrapper for video
+                String videoHtml = createVideoHtml(videoUrl, template);
+                
+                Log.d(TAG, "🎥 Loading video HTML into WebView");
+                Log.d(TAG, "🎥 Video HTML preview: " + videoHtml.substring(0, Math.min(200, videoHtml.length())) + "...");
+                
+                binding.webView.loadDataWithBaseURL(null, videoHtml, "text/html", "UTF-8", null);
+                
+                Log.d(TAG, "✅ Video template loaded successfully with URL: " + videoUrl);
+                
+                // Update UI for video template
+                updateUIForTemplateType(template);
+                
+            } else {
+                Log.e(TAG, "❌ No valid video URL found for template: " + template.getId());
+                Log.e(TAG, "❌ Checked videoUrl: " + template.getVideoUrl());
+                Log.e(TAG, "❌ Checked previewUrl: " + template.getPreviewUrl());
+                Log.e(TAG, "❌ Checked imageUrl: " + template.getImageUrl());
+                
+                // Try to show error gracefully
+                try {
+                    hideLoading();
+                    showError("Video content not available for this template");
+                    
+                    // Fallback to showing template info without video
+                    String fallbackHtml = createFallbackVideoHtml(template);
+                    binding.webView.loadDataWithBaseURL(null, fallbackHtml, "text/html", "UTF-8", null);
+                    
+                } catch (Exception fallbackError) {
+                    Log.e(TAG, "🎥 Error showing fallback content", fallbackError);
+                    showError("Unable to load video template");
+                }
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "🎥 CRITICAL ERROR loading video template: " + template.getId(), e);
+            
+            try {
+                hideLoading();
+                showError("Error loading video: " + e.getMessage());
+            } catch (Exception errorHandlingError) {
+                Log.e(TAG, "🎥 Error handling video load error", errorHandlingError);
+            }
         }
+    }
+    
+    /**
+     * Create fallback HTML when video URL is not available
+     * @param template Video template
+     * @return HTML string for fallback display
+     */
+    private String createFallbackVideoHtml(com.ds.eventwish.data.model.Template template) {
+        String senderName = binding.senderNameInput.getText().toString().trim();
+        String recipientName = binding.recipientNameInput.getText().toString().trim();
         
-        if (videoUrl != null && !videoUrl.isEmpty()) {
-            // Create HTML wrapper for video
-            String videoHtml = createVideoHtml(videoUrl, template);
-            binding.webView.loadDataWithBaseURL(null, videoHtml, "text/html", "UTF-8", null);
-            Log.d(TAG, "✅ Video template loaded with URL: " + videoUrl);
-        } else {
-            Log.e(TAG, "❌ No valid video URL found for template: " + template.getId());
-            showError("Video content not available");
-        }
+        return "<!DOCTYPE html>" +
+                "<html><head>" +
+                "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+                "<style>" +
+                "body { margin: 0; padding: 20px; background: #f5f5f5; font-family: Arial, sans-serif; text-align: center; }" +
+                ".error-container { background: white; border-radius: 12px; padding: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }" +
+                ".error-icon { font-size: 48px; color: #ff6b6b; margin-bottom: 16px; }" +
+                ".error-title { font-size: 20px; font-weight: bold; color: #333; margin-bottom: 8px; }" +
+                ".error-message { font-size: 14px; color: #666; margin-bottom: 20px; }" +
+                ".template-info { margin-top: 20px; }" +
+                ".sender { font-size: 16px; font-weight: bold; color: #333; }" +
+                ".recipient { font-size: 14px; color: #666; margin-top: 8px; }" +
+                "</style>" +
+                "</head><body>" +
+                "<div class='error-container'>" +
+                "<div class='error-icon'>🎥</div>" +
+                "<div class='error-title'>Video Not Available</div>" +
+                "<div class='error-message'>The video content for this template is currently unavailable.</div>" +
+                "<div class='template-info'>" +
+                "<div class='sender'>From: " + (senderName.isEmpty() ? "Your Name" : senderName) + "</div>" +
+                "<div class='recipient'>To: " + (recipientName.isEmpty() ? "Recipient Name" : recipientName) + "</div>" +
+                "</div>" +
+                "</div>" +
+                "</body></html>";
     }
     
     /**
