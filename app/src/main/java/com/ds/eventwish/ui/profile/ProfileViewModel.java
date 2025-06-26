@@ -133,18 +133,35 @@ public class ProfileViewModel extends AndroidViewModel {
     }
 
     public void updateProfile(String username, String email) {
+        Log.d("ProfileViewModel", "updateProfile called with username: " + username + ", email: " + email);
+        
         if (username == null || username.trim().isEmpty()) {
+            Log.e("ProfileViewModel", "Username validation failed: empty or null");
             errorMessage.setValue("Username cannot be empty");
             return;
         }
+        
+        // Additional validation
+        if (username.length() < 2) {
+            Log.e("ProfileViewModel", "Username validation failed: too short");
+            errorMessage.setValue("Username must be at least 2 characters long");
+            return;
+        }
+        
+        if (username.length() > 50) {
+            Log.e("ProfileViewModel", "Username validation failed: too long");
+            errorMessage.setValue("Username cannot exceed 50 characters");
+            return;
+        }
 
-        // Update UI immediately
-        this.username.setValue(username);
-        this.email.setValue(email);
+        // Clear any previous errors
+        errorMessage.setValue(null);
 
         // Update in Firebase and MongoDB
         FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
         if (firebaseUser != null) {
+            Log.d("ProfileViewModel", "Updating Firebase profile for user: " + firebaseUser.getUid());
+            
             // Update Firebase profile
             UserProfileChangeRequest profileUpdates = new UserProfileChangeRequest.Builder()
                 .setDisplayName(username)
@@ -152,15 +169,27 @@ public class ProfileViewModel extends AndroidViewModel {
 
             firebaseUser.updateProfile(profileUpdates)
                 .addOnSuccessListener(aVoid -> {
+                    Log.d("ProfileViewModel", "Firebase profile updated successfully");
+                    
+                    // Update UI after successful Firebase update
+                    this.username.setValue(username);
+                    this.email.setValue(email);
+                    
                     // After Firebase update, sync with MongoDB and local cache
-                    userRepository.updateUserProfile(username, email);
-                    errorMessage.setValue(null); // Clear any previous errors
+                    try {
+                        userRepository.updateUserProfile(username, email);
+                        Log.d("ProfileViewModel", "MongoDB sync initiated");
+                    } catch (Exception e) {
+                        Log.e("ProfileViewModel", "Error initiating MongoDB sync: " + e.getMessage());
+                        errorMessage.setValue("Profile updated in Firebase but failed to sync with server: " + e.getMessage());
+                    }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e("ProfileViewModel", "Error updating Firebase profile: " + e.getMessage());
-                    errorMessage.setValue("Failed to update profile: " + e.getMessage());
+                    Log.e("ProfileViewModel", "Error updating Firebase profile", e);
+                    errorMessage.setValue("Failed to update Firebase profile: " + e.getMessage());
                 });
         } else {
+            Log.e("ProfileViewModel", "No user is currently signed in");
             errorMessage.setValue("No user is currently signed in");
         }
     }

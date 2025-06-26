@@ -10,6 +10,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.navigation.Navigation;
 import androidx.viewpager2.adapter.FragmentStateAdapter;
@@ -150,20 +151,51 @@ public class ProfileFragment extends Fragment {
                     return;
                 }
 
+                // Validate name length (2-50 characters as per backend validation)
+                if (newName.length() < 2) {
+                    nameInputLayout.setError("Name must be at least 2 characters long");
+                    return;
+                }
+                
+                if (newName.length() > 50) {
+                    nameInputLayout.setError("Name cannot exceed 50 characters");
+                    return;
+                }
+
                 // Clear any previous errors
                 nameInputLayout.setError(null);
 
+                // Show loading state
+                positiveButton.setEnabled(false);
+                positiveButton.setText("Saving...");
+
                 // Update profile - keep existing email
                 String currentEmail = binding.emailText.getText().toString();
+                
+                Log.d("ProfileFragment", "Updating profile with name: " + newName + ", email: " + currentEmail);
+                
                 profileViewModel.updateProfile(newName, currentEmail);
                 
-                // Error handling is now done through the ViewModel's error LiveData
-                profileViewModel.getErrorMessage().observe(getViewLifecycleOwner(), error -> {
-                    if (error != null) {
-                        Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show();
-                    } else {
-                        Toast.makeText(requireContext(), R.string.profile_updated, Toast.LENGTH_SHORT).show();
-                        dialog.dismiss();
+                // Create a new observer to handle the response
+                profileViewModel.getErrorMessage().observe(getViewLifecycleOwner(), new Observer<String>() {
+                    @Override
+                    public void onChanged(String error) {
+                        // Re-enable button
+                        positiveButton.setEnabled(true);
+                        positiveButton.setText(R.string.save);
+                        
+                        if (error != null && !error.isEmpty()) {
+                            Log.e("ProfileFragment", "Profile update error: " + error);
+                            nameInputLayout.setError(error);
+                            Toast.makeText(requireContext(), "Update failed: " + error, Toast.LENGTH_LONG).show();
+                        } else {
+                            Log.d("ProfileFragment", "Profile updated successfully");
+                            Toast.makeText(requireContext(), R.string.profile_updated, Toast.LENGTH_SHORT).show();
+                            dialog.dismiss();
+                        }
+                        
+                        // Remove this observer to prevent multiple triggers
+                        profileViewModel.getErrorMessage().removeObserver(this);
                     }
                 });
             });

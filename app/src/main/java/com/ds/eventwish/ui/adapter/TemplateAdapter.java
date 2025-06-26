@@ -57,6 +57,7 @@ import android.webkit.WebViewClient;
 import android.graphics.Bitmap;
 import android.view.Gravity;
 import com.ds.eventwish.BuildConfig;
+import android.os.Build;
 
 public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHolder> {
 
@@ -295,7 +296,7 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         Log.d(TAG, "🎨 RENDERING TEMPLATE TYPE: " + templateType + " for template: " + template.getId());
         
         // Hide all template containers first
-        holder.templateImage.setVisibility(View.GONE);
+        holder.imageTemplateContainer.setVisibility(View.GONE);
         holder.htmlTemplateContainer.setVisibility(View.GONE);
         holder.videoTemplateContainer.setVisibility(View.GONE);
         
@@ -318,33 +319,402 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
     }
     
     /**
-     * 🖼️ Render IMAGE template
+     * 🖼️ Render IMAGE template with HTML/CSS overlay support
      */
     private void renderImageTemplate(@NonNull ViewHolder holder, @NonNull Template template) {
-        Log.d(TAG, "🖼️ RENDERING IMAGE TEMPLATE: " + template.getId());
-        
-        // Show image container
-        holder.templateImage.setVisibility(View.VISIBLE);
-        holder.templateTypeBadge.setText("IMAGE");
-        
-        // Load image with enhanced options
-        String imageUrl = template.getPreviewUrl();
-        if (imageUrl == null || imageUrl.isEmpty()) {
-            imageUrl = template.getImageUrl();
+        try {
+            Log.d(TAG, "🖼️ Starting image template rendering for template: " + template.getId());
+            Log.d(TAG, "   • Template type: " + template.getTemplateType());
+            Log.d(TAG, "   • Image URL: " + template.getImageUrl());
+            Log.d(TAG, "   • Preview URL: " + template.getPreviewUrl());
+            Log.d(TAG, "   • Title: " + template.getTitle());
+            
+            // Show image container and hide others
+            if (holder.imageTemplateContainer != null) {
+                holder.imageTemplateContainer.setVisibility(View.VISIBLE);
+                Log.d(TAG, "✅ Image container made visible");
+            }
+            if (holder.htmlTemplateContainer != null) {
+                holder.htmlTemplateContainer.setVisibility(View.GONE);
+            }
+            if (holder.videoTemplateContainer != null) {
+                holder.videoTemplateContainer.setVisibility(View.GONE);
+            }
+
+            holder.templateTypeBadge.setText("IMAGE");
+            
+            // Load image with enhanced options
+            String imageUrl = template.getPreviewUrl();
+            if (imageUrl == null || imageUrl.isEmpty()) {
+                imageUrl = template.getImageUrl();
+            }
+            
+            if (imageUrl != null && !imageUrl.isEmpty()) {
+                Log.d(TAG, "🖼️ Loading image from URL: " + imageUrl);
+                Glide.with(context)
+                        .load(imageUrl)
+                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .placeholder(R.drawable.placeholder_image)
+                    .error(R.drawable.placeholder_image)
+                    .centerCrop()
+                    .into(holder.templateImage);
+            } else {
+                Log.w(TAG, "🖼️ No image URL available for template: " + template.getId());
+                holder.templateImage.setImageResource(R.drawable.placeholder_image);
+            }
+
+            // Get user information for overlay
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            String userName = currentUser != null ? currentUser.getDisplayName() : null;
+            String photoUrl = currentUser != null && currentUser.getPhotoUrl() != null ? 
+                            currentUser.getPhotoUrl().toString() : null;
+            String userId = currentUser != null ? currentUser.getUid() : null;
+
+            Log.d(TAG, "👤 User info for image overlay:");
+            Log.d(TAG, "   • User Name: " + (userName != null ? userName : "null"));
+            Log.d(TAG, "   • Photo URL: " + (photoUrl != null ? photoUrl : "null"));
+            Log.d(TAG, "   • User ID: " + (userId != null ? userId : "null"));
+
+            // Check for HTML/CSS content for image overlay (use main content fields)
+            String htmlContent = template.getHtmlContent();
+            String cssContent = template.getCssContent();
+            
+            Log.d(TAG, "📄 Template content analysis:");
+            Log.d(TAG, "   • HTML Content length: " + (htmlContent != null ? htmlContent.length() : 0));
+            Log.d(TAG, "   • CSS Content length: " + (cssContent != null ? cssContent.length() : 0));
+            Log.d(TAG, "   • HTML Content preview: " + (htmlContent != null && htmlContent.length() > 50 ? 
+                  htmlContent.substring(0, 50) + "..." : htmlContent));
+            Log.d(TAG, "   • CSS Content preview: " + (cssContent != null && cssContent.length() > 50 ? 
+                  cssContent.substring(0, 50) + "..." : cssContent));
+
+            // Also check overlay-specific fields for comparison
+            String overlayHtml = template.getOverlayHtmlTemplate();
+            String overlayCss = template.getOverlayCssTemplate();
+            Log.d(TAG, "🎭 Overlay-specific fields:");
+            Log.d(TAG, "   • Overlay HTML length: " + (overlayHtml != null ? overlayHtml.length() : 0));
+            Log.d(TAG, "   • Overlay CSS length: " + (overlayCss != null ? overlayCss.length() : 0));
+
+            // Create overlay using HTML/CSS content if available
+            if (htmlContent != null && !htmlContent.trim().isEmpty() && 
+                cssContent != null && !cssContent.trim().isEmpty()) {
+                Log.d(TAG, "🎨 Found HTML/CSS content, rendering image overlay...");
+                renderImageOverlayWithContent(holder, template, htmlContent, cssContent);
+            } else if (overlayHtml != null && !overlayHtml.trim().isEmpty() && 
+                      overlayCss != null && !overlayCss.trim().isEmpty()) {
+                Log.d(TAG, "🎭 Found overlay templates, rendering image overlay...");
+                renderImageOverlayWithContent(holder, template, overlayHtml, overlayCss);
+            } else {
+                Log.w(TAG, "❌ No valid HTML/CSS content found for image overlay");
+                Log.w(TAG, "   • Main HTML Content: " + (htmlContent == null ? "null" : 
+                          (htmlContent.trim().isEmpty() ? "empty" : "present (" + htmlContent.length() + " chars)")));
+                Log.w(TAG, "   • Main CSS Content: " + (cssContent == null ? "null" : 
+                          (cssContent.trim().isEmpty() ? "empty" : "present (" + cssContent.length() + " chars)")));
+                Log.w(TAG, "   • Overlay HTML: " + (overlayHtml == null ? "null" : 
+                          (overlayHtml.trim().isEmpty() ? "empty" : "present (" + overlayHtml.length() + " chars)")));
+                Log.w(TAG, "   • Overlay CSS: " + (overlayCss == null ? "null" : 
+                          (overlayCss.trim().isEmpty() ? "empty" : "present (" + overlayCss.length() + " chars)")));
+                
+                // Hide overlay container if no content
+                if (holder.imageOverlayContainer != null) {
+                    holder.imageOverlayContainer.setVisibility(View.GONE);
+                    Log.d(TAG, "🚫 Image overlay container hidden due to no content");
+                }
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error rendering image template", e);
+            e.printStackTrace();
         }
+    }
+    
+    /**
+     * 🎨 Render image overlay with HTML/CSS content and enhanced debugging
+     */
+    private void renderImageOverlayWithContent(@NonNull ViewHolder holder, @NonNull Template template, 
+                                             @NonNull String htmlContent, @NonNull String cssContent) {
+        Log.d(TAG, "🎨 Starting image overlay rendering with content for template: " + template.getId());
         
-        if (imageUrl != null && !imageUrl.isEmpty()) {
-            Log.d(TAG, "🖼️ Loading image from URL: " + imageUrl);
-            Glide.with(context)
-                    .load(imageUrl)
-                    .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .placeholder(R.drawable.placeholder_image)
-                .error(R.drawable.placeholder_image)
-                .centerCrop()
-                .into(holder.templateImage);
-        } else {
-            Log.w(TAG, "🖼️ No image URL available for template: " + template.getId());
-            holder.templateImage.setImageResource(R.drawable.placeholder_image);
+        try {
+            // Get user information
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            if (currentUser == null) {
+                Log.w(TAG, "⚠️ No user logged in for image overlay");
+                return;
+            }
+            
+            String userName = getUserDisplayName();
+            String userPhoto = getUserPhotoUrl();
+            String userId = currentUser.getUid();
+            
+            Log.d(TAG, "👤 User data for image overlay:");
+            Log.d(TAG, "   • Name: " + userName);
+            Log.d(TAG, "   • Photo: " + (userPhoto != null ? userPhoto : "null"));
+            Log.d(TAG, "   • UID: " + userId);
+            
+            Log.d(TAG, "🎨 Content data for image overlay:");
+            Log.d(TAG, "   • HTML Content length: " + htmlContent.length());
+            Log.d(TAG, "   • CSS Content length: " + cssContent.length());
+            Log.d(TAG, "   • HTML Content preview: " + (htmlContent.length() > 100 ? 
+                  htmlContent.substring(0, 100) + "..." : htmlContent));
+            
+            // Create photo HTML with proper null checking and comprehensive fallback
+            String photoHtml;
+            String fallbackPhotoPlaceholder = "<div class='user-photo-placeholder' style='width:36px;height:36px;border-radius:50%;background:linear-gradient(45deg,#e0e0e0,#f5f5f5);display:inline-flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.8);box-shadow:0 2px 4px rgba(0,0,0,0.2);'>" +
+                        "<svg width='20' height='20' viewBox='0 0 24 24'>" +
+                        "<path fill='#757575' d='M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z'/>" +
+                        "</svg></div>";
+            
+            if (userPhoto != null && !userPhoto.trim().isEmpty()) {
+                photoHtml = "<img class='user-photo' src='" + userPhoto + "' alt='" + (userName != null ? userName : "User") + "' " +
+                           "onerror=\"this.style.display='none'; this.nextElementSibling.style.display='inline-flex';\">" +
+                           "<div class='user-photo-placeholder' style='display:none;width:36px;height:36px;border-radius:50%;background:#ddd;display:inline-flex;align-items:center;justify-content:center;'>" +
+                           "<svg width='20' height='20' viewBox='0 0 24 24'><path fill='#757575' d='M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z'/></svg></div>";
+                Log.d(TAG, "👤 Using actual user photo: " + userPhoto);
+            } else {
+                photoHtml = fallbackPhotoPlaceholder;
+                Log.d(TAG, "👤 No user photo available, using fallback placeholder");
+            }
+                
+            // Replace placeholders with comprehensive format support
+            Log.d(TAG, "🔄 Replacing placeholders in HTML content...");
+            
+            String processedHtml = htmlContent
+                // Support multiple placeholder formats: [USER_*], {USER_*}, {{USER_*}}
+                .replace("[USER_PHOTO]", photoHtml)
+                .replace("[USER_NAME]", userName != null ? userName : "User")
+                .replace("[USER_ID]", userId != null ? userId : "")
+                .replace("{USER_PHOTO}", photoHtml)
+                .replace("{USER_NAME}", userName != null ? userName : "User")
+                .replace("{USER_ID}", userId != null ? userId : "")
+                .replace("{{USER_PHOTO}}", photoHtml)
+                .replace("{{USER_NAME}}", userName != null ? userName : "User")
+                .replace("{{USER_ID}}", userId != null ? userId : "")
+                // Additional common formats
+                .replace("{{userPhoto}}", photoHtml)
+                .replace("{{userName}}", userName != null ? userName : "User")
+                .replace("{{userId}}", userId != null ? userId : "")
+                .replace("[userPhoto]", photoHtml)
+                .replace("[userName]", userName != null ? userName : "User")
+                .replace("[userId]", userId != null ? userId : "");
+                
+            Log.d(TAG, "✅ Placeholders replaced. Processed HTML length: " + processedHtml.length());
+            Log.d(TAG, "🔍 Processed HTML preview: " + (processedHtml.length() > 150 ? 
+                  processedHtml.substring(0, 150) + "..." : processedHtml));
+            
+            // Enhanced CSS with debugging styles and improved visibility
+            String enhancedCss = cssContent + "\n" +
+                "/* Debug styles for image overlay visibility */\n" +
+                "body { \n" +
+                "  border: 3px solid #ff0000 !important; \n" +
+                "  background: rgba(0,255,0,0.2) !important; \n" +
+                "  margin: 0 !important; \n" +
+                "  padding: 8px !important; \n" +
+                "  min-height: 60px !important; \n" +
+                "  box-sizing: border-box !important; \n" +
+                "  font-family: Arial, sans-serif !important; \n" +
+                "}\n" +
+                ".user-photo { \n" +
+                "  border: 2px solid #0000ff !important; \n" +
+                "  display: inline-block !important; \n" +
+                "}\n" +
+                ".user-photo-placeholder { \n" +
+                "  border: 2px solid #ff8800 !important; \n" +
+                "  display: inline-flex !important; \n" +
+                "}\n" +
+                ".user-name { \n" +
+                "  background: rgba(255,255,0,0.4) !important; \n" +
+                "  border: 1px solid #800080 !important; \n" +
+                "  display: inline-block !important; \n" +
+                "  padding: 2px 4px !important; \n" +
+                "  color: #ffffff !important; \n" +
+                "  font-weight: bold !important; \n" +
+                "}\n" +
+                ".user-profile { \n" +
+                "  border: 2px solid #00ff00 !important; \n" +
+                "  background: rgba(0,0,0,0.7) !important; \n" +
+                "  padding: 8px !important; \n" +
+                "  margin: 4px !important; \n" +
+                "}\n" +
+                "/* Ensure all elements are visible */\n" +
+                "* { \n" +
+                "  box-sizing: border-box !important; \n" +
+                "  max-width: 100% !important; \n" +
+                "  visibility: visible !important; \n" +
+                "}\n";
+                
+            // Create complete HTML document with enhanced debugging
+            String completeHtml = String.format(
+                "<!DOCTYPE html><html><head>" +
+                "<meta charset='UTF-8'>" +
+                "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+                "<style>%s</style>" +
+                "</head><body>" +
+                "<div style='background:rgba(255,0,0,0.3);padding:6px;border:2px solid red;margin-bottom:8px;color:white;font-weight:bold;'>" +
+                "🎨 DEBUG: Image Overlay Active - User: %s" +
+                "</div>" +
+                "%s" +
+                "<script>" +
+                "console.log('🎨 Image overlay loaded successfully!');" +
+                "console.log('📋 User data:', {name: '%s', photo: '%s', id: '%s'});" +
+                "console.log('📄 Template ID: %s');" +
+                "document.addEventListener('DOMContentLoaded', function() {" +
+                "  console.log('📄 DOM loaded, image overlay ready');" +
+                "  document.body.style.border = '4px solid lime';" +
+                "  console.log('🎯 Final overlay HTML:', document.body.innerHTML);" +
+                "  console.log('📏 Body dimensions:', document.body.offsetWidth + 'x' + document.body.offsetHeight);" +
+                "});" +
+                "</script>" +
+                "</body></html>",
+                enhancedCss,
+                userName != null ? userName : "Unknown",
+                processedHtml,
+                userName != null ? userName.replace("'", "\\'") : "Unknown",
+                userPhoto != null ? userPhoto.replace("'", "\\'") : "null",
+                userId != null ? userId.replace("'", "\\'") : "null",
+                template.getId()
+            );
+            
+            Log.d(TAG, "📄 Complete HTML document created. Length: " + completeHtml.length());
+            
+            // Ensure overlay container is visible and properly configured
+            if (holder.imageOverlayContainer != null) {
+                holder.imageOverlayContainer.setVisibility(View.VISIBLE);
+                holder.imageOverlayContainer.removeAllViews();
+                
+                Log.d(TAG, "📱 Image overlay container prepared:");
+                Log.d(TAG, "   • Visibility: " + (holder.imageOverlayContainer.getVisibility() == View.VISIBLE ? "VISIBLE" : "HIDDEN"));
+                Log.d(TAG, "   • Width: " + holder.imageOverlayContainer.getLayoutParams().width);
+                Log.d(TAG, "   • Height: " + holder.imageOverlayContainer.getLayoutParams().height);
+                
+                // Create and configure WebView with enhanced settings
+                WebView overlayWebView = new WebView(holder.itemView.getContext());
+                
+                // Enhanced WebView settings for overlay rendering
+                WebSettings webSettings = overlayWebView.getSettings();
+                webSettings.setJavaScriptEnabled(true);
+                webSettings.setDomStorageEnabled(true);
+                webSettings.setLoadWithOverviewMode(true);
+                webSettings.setUseWideViewPort(true);
+                webSettings.setBuiltInZoomControls(false);
+                webSettings.setDisplayZoomControls(false);
+                webSettings.setSupportZoom(false);
+                webSettings.setTextZoom(100);
+                webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+                webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+                
+                // Enable debugging for WebView
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                    WebView.setWebContentsDebuggingEnabled(true);
+                }
+                
+                // Configure WebView layout parameters
+                FrameLayout.LayoutParams webViewParams = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                );
+                webViewParams.gravity = Gravity.BOTTOM;
+                overlayWebView.setLayoutParams(webViewParams);
+                
+                // Set WebView background and styling
+                overlayWebView.setBackgroundColor(Color.TRANSPARENT);
+                overlayWebView.setLayerType(WebView.LAYER_TYPE_SOFTWARE, null);
+                
+                // Enhanced WebViewClient with comprehensive debugging
+                overlayWebView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                        super.onPageStarted(view, url, favicon);
+                        Log.d(TAG, "🌐 Image overlay WebView page started loading: " + url);
+                    }
+                    
+                    @Override
+                    public void onPageFinished(WebView view, String url) {
+                        super.onPageFinished(view, url);
+                        Log.d(TAG, "✅ Image overlay WebView page finished loading: " + url);
+                        
+                        // Inject additional debugging script
+                        String debugScript = 
+                            "javascript:(function() {" +
+                            "  console.log('🎯 Image overlay page loaded, body content:', document.body.innerHTML);" +
+                            "  console.log('📏 Body size:', document.body.offsetWidth + 'x' + document.body.offsetHeight);" +
+                            "  document.body.style.border = '5px solid cyan';" +
+                            "  document.body.style.minHeight = '80px';" +
+                            "  var userProfile = document.querySelector('.user-profile');" +
+                            "  if (userProfile) {" +
+                            "    console.log('👤 Found user profile element');" +
+                            "    userProfile.style.border = '3px solid yellow';" +
+                            "  } else {" +
+                            "    console.warn('❌ User profile element not found');" +
+                            "  }" +
+                            "})()";
+                        
+                        view.evaluateJavascript(debugScript, result -> 
+                            Log.d(TAG, "📝 Image overlay debug script executed: " + result));
+                        
+                        // Force container visibility check after page load
+                        view.post(() -> {
+                            Log.d(TAG, "📱 Post-load image overlay container check:");
+                            Log.d(TAG, "   • Container visibility: " + 
+                                  (holder.imageOverlayContainer.getVisibility() == View.VISIBLE ? "VISIBLE" : "HIDDEN"));
+                            Log.d(TAG, "   • WebView visibility: " + 
+                                  (view.getVisibility() == View.VISIBLE ? "VISIBLE" : "HIDDEN"));
+                            Log.d(TAG, "   • Container child count: " + holder.imageOverlayContainer.getChildCount());
+                        });
+                    }
+                    
+                    @Override
+                    public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                        super.onReceivedError(view, errorCode, description, failingUrl);
+                        Log.e(TAG, "❌ Image overlay WebView error: " + description + " (Code: " + errorCode + ")");
+                        
+                        // Show error overlay
+                        String errorHtml = "<div style='background:red;color:white;padding:8px;'>" +
+                                          "❌ Image Overlay Error: " + description + "</div>";
+                        view.loadDataWithBaseURL(null, errorHtml, "text/html", "UTF-8", null);
+                    }
+                    
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                        Log.d(TAG, "🔗 Image overlay WebView URL loading: " + url);
+                        return false; // Allow normal loading
+                    }
+                });
+                
+                // Add WebView to overlay container
+                holder.imageOverlayContainer.addView(overlayWebView);
+                
+                Log.d(TAG, "📱 WebView added to image overlay container");
+                
+                // Load the HTML content
+                Log.d(TAG, "🚀 Loading HTML content into image overlay WebView...");
+                overlayWebView.loadDataWithBaseURL(
+                    "https://eventwish.com/", // Base URL for relative resources
+                    completeHtml,
+                    "text/html",
+                    "UTF-8",
+                    null
+                );
+                
+                Log.d(TAG, "✅ Image overlay rendering completed successfully!");
+                
+            } else {
+                Log.e(TAG, "❌ Image overlay container is null - cannot render overlay");
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error in renderImageOverlayWithContent", e);
+            e.printStackTrace();
+            
+            // Show error message in overlay container
+            if (holder.imageOverlayContainer != null) {
+                holder.imageOverlayContainer.removeAllViews();
+                TextView errorView = new TextView(holder.itemView.getContext());
+                errorView.setText("❌ Image Overlay Error: " + e.getMessage());
+                errorView.setTextColor(Color.RED);
+                errorView.setBackgroundColor(Color.WHITE);
+                errorView.setPadding(16, 8, 16, 8);
+                holder.imageOverlayContainer.addView(errorView);
+            }
         }
     }
     
@@ -856,40 +1226,80 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
      * 🎥 Render VIDEO template
      */
     private void renderVideoTemplate(@NonNull ViewHolder holder, @NonNull Template template) {
-        Log.d(TAG, "🎥 RENDERING VIDEO TEMPLATE: " + template.getId());
-        
         try {
+            Log.d(TAG, "🎥 Starting video template rendering for template: " + template.getId());
+            Log.d(TAG, "   • Template type: " + template.getTemplateType());
+            Log.d(TAG, "   • Video URL: " + template.getVideoUrl());
+            Log.d(TAG, "   • Title: " + template.getTitle());
+            
             // Show video container and hide others
-            holder.videoTemplateContainer.setVisibility(View.VISIBLE);
-            holder.templateImage.setVisibility(View.GONE);
-            holder.htmlTemplateContainer.setVisibility(View.GONE);
-            holder.templateTypeBadge.setText("VIDEO");
-            
-            // Initialize video overlay container
-            if (holder.videoOverlayContainer != null) {
-                holder.videoOverlayContainer.setVisibility(View.VISIBLE);
-                holder.videoOverlayContainer.removeAllViews();
-                
-                // Ensure proper z-ordering
-                holder.videoOverlayContainer.bringToFront();
-                holder.videoOverlayContainer.setTranslationZ(8f);
+            if (holder.videoTemplateContainer != null) {
+                holder.videoTemplateContainer.setVisibility(View.VISIBLE);
+                Log.d(TAG, "✅ Video container made visible");
             }
-            
-            // Get current user info
+            if (holder.templateImage != null) {
+                holder.templateImage.setVisibility(View.GONE);
+            }
+            if (holder.htmlTemplateContainer != null) {
+                holder.htmlTemplateContainer.setVisibility(View.GONE);
+            }
+
+            // Get user information for overlay
             FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
             String userName = currentUser != null ? currentUser.getDisplayName() : null;
             String photoUrl = currentUser != null && currentUser.getPhotoUrl() != null ? 
                             currentUser.getPhotoUrl().toString() : null;
             String userId = currentUser != null ? currentUser.getUid() : null;
 
-            // Create overlay using server templates
-            if (template.hasValidOverlayTemplates()) {
-                Log.d(TAG, "🎥 Template has valid overlay templates, rendering overlay...");
-                renderVideoOverlay(holder, template);
+            Log.d(TAG, "👤 User info for video overlay:");
+            Log.d(TAG, "   • User Name: " + (userName != null ? userName : "null"));
+            Log.d(TAG, "   • Photo URL: " + (photoUrl != null ? photoUrl : "null"));
+            Log.d(TAG, "   • User ID: " + (userId != null ? userId : "null"));
+
+            // Check for HTML/CSS content for video overlay (use main content fields)
+            String htmlContent = template.getHtmlContent();
+            String cssContent = template.getCssContent();
+            
+            Log.d(TAG, "📄 Template content analysis:");
+            Log.d(TAG, "   • HTML Content length: " + (htmlContent != null ? htmlContent.length() : 0));
+            Log.d(TAG, "   • CSS Content length: " + (cssContent != null ? cssContent.length() : 0));
+            Log.d(TAG, "   • HTML Content preview: " + (htmlContent != null && htmlContent.length() > 50 ? 
+                  htmlContent.substring(0, 50) + "..." : htmlContent));
+            Log.d(TAG, "   • CSS Content preview: " + (cssContent != null && cssContent.length() > 50 ? 
+                  cssContent.substring(0, 50) + "..." : cssContent));
+
+            // Also check overlay-specific fields for comparison
+            String overlayHtml = template.getOverlayHtmlTemplate();
+            String overlayCss = template.getOverlayCssTemplate();
+            Log.d(TAG, "🎭 Overlay-specific fields:");
+            Log.d(TAG, "   • Overlay HTML length: " + (overlayHtml != null ? overlayHtml.length() : 0));
+            Log.d(TAG, "   • Overlay CSS length: " + (overlayCss != null ? overlayCss.length() : 0));
+
+            // Create overlay using HTML/CSS content if available
+            if (htmlContent != null && !htmlContent.trim().isEmpty() && 
+                cssContent != null && !cssContent.trim().isEmpty()) {
+                Log.d(TAG, "🎬 Found HTML/CSS content, rendering video overlay...");
+                renderVideoOverlayWithContent(holder, template, htmlContent, cssContent);
+            } else if (overlayHtml != null && !overlayHtml.trim().isEmpty() && 
+                      overlayCss != null && !overlayCss.trim().isEmpty()) {
+                Log.d(TAG, "🎭 Found overlay templates, rendering video overlay...");
+                renderVideoOverlayWithContent(holder, template, overlayHtml, overlayCss);
             } else {
-                Log.d(TAG, "🎥 No valid overlay templates found for template: " + template.getId());
-                Log.d(TAG, "   • HTML Template: " + (template.getOverlayHtmlTemplate().isEmpty() ? "empty" : "present"));
-                Log.d(TAG, "   • CSS Template: " + (template.getOverlayCssTemplate().isEmpty() ? "empty" : "present"));
+                Log.w(TAG, "❌ No valid HTML/CSS content found for video overlay");
+                Log.w(TAG, "   • Main HTML Content: " + (htmlContent == null ? "null" : 
+                          (htmlContent.trim().isEmpty() ? "empty" : "present (" + htmlContent.length() + " chars)")));
+                Log.w(TAG, "   • Main CSS Content: " + (cssContent == null ? "null" : 
+                          (cssContent.trim().isEmpty() ? "empty" : "present (" + cssContent.length() + " chars)")));
+                Log.w(TAG, "   • Overlay HTML: " + (overlayHtml == null ? "null" : 
+                          (overlayHtml.trim().isEmpty() ? "empty" : "present (" + overlayHtml.length() + " chars)")));
+                Log.w(TAG, "   • Overlay CSS: " + (overlayCss == null ? "null" : 
+                          (overlayCss.trim().isEmpty() ? "empty" : "present (" + overlayCss.length() + " chars)")));
+                
+                // Hide overlay container if no content
+                if (holder.videoOverlayContainer != null) {
+                    holder.videoOverlayContainer.setVisibility(View.GONE);
+                    Log.d(TAG, "🚫 Video overlay container hidden due to no content");
+                }
             }
 
             // Get video URL for validation
@@ -920,16 +1330,17 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             }
 
         } catch (Exception e) {
-            Log.e(TAG, "Error rendering video template", e);
+            Log.e(TAG, "❌ Error rendering video template", e);
             e.printStackTrace();
         }
     }
     
     /**
-     * 🎬 Render video overlay
+     * 🎬 Render video overlay with HTML/CSS content and enhanced debugging
      */
-    private void renderVideoOverlay(@NonNull ViewHolder holder, @NonNull Template template) {
-        Log.d(TAG, "🎬 Starting video overlay rendering for template: " + template.getId());
+    private void renderVideoOverlayWithContent(@NonNull ViewHolder holder, @NonNull Template template, 
+                                             @NonNull String htmlContent, @NonNull String cssContent) {
+        Log.d(TAG, "🎬 Starting video overlay rendering with content for template: " + template.getId());
         
         try {
             // Get user information
@@ -945,131 +1356,274 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             
             Log.d(TAG, "👤 User data for overlay:");
             Log.d(TAG, "   • Name: " + userName);
-            Log.d(TAG, "   • Photo: " + userPhoto);
+            Log.d(TAG, "   • Photo: " + (userPhoto != null ? userPhoto : "null"));
             Log.d(TAG, "   • UID: " + userId);
             
-            // Process HTML template with placeholders
-            String htmlTemplate = template.getOverlayHtmlTemplate();
-            String cssTemplate = template.getOverlayCssTemplate();
+            Log.d(TAG, "🎬 Content data for overlay:");
+            Log.d(TAG, "   • HTML Content length: " + htmlContent.length());
+            Log.d(TAG, "   • CSS Content length: " + cssContent.length());
+            Log.d(TAG, "   • HTML Content preview: " + (htmlContent.length() > 100 ? 
+                  htmlContent.substring(0, 100) + "..." : htmlContent));
             
-            if (htmlTemplate == null || cssTemplate == null) {
-                Log.e(TAG, "Missing overlay templates");
-                return;
+            // Create photo HTML with proper null checking and comprehensive fallback
+            String photoHtml;
+            String fallbackPhotoPlaceholder = "<div class='user-photo-placeholder' style='width:36px;height:36px;border-radius:50%;background:linear-gradient(45deg,#e0e0e0,#f5f5f5);display:inline-flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.8);box-shadow:0 2px 4px rgba(0,0,0,0.2);'>" +
+                        "<svg width='20' height='20' viewBox='0 0 24 24'>" +
+                        "<path fill='#757575' d='M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z'/>" +
+                        "</svg></div>";
+            
+            if (userPhoto != null && !userPhoto.trim().isEmpty()) {
+                photoHtml = "<img class='user-photo' src='" + userPhoto + "' alt='" + (userName != null ? userName : "User") + "' " +
+                           "onerror=\"this.style.display='none'; this.nextElementSibling.style.display='inline-flex';\">" +
+                           "<div class='user-photo-placeholder' style='display:none;width:36px;height:36px;border-radius:50%;background:#ddd;display:inline-flex;align-items:center;justify-content:center;'>" +
+                           "<svg width='20' height='20' viewBox='0 0 24 24'><path fill='#757575' d='M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z'/></svg></div>";
+                Log.d(TAG, "👤 Using actual user photo: " + userPhoto);
+            } else {
+                photoHtml = fallbackPhotoPlaceholder;
+                Log.d(TAG, "👤 No user photo available, using fallback placeholder");
             }
+                
+            // Replace placeholders with comprehensive format support
+            Log.d(TAG, "🔄 Replacing placeholders in HTML content...");
             
-            // Create photo HTML with fallback
-            String photoHtml = !userPhoto.isEmpty() ?
-                "<img class='user-photo' src='" + userPhoto + "' alt='" + userName + "'>" :
-                "<div class='user-photo-placeholder'>" +
-                    "<svg width='20' height='20' viewBox='0 0 24 24'>" +
-                    "<path fill='#757575' d='M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z'/>" +
-                    "</svg>" +
-                "</div>";
-                
-            // Replace placeholders
-            htmlTemplate = htmlTemplate
+            String processedHtml = htmlContent
+                // Support multiple placeholder formats: [USER_*], {USER_*}, {{USER_*}}
                 .replace("[USER_PHOTO]", photoHtml)
-                .replace("[USER_NAME]", userName)
-                .replace("[USER_ID]", userId);
+                .replace("[USER_NAME]", userName != null ? userName : "User")
+                .replace("[USER_ID]", userId != null ? userId : "")
+                .replace("{USER_PHOTO}", photoHtml)
+                .replace("{USER_NAME}", userName != null ? userName : "User")
+                .replace("{USER_ID}", userId != null ? userId : "")
+                .replace("{{USER_PHOTO}}", photoHtml)
+                .replace("{{USER_NAME}}", userName != null ? userName : "User")
+                .replace("{{USER_ID}}", userId != null ? userId : "")
+                // Additional common formats
+                .replace("{{userPhoto}}", photoHtml)
+                .replace("{{userName}}", userName != null ? userName : "User")
+                .replace("{{userId}}", userId != null ? userId : "")
+                .replace("[userPhoto]", photoHtml)
+                .replace("[userName]", userName != null ? userName : "User")
+                .replace("[userId]", userId != null ? userId : "");
                 
-            // Create complete HTML document with CSS
+            Log.d(TAG, "✅ Placeholders replaced. Processed HTML length: " + processedHtml.length());
+            Log.d(TAG, "🔍 Processed HTML preview: " + (processedHtml.length() > 150 ? 
+                  processedHtml.substring(0, 150) + "..." : processedHtml));
+            
+            // Enhanced CSS with debugging styles and improved visibility
+            String enhancedCss = cssContent + "\n" +
+                "/* Debug styles for overlay visibility */\n" +
+                "body { \n" +
+                "  border: 3px solid #ff0000 !important; \n" +
+                "  background: rgba(0,255,0,0.2) !important; \n" +
+                "  margin: 0 !important; \n" +
+                "  padding: 8px !important; \n" +
+                "  min-height: 60px !important; \n" +
+                "  box-sizing: border-box !important; \n" +
+                "  font-family: Arial, sans-serif !important; \n" +
+                "}\n" +
+                ".user-photo { \n" +
+                "  border: 2px solid #0000ff !important; \n" +
+                "  display: inline-block !important; \n" +
+                "}\n" +
+                ".user-photo-placeholder { \n" +
+                "  border: 2px solid #ff8800 !important; \n" +
+                "  display: inline-flex !important; \n" +
+                "}\n" +
+                ".user-name { \n" +
+                "  background: rgba(255,255,0,0.4) !important; \n" +
+                "  border: 1px solid #800080 !important; \n" +
+                "  display: inline-block !important; \n" +
+                "  padding: 2px 4px !important; \n" +
+                "  color: #ffffff !important; \n" +
+                "  font-weight: bold !important; \n" +
+                "}\n" +
+                ".user-profile { \n" +
+                "  border: 2px solid #00ff00 !important; \n" +
+                "  background: rgba(0,0,0,0.7) !important; \n" +
+                "  padding: 8px !important; \n" +
+                "  margin: 4px !important; \n" +
+                "}\n" +
+                "/* Ensure all elements are visible */\n" +
+                "* { \n" +
+                "  box-sizing: border-box !important; \n" +
+                "  max-width: 100% !important; \n" +
+                "  visibility: visible !important; \n" +
+                "}\n";
+                
+            // Create complete HTML document with enhanced debugging
             String completeHtml = String.format(
                 "<!DOCTYPE html><html><head>" +
                 "<meta charset='UTF-8'>" +
                 "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
                 "<style>%s</style>" +
-                "</head><body>%s</body></html>",
-                cssTemplate,
-                htmlTemplate
+                "</head><body>" +
+                "<div style='background:rgba(255,0,0,0.3);padding:6px;border:2px solid red;margin-bottom:8px;color:white;font-weight:bold;'>" +
+                "🎬 DEBUG: Video Overlay Active - User: %s" +
+                "</div>" +
+                "%s" +
+                "<script>" +
+                "console.log('🎬 Video overlay loaded successfully!');" +
+                "console.log('📋 User data:', {name: '%s', photo: '%s', id: '%s'});" +
+                "console.log('📄 Template ID: %s');" +
+                "document.addEventListener('DOMContentLoaded', function() {" +
+                "  console.log('📄 DOM loaded, overlay ready');" +
+                "  document.body.style.border = '4px solid lime';" +
+                "  console.log('🎯 Final overlay HTML:', document.body.innerHTML);" +
+                "  console.log('📏 Body dimensions:', document.body.offsetWidth + 'x' + document.body.offsetHeight);" +
+                "});" +
+                "</script>" +
+                "</body></html>",
+                enhancedCss,
+                userName != null ? userName : "Unknown",
+                processedHtml,
+                userName != null ? userName.replace("'", "\\'") : "Unknown",
+                userPhoto != null ? userPhoto.replace("'", "\\'") : "null",
+                userId != null ? userId.replace("'", "\\'") : "null",
+                template.getId()
             );
             
-            // Create and configure WebView
-            WebView overlayWebView = new WebView(holder.itemView.getContext());
-            overlayWebView.setLayoutParams(new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.BOTTOM
-            ));
+            Log.d(TAG, "📄 Complete HTML document created. Length: " + completeHtml.length());
             
-            // Configure WebView settings
-            WebSettings webSettings = overlayWebView.getSettings();
-            webSettings.setJavaScriptEnabled(true);
-            webSettings.setDomStorageEnabled(true);
-            webSettings.setDefaultTextEncodingName("UTF-8");
-            
-            // Make background transparent
-            overlayWebView.setBackgroundColor(android.graphics.Color.TRANSPARENT);
-            
-            // Load the HTML content
-            overlayWebView.loadDataWithBaseURL(null, completeHtml, "text/html", "UTF-8", null);
-            
-            // Add WebView to container
+            // Ensure overlay container is visible and properly configured
             if (holder.videoOverlayContainer != null) {
-                holder.videoOverlayContainer.removeAllViews();
-                holder.videoOverlayContainer.addView(overlayWebView);
                 holder.videoOverlayContainer.setVisibility(View.VISIBLE);
-                holder.videoOverlayContainer.bringToFront();
+                holder.videoOverlayContainer.removeAllViews();
                 
-                // Force layout refresh
-                holder.videoOverlayContainer.requestLayout();
-                overlayWebView.requestLayout();
+                Log.d(TAG, "📱 Video overlay container prepared:");
+                Log.d(TAG, "   • Visibility: " + (holder.videoOverlayContainer.getVisibility() == View.VISIBLE ? "VISIBLE" : "HIDDEN"));
+                Log.d(TAG, "   • Width: " + holder.videoOverlayContainer.getLayoutParams().width);
+                Log.d(TAG, "   • Height: " + holder.videoOverlayContainer.getLayoutParams().height);
                 
-                Log.d(TAG, "✅ Video overlay added successfully");
+                // Create and configure WebView with enhanced settings
+                WebView overlayWebView = new WebView(holder.itemView.getContext());
+                
+                // Enhanced WebView settings for overlay rendering
+                WebSettings webSettings = overlayWebView.getSettings();
+                webSettings.setJavaScriptEnabled(true);
+                webSettings.setDomStorageEnabled(true);
+                webSettings.setLoadWithOverviewMode(true);
+                webSettings.setUseWideViewPort(true);
+                webSettings.setBuiltInZoomControls(false);
+                webSettings.setDisplayZoomControls(false);
+                webSettings.setSupportZoom(false);
+                webSettings.setTextZoom(100);
+                webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+                webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+                
+                // Enable debugging for WebView
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                    WebView.setWebContentsDebuggingEnabled(true);
+                }
+                
+                // Configure WebView layout parameters
+                FrameLayout.LayoutParams webViewParams = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                );
+                webViewParams.gravity = Gravity.BOTTOM;
+                overlayWebView.setLayoutParams(webViewParams);
+                
+                // Set WebView background and styling
+                overlayWebView.setBackgroundColor(Color.TRANSPARENT);
+                overlayWebView.setLayerType(WebView.LAYER_TYPE_SOFTWARE, null);
+                
+                // Enhanced WebViewClient with comprehensive debugging
+                overlayWebView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                        super.onPageStarted(view, url, favicon);
+                        Log.d(TAG, "🌐 Overlay WebView page started loading: " + url);
+                    }
+                    
+                    @Override
+                    public void onPageFinished(WebView view, String url) {
+                        super.onPageFinished(view, url);
+                        Log.d(TAG, "✅ Overlay WebView page finished loading: " + url);
+                        
+                        // Inject additional debugging script
+                        String debugScript = 
+                            "javascript:(function() {" +
+                            "  console.log('🎯 Page loaded, body content:', document.body.innerHTML);" +
+                            "  console.log('📏 Body size:', document.body.offsetWidth + 'x' + document.body.offsetHeight);" +
+                            "  document.body.style.border = '5px solid cyan';" +
+                            "  document.body.style.minHeight = '80px';" +
+                            "  var userProfile = document.querySelector('.user-profile');" +
+                            "  if (userProfile) {" +
+                            "    console.log('👤 Found user profile element');" +
+                            "    userProfile.style.border = '3px solid yellow';" +
+                            "  } else {" +
+                            "    console.warn('❌ User profile element not found');" +
+                            "  }" +
+                            "})()";
+                        
+                        view.evaluateJavascript(debugScript, result -> 
+                            Log.d(TAG, "📝 Debug script executed: " + result));
+                        
+                        // Force container visibility check after page load
+                        view.post(() -> {
+                            Log.d(TAG, "📱 Post-load container check:");
+                            Log.d(TAG, "   • Container visibility: " + 
+                                  (holder.videoOverlayContainer.getVisibility() == View.VISIBLE ? "VISIBLE" : "HIDDEN"));
+                            Log.d(TAG, "   • WebView visibility: " + 
+                                  (view.getVisibility() == View.VISIBLE ? "VISIBLE" : "HIDDEN"));
+                            Log.d(TAG, "   • Container child count: " + holder.videoOverlayContainer.getChildCount());
+                        });
+                    }
+                    
+                    @Override
+                    public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                        super.onReceivedError(view, errorCode, description, failingUrl);
+                        Log.e(TAG, "❌ Overlay WebView error: " + description + " (Code: " + errorCode + ")");
+                        
+                        // Show error overlay
+                        String errorHtml = "<div style='background:red;color:white;padding:8px;'>" +
+                                          "❌ Overlay Error: " + description + "</div>";
+                        view.loadDataWithBaseURL(null, errorHtml, "text/html", "UTF-8", null);
+                    }
+                    
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                        Log.d(TAG, "🔗 Overlay WebView URL loading: " + url);
+                        return false; // Allow normal loading
+                    }
+                });
+                
+                // Add WebView to overlay container
+                holder.videoOverlayContainer.addView(overlayWebView);
+                
+                Log.d(TAG, "📱 WebView added to overlay container");
+                
+                // Load the HTML content
+                Log.d(TAG, "🚀 Loading HTML content into overlay WebView...");
+                overlayWebView.loadDataWithBaseURL(
+                    "https://eventwish.com/", // Base URL for relative resources
+                    completeHtml,
+                    "text/html",
+                    "UTF-8",
+                    null
+                );
+                
+                Log.d(TAG, "✅ Video overlay rendering completed successfully!");
+                
+            } else {
+                Log.e(TAG, "❌ Video overlay container is null - cannot render overlay");
             }
             
-            // Set up WebView client with loading states
-            overlayWebView.setWebViewClient(new WebViewClient() {
-                @Override
-                public void onPageStarted(WebView view, String url, Bitmap favicon) {
-                    super.onPageStarted(view, url, favicon);
-                    // Add loading class
-                    view.loadUrl("javascript:(function() { document.body.classList.add('loading'); })()");
-                }
-                
-                @Override
-                public void onPageFinished(WebView view, String url) {
-                    Log.d(TAG, "🌐 Overlay WebView page finished loading");
-                    // Remove loading class and ensure visibility
-                    view.loadUrl("javascript:(function() { document.body.classList.remove('loading'); })()");
-                    holder.videoOverlayContainer.setVisibility(View.VISIBLE);
-                    holder.videoOverlayContainer.bringToFront();
-                }
-                
-                @Override
-                public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-                    Log.e(TAG, "❌ Overlay WebView error: " + description);
-                    // Try to show error state in overlay
-                    view.loadUrl("javascript:(function() { document.body.classList.add('error'); })()");
-                }
-            });
-            
         } catch (Exception e) {
-            Log.e(TAG, "❌ Error rendering video overlay", e);
+            Log.e(TAG, "❌ Error in renderVideoOverlayWithContent", e);
             e.printStackTrace();
+            
+            // Show error message in overlay container
+            if (holder.videoOverlayContainer != null) {
+                holder.videoOverlayContainer.removeAllViews();
+                TextView errorView = new TextView(holder.itemView.getContext());
+                errorView.setText("❌ Overlay Error: " + e.getMessage());
+                errorView.setTextColor(Color.RED);
+                errorView.setBackgroundColor(Color.WHITE);
+                errorView.setPadding(16, 8, 16, 8);
+                holder.videoOverlayContainer.addView(errorView);
+            }
         }
-    }
-    
-    /**
-     * 📝 Get template description based on available data
-     */
-    private String getTemplateDescription(@NonNull Template template, @NonNull String defaultDescription) {
-        // Try festival tag first
-        if (template.getFestivalTag() != null && !template.getFestivalTag().isEmpty()) {
-            return "Festival: " + template.getFestivalTag();
-        }
-        
-        // Try category
-        if (template.getCategory() != null && !template.getCategory().isEmpty()) {
-            return "Category: " + template.getCategory();
-        }
-        
-        // Try categoryId as fallback
-        if (template.getCategoryId() != null && !template.getCategoryId().isEmpty()) {
-            return "Category: " + template.getCategoryId();
-        }
-        
-        // Return default description
-        return defaultDescription;
     }
     
     /**
@@ -1536,6 +2090,8 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         final ShapeableImageView profileImage;
         final TextView usernameText;
         final FrameLayout videoOverlayContainer;
+        final FrameLayout imageOverlayContainer;
+        final FrameLayout imageTemplateContainer;
 
         public ViewHolder(View itemView) {
             super(itemView);
@@ -1573,12 +2129,18 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             // Initialize video overlay container
             videoOverlayContainer = itemView.findViewById(R.id.video_overlay_container);
             
+            // Initialize image overlay containers
+            imageOverlayContainer = itemView.findViewById(R.id.image_overlay_container);
+            imageTemplateContainer = itemView.findViewById(R.id.image_template_container);
+            
             // Log view initialization
             Log.d(TAG, "🎥 ViewHolder initialized - PlayerView: " + (videoPlayerView != null ? "found" : "null") +
                       ", PlayButton: " + (videoPlayButton != null ? "found" : "null") +
                       ", MuteButton: " + (videoMuteButton != null ? "found" : "null"));
             Log.d(TAG, "👤 Profile views initialized - ProfileImage: " + (profileImage != null ? "found" : "null") +
                       ", UsernameText: " + (usernameText != null ? "found" : "null"));
+            Log.d(TAG, "🖼️ Image overlay views initialized - ImageOverlayContainer: " + (imageOverlayContainer != null ? "found" : "null") +
+                      ", ImageTemplateContainer: " + (imageTemplateContainer != null ? "found" : "null"));
         }
     }
 

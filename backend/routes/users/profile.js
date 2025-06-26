@@ -26,6 +26,44 @@ router.post('/profile', validateFirebaseUid, verifyFirebaseToken, async (req, re
             osVersion
         } = req.body;
         
+        // Enhanced logging for debugging
+        logger.info(`Profile update request for UID: ${uid}`, {
+            hasDisplayName: !!displayName,
+            displayNameLength: displayName ? displayName.length : 0,
+            hasEmail: !!email,
+            hasDeviceId: !!deviceId,
+            deviceModel,
+            appVersion
+        });
+        
+        // Validate displayName if provided
+        if (displayName !== undefined && displayName !== null) {
+            if (typeof displayName !== 'string') {
+                logger.warn(`Invalid displayName type for ${uid}: ${typeof displayName}`);
+                return res.status(400).json({
+                    success: false,
+                    message: 'Display name must be a string'
+                });
+            }
+            
+            const trimmedName = displayName.trim();
+            if (trimmedName.length < 2) {
+                logger.warn(`Display name too short for ${uid}: ${trimmedName.length} characters`);
+                return res.status(400).json({
+                    success: false,
+                    message: 'Display name must be at least 2 characters long'
+                });
+            }
+            
+            if (trimmedName.length > 50) {
+                logger.warn(`Display name too long for ${uid}: ${trimmedName.length} characters`);
+                return res.status(400).json({
+                    success: false,
+                    message: 'Display name cannot exceed 50 characters'
+                });
+            }
+        }
+        
         // Find user by uid only
         let user = await User.findOne({ uid });
         
@@ -34,8 +72,8 @@ router.post('/profile', validateFirebaseUid, verifyFirebaseToken, async (req, re
             user.lastOnline = lastOnline || Date.now();
             
             // Update profile info if provided
-            if (displayName) user.displayName = displayName;
-            if (email) user.email = email;
+            if (displayName) user.displayName = displayName.trim();
+            if (email) user.email = email.trim();
             if (profilePhoto) user.profilePhoto = profilePhoto;
             
             // Update device info if provided
@@ -53,13 +91,15 @@ router.post('/profile', validateFirebaseUid, verifyFirebaseToken, async (req, re
                 try {
                     await user.addDeviceSession({
                         deviceId,
-                        deviceModel,
-                        deviceName,
-                        appVersion,
-                        osVersion
+                        deviceModel: deviceModel || 'Unknown',
+                        deviceName: deviceName || 'Unknown Device',
+                        appVersion: appVersion || '1.0.0',
+                        osVersion: osVersion || 'Unknown'
                     });
+                    logger.info(`Device session added successfully for user ${uid}: ${deviceId}`);
                 } catch (sessionError) {
                     logger.warn(`Failed to add device session for user ${uid}: ${sessionError.message}`);
+                    // Don't fail the entire profile update if device session fails
                 }
             }
             
@@ -78,8 +118,8 @@ router.post('/profile', validateFirebaseUid, verifyFirebaseToken, async (req, re
             // User doesn't exist, create new user with uid only
             user = new User({
                 uid,
-                displayName: displayName || null,
-                email: email || null,
+                displayName: displayName ? displayName.trim() : null,
+                email: email ? email.trim() : null,
                 profilePhoto: profilePhoto || null,
                 deviceId: deviceId || null,
                 deviceModel: deviceModel || null,

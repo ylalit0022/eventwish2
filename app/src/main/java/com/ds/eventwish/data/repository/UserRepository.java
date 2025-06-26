@@ -1517,18 +1517,39 @@ public class UserRepository {
             return;
         }
 
+        Log.d(TAG, "updateUserProfile: Starting profile update for user " + firebaseUser.getUid());
+        Log.d(TAG, "   • Display Name: " + displayName);
+        Log.d(TAG, "   • Email: " + email);
+
+        // Ensure device ID is valid
+        String deviceId = getDeviceId();
+        if (deviceId == null || deviceId.trim().isEmpty()) {
+            Log.w(TAG, "Device ID is null or empty, generating new one");
+            generateAndSaveDeviceId();
+            deviceId = getDeviceId();
+        }
+
         // Create user data for MongoDB update
         Map<String, Object> userData = new HashMap<>();
         userData.put("uid", firebaseUser.getUid());
-        userData.put("displayName", displayName);
-        userData.put("email", email);
-        userData.put("deviceId", getDeviceId());
+        userData.put("displayName", displayName != null ? displayName.trim() : null);
+        userData.put("email", email != null ? email.trim() : null);
+        userData.put("deviceId", deviceId);
+        userData.put("deviceModel", Build.MODEL);
+        userData.put("deviceName", getDeviceName());
+        userData.put("appVersion", getAppVersion());
+        userData.put("osVersion", Build.VERSION.RELEASE);
         userData.put("lastOnline", System.currentTimeMillis());
+
+        Log.d(TAG, "   • Device ID: " + deviceId);
+        Log.d(TAG, "   • Device Model: " + Build.MODEL);
+        Log.d(TAG, "   • App Version: " + getAppVersion());
 
         // Get Firebase token and update MongoDB
         authManager.getIdToken(new AuthManager.TokenCallback() {
             @Override
             public void onTokenReceived(String token) {
+                Log.d(TAG, "Firebase token obtained, making API call");
                 String authHeader = "Bearer " + token;
                 Call<JsonObject> call = apiService.updateUserProfile(userData, authHeader);
                 call.enqueue(new Callback<JsonObject>() {
@@ -1540,12 +1561,18 @@ public class UserRepository {
                             updateLocalUserCache(displayName, email);
                         } else {
                             Log.e(TAG, "Failed to update profile in MongoDB: " + response.code());
+                            try {
+                                String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+                                Log.e(TAG, "Error response body: " + errorBody);
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error reading error response: " + e.getMessage());
+                            }
                         }
                     }
 
                     @Override
                     public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable t) {
-                        Log.e(TAG, "Network error updating profile: " + t.getMessage());
+                        Log.e(TAG, "Network error updating profile: " + t.getMessage(), t);
                     }
                 });
             }
