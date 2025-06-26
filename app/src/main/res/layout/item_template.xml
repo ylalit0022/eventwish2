@@ -173,25 +173,17 @@
                         android:contentDescription="@string/template_image_description"
                         android:clickable="true"
                         android:focusable="true"
-                        android:foreground="?attr/selectableItemBackground"
-                        tools:src="@drawable/placeholder_image" />
+                        android:foreground="?attr/selectableItemBackground" />
 
                     <!-- Image Overlay Container -->
                     <FrameLayout
                         android:id="@+id/image_overlay_container"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_gravity="bottom"
-                        android:elevation="8dp"
                         android:background="@android:color/transparent"
                         android:clipChildren="false"
                         android:clipToPadding="false"
-                        android:padding="8dp"
-                        android:visibility="visible"
-                        android:translationZ="8dp"
-                        android:minHeight="48dp"
-                        android:layout_marginBottom="8dp"
-                        android:foregroundGravity="bottom" />
+                        android:visibility="visible" />
 
                 </FrameLayout>
 
@@ -199,23 +191,20 @@
                 <LinearLayout
                     android:id="@+id/html_template_container"
                     android:layout_width="match_parent"
-                    android:layout_height="480dp"
+                    android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:background="@color/html_preview_background"
                     android:clickable="true"
                     android:focusable="true"
                     android:foreground="?attr/selectableItemBackground"
-                    android:visibility="gone"
-                    android:padding="8dp">
+                    android:visibility="gone">
                     
                     <!-- HTML Preview WebView -->
                     <WebView
                         android:id="@+id/html_preview_webview"
                         android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        android:layout_weight="1"
-                        android:background="@android:color/white"
-                        android:layout_marginBottom="8dp" />
+                        android:layout_height="wrap_content"
+                        android:background="@android:color/white" />
                     
                     <!-- HTML Template Info (compact version below WebView) -->
                     <LinearLayout
@@ -308,23 +297,15 @@
                             android:id="@+id/video_overlay_container"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_gravity="bottom"
-                            android:elevation="8dp"
                             android:background="@android:color/transparent"
                             android:clipChildren="false"
                             android:clipToPadding="false"
-                            android:padding="8dp"
-                            android:visibility="visible"
-                            android:translationZ="8dp"
-                            android:minHeight="48dp"
-                            android:layout_marginBottom="8dp"
-                            android:foregroundGravity="bottom" />
+                            android:visibility="visible" />
 
                         <!-- Video Controls -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_gravity="bottom"
                             android:orientation="horizontal"
                             android:padding="16dp"
                             android:background="@drawable/gradient_black_transparent">

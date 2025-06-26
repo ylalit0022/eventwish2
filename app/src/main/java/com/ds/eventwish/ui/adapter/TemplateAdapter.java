@@ -459,20 +459,12 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             
             // Create photo HTML with proper null checking and comprehensive fallback
             String photoHtml;
-            String fallbackPhotoPlaceholder = "<div class='user-photo-placeholder' style='width:36px;height:36px;border-radius:50%;background:linear-gradient(45deg,#e0e0e0,#f5f5f5);display:inline-flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.8);box-shadow:0 2px 4px rgba(0,0,0,0.2);'>" +
-                        "<svg width='20' height='20' viewBox='0 0 24 24'>" +
-                        "<path fill='#757575' d='M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z'/>" +
-                        "</svg></div>";
-            
             if (userPhoto != null && !userPhoto.trim().isEmpty()) {
-                photoHtml = "<img class='user-photo' src='" + userPhoto + "' alt='" + (userName != null ? userName : "User") + "' " +
-                           "onerror=\"this.style.display='none'; this.nextElementSibling.style.display='inline-flex';\">" +
-                           "<div class='user-photo-placeholder' style='display:none;width:36px;height:36px;border-radius:50%;background:#ddd;display:inline-flex;align-items:center;justify-content:center;'>" +
-                           "<svg width='20' height='20' viewBox='0 0 24 24'><path fill='#757575' d='M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z'/></svg></div>";
+                photoHtml = "<img class='user-photo' src='" + userPhoto + "' alt='" + (userName != null ? userName : "User") + "'>";
                 Log.d(TAG, "👤 Using actual user photo: " + userPhoto);
             } else {
-                photoHtml = fallbackPhotoPlaceholder;
-                Log.d(TAG, "👤 No user photo available, using fallback placeholder");
+                photoHtml = "<img class='user-photo' src='file:///android_res/drawable/app_logo' alt='User Photo'>";
+                Log.d(TAG, "👤 No user photo available, using app logo");
             }
                 
             // Replace placeholders with comprehensive format support
@@ -498,80 +490,19 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
                 .replace("[userId]", userId != null ? userId : "");
                 
             Log.d(TAG, "✅ Placeholders replaced. Processed HTML length: " + processedHtml.length());
-            Log.d(TAG, "🔍 Processed HTML preview: " + (processedHtml.length() > 150 ? 
-                  processedHtml.substring(0, 150) + "..." : processedHtml));
             
             // Enhanced CSS with debugging styles and improved visibility
-            String enhancedCss = cssContent + "\n" +
-                "/* Debug styles for image overlay visibility */\n" +
-                "body { \n" +
-                "  border: 3px solid #ff0000 !important; \n" +
-                "  background: rgba(0,255,0,0.2) !important; \n" +
-                "  margin: 0 !important; \n" +
-                "  padding: 8px !important; \n" +
-                "  min-height: 60px !important; \n" +
-                "  box-sizing: border-box !important; \n" +
-                "  font-family: Arial, sans-serif !important; \n" +
-                "}\n" +
-                ".user-photo { \n" +
-                "  border: 2px solid #0000ff !important; \n" +
-                "  display: inline-block !important; \n" +
-                "}\n" +
-                ".user-photo-placeholder { \n" +
-                "  border: 2px solid #ff8800 !important; \n" +
-                "  display: inline-flex !important; \n" +
-                "}\n" +
-                ".user-name { \n" +
-                "  background: rgba(255,255,0,0.4) !important; \n" +
-                "  border: 1px solid #800080 !important; \n" +
-                "  display: inline-block !important; \n" +
-                "  padding: 2px 4px !important; \n" +
-                "  color: #ffffff !important; \n" +
-                "  font-weight: bold !important; \n" +
-                "}\n" +
-                ".user-profile { \n" +
-                "  border: 2px solid #00ff00 !important; \n" +
-                "  background: rgba(0,0,0,0.7) !important; \n" +
-                "  padding: 8px !important; \n" +
-                "  margin: 4px !important; \n" +
-                "}\n" +
-                "/* Ensure all elements are visible */\n" +
-                "* { \n" +
-                "  box-sizing: border-box !important; \n" +
-                "  max-width: 100% !important; \n" +
-                "  visibility: visible !important; \n" +
-                "}\n";
+            String enhancedCss = cssContent;
                 
-            // Create complete HTML document with enhanced debugging
+            // Create complete HTML document
             String completeHtml = String.format(
                 "<!DOCTYPE html><html><head>" +
                 "<meta charset='UTF-8'>" +
                 "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
                 "<style>%s</style>" +
-                "</head><body>" +
-                "<div style='background:rgba(255,0,0,0.3);padding:6px;border:2px solid red;margin-bottom:8px;color:white;font-weight:bold;'>" +
-                "🎨 DEBUG: Image Overlay Active - User: %s" +
-                "</div>" +
-                "%s" +
-                "<script>" +
-                "console.log('🎨 Image overlay loaded successfully!');" +
-                "console.log('📋 User data:', {name: '%s', photo: '%s', id: '%s'});" +
-                "console.log('📄 Template ID: %s');" +
-                "document.addEventListener('DOMContentLoaded', function() {" +
-                "  console.log('📄 DOM loaded, image overlay ready');" +
-                "  document.body.style.border = '4px solid lime';" +
-                "  console.log('🎯 Final overlay HTML:', document.body.innerHTML);" +
-                "  console.log('📏 Body dimensions:', document.body.offsetWidth + 'x' + document.body.offsetHeight);" +
-                "});" +
-                "</script>" +
-                "</body></html>",
+                "</head><body>%s</body></html>",
                 enhancedCss,
-                userName != null ? userName : "Unknown",
-                processedHtml,
-                userName != null ? userName.replace("'", "\\'") : "Unknown",
-                userPhoto != null ? userPhoto.replace("'", "\\'") : "null",
-                userId != null ? userId.replace("'", "\\'") : "null",
-                template.getId()
+                processedHtml
             );
             
             Log.d(TAG, "📄 Complete HTML document created. Length: " + completeHtml.length());
@@ -632,24 +563,7 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
                         super.onPageFinished(view, url);
                         Log.d(TAG, "✅ Image overlay WebView page finished loading: " + url);
                         
-                        // Inject additional debugging script
-                        String debugScript = 
-                            "javascript:(function() {" +
-                            "  console.log('🎯 Image overlay page loaded, body content:', document.body.innerHTML);" +
-                            "  console.log('📏 Body size:', document.body.offsetWidth + 'x' + document.body.offsetHeight);" +
-                            "  document.body.style.border = '5px solid cyan';" +
-                            "  document.body.style.minHeight = '80px';" +
-                            "  var userProfile = document.querySelector('.user-profile');" +
-                            "  if (userProfile) {" +
-                            "    console.log('👤 Found user profile element');" +
-                            "    userProfile.style.border = '3px solid yellow';" +
-                            "  } else {" +
-                            "    console.warn('❌ User profile element not found');" +
-                            "  }" +
-                            "})()";
-                        
-                        view.evaluateJavascript(debugScript, result -> 
-                            Log.d(TAG, "📝 Image overlay debug script executed: " + result));
+
                         
                         // Force container visibility check after page load
                         view.post(() -> {
@@ -667,8 +581,8 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
                         super.onReceivedError(view, errorCode, description, failingUrl);
                         Log.e(TAG, "❌ Image overlay WebView error: " + description + " (Code: " + errorCode + ")");
                         
-                        // Show error overlay
-                        String errorHtml = "<div style='background:red;color:white;padding:8px;'>" +
+                        // Show error overlay using CSS class instead of inline styles
+                        String errorHtml = "<div class='error-message'>" +
                                           "❌ Image Overlay Error: " + description + "</div>";
                         view.loadDataWithBaseURL(null, errorHtml, "text/html", "UTF-8", null);
                     }
@@ -855,39 +769,8 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
                 "<meta http-equiv='X-UA-Compatible' content='ie=edge'>" +
                 "<title>" + (template.getTitle() != null ? template.getTitle() : "Preview") + "</title>" +
                 "<style>" +
-                    // Add styles for sender name spans
-                    ".sender-name { " +
-                        "font-weight: bold; " +
-                        "display: inline-block; " +
-                    "} " +
-                    // Add styles for user profile elements
-                    ".user-name { " +
-                        "font-weight: bold; " +
-                        "display: inline-block; " +
-                        "color: inherit; " +
-                    "} " +
-                    ".user-photo { " +
-                        "width: 32px; " +
-                        "height: 32px; " +
-                        "border-radius: 50%; " +
-                        "object-fit: cover; " +
-                        "display: inline-block; " +
-                        "vertical-align: middle; " +
-                    "} " +
-                    ".user-photo-placeholder { " +
-                        "width: 32px; " +
-                        "height: 32px; " +
-                        "border-radius: 50%; " +
-                        "background-color: #ccc; " +
-                        "display: inline-block; " +
-                        "vertical-align: middle; " +
-                    "} " +
-                    ".user-profile { " +
-                        "display: flex; " +
-                        "align-items: center; " +
-                        "gap: 8px; " +
-                        "flex-wrap: wrap; " +
-                    "} " +
+                    // Use server-provided CSS only
+                    cssContent +
                 "</style>" +
             "</head>" +
             "<body>" +
@@ -1114,19 +997,21 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             
             // Replace [USER_PHOTO] placeholder
             if (photoUrl != null && !photoUrl.isEmpty()) {
-                String userPhotoImg = "<img src=\"" + photoUrl + "\" class=\"user-photo\" alt=\"User Photo\" style=\"width: 32px; height: 32px; border-radius: 50%; object-fit: cover;\" />";
+                String userPhotoImg = "<img src=\"" + photoUrl + "\" class=\"user-photo\" alt=\"User Photo\" />";
                 htmlContent = htmlContent.replace("[USER_PHOTO]", userPhotoImg);
             } else {
-                // Use default placeholder or remove the placeholder
-                htmlContent = htmlContent.replace("[USER_PHOTO]", "<div class=\"user-photo-placeholder\" style=\"width: 32px; height: 32px; border-radius: 50%; background-color: #ccc;\"></div>");
+                // Use app logo as placeholder
+                String appLogoUrl = "file:///android_res/drawable/app_logo";
+                String userPhotoImg = "<img src=\"" + appLogoUrl + "\" class=\"user-photo\" alt=\"User Photo\" />";
+                htmlContent = htmlContent.replace("[USER_PHOTO]", userPhotoImg);
             }
             
             // Replace [USER_PROFILE] placeholder (both name and photo)
-            String userProfileHtml = "<div class=\"user-profile\" style=\"display: flex; align-items: center; gap: 8px;\">";
+            String userProfileHtml = "<div class=\"user-profile\">";
             if (photoUrl != null && !photoUrl.isEmpty()) {
-                userProfileHtml += "<img src=\"" + photoUrl + "\" class=\"user-photo\" alt=\"User Photo\" style=\"width: 24px; height: 24px; border-radius: 50%; object-fit: cover;\" />";
+                userProfileHtml += "<img src=\"" + photoUrl + "\" class=\"user-photo\" alt=\"User Photo\" />";
             }
-            userProfileHtml += "<span class=\"user-name\" style=\"font-weight: bold;\">" + userName + "</span>";
+            userProfileHtml += "<span class=\"user-name\">" + userName + "</span>";
             userProfileHtml += "</div>";
             
             htmlContent = htmlContent.replace("[USER_PROFILE]", userProfileHtml);
@@ -1367,20 +1252,12 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             
             // Create photo HTML with proper null checking and comprehensive fallback
             String photoHtml;
-            String fallbackPhotoPlaceholder = "<div class='user-photo-placeholder' style='width:36px;height:36px;border-radius:50%;background:linear-gradient(45deg,#e0e0e0,#f5f5f5);display:inline-flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.8);box-shadow:0 2px 4px rgba(0,0,0,0.2);'>" +
-                        "<svg width='20' height='20' viewBox='0 0 24 24'>" +
-                        "<path fill='#757575' d='M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z'/>" +
-                        "</svg></div>";
-            
             if (userPhoto != null && !userPhoto.trim().isEmpty()) {
-                photoHtml = "<img class='user-photo' src='" + userPhoto + "' alt='" + (userName != null ? userName : "User") + "' " +
-                           "onerror=\"this.style.display='none'; this.nextElementSibling.style.display='inline-flex';\">" +
-                           "<div class='user-photo-placeholder' style='display:none;width:36px;height:36px;border-radius:50%;background:#ddd;display:inline-flex;align-items:center;justify-content:center;'>" +
-                           "<svg width='20' height='20' viewBox='0 0 24 24'><path fill='#757575' d='M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z'/></svg></div>";
+                photoHtml = "<img class='user-photo' src='" + userPhoto + "' alt='" + (userName != null ? userName : "User") + "'>";
                 Log.d(TAG, "👤 Using actual user photo: " + userPhoto);
             } else {
-                photoHtml = fallbackPhotoPlaceholder;
-                Log.d(TAG, "👤 No user photo available, using fallback placeholder");
+                photoHtml = "<img class='user-photo' src='file:///android_res/drawable/app_logo' alt='User Photo'>";
+                Log.d(TAG, "👤 No user photo available, using app logo");
             }
                 
             // Replace placeholders with comprehensive format support
@@ -1409,77 +1286,18 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             Log.d(TAG, "🔍 Processed HTML preview: " + (processedHtml.length() > 150 ? 
                   processedHtml.substring(0, 150) + "..." : processedHtml));
             
-            // Enhanced CSS with debugging styles and improved visibility
-            String enhancedCss = cssContent + "\n" +
-                "/* Debug styles for overlay visibility */\n" +
-                "body { \n" +
-                "  border: 3px solid #ff0000 !important; \n" +
-                "  background: rgba(0,255,0,0.2) !important; \n" +
-                "  margin: 0 !important; \n" +
-                "  padding: 8px !important; \n" +
-                "  min-height: 60px !important; \n" +
-                "  box-sizing: border-box !important; \n" +
-                "  font-family: Arial, sans-serif !important; \n" +
-                "}\n" +
-                ".user-photo { \n" +
-                "  border: 2px solid #0000ff !important; \n" +
-                "  display: inline-block !important; \n" +
-                "}\n" +
-                ".user-photo-placeholder { \n" +
-                "  border: 2px solid #ff8800 !important; \n" +
-                "  display: inline-flex !important; \n" +
-                "}\n" +
-                ".user-name { \n" +
-                "  background: rgba(255,255,0,0.4) !important; \n" +
-                "  border: 1px solid #800080 !important; \n" +
-                "  display: inline-block !important; \n" +
-                "  padding: 2px 4px !important; \n" +
-                "  color: #ffffff !important; \n" +
-                "  font-weight: bold !important; \n" +
-                "}\n" +
-                ".user-profile { \n" +
-                "  border: 2px solid #00ff00 !important; \n" +
-                "  background: rgba(0,0,0,0.7) !important; \n" +
-                "  padding: 8px !important; \n" +
-                "  margin: 4px !important; \n" +
-                "}\n" +
-                "/* Ensure all elements are visible */\n" +
-                "* { \n" +
-                "  box-sizing: border-box !important; \n" +
-                "  max-width: 100% !important; \n" +
-                "  visibility: visible !important; \n" +
-                "}\n";
+            // Use server-provided CSS directly
+            String enhancedCss = cssContent;
                 
-            // Create complete HTML document with enhanced debugging
+            // Create clean HTML document without debug elements
             String completeHtml = String.format(
                 "<!DOCTYPE html><html><head>" +
                 "<meta charset='UTF-8'>" +
                 "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
                 "<style>%s</style>" +
-                "</head><body>" +
-                "<div style='background:rgba(255,0,0,0.3);padding:6px;border:2px solid red;margin-bottom:8px;color:white;font-weight:bold;'>" +
-                "🎬 DEBUG: Video Overlay Active - User: %s" +
-                "</div>" +
-                "%s" +
-                "<script>" +
-                "console.log('🎬 Video overlay loaded successfully!');" +
-                "console.log('📋 User data:', {name: '%s', photo: '%s', id: '%s'});" +
-                "console.log('📄 Template ID: %s');" +
-                "document.addEventListener('DOMContentLoaded', function() {" +
-                "  console.log('📄 DOM loaded, overlay ready');" +
-                "  document.body.style.border = '4px solid lime';" +
-                "  console.log('🎯 Final overlay HTML:', document.body.innerHTML);" +
-                "  console.log('📏 Body dimensions:', document.body.offsetWidth + 'x' + document.body.offsetHeight);" +
-                "});" +
-                "</script>" +
-                "</body></html>",
+                "</head><body>%s</body></html>",
                 enhancedCss,
-                userName != null ? userName : "Unknown",
-                processedHtml,
-                userName != null ? userName.replace("'", "\\'") : "Unknown",
-                userPhoto != null ? userPhoto.replace("'", "\\'") : "null",
-                userId != null ? userId.replace("'", "\\'") : "null",
-                template.getId()
+                processedHtml
             );
             
             Log.d(TAG, "📄 Complete HTML document created. Length: " + completeHtml.length());
@@ -1545,12 +1363,9 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
                             "javascript:(function() {" +
                             "  console.log('🎯 Page loaded, body content:', document.body.innerHTML);" +
                             "  console.log('📏 Body size:', document.body.offsetWidth + 'x' + document.body.offsetHeight);" +
-                            "  document.body.style.border = '5px solid cyan';" +
-                            "  document.body.style.minHeight = '80px';" +
                             "  var userProfile = document.querySelector('.user-profile');" +
                             "  if (userProfile) {" +
                             "    console.log('👤 Found user profile element');" +
-                            "    userProfile.style.border = '3px solid yellow';" +
                             "  } else {" +
                             "    console.warn('❌ User profile element not found');" +
                             "  }" +
@@ -1573,11 +1388,11 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
                     @Override
                     public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
                         super.onReceivedError(view, errorCode, description, failingUrl);
-                        Log.e(TAG, "❌ Overlay WebView error: " + description + " (Code: " + errorCode + ")");
+                        Log.e(TAG, "❌ Video overlay WebView error: " + description + " (Code: " + errorCode + ")");
                         
-                        // Show error overlay
-                        String errorHtml = "<div style='background:red;color:white;padding:8px;'>" +
-                                          "❌ Overlay Error: " + description + "</div>";
+                        // Show error overlay using CSS class instead of inline styles
+                        String errorHtml = "<div class='error-message'>" +
+                                          "❌ Video Overlay Error: " + description + "</div>";
                         view.loadDataWithBaseURL(null, errorHtml, "text/html", "UTF-8", null);
                     }
                     

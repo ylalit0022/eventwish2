@@ -1,0 +1,170 @@
+/* Base Styles */
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* User Profile Container */
+.user-profile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 20px;
+    z-index: 10;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* User Photo Styles */
+.user-photo {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #ffffff;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+    position: relative;
+    display: block;
+    margin: 0 auto;
+    animation: fadeInScale 0.6s ease-out forwards,
+               floatEffect 3s ease-in-out infinite;
+    pointer-events: auto;
+    max-width: 80%;
+    max-height: 80%;
+}
+
+/* User Name Styles */
+.user-name {
+    font-size: 24px;
+    font-weight: 600;
+    color: #000000;
+    text-align: center;
+}
+
+/* Photo Placeholder Fallback */
+.user-photo-placeholder {
+    width: 100%;
+    height: 100%;
+    max-width: 200px;
+    max-height: 200px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #e0e0e0, #f5f5f5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(255,255,255,0.8);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* User Info Container */
+.user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+}
+
+/* User Badge Styles */
+.user-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 12px;
+    color: #000000;
+    gap: 4px;
+}
+
+/* Hover Effects */
+.user-photo:hover,
+.user-photo-placeholder:hover {
+    transform: scale(1.05);
+    transition: transform 0.2s ease;
+}
+
+/* Animations */
+@keyframes fadeInScale {
+    0% {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(1.1);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+@keyframes borderRotate {
+    0% {
+        border-color: #ffffff;
+        transform: rotate(0deg);
+    }
+    50% {
+        border-color: #e0e0e0;
+        transform: rotate(180deg);
+    }
+    100% {
+        border-color: #ffffff;
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes floatEffect {
+    0% {
+        transform: translateY(0) scale(1);
+    }
+    50% {
+        transform: translateY(-8px) scale(1.02);
+    }
+    100% {
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Apply animations */
+.user-photo {
+    animation: fadeInScale 0.6s ease-out forwards;
+}
+
+.loading .user-photo-placeholder {
+    animation: pulse 1.5s infinite;
+}
+
+.user-photo:hover {
+    animation: floatEffect 2s ease-in-out infinite;
+    border-width: 4px;
+    transition: border-width 0.3s ease;
+}
+
+.user-photo.highlight {
+    animation: borderRotate 2s linear infinite;
+    border-width: 4px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 480px) {
+    .user-profile {
+        padding: 8px;
+        gap: 8px;
+    }
+    
+    .user-name {
+        font-size: 13px;
+    }
+} 

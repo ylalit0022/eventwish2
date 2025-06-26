@@ -1,58 +1,45 @@
-# EventWish
+# Profile Photo System
 
-Event wish creation and sharing application.
+## Overview
+A responsive profile photo system that provides dynamic, consistent photo displays across all screen sizes. The system includes support for placeholders, loading states, and various visual effects.
 
-## Local Development Setup
+## Documentation
+- [Profile Photo Styling Guide](docs/profile_photo_styling.md) - Comprehensive documentation of the styling system
 
-### Testing with Local API Server
+## Key Features
+- Dynamic sizing with maximum dimensions
+- Circular photo display with border effects
+- Consistent placeholder handling
+- Loading state animations
+- Hover effects
+- Mobile-responsive adjustments
 
-This app supports testing with a local API server using build variants. This allows you to run your API server locally and test with real Android devices without constant redeployment.
+## Quick Start
 
-#### Setup Instructions
+### Basic Usage
+```html
+<div class="user-profile">
+    <img class="user-photo" src="user_photo.jpg" alt="User Photo">
+    <div class="user-name">John Doe</div>
+</div>
+```
 
-1. **Configure your local API server**
-   - Run your Node.js API server locally
-   - Make sure it's accessible on your network (listening on 0.0.0.0 instead of localhost)
-   - Find your computer's IP address on the local network:
-     - Windows: Run `.\tools\find_local_ip.ps1` in PowerShell
-     - Linux/Mac: Run `./tools/find_local_ip.sh` in Terminal
+### With Placeholder
+```html
+<div class="user-profile">
+    <div class="user-photo-placeholder">
+        <!-- Placeholder content -->
+    </div>
+    <div class="user-name">Loading...</div>
+</div>
+```
 
-2. **Update the local build variant configuration**
-   - Open `app/build.gradle`
-   - Find the `local` build type
-   - Update the `BASE_URL` to match your computer's IP address and port:
-     ```groovy
-     buildConfigField "String", "BASE_URL", "\"http://YOUR_IP_ADDRESS:PORT/api/\""
-     ```
+## Browser Support
+- Modern browsers (Chrome, Firefox, Safari, Edge)
+- IE11+ (with some limitations)
 
-3. **Build and run the local variant**
-   - In Android Studio, select the "local" build variant from the Build Variants panel
-   - Build and run the app on your device
-   - The app will now connect to your local API server
+## Contributing
+Please read our [Contributing Guide](docs/CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
-4. **Switching between environments**
-   - Use "local" variant for local development
-   - Use "debug" variant for testing with production API
-   - Use "release" variant for production builds
-
-#### Network Security Configuration
-
-If you encounter cleartext traffic issues (using http instead of https), you may need to update the network security configuration:
-
-1. Create or update `app/src/main/res/xml/network_security_config.xml`:
-   ```xml
-   <?xml version="1.0" encoding="utf-8"?>
-   <network-security-config>
-       <domain-config cleartextTrafficPermitted="true">
-           <domain includeSubdomains="true">YOUR_IP_ADDRESS</domain>
-       </domain-config>
-   </network-security-config>
-   ```
-
-2. Reference it in your AndroidManifest.xml:
-   ```xml
-   <application
-       ...
-       android:networkSecurityConfig="@xml/network_security_config"
-       ... >
-   ```
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
