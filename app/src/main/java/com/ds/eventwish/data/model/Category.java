@@ -88,6 +88,7 @@ public class Category {
      * @param name Category name
      * @param icon Category icon
      */
+    @Ignore
     public Category(String id, String name, CategoryIcon icon) {
         this.id = id;
         this.name = name;

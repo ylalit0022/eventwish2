@@ -486,5 +486,30 @@
         <item name="android:height">32dp</item>
     </style>
 
+    <!-- Badge Chip Style -->
+    <style name="Widget.EventWish.Chip.Badge" parent="Widget.MaterialComponents.Chip.Action">
+        <item name="android:textSize">12sp</item>
+        <item name="chipMinHeight">24dp</item>
+        <item name="chipIconSize">16dp</item>
+        <item name="chipStartPadding">8dp</item>
+        <item name="chipEndPadding">8dp</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="chipBackgroundColor">?attr/colorSurfaceVariant</item>
+        <item name="rippleColor">?attr/colorOnSurfaceVariant</item>
+    </style>
+
+    <!-- Icon Only Button Style -->
+    <style name="Widget.EventWish.Button.IconOnly" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:minWidth">36dp</item>
+        <item name="android:minHeight">36dp</item>
+        <item name="android:padding">6dp</item>
+        <item name="iconPadding">0dp</item>
+        <item name="iconGravity">textStart</item>
+        <item name="android:insetLeft">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetRight">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
 </resources>
 

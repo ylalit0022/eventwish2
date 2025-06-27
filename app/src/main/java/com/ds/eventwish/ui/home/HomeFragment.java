@@ -38,7 +38,7 @@ import com.ds.eventwish.data.model.CategoryIcon;
 import com.ds.eventwish.ui.base.BaseFragment;
 import com.ds.eventwish.ui.adapter.TemplateAdapter;
 import com.ds.eventwish.ui.home.adapter.CategoriesAdapter;
-import com.ds.eventwish.utils.VideoPlayerManager;
+
 import com.ds.eventwish.data.repository.CategoryIconRepository;
 import com.ds.eventwish.data.repository.TemplateRepository;
 import com.ds.eventwish.data.remote.ApiClient;
@@ -106,7 +106,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
     private TemplateAdapter adapter;
     private CategoriesAdapter categoriesAdapter;
     private GridLayoutManager layoutManager;
-    private VideoPlayerManager videoPlayerManager;
+
     private static final int VISIBLE_THRESHOLD = 5;
     private BottomNavigationView bottomNav;
     private long backPressedTime;
@@ -483,16 +483,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
             }
         }
 
-        // Resume video playback when fragment comes to foreground
-        if (videoPlayerManager != null && adapter != null) {
-            try {
-                // Check for visible videos and resume auto-play if applicable
-                adapter.handleVideoVisibilityChange();
-                Log.d(TAG, "Video auto-play resumed in onResume");
-            } catch (Exception e) {
-                Log.e(TAG, "Error resuming video in onResume: " + e.getMessage());
-            }
-        }
+       
     }
 
     @Override
@@ -567,16 +558,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
             interstitialAdManager.destroy();
         }
         
-        // Cleanup video player resources
-        if (videoPlayerManager != null) {
-            try {
-                videoPlayerManager.releasePlayer();
-                Log.d(TAG, "Video player resources released in onDestroyView");
-            } catch (Exception e) {
-                Log.e(TAG, "Error releasing video player in onDestroyView: " + e.getMessage());
-            }
-            videoPlayerManager = null;
-        }
+
         
         // Cleanup sponsored ad view
         if (sponsoredAdView != null) {
@@ -1083,11 +1065,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
         // Set the adapter
         binding.templatesRecyclerView.setAdapter(adapter);
         
-        // Initialize video player for the adapter
-        adapter.initializeVideoPlayer(binding.templatesRecyclerView);
-        
-        // Initialize video player manager
-        videoPlayerManager = VideoPlayerManager.getInstance(requireContext());
+       
         
         // Add item decoration for spacing
         int spacing = getResources().getDimensionPixelSize(R.dimen.grid_spacing);
@@ -1121,10 +1099,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
                 // Save current scroll position
                 viewModel.saveScrollPosition(firstVisibleItemPosition);
                 
-                // Handle video visibility changes for auto-play
-                if (adapter != null) {
-                    adapter.handleVideoVisibilityChange();
-                }
+               
                 
                 // Check if we need to load more items
                 if (!viewModel.getLoading().getValue() && 
@@ -1168,10 +1143,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
                 if (newState == RecyclerView.SCROLL_STATE_IDLE) {
                     Log.d(TAG, "RecyclerView settled at position: " + getCurrentScrollPosition());
                     
-                    // Handle video auto-play when scrolling stops
-                    if (adapter != null) {
-                        adapter.handleVideoVisibilityChange();
-                    }
+                
                 }
             }
         });
@@ -1904,17 +1876,25 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
         // Update backend
         viewModel.handleTemplateFavorite(template)
             .addOnSuccessListener(isFavorited -> {
+                if (!isAdded()) return;
                 // Success - show feedback only if the state changed to favorited
                 if (isFavorited) {
-                    Snackbar.make(binding.getRoot(), "Added to favorites", Snackbar.LENGTH_SHORT).show();
+                    View view = getView();
+                    if (view != null) {
+                        Snackbar.make(view, "Added to favorites", Snackbar.LENGTH_SHORT).show();
+                    }
                 }
             })
             .addOnFailureListener(e -> {
+                if (!isAdded()) return;
                 // Failure - revert UI and show error
                 Log.e(TAG, "Failed to favorite template: " + template.getId(), e);
                 template.setFavorited(false);
                 updateTemplateItemInAdapter(template);
-                Snackbar.make(binding.getRoot(), "Failed to update favorite status", Snackbar.LENGTH_SHORT).show();
+                View view = getView();
+                if (view != null) {
+                    Snackbar.make(view, "Failed to update favorite status", Snackbar.LENGTH_SHORT).show();
+                }
             });
     }
     
@@ -2510,15 +2490,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
             viewModel.setCurrentSnackbar(null);
         }
 
-        // Pause video playback when fragment goes to background
-        if (videoPlayerManager != null) {
-            try {
-                videoPlayerManager.pauseVideo();
-                Log.d(TAG, "Video playback paused in onPause");
-            } catch (Exception e) {
-                Log.e(TAG, "Error pausing video in onPause: " + e.getMessage());
-            }
-        }
+
 
         // Handle sponsored ad pause
         if (sponsoredAdView != null) {

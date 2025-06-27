@@ -49,9 +49,7 @@ public class Template {
      * Enum for template types with proper validation and helper methods
      */
     public enum TemplateType {
-        HTML("html", "Interactive templates with HTML, CSS, and JavaScript"),
-        IMAGE("image", "Static image-based templates"),
-        VIDEO("video", "Video-based templates and animations");
+        HTML("html", "Interactive templates with HTML, CSS, and JavaScript");
         
         private final String value;
         private final String description;
@@ -100,35 +98,11 @@ public class Template {
         }
         
         /**
-         * Check if template type requires media player
-         * @return true if template needs media player
-         */
-        public boolean requiresMediaPlayer() {
-            return this == VIDEO;
-        }
-        
-        /**
-         * Check if template type is image-based
-         * @return true if template is image-based
-         */
-        public boolean isImageBased() {
-            return this == IMAGE;
-        }
-        
-        /**
          * Get appropriate MIME type for template rendering
          * @return MIME type string
          */
         public String getMimeType() {
-            switch (this) {
-                case HTML:
-                    return "text/html";
-                case VIDEO:
-                    return "video/*";
-                case IMAGE:
-                default:
-                    return "image/*";
-            }
+            return "text/html";
         }
     }
     
@@ -227,13 +201,7 @@ public class Template {
     private String generatedByUserUid;  // Firebase UID of the user who generated this template
 
     // Media URLs (from backend Template.js)
-    @SerializedName("videoUrl")
-    @ColumnInfo(name = "videoUrl")
-    private String videoUrl;
     
-    @SerializedName("imageUrl")
-    @ColumnInfo(name = "imageUrl")
-    private String imageUrl;
 
     // Monetization & Access Control (from backend Template.js)
     @SerializedName("status")
@@ -384,7 +352,7 @@ public class Template {
     // Visibility & Ranking (from backend Template.js)
     @SerializedName("templateType")
     @ColumnInfo(name = "templateType")
-    private String templateType = "html"; // html, image, video
+    private String templateType = "html"; // Only HTML templates are supported
     
     @SerializedName("visibilityScore")
     @ColumnInfo(name = "visibilityScore")
@@ -557,7 +525,7 @@ public class Template {
      * @return Formatted like count as a string
      */
     public String getFormattedLikeCount() {
-        return NumberFormatter.formatCount(likeCount);
+        return NumberFormatter.format(likeCount);
     }
 
     public long getFavoriteCount() { return favoriteCount; }
@@ -575,7 +543,7 @@ public class Template {
      * @return Formatted favorite count as a string
      */
     public String getFormattedFavoriteCount() {
-        return NumberFormatter.formatCount(favoriteCount);
+        return NumberFormatter.format(favoriteCount);
     }
 
     public long getShareCount() { return shareCount; }
@@ -593,7 +561,7 @@ public class Template {
      * @return Formatted share count as a string
      */
     public String getFormattedShareCount() {
-        return NumberFormatter.formatCount(shareCount);
+        return NumberFormatter.format(shareCount);
     }
 
     public boolean isLiked() { return isLiked; }
@@ -664,11 +632,7 @@ public class Template {
     public void setGeneratedByUserUid(String generatedByUserUid) { this.generatedByUserUid = generatedByUserUid; }
     
     // Media URLs getters and setters
-    public String getVideoUrl() { return videoUrl; }
-    public void setVideoUrl(String videoUrl) { this.videoUrl = videoUrl; }
     
-    public String getImageUrl() { return imageUrl; }
-    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 
     // Monetization & Access Control getters and setters
     public boolean isStatus() { return status; }
@@ -964,20 +928,30 @@ public class Template {
         return getTemplateTypeEnum().supportsEditing();
     }
     
-    /**
-     * Check if template requires a media player for rendering
-     * @return true if template needs media player
-     */
-    public boolean requiresMediaPlayer() {
-        return getTemplateTypeEnum().requiresMediaPlayer();
-    }
+
     
     /**
      * Check if template is image-based
-     * @return true if template is primarily image-based
+     * @return false since we only support HTML templates
      */
     public boolean isImageBased() {
-        return getTemplateTypeEnum().isImageBased();
+        return false;
+    }
+    
+    /**
+     * Check if template requires media player
+     * @return false since we only support HTML templates
+     */
+    public boolean requiresMediaPlayer() {
+        return false;
+    }
+
+    /**
+     * Get image URL (for backward compatibility)
+     * @return null since we only support HTML templates
+     */
+    public String getImageUrl() {
+        return null;
     }
     
     /**
@@ -993,16 +967,7 @@ public class Template {
      * @return URL string for the main content
      */
     public String getPrimaryContentUrl() {
-        TemplateType type = getTemplateTypeEnum();
-        switch (type) {
-            case VIDEO:
-                return getVideoUrl() != null ? getVideoUrl() : getPreviewUrl();
-            case IMAGE:
-                return getImageUrl() != null ? getImageUrl() : getPreviewUrl();
-            case HTML:
-            default:
-                return getPreviewUrl();
-        }
+        return getPreviewUrl();
     }
     
     /**
@@ -1010,18 +975,7 @@ public class Template {
      * @return true if template has appropriate content
      */
     public boolean hasValidContent() {
-        TemplateType type = getTemplateTypeEnum();
-        switch (type) {
-            case HTML:
-                return getHtmlContent() != null && !getHtmlContent().trim().isEmpty();
-            case VIDEO:
-                return getVideoUrl() != null && !getVideoUrl().trim().isEmpty();
-            case IMAGE:
-                return (getImageUrl() != null && !getImageUrl().trim().isEmpty()) ||
-                       (getPreviewUrl() != null && !getPreviewUrl().trim().isEmpty());
-            default:
-                return getPreviewUrl() != null && !getPreviewUrl().trim().isEmpty();
-        }
+        return getHtmlContent() != null && !getHtmlContent().trim().isEmpty();
     }
     
     /**
@@ -1061,29 +1015,12 @@ public class Template {
      * @return array of supported InteractionType values
      */
     public InteractionType[] getSupportedInteractions() {
-        TemplateType type = getTemplateTypeEnum();
-        switch (type) {
-            case HTML:
-                return new InteractionType[]{
-                    InteractionType.VIEW, 
-                    InteractionType.EDIT, 
-                    InteractionType.PREVIEW, 
-                    InteractionType.SHARE
-                };
-            case VIDEO:
-                return new InteractionType[]{
-                    InteractionType.VIEW, 
-                    InteractionType.PREVIEW, 
-                    InteractionType.SHARE
-                };
-            case IMAGE:
-            default:
-                return new InteractionType[]{
-                    InteractionType.VIEW, 
-                    InteractionType.PREVIEW, 
-                    InteractionType.SHARE
-                };
-        }
+        return new InteractionType[]{
+            InteractionType.VIEW, 
+            InteractionType.EDIT, 
+            InteractionType.PREVIEW, 
+            InteractionType.SHARE
+        };
     }
     
     /**

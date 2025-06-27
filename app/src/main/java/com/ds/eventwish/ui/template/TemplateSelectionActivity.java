@@ -14,10 +14,10 @@ import androidx.recyclerview.widget.SimpleItemAnimator;
 import androidx.core.view.ViewCompat;
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.Template;
+import com.ds.eventwish.data.repository.TemplateRepository;
 import com.ds.eventwish.databinding.ActivityTemplateSelectionBinding;
 import com.ds.eventwish.utils.GridSpacingItemDecoration;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class TemplateSelectionActivity extends AppCompatActivity implements TemplateAdapter.OnTemplateInteractionListener {
     private static final String TAG = "TemplateSelectionActivity";
@@ -28,7 +28,8 @@ public class TemplateSelectionActivity extends AppCompatActivity implements Temp
     private RecyclerView recyclerView;
     private TemplateAdapter adapter;
     private TemplateViewModel viewModel;
-    private List<com.ds.eventwish.ui.template.Template> templates;
+    private List<Template> templates;
+    private TemplateRepository repository;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,9 +59,10 @@ public class TemplateSelectionActivity extends AppCompatActivity implements Temp
         observeTemplates();
         
         if (categoryId != null && !categoryId.isEmpty()) {
-            viewModel.loadTemplatesForCategory(categoryId);
+            viewModel.loadTemplates(true);  // Force refresh for category change
+            repository.setCategory(categoryId);
         } else {
-            viewModel.loadTemplates();
+            viewModel.loadTemplates(false);  // Normal load
         }
     }
     
@@ -95,21 +97,18 @@ public class TemplateSelectionActivity extends AppCompatActivity implements Temp
     
     private void setupViewModel() {
         viewModel = new ViewModelProvider(this).get(TemplateViewModel.class);
+        repository = TemplateRepository.getInstance();
     }
     
     private void observeTemplates() {
-        viewModel.getTemplates().observe(this, uiTemplates -> {
-            if (uiTemplates != null) {
-                this.templates = uiTemplates;
-                // Convert UI templates to data model templates for the adapter
-                List<com.ds.eventwish.data.model.Template> dataTemplates = uiTemplates.stream()
-                    .map(this::toDataModel)
-                    .collect(Collectors.toList());
-                adapter.submitList(dataTemplates);
+        viewModel.getTemplates().observe(this, templates -> {
+            if (templates != null) {
+                this.templates = templates;
+                adapter.submitList(templates);
                 
                 // Show appropriate view based on results
                 binding.progressBar.setVisibility(View.GONE);
-                if (uiTemplates.isEmpty()) {
+                if (templates.isEmpty()) {
                     binding.emptyView.setVisibility(View.VISIBLE);
                     recyclerView.setVisibility(View.GONE);
                 } else {
@@ -121,7 +120,7 @@ public class TemplateSelectionActivity extends AppCompatActivity implements Temp
     }
     
     @Override
-    public void onTemplateClick(com.ds.eventwish.data.model.Template template) {
+    public void onTemplateClick(Template template) {
         Intent intent = new Intent();
         intent.putExtra(EXTRA_SELECTED_TEMPLATE_ID, template.getId());
         setResult(RESULT_OK, intent);
@@ -129,35 +128,21 @@ public class TemplateSelectionActivity extends AppCompatActivity implements Temp
     }
     
     @Override
-    public void onTemplateLike(com.ds.eventwish.data.model.Template template) {
+    public void onTemplateLike(Template template) {
         handleLikeClick(template);
     }
     
     @Override
-    public void onTemplateFavorite(com.ds.eventwish.data.model.Template template) {
+    public void onTemplateFavorite(Template template) {
         handleFavoriteClick(template);
     }
     
-    private void handleLikeClick(com.ds.eventwish.data.model.Template template) {
-        viewModel.toggleLike(template.getId());
+    private void handleLikeClick(Template template) {
+        viewModel.toggleLike(template.getId(), template.isLiked());
     }
 
-    private void handleFavoriteClick(com.ds.eventwish.data.model.Template template) {
-        viewModel.toggleFavorite(template.getId());
-    }
-    
-    private com.ds.eventwish.data.model.Template toDataModel(com.ds.eventwish.ui.template.Template uiTemplate) {
-        com.ds.eventwish.data.model.Template dataTemplate = new com.ds.eventwish.data.model.Template();
-        dataTemplate.setId(uiTemplate.getId());
-        dataTemplate.setTitle(uiTemplate.getName());
-        dataTemplate.setCategoryId(uiTemplate.getCategoryId());
-        dataTemplate.setPreviewUrl(uiTemplate.getImageUrl());
-        dataTemplate.setLiked(uiTemplate.isLiked());
-        dataTemplate.setFavorited(uiTemplate.isFavorited());
-        dataTemplate.setLikeCount(uiTemplate.getLikeCount());
-        dataTemplate.setFavoriteCount(uiTemplate.getFavoriteCount());
-        dataTemplate.setShareCount(uiTemplate.getShareCount());
-        return dataTemplate;
+    private void handleFavoriteClick(Template template) {
+        viewModel.toggleFavorite(template.getId(), template.isFavorited());
     }
     
     @Override

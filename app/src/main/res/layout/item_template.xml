@@ -22,8 +22,8 @@
         app:cardCornerRadius="12dp"
         app:cardElevation="1dp"
         app:strokeWidth="0.5dp"
-        android:layout_marginStart="3dp"
-        android:layout_marginEnd="3dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"
         app:cardBackgroundColor="@color/card_festive_light">
@@ -67,7 +67,6 @@
                         android:gravity="center_vertical">
 
                         <com.google.android.material.textview.MaterialTextView
-                            android:id="@+id/usernameText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="eventwish"
@@ -85,18 +84,16 @@
 
                         <com.google.android.material.imageview.ShapeableImageView
                             android:id="@+id/categoryIcon"
-                            android:layout_width="0dp"
-                            android:layout_height="0dp"
-                            android:visibility="gone"
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
                             android:src="@drawable/ic_category"
                             android:contentDescription="Category icon"
                             app:tint="?attr/colorOnSurfaceVariant" />
 
                         <com.google.android.material.textview.MaterialTextView
                             android:id="@+id/categoryText"
-                            android:layout_width="0dp"
-                            android:layout_height="0dp"
-                            android:visibility="gone"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
                             android:textSize="14sp"
                             android:textColor="?attr/colorOnSurfaceVariant"
                             android:layout_marginStart="4dp"
@@ -111,7 +108,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="12sp"
-                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textColor="#666666"
                         android:layout_marginTop="2dp"
                         android:visibility="visible"
                         tools:text="2 hours ago" />
@@ -153,217 +150,21 @@
                     tools:text="Beautiful birthday template for celebrating special moments with friends and family. Perfect for social media posts and greetings." />
             </LinearLayout>
 
-            <!-- Main Content Area - Supports HTML, Image, and Video -->
+            <!-- Main Image Content -->
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
-                <!-- Image Template Display -->
-                <FrameLayout
-                    android:id="@+id/image_template_container"
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/template_image"
                     android:layout_width="match_parent"
-                    android:layout_height="480dp"
-                    android:visibility="visible">
-
-                    <com.google.android.material.imageview.ShapeableImageView
-                        android:id="@+id/template_image"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:scaleType="centerCrop"
-                        android:contentDescription="@string/template_image_description"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:foreground="?attr/selectableItemBackground" />
-
-                    <!-- Image Overlay Container -->
-                    <FrameLayout
-                        android:id="@+id/image_overlay_container"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="@android:color/transparent"
-                        android:clipChildren="false"
-                        android:clipToPadding="false"
-                        android:visibility="visible" />
-
-                </FrameLayout>
-
-                <!-- HTML Template Display -->
-                <LinearLayout
-                    android:id="@+id/html_template_container"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:background="@color/html_preview_background"
+                    android:layout_height="320dp"
+                    android:scaleType="centerCrop"
+                    android:contentDescription="@string/template_image_description"
                     android:clickable="true"
                     android:focusable="true"
                     android:foreground="?attr/selectableItemBackground"
-                    android:visibility="gone">
-                    
-                    <!-- HTML Preview WebView -->
-                    <WebView
-                        android:id="@+id/html_preview_webview"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="@android:color/white" />
-                    
-                    <!-- HTML Template Info (compact version below WebView) -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical">
-                        
-                        <!-- HTML Template Title -->
-                        <com.google.android.material.textview.MaterialTextView
-                            android:id="@+id/html_template_title"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:textAppearance="@style/TextAppearance.EventWish.Body2"
-                            android:textColor="?attr/colorOnSurface"
-                            android:textStyle="bold"
-                            android:maxLines="1"
-                            android:ellipsize="end"
-                            android:layout_marginEnd="8dp"
-                            tools:text="Interactive Birthday Card" />
-                        
-                        <!-- HTML Template Features (compact chips) -->
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:visibility="gone"
-                            android:orientation="horizontal">
-                            
-                            <com.google.android.material.chip.Chip
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Interactive"
-                                android:textSize="10sp"
-                                style="@style/Widget.EventWish.Chip"
-                                android:layout_marginEnd="4dp" />
-                            
-                            <com.google.android.material.chip.Chip
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="HTML"
-                                android:textSize="10sp"
-                                style="@style/Widget.EventWish.Chip" />
-                        </LinearLayout>
-                    </LinearLayout>
-                </LinearLayout>
-
-                <!-- Video Template Display -->
-                <LinearLayout
-                    android:id="@+id/video_template_container"
-                    android:layout_width="match_parent"
-                    android:layout_height="480dp"
-                    android:orientation="vertical"
-                    android:background="@color/video_preview_background"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:foreground="?attr/selectableItemBackground"
-                    android:visibility="gone">
-
-                    <FrameLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent">
-
-                        <!-- Video Thumbnail -->
-                        <ImageView
-                            android:id="@+id/video_thumbnail"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:scaleType="centerCrop"
-                            android:contentDescription="Video thumbnail" />
-
-                        <!-- Video Player View -->
-                        <androidx.media3.ui.PlayerView
-                            android:id="@+id/video_player_view"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:visibility="gone" />
-
-                        <!-- Video Loading Indicator -->
-                        <ProgressBar
-                            android:id="@+id/video_loading_indicator"
-                            android:layout_width="48dp"
-                            android:layout_height="48dp"
-                            android:layout_gravity="center"
-                            android:visibility="gone"
-                            android:indeterminate="true" />
-
-                        <!-- Video Overlay Container -->
-                        <FrameLayout
-                            android:id="@+id/video_overlay_container"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:background="@android:color/transparent"
-                            android:clipChildren="false"
-                            android:clipToPadding="false"
-                            android:visibility="visible" />
-
-                        <!-- Video Controls -->
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:padding="16dp"
-                            android:background="@drawable/gradient_black_transparent">
-
-                            <!-- Play Button -->
-                            <ImageView
-                                android:id="@+id/video_play_button"
-                                android:layout_width="32dp"
-                                android:layout_height="32dp"
-                                android:src="@drawable/ic_play_circle"
-                                android:contentDescription="Play video"
-                                android:background="?attr/selectableItemBackgroundBorderless"
-                                app:tint="@color/white" />
-
-                            <!-- Duration -->
-                            <TextView
-                                android:id="@+id/video_duration"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:layout_marginStart="8dp"
-                                android:textColor="@color/white"
-                                android:textSize="14sp"
-                                tools:text="0:30" />
-
-                            <!-- Mute Button -->
-                            <ImageView
-                                android:id="@+id/video_mute_button"
-                                android:layout_width="32dp"
-                                android:layout_height="32dp"
-                                android:src="@drawable/ic_volume_up"
-                                android:contentDescription="Toggle mute"
-                                android:background="?attr/selectableItemBackgroundBorderless"
-                                app:tint="@color/white" />
-                        </LinearLayout>
-
-                    </FrameLayout>
-                </LinearLayout>
-
-                <!-- Template Type Badge -->
-                <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/template_type_badge"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="bottom|start"
-                    android:layout_margin="12dp"
-                    android:background="@drawable/bg_type_badge"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:paddingTop="4dp"
-                    android:paddingBottom="4dp"
-                    android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/white"
-                    android:elevation="2dp"
-                    android:visibility="gone"
-                    tools:text="HTML"
-                    tools:visibility="visible" />
+                    tools:src="@drawable/placeholder_image" />
 
                 <!-- Badges at top-right -->
                 <LinearLayout
@@ -440,7 +241,7 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:gravity="center_horizontal"
-                    android:minHeight="40dp">
+                    android:minHeight="48dp">
                     
                     <com.google.android.material.imageview.ShapeableImageView
                         android:id="@+id/likeIcon"
@@ -470,7 +271,7 @@
                     android:orientation="vertical"
                     android:layout_marginStart="24dp"
                     android:gravity="center_horizontal"
-                    android:minHeight="40dp">
+                    android:minHeight="48dp">
                     
                     <com.google.android.material.imageview.ShapeableImageView
                         android:id="@+id/shareIcon"
@@ -504,7 +305,7 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:gravity="center_horizontal"
-                    android:minHeight="40dp">
+                    android:minHeight="48dp">
                     
                     <com.google.android.material.imageview.ShapeableImageView
                         android:id="@+id/favoriteIcon"
@@ -526,7 +327,7 @@
                         android:layout_marginTop="2dp"
                         tools:text="8" />
 
-                    <com.google.android.material.textview.MaterialTextView
+                                        <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/fallbackTimeText"
                     android:layout_width="0dp"
                     android:layout_height="0dp"

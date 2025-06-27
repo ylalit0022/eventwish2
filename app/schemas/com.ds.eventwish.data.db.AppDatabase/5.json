@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 5,
-    "identityHash": "889686334c8f6fcab9d0e82f2ddf8136",
+    "identityHash": "d63daf716d633840190ddede27caa0fa",
     "entities": [
       {
         "tableName": "templates",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT, `categoryId` TEXT, `previewUrl` TEXT, `likeCount` INTEGER NOT NULL, `favoriteCount` INTEGER NOT NULL, `shareCount` INTEGER NOT NULL, `isLiked` INTEGER NOT NULL, `isFavorited` INTEGER NOT NULL, `lastUpdated` INTEGER, `likeChanged` INTEGER NOT NULL, `favoriteChanged` INTEGER NOT NULL, `htmlContent` TEXT, `cssContent` TEXT, `jsContent` TEXT, `createdAt` INTEGER, `creatorId` TEXT, `creatorUid` TEXT, `creatorName` TEXT, `creatorProfilePhoto` TEXT, `generatedByUser` TEXT, `generatedByUserUid` TEXT, `videoUrl` TEXT, `imageUrl` TEXT, `status` INTEGER NOT NULL, `isPremium` INTEGER NOT NULL, `isFeatured` INTEGER NOT NULL, `isTrending` INTEGER NOT NULL, `isFlagged` INTEGER NOT NULL, `isLowPerforming` INTEGER NOT NULL, `price` REAL NOT NULL, `moderationStatus` TEXT, `usageCount` INTEGER NOT NULL, `viewCount` INTEGER NOT NULL, `downloadCount` INTEGER NOT NULL, `reportCount` INTEGER NOT NULL, `rating` REAL NOT NULL, `ratingCount` INTEGER NOT NULL, `weeklyUsageCount` INTEGER NOT NULL, `weeklyLikes` INTEGER NOT NULL, `weeklyFavorites` INTEGER NOT NULL, `weeklyViewCount` INTEGER NOT NULL, `weeklySharedCount` INTEGER NOT NULL, `weeklyDownloadCount` INTEGER NOT NULL, `weeklyReportCount` INTEGER NOT NULL, `weeklyScoreLastReset` INTEGER, `isAIGenerated` INTEGER NOT NULL, `aiPrompt` TEXT, `aiModel` TEXT, `aiStyle` TEXT, `aiGenerationStage` TEXT, `generationMetadata` TEXT, `festivalTag` TEXT, `tags` TEXT, `styleTags` TEXT, `searchKeywords` TEXT, `variationOf` TEXT, `relatedTemplates` TEXT, `templateType` TEXT, `visibilityScore` REAL NOT NULL, `boostPriority` REAL NOT NULL, `lastBoostedAt` INTEGER, `ignoredByUsers` TEXT, `customizationOptions` TEXT, `categoryIcon` TEXT, `language` TEXT, `region` TEXT, `experimentTag` TEXT, `performanceLog` TEXT, `overlayHtmlTemplate` TEXT, `overlayCssTemplate` TEXT, `overlayJsTemplate` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`categoryId`) REFERENCES `category`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT, `categoryId` TEXT, `previewUrl` TEXT, `likeCount` INTEGER NOT NULL, `favoriteCount` INTEGER NOT NULL, `shareCount` INTEGER NOT NULL, `isLiked` INTEGER NOT NULL, `isFavorited` INTEGER NOT NULL, `lastUpdated` INTEGER, `likeChanged` INTEGER NOT NULL, `favoriteChanged` INTEGER NOT NULL, `htmlContent` TEXT, `cssContent` TEXT, `jsContent` TEXT, `createdAt` INTEGER, `creatorId` TEXT, `creatorUid` TEXT, `creatorName` TEXT, `creatorProfilePhoto` TEXT, `generatedByUser` TEXT, `generatedByUserUid` TEXT, `status` INTEGER NOT NULL, `isPremium` INTEGER NOT NULL, `isFeatured` INTEGER NOT NULL, `isTrending` INTEGER NOT NULL, `isFlagged` INTEGER NOT NULL, `isLowPerforming` INTEGER NOT NULL, `price` REAL NOT NULL, `moderationStatus` TEXT, `usageCount` INTEGER NOT NULL, `viewCount` INTEGER NOT NULL, `downloadCount` INTEGER NOT NULL, `reportCount` INTEGER NOT NULL, `rating` REAL NOT NULL, `ratingCount` INTEGER NOT NULL, `weeklyUsageCount` INTEGER NOT NULL, `weeklyLikes` INTEGER NOT NULL, `weeklyFavorites` INTEGER NOT NULL, `weeklyViewCount` INTEGER NOT NULL, `weeklySharedCount` INTEGER NOT NULL, `weeklyDownloadCount` INTEGER NOT NULL, `weeklyReportCount` INTEGER NOT NULL, `weeklyScoreLastReset` INTEGER, `isAIGenerated` INTEGER NOT NULL, `aiPrompt` TEXT, `aiModel` TEXT, `aiStyle` TEXT, `aiGenerationStage` TEXT, `generationMetadata` TEXT, `festivalTag` TEXT, `tags` TEXT, `styleTags` TEXT, `searchKeywords` TEXT, `variationOf` TEXT, `relatedTemplates` TEXT, `templateType` TEXT, `visibilityScore` REAL NOT NULL, `boostPriority` REAL NOT NULL, `lastBoostedAt` INTEGER, `ignoredByUsers` TEXT, `customizationOptions` TEXT, `categoryIcon` TEXT, `language` TEXT, `region` TEXT, `experimentTag` TEXT, `performanceLog` TEXT, `overlayHtmlTemplate` TEXT, `overlayCssTemplate` TEXT, `overlayJsTemplate` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`categoryId`) REFERENCES `category`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "id",
@@ -137,18 +137,6 @@
           {
             "fieldPath": "generatedByUserUid",
             "columnName": "generatedByUserUid",
-            "affinity": "TEXT",
-            "notNull": false
-          },
-          {
-            "fieldPath": "videoUrl",
-            "columnName": "videoUrl",
-            "affinity": "TEXT",
-            "notNull": false
-          },
-          {
-            "fieldPath": "imageUrl",
-            "columnName": "imageUrl",
             "affinity": "TEXT",
             "notNull": false
           },
@@ -906,7 +894,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '889686334c8f6fcab9d0e82f2ddf8136')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd63daf716d633840190ddede27caa0fa')"
     ]
   }
 }

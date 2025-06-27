@@ -1,174 +1,85 @@
 package com.ds.eventwish.ui.template;
 
 import android.app.Application;
+import android.util.Log;
+import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
-import androidx.lifecycle.Transformations;
-import androidx.annotation.NonNull;
 import com.ds.eventwish.data.model.Template;
-import com.ds.eventwish.data.repository.TemplateInteractionRepository;
 import com.ds.eventwish.data.repository.TemplateRepository;
-import com.ds.eventwish.utils.AnalyticsUtils;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
-import android.util.Log;
+import com.google.android.gms.tasks.Task;
 
 public class TemplateViewModel extends AndroidViewModel {
     private static final String TAG = "TemplateViewModel";
-
-    private final TemplateRepository templateRepository;
-    private final TemplateInteractionRepository interactionRepository;
-    private final Map<String, LiveData<Boolean>> likeStates;
-    private final Map<String, LiveData<Boolean>> favoriteStates;
-    private final Map<String, LiveData<Long>> likeCounts;
-    private final MutableLiveData<List<com.ds.eventwish.ui.template.Template>> templates;
-    private final MutableLiveData<Boolean> isLoading;
+    private final TemplateRepository repository;
+    private final MutableLiveData<List<Template>> templates;
+    private final MutableLiveData<Boolean> loading;
     private final MutableLiveData<String> error;
 
     public TemplateViewModel(@NonNull Application application) {
         super(application);
-        TemplateRepository.init(application);
-        templateRepository = TemplateRepository.getInstance();
-        interactionRepository = TemplateInteractionRepository.getInstance(application);
-        likeStates = new ConcurrentHashMap<>();
-        favoriteStates = new ConcurrentHashMap<>();
-        likeCounts = new ConcurrentHashMap<>();
-        templates = new MutableLiveData<>();
-        isLoading = new MutableLiveData<>(false);
+        repository = TemplateRepository.getInstance();
+        templates = new MutableLiveData<>(new ArrayList<>());
+        loading = new MutableLiveData<>(false);
         error = new MutableLiveData<>();
-
-        // Transform repository templates to UI templates
-        templateRepository.getTemplates().observeForever(dataTemplates -> {
-            if (dataTemplates != null) {
-                List<com.ds.eventwish.ui.template.Template> uiTemplates = dataTemplates.stream()
-                    .map(this::toUiModel)
-                    .filter(template -> template != null) // Filter out invalid templates
-                    .collect(Collectors.toList());
-                templates.setValue(uiTemplates);
+        
+        // Observe repository templates
+        repository.getTemplates().observeForever(templateList -> {
+            if (templateList != null) {
+                templates.postValue(templateList);
             }
         });
     }
 
-    public LiveData<List<com.ds.eventwish.ui.template.Template>> getTemplates() {
+    public LiveData<List<Template>> getTemplates() {
         return templates;
     }
 
-    public void loadTemplates() {
-        isLoading.setValue(true);
-        templateRepository.loadTemplates(true);
+    public LiveData<Boolean> getLoading() {
+        return loading;
     }
 
-    public void loadTemplatesForCategory(String categoryId) {
-        isLoading.setValue(true);
-        templateRepository.setCategory(categoryId, true);
+    public LiveData<String> getError() {
+        return error;
     }
 
-    public LiveData<Boolean> getLikeState(String templateId) {
-        if (!likeStates.containsKey(templateId)) {
-            likeStates.put(templateId, templateRepository.getLikeState(templateId));
-        }
-        return likeStates.get(templateId);
+    public void loadTemplates(boolean forceRefresh) {
+        loading.postValue(true);
+        repository.loadTemplates(forceRefresh);
     }
 
-    public LiveData<Boolean> getFavoriteState(String templateId) {
-        if (!favoriteStates.containsKey(templateId)) {
-            favoriteStates.put(templateId, templateRepository.getFavoriteState(templateId));
-        }
-        return favoriteStates.get(templateId);
+    public void toggleLike(String templateId, boolean currentLikeState) {
+        repository.toggleLike(templateId, !currentLikeState)
+            .addOnSuccessListener(success -> {
+                if (success) {
+                    Log.d(TAG, "Like state updated successfully");
+                }
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Error updating like state", e);
+                error.postValue("Failed to update like state");
+            });
     }
 
-    public LiveData<Long> getLikeCount(String templateId) {
-        if (!likeCounts.containsKey(templateId)) {
-            likeCounts.put(templateId, Transformations.map(
-                templateRepository.getLikeCount(templateId),
-                count -> count != null ? count.longValue() : 0L
-            ));
-        }
-        return likeCounts.get(templateId);
-    }
-
-    public void toggleLike(String templateId) {
-        // Get current state
-        Boolean currentState = getLikeState(templateId).getValue();
-        boolean newState = currentState == null ? true : !currentState;
-        
-        // Track analytics
-        AnalyticsUtils.getInstance().trackTemplateInteraction(
-            templateId,
-            newState ? "like" : "unlike"
-        );
-        
-        // Update through repository with new state
-        templateRepository.toggleLike(templateId, newState);
-    }
-
-    public void toggleFavorite(String templateId) {
-        // Get current state
-        Boolean currentState = getFavoriteState(templateId).getValue();
-        boolean newState = currentState == null ? true : !currentState;
-        
-        // Track analytics
-        AnalyticsUtils.getInstance().trackTemplateInteraction(
-            templateId,
-            newState ? "favorite" : "unfavorite"
-        );
-        
-        // Update through repository with new state
-        templateRepository.toggleFavorite(templateId, newState);
-    }
-
-    private com.ds.eventwish.ui.template.Template toUiModel(com.ds.eventwish.data.model.Template dataTemplate) {
-        // Validate data template
-        if (dataTemplate == null) {
-            Log.e(TAG, "Received null data template in toUiModel");
-            return null;
-        }
-
-        // Validate required fields
-        String id = dataTemplate.getId();
-        if (id == null || id.trim().isEmpty()) {
-            Log.e(TAG, "Data template has null or empty ID");
-            return null;
-        }
-
-        // Get other fields with fallbacks for null values
-        String title = dataTemplate.getTitle() != null ? dataTemplate.getTitle() : "";
-        String categoryId = dataTemplate.getCategoryId() != null ? dataTemplate.getCategoryId() : "";
-        String previewUrl = dataTemplate.getPreviewUrl() != null ? dataTemplate.getPreviewUrl() : "";
-
-        // Create UI model with validated data
-        return new com.ds.eventwish.ui.template.Template(
-            id,
-            title,
-            categoryId,
-            previewUrl,
-            dataTemplate.isLiked(),
-            dataTemplate.isFavorited(),
-            dataTemplate.getLikeCount(),
-            dataTemplate.getFavoriteCount(),
-            dataTemplate.getShareCount()
-        );
+    public void toggleFavorite(String templateId, boolean currentFavoriteState) {
+        repository.toggleFavorite(templateId, !currentFavoriteState)
+            .addOnSuccessListener(success -> {
+                if (success) {
+                    Log.d(TAG, "Favorite state updated successfully");
+                }
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Error updating favorite state", e);
+                error.postValue("Failed to update favorite state");
+            });
     }
 
     @Override
     protected void onCleared() {
         super.onCleared();
-        // Clear all cached LiveData
-        likeStates.clear();
-        favoriteStates.clear();
-        likeCounts.clear();
-        // Remove the observer when the ViewModel is cleared
-        templateRepository.getTemplates().removeObserver(dataTemplates -> {
-            if (dataTemplates != null) {
-                List<com.ds.eventwish.ui.template.Template> uiTemplates = dataTemplates.stream()
-                    .map(this::toUiModel)
-                    .filter(template -> template != null) // Filter out invalid templates
-                    .collect(Collectors.toList());
-                templates.setValue(uiTemplates);
-            }
-        });
+        // Clean up any resources
     }
 } 
