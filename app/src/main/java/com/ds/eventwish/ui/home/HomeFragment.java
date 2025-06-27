@@ -97,7 +97,9 @@ import androidx.core.app.NotificationManagerCompat;
 import com.google.firebase.auth.FirebaseAuth;
 import android.os.Looper;
 
-public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItemClickListener, TemplateAdapter.OnTemplateInteractionListener {
+import com.ds.eventwish.utils.UserDataManager;
+
+public class HomeFragment extends BaseFragment implements TemplateAdapter.TemplateClickListener {
     private static final String TAG = "HomeFragment";
     
     private FragmentHomeBinding binding;
@@ -349,7 +351,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
                 List<Template> currentTemplates = viewModel.getTemplates().getValue();
                 if (currentTemplates != null && !currentTemplates.isEmpty()) {
                     Log.d(TAG, "Refreshing UI with existing " + currentTemplates.size() + " templates");
-                    adapter.setTemplates(new ArrayList<>(currentTemplates));
+                    adapter.submitList(new ArrayList<>(currentTemplates));
                     
                     // Restore scroll position
                     int lastPosition = viewModel.getLastVisiblePosition();
@@ -1027,128 +1029,25 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
     }
 
     private void setupRecyclerView() {
-        // Create grid layout manager
-        layoutManager = new GridLayoutManager(requireContext(), 1);
-        binding.templatesRecyclerView.setLayoutManager(layoutManager);
+        adapter = new TemplateAdapter(requireContext(), this);
         
-        // Create adapter with click listener
-        adapter = new TemplateAdapter(requireContext());
-        adapter.setOnItemClickListener(this);
-        adapter.setOnTemplateInteractionListener(this);
-        
-        // Set stable IDs to prevent blinking during updates
-        adapter.setHasStableIds(true);
-        
-        // Use default item animator with optimized settings for smooth updates
-        RecyclerView.ItemAnimator itemAnimator = binding.templatesRecyclerView.getItemAnimator();
-        if (itemAnimator instanceof DefaultItemAnimator) {
-            DefaultItemAnimator defaultAnimator = (DefaultItemAnimator) itemAnimator;
-            // Reduce animation duration for snappier feel
-            defaultAnimator.setAddDuration(150);
-            defaultAnimator.setRemoveDuration(150);
-            defaultAnimator.setMoveDuration(150);
-            defaultAnimator.setChangeDuration(150);
-            // Disable change animations to prevent content flickering
-            defaultAnimator.setSupportsChangeAnimations(false);
-        }
+        // Set up RecyclerView
+        binding.templatesRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
+        binding.templatesRecyclerView.setAdapter(adapter);
         binding.templatesRecyclerView.setHasFixedSize(true);
         
-        // Prevent layout shifts during updates
-        binding.templatesRecyclerView.getRecycledViewPool().setMaxRecycledViews(
-                            0, 20); // Simple template adapter has single view type
-        
-        // Improve scrolling performance
-        binding.templatesRecyclerView.setItemViewCacheSize(10);
-        binding.templatesRecyclerView.setDrawingCacheEnabled(true);
-        binding.templatesRecyclerView.setDrawingCacheQuality(View.DRAWING_CACHE_QUALITY_HIGH);
-        
-        // Set the adapter
-        binding.templatesRecyclerView.setAdapter(adapter);
-        
-       
+        // Set up lazy loading for WebViews
+        adapter.setupLazyLoading(binding.templatesRecyclerView);
         
         // Add item decoration for spacing
         int spacing = getResources().getDimensionPixelSize(R.dimen.grid_spacing);
         binding.templatesRecyclerView.addItemDecoration(new GridSpacingItemDecoration(2, spacing, true));
         
-        // Add scroll listener for pagination and position tracking
-        binding.templatesRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                super.onScrolled(recyclerView, dx, dy);
-                
-                // Log scroll events for debugging jumping issues
-                if (Math.abs(dx) > 50 || Math.abs(dy) > 50) {
-                    Log.d(TAG, "=== SIGNIFICANT SCROLL DETECTED ===");
-                    Log.d(TAG, "dx: " + dx + ", dy: " + dy);
-                    Log.d(TAG, "Current first visible position: " + getCurrentScrollPosition());
-                }
-                
-                // Check for pagination need
-                int visibleItemCount = layoutManager.getChildCount();
-                int totalItemCount = layoutManager.getItemCount();
-                int firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition();
-                
-                // Log pagination check details
-                if (totalItemCount > 0) {
-                    Log.v(TAG, "Scroll state - visible: " + visibleItemCount + 
-                          ", total: " + totalItemCount + 
-                          ", first visible: " + firstVisibleItemPosition);
-                }
-                
-                // Save current scroll position
-                viewModel.saveScrollPosition(firstVisibleItemPosition);
-                
-               
-                
-                // Check if we need to load more items
-                if (!viewModel.getLoading().getValue() && 
-                    viewModel.hasMorePagesToLoad() && 
-                    (firstVisibleItemPosition + visibleItemCount) >= totalItemCount - VISIBLE_THRESHOLD) {
-                    
-                    Log.d(TAG, "=== PAGINATION TRIGGERED ===");
-                    Log.d(TAG, "Visible items: " + visibleItemCount);
-                    Log.d(TAG, "Total items: " + totalItemCount);
-                    Log.d(TAG, "First visible position: " + firstVisibleItemPosition);
-                    Log.d(TAG, "Threshold reached: " + ((firstVisibleItemPosition + visibleItemCount) >= totalItemCount - VISIBLE_THRESHOLD));
-                    
-                    loadMoreItems();
-                }
-            }
-            
-            @Override
-            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
-                super.onScrollStateChanged(recyclerView, newState);
-                
-                String stateString;
-                switch (newState) {
-                    case RecyclerView.SCROLL_STATE_IDLE:
-                        stateString = "IDLE";
-                        break;
-                    case RecyclerView.SCROLL_STATE_DRAGGING:
-                        stateString = "DRAGGING";
-                        break;
-                    case RecyclerView.SCROLL_STATE_SETTLING:
-                        stateString = "SETTLING";
-                        break;
-                    default:
-                        stateString = "UNKNOWN";
-                }
-                
-                Log.d(TAG, "=== SCROLL STATE CHANGED ===");
-                Log.d(TAG, "New state: " + stateString + " (" + newState + ")");
-                Log.d(TAG, "Current position: " + getCurrentScrollPosition());
-                
-                // Track when scrolling stops after template updates
-                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-                    Log.d(TAG, "RecyclerView settled at position: " + getCurrentScrollPosition());
-                    
-                
-                }
-            }
-        });
+        // Initialize UserDataManager to start loading user data
+        UserDataManager userDataManager = UserDataManager.getInstance(requireContext());
+        userDataManager.refreshUserData(); // Ensure user data is loaded
         
-        Log.d(TAG, "RecyclerView setup complete with click listener");
+        Log.d(TAG, "RecyclerView and lazy loading setup completed");
     }
 
     private void setupImpressionTracking() {
@@ -1206,8 +1105,8 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
                     // Disable SwipeRefreshLayout when loading more items
                     binding.swipeRefreshLayout.setEnabled(false);
                     
-                    // Trigger loading next page WITHOUT showing a snackbar
-                    viewModel.loadMoreIfNeeded(lastPosition, totalItems);
+                    // Trigger loading next page using multi-section feed
+                    viewModel.loadNextMultiSectionFeed();
                 } else if (!hasShownEndMessage) {
                     // We're at the end and haven't shown the message yet
                     hasShownEndMessage = true; // Set flag so we don't show it again
@@ -1618,7 +1517,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
 
     private void loadTemplates() {
         if (viewModel != null) {
-            Log.d(TAG, "loadTemplates: Requesting templates from ViewModel");
+            Log.d(TAG, "loadTemplates: Requesting templates from ViewModel using new multi-section feed");
             
             // Hide error view
             hideError();
@@ -1629,8 +1528,8 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
             // Make sure templates recycler view will be visible after loading
             binding.templatesRecyclerView.setVisibility(View.VISIBLE);
             
-            // Load templates
-            viewModel.loadTemplates();
+            // Load templates using new multi-section feed
+            viewModel.loadMultiSectionFeed();
         } else {
             Log.e(TAG, "loadTemplates: ViewModel is null");
         }
@@ -1739,7 +1638,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
 
 
     @Override
-    public void onItemClick(Template template) {
+    public void onTemplateClick(Template template) {
         if (template == null) {
             Log.e(TAG, "Null template clicked");
             return;
@@ -1766,7 +1665,9 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
     }
 
     @Override
-    public void onTemplateLiked(Template template, boolean liked) {
+    public void onLikeClick(Template template) {
+        boolean liked = !template.isLiked();
+        template.setLiked(liked);
         Log.d(TAG, "=== HOME FRAGMENT LIKE HANDLER ===");
         Log.d(TAG, "Template ID: " + template.getId());
         Log.d(TAG, "New liked state: " + liked);
@@ -1840,7 +1741,9 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
     }
 
     @Override
-    public void onTemplateFavorited(Template template, boolean favorited) {
+    public void onFavoriteClick(Template template) {
+        boolean favorited = !template.isFavorited();
+        template.setFavorited(favorited);
         if (template == null) return;
         
         Log.d(TAG, "Template favorited: " + template.getId());
@@ -1896,6 +1799,17 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
                     Snackbar.make(view, "Failed to update favorite status", Snackbar.LENGTH_SHORT).show();
                 }
             });
+    }
+
+    @Override
+    public void onShareClick(Template template) {
+        Log.d(TAG, "Share clicked for template: " + template.getId());
+        
+        // Update share count
+        template.setShares(template.getShares() + 1);
+        
+        // TODO: Implement actual sharing functionality
+        Log.d(TAG, "Template " + template.getId() + " shared");
     }
     
     /**
@@ -2798,7 +2712,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
         
         // Update the adapter - THIS IS WHERE JUMPING MIGHT OCCUR!
         Log.w(TAG, "Calling adapter.setTemplates() - POTENTIAL JUMPING CAUSE!");
-        adapter.setTemplates(templates);
+        adapter.submitList(templates);
 
         if (isPagination) {
             // For pagination, try to maintain scroll position

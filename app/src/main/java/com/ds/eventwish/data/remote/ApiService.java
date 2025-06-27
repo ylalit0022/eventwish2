@@ -13,6 +13,7 @@ import com.ds.eventwish.data.model.response.CategoryIconResponse;
 import com.ds.eventwish.data.model.response.SessionsResponse;
 import com.ds.eventwish.data.model.response.TemplateResponse;
 import com.ds.eventwish.data.model.response.FeedResponse;
+
 import com.ds.eventwish.data.model.response.WishResponse;
 import com.ds.eventwish.data.model.ServerTimeResponse;
 import com.ds.eventwish.data.model.response.AdMobResponse;
@@ -60,6 +61,25 @@ public interface ApiService {
         @Query("categories") String categories,
         @Query("templateTypes") String templateTypes,
         @Header("Authorization") String authToken
+    );
+
+    // Multi-section feed endpoints using existing /feed endpoint
+    @GET("feed")
+    Call<FeedResponse> getMultiSectionFeed(
+        @Header("Authorization") String authToken,
+        @Query("include") String include,
+        @Query("page") int page,
+        @Query("limit") int limit,
+        @Query("categories") String categories,
+        @Query("refresh") boolean refresh
+    );
+
+    @GET("feed/default")
+    Call<FeedResponse> getDefaultMultiSectionFeed(
+        @Query("include") String include,
+        @Query("page") int page,
+        @Query("limit") int limit,
+        @Query("categories") String categories
     );
 
     // Template endpoints - Kept for backward compatibility

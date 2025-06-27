@@ -13,6 +13,7 @@ import androidx.lifecycle.MutableLiveData;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.model.response.TemplateResponse;
 import com.ds.eventwish.data.model.response.FeedResponse;
+import com.ds.eventwish.data.model.response.FeedResponse;
 import com.ds.eventwish.data.db.AppDatabase;
 import com.ds.eventwish.data.db.TemplateDao;
 import com.ds.eventwish.data.remote.ApiService;
@@ -100,6 +101,14 @@ public class TemplateRepository {
      */
     public interface CategoriesCallback {
         void onSuccess(Map<String, Integer> categoryMap);
+        void onError(String message);
+    }
+
+    /**
+     * Callback interface for feed operations
+     */
+    public interface FeedCallback {
+        void onSuccess(FeedResponse feedResponse);
         void onError(String message);
     }
 
@@ -1086,9 +1095,28 @@ public class TemplateRepository {
             currentList = new ArrayList<>();
         }
         
-        // Add new templates to the current list
+        // Create a set of existing template IDs for deduplication
+        Set<String> existingIds = new HashSet<>();
+        for (Template existingTemplate : currentList) {
+            if (existingTemplate.getId() != null) {
+                existingIds.add(existingTemplate.getId());
+            }
+        }
+        
+        // Filter out duplicates from new templates
+        List<Template> newUniqueTemplates = new ArrayList<>();
+        for (Template newTemplate : templateList) {
+            if (newTemplate.getId() != null && !existingIds.contains(newTemplate.getId())) {
+                newUniqueTemplates.add(newTemplate);
+            }
+        }
+        
+        Log.d(TAG, "Filtered " + templateList.size() + " templates to " + 
+              newUniqueTemplates.size() + " unique templates");
+        
+        // Add new unique templates to the current list
         List<Template> updatedList = new ArrayList<>(currentList);
-        updatedList.addAll(0, templateList); // Add at the beginning to show newest first
+        updatedList.addAll(0, newUniqueTemplates); // Add at the beginning to show newest first
         
         // Re-sort the entire list to ensure newest templates are always at the top
         Collections.sort(updatedList, (t1, t2) -> {
@@ -1102,8 +1130,8 @@ public class TemplateRepository {
         templates.postValue(updatedList);
         
         // Notify observers about new templates if requested
-        if (notifyNewTemplates) {
-            notifyNewTemplatesInserted(templateList);
+        if (notifyNewTemplates && !newUniqueTemplates.isEmpty()) {
+            notifyNewTemplatesInserted(newUniqueTemplates);
         }
     }
     
@@ -3596,5 +3624,204 @@ public class TemplateRepository {
             });
 
         return tcs.getTask();
+    }
+
+    /**
+     * Load multi-section feed with categories and pagination
+     */
+    public void loadMultiSectionFeed(String category, int page, FeedCallback callback) {
+        if (loading.getValue() == Boolean.TRUE) {
+            Log.d(TAG, "Feed already loading, skipping request");
+            return;
+        }
+
+        loading.postValue(true);
+        error.postValue(null);
+
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            loadDefaultMultiSectionFeed(category, page, callback);
+            return;
+        }
+
+        user.getIdToken(false).addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                String authToken = task.getResult().getToken();
+                loadMultiSectionFeedWithAuth(authToken, category, page, callback);
+            } else {
+                Log.w(TAG, "Failed to get auth token, using default feed", task.getException());
+                loadDefaultMultiSectionFeed(category, page, callback);
+            }
+        });
+    }
+
+    /**
+     * Load multi-section feed with authentication
+     */
+    private void loadMultiSectionFeedWithAuth(String authToken, String category, int page, FeedCallback callback) {
+        String include = "personalized,trending,fresh,categories";
+        
+        Call<FeedResponse> call = apiService.getMultiSectionFeed(
+            "Bearer " + authToken,
+            include,
+            page,
+            PAGE_SIZE,
+            category,
+            false // refresh
+        );
+
+        call.enqueue(new Callback<FeedResponse>() {
+            @Override
+            public void onResponse(Call<FeedResponse> call, Response<FeedResponse> response) {
+                loading.postValue(false);
+                
+                if (response.isSuccessful() && response.body() != null) {
+                    FeedResponse feedResponse = response.body();
+                    
+                    if (feedResponse.isSuccess()) {
+                        // Update templates from FeedResponse
+                        List<Template> allTemplates = feedResponse.getAllTemplates();
+                        if (page == 1) {
+                            templates.postValue(allTemplates);
+                        } else {
+                            List<Template> currentTemplates = templates.getValue();
+                            if (currentTemplates == null) {
+                                currentTemplates = new ArrayList<>();
+                            }
+                            currentTemplates.addAll(allTemplates);
+                            templates.postValue(currentTemplates);
+                        }
+                        
+                        // Update pagination info
+                        hasMorePages = !allTemplates.isEmpty() && allTemplates.size() >= PAGE_SIZE;
+                        currentPage = page;
+                        currentCategory = category;
+                        
+                        Log.d(TAG, "Multi-section feed loaded successfully: " + allTemplates.size() + " templates");
+                        
+                        if (callback != null) {
+                            callback.onSuccess(feedResponse);
+                        }
+                    } else {
+                        String errorMsg = feedResponse.getMessage() != null ? feedResponse.getMessage() : "Feed request failed";
+                        error.postValue(errorMsg);
+                        if (callback != null) {
+                            callback.onError(errorMsg);
+                        }
+                    }
+                } else {
+                    String errorMsg = "Server error: " + response.code();
+                    error.postValue(errorMsg);
+                    if (callback != null) {
+                        callback.onError(errorMsg);
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<FeedResponse> call, Throwable t) {
+                loading.postValue(false);
+                String errorMsg = "Network error: " + t.getMessage();
+                error.postValue(errorMsg);
+                Log.e(TAG, "Multi-section feed request failed", t);
+                
+                if (callback != null) {
+                    callback.onError(errorMsg);
+                }
+            }
+        });
+    }
+
+    /**
+     * Load default multi-section feed (no auth)
+     */
+    private void loadDefaultMultiSectionFeed(String category, int page, FeedCallback callback) {
+        String include = "trending,fresh,categories";
+        
+        Call<FeedResponse> call = apiService.getDefaultMultiSectionFeed(
+            include,
+            page,
+            PAGE_SIZE,
+            category
+        );
+
+        call.enqueue(new Callback<FeedResponse>() {
+            @Override
+            public void onResponse(Call<FeedResponse> call, Response<FeedResponse> response) {
+                loading.postValue(false);
+                
+                if (response.isSuccessful() && response.body() != null) {
+                    FeedResponse feedResponse = response.body();
+                    
+                    if (feedResponse.isSuccess()) {
+                        // Update templates from FeedResponse
+                        List<Template> allTemplates = feedResponse.getAllTemplates();
+                        if (page == 1) {
+                            templates.postValue(allTemplates);
+                        } else {
+                            List<Template> currentTemplates = templates.getValue();
+                            if (currentTemplates == null) {
+                                currentTemplates = new ArrayList<>();
+                            }
+                            currentTemplates.addAll(allTemplates);
+                            templates.postValue(currentTemplates);
+                        }
+                        
+                        // Update pagination info
+                        hasMorePages = !allTemplates.isEmpty() && allTemplates.size() >= PAGE_SIZE;
+                        currentPage = page;
+                        currentCategory = category;
+                        
+                        Log.d(TAG, "Default multi-section feed loaded successfully: " + allTemplates.size() + " templates");
+                        
+                        if (callback != null) {
+                            callback.onSuccess(feedResponse);
+                        }
+                    } else {
+                        String errorMsg = feedResponse.getMessage() != null ? feedResponse.getMessage() : "Feed request failed";
+                        error.postValue(errorMsg);
+                        if (callback != null) {
+                            callback.onError(errorMsg);
+                        }
+                    }
+                } else {
+                    String errorMsg = "Server error: " + response.code();
+                    error.postValue(errorMsg);
+                    if (callback != null) {
+                        callback.onError(errorMsg);
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<FeedResponse> call, Throwable t) {
+                loading.postValue(false);
+                String errorMsg = "Network error: " + t.getMessage();
+                error.postValue(errorMsg);
+                Log.e(TAG, "Default multi-section feed request failed", t);
+                
+                if (callback != null) {
+                    callback.onError(errorMsg);
+                }
+            }
+        });
+    }
+
+
+
+    /**
+     * Load next page for current category
+     */
+    public void loadNextPage() {
+        if (hasMorePages && !isLoading()) {
+            loadMultiSectionFeed(currentCategory, currentPage + 1, null);
+        }
+    }
+
+    /**
+     * Refresh current feed
+     */
+    public void refreshFeed() {
+        loadMultiSectionFeed(currentCategory, 1, null);
     }
 }

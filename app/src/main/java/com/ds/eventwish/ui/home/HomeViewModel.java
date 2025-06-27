@@ -1005,4 +1005,78 @@ public class HomeViewModel extends ViewModel {
         // Update the template in repository and return the task
         return repository.toggleFavorite(template.getId(), currentFavoriteState);
     }
+
+    /**
+     * Load multi-section feed using the FeedResponse structure
+     */
+    public void loadMultiSectionFeed() {
+        Log.d(TAG, "Loading multi-section feed with category: " + 
+              (selectedCategory != null ? selectedCategory : "all"));
+        
+        repository.loadMultiSectionFeed(selectedCategory, getCurrentPage(), new TemplateRepository.FeedCallback() {
+            @Override
+            public void onSuccess(com.ds.eventwish.data.model.response.FeedResponse feedResponse) {
+                Log.d(TAG, "Multi-section feed loaded successfully");
+                
+                // Extract templates from all sections
+                List<Template> allTemplates = feedResponse.getAllTemplates();
+                Log.d(TAG, "Extracted " + allTemplates.size() + " templates from feed");
+                
+                // FeedResponse doesn't have getCategories() method like the old FeedApiResponse
+                // Categories will be handled by the repository through other means
+                Log.d(TAG, "Feed response received with " + feedResponse.getAllTemplates().size() + " templates");
+                
+                // The repository will handle updating the templates LiveData
+                // and the UI will automatically update through observers
+            }
+
+            @Override
+            public void onError(String message) {
+                Log.e(TAG, "Failed to load multi-section feed: " + message);
+                // Fall back to regular template loading
+                loadTemplates(false);
+            }
+        });
+    }
+
+    /**
+     * Load next page of multi-section feed
+     */
+    public void loadNextMultiSectionFeed() {
+        if (isPaginationInProgress || !repository.hasMorePages()) {
+            Log.d(TAG, "Skipping pagination - inProgress: " + isPaginationInProgress + 
+                  ", hasMore: " + repository.hasMorePages());
+            return;
+        }
+        
+        setPaginationInProgress(true);
+        int nextPage = getCurrentPage() + 1;
+        
+        Log.d(TAG, "Loading next page of multi-section feed: " + nextPage);
+        
+        repository.loadMultiSectionFeed(selectedCategory, nextPage, new TemplateRepository.FeedCallback() {
+            @Override
+            public void onSuccess(com.ds.eventwish.data.model.response.FeedResponse feedResponse) {
+                Log.d(TAG, "Next page of multi-section feed loaded successfully");
+                
+                // Extract templates from all sections
+                List<Template> newTemplates = feedResponse.getAllTemplates();
+                Log.d(TAG, "Extracted " + newTemplates.size() + " new templates from feed");
+                
+                // Update current page
+                saveCurrentPage(nextPage);
+                
+                // The repository will handle appending the new templates
+                setPaginationInProgress(false);
+            }
+
+            @Override
+            public void onError(String message) {
+                Log.e(TAG, "Failed to load next page of multi-section feed: " + message);
+                setPaginationInProgress(false);
+                // Fall back to regular pagination
+                loadMoreIfNeeded(0, 0); // This will trigger regular pagination
+            }
+        });
+    }
 }

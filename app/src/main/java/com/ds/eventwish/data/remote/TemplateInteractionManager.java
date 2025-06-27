@@ -205,4 +205,25 @@ public class TemplateInteractionManager {
                 return task.getResult().exists();
             });
     }
+    
+    // Convenience methods for adapter compatibility
+    public boolean isTemplateLiked(String templateId) {
+        try {
+            Task<Boolean> task = checkLikeStatus(templateId);
+            return task.isSuccessful() && task.getResult();
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking like status synchronously", e);
+            return false;
+        }
+    }
+    
+    public boolean isTemplateFavorited(String templateId) {
+        try {
+            Task<Boolean> task = checkFavoriteStatus(templateId);
+            return task.isSuccessful() && task.getResult();
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking favorite status synchronously", e);
+            return false;
+        }
+    }
 } 

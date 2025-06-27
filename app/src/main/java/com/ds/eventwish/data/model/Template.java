@@ -563,6 +563,16 @@ public class Template {
     public String getFormattedShareCount() {
         return NumberFormatter.format(shareCount);
     }
+    
+    // Convenience methods for adapter compatibility
+    public int getLikes() { return (int) likeCount; }
+    public void setLikes(int likes) { setLikeCount(likes); }
+    
+    public int getShares() { return (int) shareCount; }
+    public void setShares(int shares) { setShareCount(shares); }
+    
+    public int getFavorites() { return (int) favoriteCount; }
+    public void setFavorites(int favorites) { setFavoriteCount(favorites); }
 
     public boolean isLiked() { return isLiked; }
     public void setLiked(boolean liked) { 

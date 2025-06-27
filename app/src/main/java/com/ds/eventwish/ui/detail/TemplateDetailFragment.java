@@ -35,6 +35,7 @@ import com.ds.eventwish.ui.render.TemplateRenderer;
 import com.ds.eventwish.utils.AnalyticsUtils;
 import com.ds.eventwish.utils.EdgeToEdgeManager;
 import com.ds.eventwish.utils.PictureInPictureManager;
+import com.ds.eventwish.utils.UserDataManager;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -42,6 +43,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+
 
 public class TemplateDetailFragment extends BaseFragment implements TemplateRenderer.TemplateRenderListener, PictureInPictureManager.PipModeCallback {
     private static final String TAG = "TemplateDetailFragment";
@@ -673,6 +675,25 @@ public class TemplateDetailFragment extends BaseFragment implements TemplateRend
                 // Track template category view
                 if (template.getCategory() != null) {
                     UserRepository.getInstance(requireContext()).trackCategoryClick(template.getCategory());
+                }
+                
+                // Get current user data
+                UserDataManager userDataManager = UserDataManager.getInstance(requireContext());
+                String userName = userDataManager.getCachedUserName();
+                String userPhoto = userDataManager.getCachedUserPhoto();
+                
+                // Set sender name automatically
+                if (binding.senderNameInput != null) {
+                    binding.senderNameInput.setText(userName);
+                }
+                
+                // Update template HTML with user photo if available
+                if (userPhoto != null && !userPhoto.isEmpty() && templateRenderer != null) {
+                    String html = template.getHtmlContent();
+                    if (html != null && html.contains("[IMAGE_URL]")) {
+                        html = html.replace("[IMAGE_URL]", userPhoto);
+                        template.setHtmlContent(html);
+                    }
                 }
                 
                 // Render template using the correct method
@@ -1424,4 +1445,6 @@ public class TemplateDetailFragment extends BaseFragment implements TemplateRend
             Log.e(TAG, "Error in onPipError", e);
         }
     }
+
+
 }

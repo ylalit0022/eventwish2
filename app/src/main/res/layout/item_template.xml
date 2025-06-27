@@ -13,8 +13,9 @@
         style="@style/Widget.EventWish.Card.Festive"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:clickable="false"
-        android:focusable="false"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackground"
         app:rippleColor="@android:color/transparent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -155,16 +156,17 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
-                <com.google.android.material.imageview.ShapeableImageView
+                <WebView
                     android:id="@+id/template_image"
                     android:layout_width="match_parent"
-                    android:layout_height="320dp"
-                    android:scaleType="centerCrop"
-                    android:contentDescription="@string/template_image_description"
+                    android:layout_height="480dp"
                     android:clickable="true"
                     android:focusable="true"
                     android:foreground="?attr/selectableItemBackground"
-                    tools:src="@drawable/placeholder_image" />
+                    android:layerType="hardware"
+                    android:scrollbars="none"
+                    android:visibility="visible"
+                    android:background="@android:color/transparent" />
 
                 <!-- Badges at top-right -->
                 <LinearLayout
