@@ -12,6 +12,7 @@ import androidx.lifecycle.MutableLiveData;
 
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.model.response.TemplateResponse;
+import com.ds.eventwish.data.model.response.FeedResponse;
 import com.ds.eventwish.data.db.AppDatabase;
 import com.ds.eventwish.data.db.TemplateDao;
 import com.ds.eventwish.data.remote.ApiService;
@@ -397,16 +398,39 @@ public class TemplateRepository {
             return;
         }
         
-        // Get templates from API
-        Call<TemplateResponse> call;
+        // Get templates from new multi-section feed API
+        boolean useMultiSectionFeed = true; // Flag to control new vs old API
         
-        if (currentCategory != null && !currentCategory.isEmpty()) {
-            call = apiService.getTemplatesByCategory(currentCategory, currentPage, PAGE_SIZE);
+        if (useMultiSectionFeed) {
+            // Use new multi-section feed API
+            if (user != null) {
+                // Authenticated user - get personalized feed
+                user.getIdToken(false).addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult() != null) {
+                        String authToken = "Bearer " + task.getResult().getToken();
+                        loadFromMultiSectionFeed(authToken, user);
+                    } else {
+                        // Fallback to default feed if token fails
+                        loadFromDefaultFeed();
+                    }
+                });
+                return; // Exit early since we're handling async
+            } else {
+                // Unauthenticated user - get default feed
+                loadFromDefaultFeed();
+                return; // Exit early
+            }
         } else {
-            call = apiService.getTemplates(currentPage, PAGE_SIZE);
+            // Legacy API call (kept for backward compatibility)
+            Call<TemplateResponse> call;
+            if (currentCategory != null && !currentCategory.isEmpty()) {
+                call = apiService.getTemplatesByCategory(currentCategory, currentPage, PAGE_SIZE);
+            } else {
+                call = apiService.getTemplates(currentPage, PAGE_SIZE);
+            }
+            
+            setCurrentCall(call);
         }
-        
-        setCurrentCall(call);
         
         Log.d(TAG, "Fetching templates from API: page=" + currentPage + ", category=" + (currentCategory == null ? "all" : currentCategory));
         
@@ -595,6 +619,215 @@ public class TemplateRepository {
                 });
             }
         });
+    }
+
+    /**
+     * Load feed from multi-section API for authenticated users
+     * @param authToken Firebase auth token
+     * @param user Firebase user
+     */
+    private void loadFromMultiSectionFeed(String authToken, FirebaseUser user) {
+        Log.d(TAG, "Loading from multi-section feed API for authenticated user" +
+              (currentCategory != null ? " with category: " + currentCategory : ""));
+        
+        // Determine which sections to include
+        String include = "personalized,trending,fresh,categories";
+        
+        // Pass category as query parameter for server-side filtering
+        String categories = currentCategory != null && !currentCategory.isEmpty() ? currentCategory : null;
+        
+        Call<FeedResponse> call = apiService.getFeed(include, categories, null, authToken);
+        
+        call.enqueue(new Callback<FeedResponse>() {
+            @Override
+            public void onResponse(Call<FeedResponse> call, Response<FeedResponse> response) {
+                AppExecutors.getInstance().networkIO().execute(() -> {
+                    try {
+                        if (response.isSuccessful() && response.body() != null) {
+                            FeedResponse feedResponse = response.body();
+                            
+                            if (feedResponse.isSuccess()) {
+                                // Convert multi-section feed to flat template list
+                                List<Template> allTemplates = convertFeedToTemplateList(feedResponse);
+                                
+                                Log.d(TAG, "Multi-section feed loaded: " + allTemplates.size() + " templates");
+                                
+                                // Apply local interaction states
+                                List<Template> processedTemplates = applyLocalInteractionStates(allTemplates, user.getUid());
+                                
+                                // Update UI on main thread
+                                AppExecutors.getInstance().mainThread().execute(() -> {
+                                    templates.setValue(processedTemplates);
+                                    loading.setValue(false);
+                                    error.setValue(null);
+                                });
+                                
+                                // Save templates to cache
+                                try {
+                                    insertAll(allTemplates, false);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error saving feed templates to database", e);
+                                }
+                            } else {
+                                // Feed API returned success=false
+                                AppExecutors.getInstance().mainThread().execute(() -> {
+                                    error.setValue("Feed error: " + feedResponse.getMessage());
+                                    loading.setValue(false);
+                                });
+                            }
+                        } else {
+                            // API error response
+                            AppExecutors.getInstance().mainThread().execute(() -> {
+                                error.setValue("Error loading feed: " + response.message());
+                                loading.setValue(false);
+                            });
+                        }
+                    } catch (Exception e) {
+                        AppExecutors.getInstance().mainThread().execute(() -> {
+                            error.setValue("Exception loading feed: " + e.getMessage());
+                            loading.setValue(false);
+                        });
+                        Log.e(TAG, "Error processing multi-section feed response", e);
+                    }
+                });
+            }
+            
+            @Override
+            public void onFailure(Call<FeedResponse> call, Throwable t) {
+                Log.e(TAG, "Multi-section feed API call failed", t);
+                
+                if (call.isCanceled()) {
+                    Log.d(TAG, "Multi-section feed call was canceled");
+                    AppExecutors.getInstance().mainThread().execute(() -> loading.setValue(false));
+                    return;
+                }
+                
+                // Fallback to legacy API or cached data
+                AppExecutors.getInstance().mainThread().execute(() -> {
+                    error.setValue("Failed to load feed: " + t.getMessage());
+                    loading.setValue(false);
+                });
+            }
+        });
+    }
+
+    /**
+     * Load default feed for unauthenticated users
+     */
+    private void loadFromDefaultFeed() {
+        Log.d(TAG, "Loading from default feed API for unauthenticated user" +
+              (currentCategory != null ? " with category: " + currentCategory : ""));
+        
+        // Determine which sections to include
+        String include = "trending,fresh,categories";
+        
+        // Pass category as query parameter for server-side filtering
+        String categories = currentCategory != null && !currentCategory.isEmpty() ? currentCategory : null;
+        
+        Call<FeedResponse> call = apiService.getDefaultFeed(include, categories, null);
+        
+        call.enqueue(new Callback<FeedResponse>() {
+            @Override
+            public void onResponse(Call<FeedResponse> call, Response<FeedResponse> response) {
+                AppExecutors.getInstance().networkIO().execute(() -> {
+                    try {
+                        if (response.isSuccessful() && response.body() != null) {
+                            FeedResponse feedResponse = response.body();
+                            
+                            if (feedResponse.isSuccess()) {
+                                // Convert multi-section feed to flat template list
+                                List<Template> allTemplates = convertFeedToTemplateList(feedResponse);
+                                
+                                Log.d(TAG, "Default feed loaded: " + allTemplates.size() + " templates");
+                                
+                                // Update UI on main thread
+                                AppExecutors.getInstance().mainThread().execute(() -> {
+                                    templates.setValue(allTemplates);
+                                    loading.setValue(false);
+                                    error.setValue(null);
+                                });
+                                
+                                // Save templates to cache
+                                try {
+                                    insertAll(allTemplates, false);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error saving default feed templates to database", e);
+                                }
+                            } else {
+                                // Feed API returned success=false
+                                AppExecutors.getInstance().mainThread().execute(() -> {
+                                    error.setValue("Default feed error: " + feedResponse.getMessage());
+                                    loading.setValue(false);
+                                });
+                            }
+                        } else {
+                            // API error response
+                            AppExecutors.getInstance().mainThread().execute(() -> {
+                                error.setValue("Error loading default feed: " + response.message());
+                                loading.setValue(false);
+                            });
+                        }
+                    } catch (Exception e) {
+                        AppExecutors.getInstance().mainThread().execute(() -> {
+                            error.setValue("Exception loading default feed: " + e.getMessage());
+                            loading.setValue(false);
+                        });
+                        Log.e(TAG, "Error processing default feed response", e);
+                    }
+                });
+            }
+            
+            @Override
+            public void onFailure(Call<FeedResponse> call, Throwable t) {
+                Log.e(TAG, "Default feed API call failed", t);
+                
+                if (call.isCanceled()) {
+                    Log.d(TAG, "Default feed call was canceled");
+                    AppExecutors.getInstance().mainThread().execute(() -> loading.setValue(false));
+                    return;
+                }
+                
+                // Fallback to cached data or legacy API
+                AppExecutors.getInstance().mainThread().execute(() -> {
+                    error.setValue("Failed to load default feed: " + t.getMessage());
+                    loading.setValue(false);
+                });
+            }
+        });
+    }
+
+    /**
+     * Convert multi-section feed response to flat template list
+     * @param feedResponse The multi-section feed response
+     * @return Flat list of templates from all sections
+     */
+    private List<Template> convertFeedToTemplateList(FeedResponse feedResponse) {
+        List<Template> allTemplates = new ArrayList<>();
+        
+        if (feedResponse.getSections() != null) {
+            // Server-side filtering is now handled by the API, so we just collect all templates
+            Log.d(TAG, "Converting multi-section feed to flat template list" + 
+                  (currentCategory != null ? " (server-filtered by category: " + currentCategory + ")" : ""));
+            
+            for (FeedResponse.FeedSection section : feedResponse.getSections()) {
+                List<Template> sectionTemplates = section.getTemplates();
+                if (sectionTemplates != null && !sectionTemplates.isEmpty()) {
+                    // Add section metadata to templates for potential UI differentiation
+                    for (Template template : sectionTemplates) {
+                        // You could add section type as metadata if needed
+                        // template.setSectionType(section.getType());
+                    }
+                    allTemplates.addAll(sectionTemplates);
+                    Log.d(TAG, "Added " + sectionTemplates.size() + " templates from " + section.getType() + " section");
+                }
+            }
+        }
+        
+        Log.d(TAG, "Converted " + (feedResponse.getSections() != null ? feedResponse.getSections().size() : 0) + 
+              " sections to " + allTemplates.size() + " templates" + 
+              (currentCategory != null ? " (server-filtered by category: " + currentCategory + ")" : ""));
+        
+        return allTemplates;
     }
 
     /**

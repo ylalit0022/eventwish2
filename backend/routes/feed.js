@@ -3,6 +3,7 @@ const router = express.Router();
 const feedService = require('../services/feedService');
 const userProfileService = require('../services/userProfileService');
 const templateScoringService = require('../services/templateScoringService');
+const websocketService = require('../services/websocketService');
 const { verifyFirebaseToken, optionalFirebaseAuth } = require('../middleware/auth');
 const { validateDeviceId } = require('../middleware/validators');
 const logger = require('../utils/logger');
@@ -14,10 +15,87 @@ const logger = require('../utils/logger');
 
 /**
  * GET /api/feed
- * Get personalized feed for authenticated user
- * Query params: page, limit, refresh, categories, templateTypes
+ * Get multi-section personalized feed for authenticated user
+ * Query params: include, refresh, categories, templateTypes
+ * 
+ * include: Comma-separated list of sections (personalized,trending,fresh,categories,serendipity)
+ * refresh: Force refresh of cached feed
+ * categories: Filter by specific categories
+ * templateTypes: Filter by template types
  */
 router.get('/', verifyFirebaseToken, async (req, res) => {
+    const startTime = Date.now();
+    
+    try {
+        const uid = req.user.uid;
+        const {
+            include = 'personalized,trending,fresh,categories',
+            refresh = false,
+            categories,
+            templateTypes
+        } = req.query;
+
+        logger.info(`🎯 Multi-section feed request from user: ${uid}`, {
+            include: include,
+            refresh: refresh === 'true',
+            categories: categories ? categories.split(',') : null,
+            templateTypes: templateTypes ? templateTypes.split(',') : null
+        });
+
+        // Validate and sanitize parameters
+        const refreshFlag = refresh === 'true' || refresh === true;
+
+        // Parse filters
+        const filters = {};
+        if (categories) {
+            filters.categories = categories.split(',').map(c => c.trim()).filter(Boolean);
+        }
+        if (templateTypes) {
+            filters.templateTypes = templateTypes.split(',').map(t => t.trim()).filter(Boolean);
+        }
+
+        // Generate multi-section feed
+        const feedResponse = await feedService.generateMultiSectionFeed(uid, {
+            include: include,
+            refresh: refreshFlag,
+            ...filters
+        });
+
+        // Add request metadata
+        feedResponse.metadata.requestId = req.id || `feed_${Date.now()}`;
+        feedResponse.metadata.responseTime = Date.now() - startTime;
+        feedResponse.metadata.endpoint = '/api/feed';
+
+        logger.info(`✅ Multi-section feed generated for ${uid} in ${Date.now() - startTime}ms`, {
+            sectionsCount: feedResponse.sections.length,
+            totalTemplates: feedResponse.sections.reduce((sum, section) => sum + section.templates.length, 0),
+            cached: feedResponse.metadata.cached || false
+        });
+
+        res.json({
+            success: true,
+            data: feedResponse,
+            message: 'Multi-section feed generated successfully'
+        });
+
+    } catch (error) {
+        logger.error('❌ Error generating multi-section feed:', error);
+        
+        res.status(500).json({
+            success: false,
+            error: 'Failed to generate multi-section feed',
+            message: 'An error occurred while generating your personalized feed. Please try again.',
+            requestId: req.id || `feed_error_${Date.now()}`
+        });
+    }
+});
+
+/**
+ * GET /api/feed/legacy
+ * Get flat template list for backward compatibility
+ * Query params: page, limit, refresh, categories, templateTypes
+ */
+router.get('/legacy', verifyFirebaseToken, async (req, res) => {
     const startTime = Date.now();
     
     try {
@@ -30,12 +108,10 @@ router.get('/', verifyFirebaseToken, async (req, res) => {
             templateTypes
         } = req.query;
 
-        logger.info(`🎯 Feed request from user: ${uid}`, {
+        logger.info(`🔄 Legacy feed request from user: ${uid}`, {
             page: parseInt(page),
             limit: parseInt(limit),
-            refresh: refresh === 'true',
-            categories: categories ? categories.split(',') : null,
-            templateTypes: templateTypes ? templateTypes.split(',') : null
+            refresh: refresh === 'true'
         });
 
         // Validate parameters
@@ -52,7 +128,7 @@ router.get('/', verifyFirebaseToken, async (req, res) => {
             filters.templateTypes = templateTypes.split(',').map(t => t.trim()).filter(Boolean);
         }
 
-        // Generate personalized feed
+        // Generate legacy flat feed
         const feedResponse = await feedService.generatePersonalizedFeed(uid, {
             page: pageNum,
             limit: limitNum,
@@ -61,11 +137,11 @@ router.get('/', verifyFirebaseToken, async (req, res) => {
         });
 
         // Add request metadata
-        feedResponse.metadata.requestId = req.id || `feed_${Date.now()}`;
+        feedResponse.metadata.requestId = req.id || `legacy_feed_${Date.now()}`;
         feedResponse.metadata.responseTime = Date.now() - startTime;
-        feedResponse.metadata.endpoint = '/api/feed';
+        feedResponse.metadata.endpoint = '/api/feed/legacy';
 
-        logger.info(`✅ Feed generated for ${uid} in ${Date.now() - startTime}ms`, {
+        logger.info(`✅ Legacy feed generated for ${uid} in ${Date.now() - startTime}ms`, {
             templatesCount: feedResponse.templates.length,
             page: pageNum,
             cached: feedResponse.metadata.cached || false
@@ -74,46 +150,40 @@ router.get('/', verifyFirebaseToken, async (req, res) => {
         res.json({
             success: true,
             data: feedResponse,
-            message: 'Personalized feed generated successfully'
+            message: 'Legacy feed generated successfully'
         });
 
     } catch (error) {
-        logger.error('❌ Error generating personalized feed:', error);
+        logger.error('❌ Error generating legacy feed:', error);
         
         res.status(500).json({
             success: false,
-            error: 'Failed to generate personalized feed',
-            message: 'An error occurred while generating your personalized feed. Please try again.',
-            requestId: req.id || `feed_error_${Date.now()}`
+            error: 'Failed to generate legacy feed',
+            message: 'An error occurred while generating your feed. Please try again.',
+            requestId: req.id || `legacy_feed_error_${Date.now()}`
         });
     }
 });
 
 /**
  * GET /api/feed/default
- * Get default feed for unauthenticated users or fallback
- * Query params: page, limit, categories, templateTypes
+ * Get default multi-section feed for unauthenticated users or fallback
+ * Query params: include, categories, templateTypes
  */
 router.get('/default', optionalFirebaseAuth, async (req, res) => {
     const startTime = Date.now();
     
     try {
         const {
-            page = 1,
-            limit = 20,
+            include = 'trending,fresh',
             categories,
             templateTypes
         } = req.query;
 
-        logger.info('🔄 Default feed request', {
-            page: parseInt(page),
-            limit: parseInt(limit),
+        logger.info('🔄 Default multi-section feed request', {
+            include: include,
             authenticated: !!req.user
         });
-
-        // Validate parameters
-        const pageNum = Math.max(1, parseInt(page) || 1);
-        const limitNum = Math.min(50, Math.max(1, parseInt(limit) || 20));
 
         // Parse filters
         const filters = {};
@@ -124,10 +194,9 @@ router.get('/default', optionalFirebaseAuth, async (req, res) => {
             filters.templateTypes = templateTypes.split(',').map(t => t.trim()).filter(Boolean);
         }
 
-        // Generate default feed
-        const feedResponse = await feedService.generateDefaultFeed({
-            page: pageNum,
-            limit: limitNum,
+        // Generate default multi-section feed
+        const feedResponse = await feedService.generateDefaultMultiSectionFeed({
+            include: include,
             ...filters
         });
 
@@ -136,23 +205,23 @@ router.get('/default', optionalFirebaseAuth, async (req, res) => {
         feedResponse.metadata.responseTime = Date.now() - startTime;
         feedResponse.metadata.endpoint = '/api/feed/default';
 
-        logger.info(`✅ Default feed generated in ${Date.now() - startTime}ms`, {
-            templatesCount: feedResponse.templates.length,
-            page: pageNum
+        logger.info(`✅ Default multi-section feed generated in ${Date.now() - startTime}ms`, {
+            sectionsCount: feedResponse.sections.length,
+            totalTemplates: feedResponse.sections.reduce((sum, section) => sum + section.templates.length, 0)
         });
 
         res.json({
             success: true,
             data: feedResponse,
-            message: 'Default feed generated successfully'
+            message: 'Default multi-section feed generated successfully'
         });
 
     } catch (error) {
-        logger.error('❌ Error generating default feed:', error);
+        logger.error('❌ Error generating default multi-section feed:', error);
         
         res.status(500).json({
             success: false,
-            error: 'Failed to generate default feed',
+            error: 'Failed to generate default multi-section feed',
             message: 'An error occurred while generating the feed. Please try again.',
             requestId: req.id || `default_feed_error_${Date.now()}`
         });

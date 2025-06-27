@@ -3,6 +3,7 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const User = require('../../models/User');
 const Template = require('../../models/Template');
+const websocketService = require('../../services/websocketService');
 const logger = require('../../utils/logger');
 const { validateFirebaseUid } = require('../../middleware/validators');
 const { verifyFirebaseToken } = require('../../middleware/auth');
@@ -299,6 +300,19 @@ router.put('/:uid/favorites/:templateId', validateFirebaseUid, verifyFirebaseTok
                 }
                 
                 logger.info(`User ${uid} favorited template ${templateId}`);
+                
+                // 🔗 NEW: Broadcast real-time update via WebSocket
+                try {
+                    websocketService.broadcastTemplateUpdate(template, 'favorited');
+                    
+                    // Also trigger feed refresh for the user who performed the action
+                    await websocketService.queueFeedUpdate(uid, 'template_favorited');
+                    
+                    logger.info(`📡 WebSocket broadcast sent for template favorite: ${templateId}`);
+                } catch (wsError) {
+                    logger.warn(`WebSocket broadcast failed for template favorite: ${wsError.message}`);
+                    // Don't fail the request if WebSocket fails
+                }
                 
                 // In the favorite route, add more detailed logging
                 logger.info(`User lookup result: ${user ? 'User found' : 'User NOT found'}`, { 
@@ -717,6 +731,19 @@ router.put('/:uid/likes/:templateId', validateFirebaseUid, verifyFirebaseToken, 
                 }
                 
                 logger.info(`Like operation completed successfully for user ${uid}, template ${templateId}`);
+                
+                // 🔗 NEW: Broadcast real-time update via WebSocket
+                try {
+                    websocketService.broadcastTemplateUpdate(template, 'liked');
+                    
+                    // Also trigger feed refresh for the user who performed the action
+                    await websocketService.queueFeedUpdate(uid, 'template_liked');
+                    
+                    logger.info(`📡 WebSocket broadcast sent for template like: ${templateId}`);
+                } catch (wsError) {
+                    logger.warn(`WebSocket broadcast failed for template like: ${wsError.message}`);
+                    // Don't fail the request if WebSocket fails
+                }
                 
                 return res.status(200).json({
                     success: true,

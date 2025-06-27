@@ -76,6 +76,7 @@
     "path-is-absolute": "^2.0.0",
     "readable-stream": "^4.7.0",
     "redis": "^4.6.11",
+    "socket.io": "^4.8.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-parser": "^10.0.3",
     "swagger-ui-dist": "^5.9.0",

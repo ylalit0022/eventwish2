@@ -12,6 +12,7 @@ import com.ds.eventwish.data.model.response.BaseResponse;
 import com.ds.eventwish.data.model.response.CategoryIconResponse;
 import com.ds.eventwish.data.model.response.SessionsResponse;
 import com.ds.eventwish.data.model.response.TemplateResponse;
+import com.ds.eventwish.data.model.response.FeedResponse;
 import com.ds.eventwish.data.model.response.WishResponse;
 import com.ds.eventwish.data.model.ServerTimeResponse;
 import com.ds.eventwish.data.model.response.AdMobResponse;
@@ -24,6 +25,7 @@ import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.DELETE;
 import retrofit2.http.GET;
+import retrofit2.http.Header;
 import retrofit2.http.HeaderMap;
 import retrofit2.http.POST;
 import retrofit2.http.PUT;
@@ -34,7 +36,33 @@ import retrofit2.http.QueryMap;
 import com.google.gson.JsonObject;
 
 public interface ApiService {
-    // Template endpoints
+    // Feed endpoints - New multi-section feed API
+    @GET("feed")
+    Call<FeedResponse> getFeed(
+        @Query("include") String include,
+        @Query("categories") String categories,
+        @Query("templateTypes") String templateTypes,
+        @Header("Authorization") String authToken
+    );
+
+    @GET("feed/default")
+    Call<FeedResponse> getDefaultFeed(
+        @Query("include") String include,
+        @Query("categories") String categories,
+        @Query("templateTypes") String templateTypes
+    );
+
+    @GET("feed/legacy")
+    Call<TemplateResponse> getLegacyFeed(
+        @Query("page") int page,
+        @Query("limit") int limit,
+        @Query("refresh") boolean refresh,
+        @Query("categories") String categories,
+        @Query("templateTypes") String templateTypes,
+        @Header("Authorization") String authToken
+    );
+
+    // Template endpoints - Kept for backward compatibility
     @GET("templates")
     Call<TemplateResponse> getTemplates(
         @Query("page") int page,

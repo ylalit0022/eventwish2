@@ -78,6 +78,7 @@ import com.ds.eventwish.utils.AnalyticsUtils;
 import com.ds.eventwish.ui.ads.SponsoredAdView;
 
 import com.ds.eventwish.utils.NotificationPermissionManager;
+import com.ds.eventwish.services.WebSocketService;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import android.provider.Settings;
@@ -126,6 +127,7 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
     private static final long PAGINATION_CHECK_INTERVAL = 1500; // 1.5 seconds between checks
 
     private InternetConnectivityChecker.NetworkStateObserver networkStateObserver;
+    private WebSocketService webSocketService;
 
     private View signInProgressContainer;
     private View signInProgress;
@@ -177,6 +179,10 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
         if (!FirebaseInAppMessagingHandler.getInstance().isInitialized()) {
             FirebaseInAppMessagingHandler.init(requireContext());
         }
+        
+        // Initialize WebSocket service for real-time updates
+        webSocketService = WebSocketService.getInstance();
+        setupWebSocketObservers();
 
         // Initialize CategoryIconRepository
         if (categoryIconRepository == null) {
@@ -272,6 +278,11 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
         }
         
         // No need to duplicate tracking code here as it's now in BaseFragment
+        
+        // Connect to WebSocket for real-time updates
+        if (webSocketService != null && isUserAuthenticated()) {
+            webSocketService.connect();
+        }
         
         // Reset pagination and end message flags on resume
         hasShownEndMessage = false;
@@ -1556,6 +1567,82 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
         };
         InternetConnectivityChecker.getInstance(requireContext()).observe(getViewLifecycleOwner(), networkStateObserver);
     }
+    
+    /**
+     * Setup WebSocket observers for real-time updates
+     */
+    private void setupWebSocketObservers() {
+        if (webSocketService == null) return;
+        
+        // Observe connection status
+        webSocketService.getConnectionStatusLiveData().observe(getViewLifecycleOwner(), status -> {
+            if (status != null) {
+                Log.d(TAG, "WebSocket connection status: " + status);
+                
+                switch (status) {
+                    case CONNECTED:
+                        Log.d(TAG, "WebSocket connected");
+                        break;
+                    case AUTHENTICATED:
+                        Log.d(TAG, "WebSocket authenticated - ready for real-time updates");
+                        break;
+                    case DISCONNECTED:
+                        Log.d(TAG, "WebSocket disconnected");
+                        break;
+                    case ERROR:
+                        Log.e(TAG, "WebSocket connection error");
+                        break;
+                }
+            }
+        });
+        
+        // Observe real-time feed updates
+        webSocketService.getFeedUpdateLiveData().observe(getViewLifecycleOwner(), feedResponse -> {
+            if (feedResponse != null && feedResponse.getSections() != null) {
+                Log.d(TAG, "Real-time feed update received: " + feedResponse.getSections().size() + " sections");
+                
+                // Show a subtle notification to user about new content
+                if (isAdded() && getActivity() != null) {
+                    Snackbar.make(binding.getRoot(), 
+                        "New content available! Pull down to refresh.", 
+                        Snackbar.LENGTH_LONG)
+                        .setAction("Refresh", v -> {
+                            binding.swipeRefreshLayout.setRefreshing(true);
+                            loadTemplates();
+                        })
+                        .show();
+                }
+            }
+        });
+        
+        // Observe template interactions from other users
+        webSocketService.getTemplateInteractionLiveData().observe(getViewLifecycleOwner(), interaction -> {
+            if (interaction != null) {
+                Log.d(TAG, "Real-time template interaction: " + interaction.action + " on " + interaction.templateId);
+                
+                // Update the template in the current list if it's visible
+                if (viewModel != null && viewModel.getTemplates().getValue() != null) {
+                    List<Template> currentTemplates = viewModel.getTemplates().getValue();
+                    for (Template template : currentTemplates) {
+                        if (template.getId().equals(interaction.templateId)) {
+                            // Refresh this specific template to get updated counts
+                            // This could be optimized to update counts locally
+                            Log.d(TAG, "Template " + interaction.templateId + " found in current list");
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Observe WebSocket errors
+        webSocketService.getErrorLiveData().observe(getViewLifecycleOwner(), error -> {
+            if (error != null) {
+                Log.e(TAG, "WebSocket error: " + error);
+                // Only show error if it's critical, otherwise log silently
+            }
+        });
+    }
 
     private void loadTemplates() {
         if (viewModel != null) {
@@ -2441,6 +2528,11 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.OnItem
             } catch (Exception e) {
                 Log.e(TAG, "Error handling sponsored ad in onPause: " + e.getMessage());
             }
+        }
+        
+        // Disconnect WebSocket to save battery and data
+        if (webSocketService != null && webSocketService.isConnected()) {
+            webSocketService.disconnect();
         }
     }
 

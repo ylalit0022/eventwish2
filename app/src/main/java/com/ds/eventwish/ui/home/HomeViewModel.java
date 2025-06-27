@@ -38,6 +38,7 @@ import com.google.firebase.auth.FirebaseUser;
 import com.ds.eventwish.utils.AppExecutors;
 import com.ds.eventwish.data.auth.AuthManager;
 import com.ds.eventwish.utils.StringUtils;
+import com.ds.eventwish.services.WebSocketService;
 
 public class HomeViewModel extends ViewModel {
     private static final String TAG = "HomeViewModel";
@@ -48,6 +49,7 @@ public class HomeViewModel extends ViewModel {
     private final Set<String> viewedTemplateIds = new HashSet<>();
     private final MutableLiveData<String> userName = new MutableLiveData<>("EventWish");
     private UserRepository userRepository;
+    private WebSocketService webSocketService;
     
 
     
@@ -113,6 +115,7 @@ public class HomeViewModel extends ViewModel {
         this.appContext = context.getApplicationContext();
         this.updateManager = TemplateUpdateManager.getInstance(context);
         this.userRepository = UserRepository.getInstance(context.getApplicationContext());
+        this.webSocketService = WebSocketService.getInstance();
         
         // Load user name
         loadUserName();
@@ -336,31 +339,30 @@ public class HomeViewModel extends ViewModel {
                       
                 if (templates == null) {
                     Log.e(TAG, "Templates observer received null templates list");
-                    return;
-                }
-                
-                if (templates.isEmpty()) {
+                    // Don't return early - let the UI handle null state
+                } else if (templates.isEmpty()) {
                     Log.d(TAG, "Templates observer received empty templates list");
-                    return;
+                    // Don't return early - let the UI handle empty state
+                    // The HomeFragment needs to know about the empty state to show proper UI
+                } else {
+                    // Create a new list to avoid modifying the repository's list directly
+                    List<Template> sortedTemplates = new ArrayList<>(templates);
+                    
+                    // Sort by creation date (newest first)
+                    Collections.sort(sortedTemplates, (t1, t2) -> {
+                        long time1 = t1.getCreatedAtTimestamp();
+                        long time2 = t2.getCreatedAtTimestamp();
+                        // Sort in descending order (newest first)
+                        return Long.compare(time2, time1);
+                    });
+                    
+                    Log.d(TAG, "Sorted " + sortedTemplates.size() + " templates by creation date (newest first)");
+                    
+                    // Check for new templates in the sorted list
+                    checkForNewTemplates(sortedTemplates);
                 }
                 
-                // Create a new list to avoid modifying the repository's list directly
-                List<Template> sortedTemplates = new ArrayList<>(templates);
-                
-                // Sort by creation date (newest first)
-                Collections.sort(sortedTemplates, (t1, t2) -> {
-                    long time1 = t1.getCreatedAtTimestamp();
-                    long time2 = t2.getCreatedAtTimestamp();
-                    // Sort in descending order (newest first)
-                    return Long.compare(time2, time1);
-                });
-                
-                Log.d(TAG, "Sorted " + sortedTemplates.size() + " templates by creation date (newest first)");
-                
-                // Check for new templates in the sorted list
-                checkForNewTemplates(sortedTemplates);
-                
-                // Remove observer to avoid multiple callbacks
+                // Always remove observer after first callback to avoid multiple callbacks
                 repository.getTemplates().removeObserver(this);
             }
         };
@@ -950,6 +952,15 @@ public class HomeViewModel extends ViewModel {
             AnalyticsUtils.getInstance().trackTemplateUnlike(template.getId(), "home_feed");
         }
         
+        // Send real-time update via WebSocket
+        if (webSocketService != null && webSocketService.isAuthenticated()) {
+            webSocketService.sendTemplateInteraction(
+                template.getId(), 
+                currentLikeState ? "liked" : "unliked", 
+                template.getCategory()
+            );
+        }
+        
         // Log the state for debugging
         Log.d(TAG, "Sending like state to repository: template=" + template.getId() + 
               ", isLiked=" + currentLikeState);
@@ -976,6 +987,15 @@ public class HomeViewModel extends ViewModel {
             AnalyticsUtils.getInstance().trackTemplateFavorite(template.getId(), "home_feed");
         } else {
             AnalyticsUtils.getInstance().trackTemplateUnfavorite(template.getId(), "home_feed");
+        }
+        
+        // Send real-time update via WebSocket
+        if (webSocketService != null && webSocketService.isAuthenticated()) {
+            webSocketService.sendTemplateInteraction(
+                template.getId(), 
+                currentFavoriteState ? "favorited" : "unfavorited", 
+                template.getCategory()
+            );
         }
         
         // Log the state for debugging

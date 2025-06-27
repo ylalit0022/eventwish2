@@ -24,6 +24,7 @@ const logger = require('./config/logger');
 const monitoringController = require('./controllers/monitoringController');
 const loadBalancer = require('./config/loadBalancer');
 const swagger = require('./config/swagger');
+const websocketService = require('./services/websocketService');
 // Initialize Firebase Admin SDK
 require('./config/firebase');
 // Import job scheduler
@@ -340,7 +341,10 @@ try {
   catch (e) { console.error('❌ Failed to load users routes:', e.message); }
   
   try { app.use('/api/feed', require('./routes/feed')); console.log('✅ Loaded feed routes (personalized)'); } 
-  catch (e) { console.error('❌ Failed to load feed routes:', e.message); }
+catch (e) { console.error('❌ Failed to load feed routes:', e.message); }
+
+try { app.use('/api/websocket', require('./routes/websocket')); console.log('✅ Loaded websocket routes (real-time)'); }
+catch (e) { console.error('❌ Failed to load websocket routes:', e.message); }
   
   try { app.use('/api/sponsored-ads', require('./routes/sponsoredAds')); console.log('✅ Loaded sponsoredAds routes'); } 
   catch (e) { console.error('❌ Failed to load sponsoredAds routes:', e.message); }
@@ -466,6 +470,10 @@ try {
   server = app.listen(PORT, () => {
     console.log(`✅ Server running on port ${PORT}`);
     logger.info(`Server running on port ${PORT}`);
+    
+    // Initialize WebSocket service
+    websocketService.initialize(server);
+    console.log(`🔗 WebSocket service initialized`);
   });
 
   server.on('error', (error) => {

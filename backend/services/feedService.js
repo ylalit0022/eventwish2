@@ -6,7 +6,7 @@ const logger = require('../utils/logger');
 
 /**
  * Core Feed Service - Orchestrates personalized feed generation
- * Handles the main logic for creating personalized feeds for users
+ * Handles multi-section feed generation with personalized, trending, fresh, and category sections
  */
 class FeedService {
     constructor() {
@@ -18,220 +18,489 @@ class FeedService {
             fresh: 0.1,         // 10% fresh content
             serendipity: 0.1    // 10% serendipity content
         };
+        // Multi-section configuration
+        this.sectionConfig = {
+            personalized: { title: "Just For You", maxItems: 8 },
+            trending: { title: "Trending Now", maxItems: 6 },
+            fresh: { title: "New Uploads", maxItems: 4 },
+            categories: { title: "Popular Categories", maxItems: 5 },
+            serendipity: { title: "Discover Something New", maxItems: 3 }
+        };
     }
 
     /**
-     * Generate personalized feed for a user
+     * Generate multi-section feed for a user
      * @param {string} uid - User Firebase UID
      * @param {Object} options - Feed generation options
-     * @returns {Object} Personalized feed with templates and metadata
+     * @returns {Object} Multi-section feed with different content types
      */
-    async generatePersonalizedFeed(uid, options = {}) {
+    async generateMultiSectionFeed(uid, options = {}) {
         const startTime = Date.now();
         
         try {
-            logger.info(`🎯 Generating personalized feed for user: ${uid}`);
+            logger.info(`🎯 Generating multi-section feed for user: ${uid}`);
             
             // Extract options with defaults
             const {
-                page = 1,
-                limit = this.defaultPageSize,
+                include = 'personalized,trending,fresh,categories',
                 refresh = false,
                 categories = null,
                 templateTypes = null
             } = options;
             
-            // Validate and sanitize inputs
-            const pageSize = Math.min(limit, this.maxPageSize);
-            const skipCount = (page - 1) * pageSize;
+            // Parse included sections
+            const includedSections = include.split(',').map(s => s.trim()).filter(Boolean);
             
             // Step 1: Get user profile and preferences
             const userProfile = await userProfileService.getUserProfile(uid);
             if (!userProfile) {
-                logger.warn(`⚠️ User profile not found for uid: ${uid}, using default feed`);
-                return await this.generateDefaultFeed(options);
+                logger.warn(`⚠️ User profile not found for uid: ${uid}, using default multi-section feed`);
+                return await this.generateDefaultMultiSectionFeed(options);
             }
             
             // Step 2: Check for cached feed (if not refresh)
             if (!refresh) {
-                const cachedFeed = await this.getCachedFeed(uid, page, pageSize);
+                const cachedFeed = await this.getCachedMultiSectionFeed(uid, includedSections);
                 if (cachedFeed) {
-                    logger.info(`📋 Returning cached feed for user: ${uid}, page: ${page}`);
+                    logger.info(`📋 Returning cached multi-section feed for user: ${uid}`);
                     return cachedFeed;
                 }
             }
             
-            // Step 3: Calculate feed composition based on user preferences
-            const composition = this.calculateFeedComposition(userProfile);
-            const templateCounts = this.calculateTemplateCounts(pageSize, composition);
+            // Step 3: Generate sections based on included sections
+            const sections = [];
             
-            logger.info(`🎨 Feed composition for ${uid}:`, templateCounts);
+            // Generate personalized section
+            if (includedSections.includes('personalized')) {
+                const personalizedSection = await this.generatePersonalizedSection(userProfile, options);
+                if (personalizedSection.templates.length > 0) {
+                    sections.push(personalizedSection);
+                }
+            }
             
-            // Step 4: Fetch candidate templates for each category
-            const candidateTemplates = await this.fetchCandidateTemplates(
-                userProfile, 
-                templateCounts, 
-                { categories, templateTypes }
-            );
+            // Generate trending section
+            if (includedSections.includes('trending')) {
+                const trendingSection = await this.generateTrendingSection(userProfile, options);
+                if (trendingSection.templates.length > 0) {
+                    sections.push(trendingSection);
+                }
+            }
             
-            // Step 5: Score and rank all candidates
-            const scoredTemplates = await templateScoringService.scoreTemplatesForUser(
-                candidateTemplates,
-                userProfile
-            );
+            // Generate fresh section
+            if (includedSections.includes('fresh')) {
+                const freshSection = await this.generateFreshSection(userProfile, options);
+                if (freshSection.templates.length > 0) {
+                    sections.push(freshSection);
+                }
+            }
             
-            // Step 6: Apply diversity and serendipity
-            const diversifiedTemplates = this.applyDiversityFilters(scoredTemplates, userProfile);
+            // Generate category sections
+            if (includedSections.includes('categories')) {
+                const categorySections = await this.generateCategorySections(userProfile, options);
+                sections.push(...categorySections);
+            }
             
-            // Step 7: Paginate and format results
-            const paginatedTemplates = diversifiedTemplates.slice(skipCount, skipCount + pageSize);
+            // Generate serendipity section
+            if (includedSections.includes('serendipity')) {
+                const serendipitySection = await this.generateSerendipitySection(userProfile, options);
+                if (serendipitySection.templates.length > 0) {
+                    sections.push(serendipitySection);
+                }
+            }
             
-            // Step 8: Create feed response
+            // Step 4: Create multi-section feed response
             const feedResponse = {
-                templates: paginatedTemplates,
-                pagination: {
-                    page: page,
-                    limit: pageSize,
-                    total: diversifiedTemplates.length,
-                    hasMore: (skipCount + pageSize) < diversifiedTemplates.length
-                },
+                sections: sections,
                 metadata: {
                     generatedAt: new Date(),
                     userProfile: {
                         uid: userProfile.uid,
-                        preferences: userProfile.preferences,
-                        composition: composition
+                        preferences: userProfile.preferences
                     },
                     performance: {
                         generationTime: Date.now() - startTime,
-                        candidateCount: candidateTemplates.length,
-                        finalCount: paginatedTemplates.length
+                        sectionsCount: sections.length,
+                        totalTemplates: sections.reduce((sum, section) => sum + section.templates.length, 0)
+                    },
+                    configuration: {
+                        includedSections: includedSections,
+                        sectionConfig: this.sectionConfig
                     }
                 }
             };
             
-            // Step 9: Cache the feed for future requests
-            await this.cacheFeed(uid, feedResponse, page);
+            // Step 5: Cache the multi-section feed
+            await this.cacheMultiSectionFeed(uid, feedResponse, includedSections);
             
-            logger.info(`✅ Generated personalized feed for ${uid} in ${Date.now() - startTime}ms`);
+            logger.info(`✅ Generated multi-section feed for ${uid} in ${Date.now() - startTime}ms`);
             return feedResponse;
             
         } catch (error) {
-            logger.error(`❌ Error generating personalized feed for ${uid}:`, error);
+            logger.error(`❌ Error generating multi-section feed for ${uid}:`, error);
             
-            // Fallback to default feed on error
-            logger.info(`🔄 Falling back to default feed for ${uid}`);
-            return await this.generateDefaultFeed(options);
+            // Fallback to default multi-section feed on error
+            logger.info(`🔄 Falling back to default multi-section feed for ${uid}`);
+            return await this.generateDefaultMultiSectionFeed(options);
         }
     }
-    
+
     /**
-     * Calculate feed composition based on user profile
-     * @param {Object} userProfile - User profile with preferences
-     * @returns {Object} Adjusted composition percentages
+     * Generate personalized section
      */
-    calculateFeedComposition(userProfile) {
-        const baseComposition = { ...this.feedComposition };
-        
-        // Adjust based on user engagement patterns
-        if (userProfile.engagementLevel === 'high') {
-            baseComposition.personalized += 0.1;
-            baseComposition.serendipity -= 0.1;
-        } else if (userProfile.engagementLevel === 'low') {
-            baseComposition.trending += 0.1;
-            baseComposition.personalized -= 0.1;
-        }
-        
-        // Adjust for new users (less than 7 days old)
-        if (userProfile.isNewUser) {
-            baseComposition.trending += 0.15;
-            baseComposition.fresh += 0.05;
-            baseComposition.personalized -= 0.2;
-        }
-        
-        // Adjust for premium users
-        if (userProfile.isPremium) {
-            baseComposition.fresh += 0.05;
-            baseComposition.serendipity += 0.05;
-            baseComposition.trending -= 0.1;
-        }
-        
-        return baseComposition;
-    }
-    
-    /**
-     * Calculate template counts for each category
-     * @param {number} totalCount - Total templates needed
-     * @param {Object} composition - Feed composition percentages
-     * @returns {Object} Template counts for each category
-     */
-    calculateTemplateCounts(totalCount, composition) {
-        return {
-            personalized: Math.round(totalCount * composition.personalized),
-            trending: Math.round(totalCount * composition.trending),
-            fresh: Math.round(totalCount * composition.fresh),
-            serendipity: Math.round(totalCount * composition.serendipity)
-        };
-    }
-    
-    /**
-     * Fetch candidate templates for scoring
-     * @param {Object} userProfile - User profile with preferences
-     * @param {Object} templateCounts - Required template counts per category
-     * @param {Object} filters - Additional filters
-     * @returns {Array} Array of candidate templates
-     */
-    async fetchCandidateTemplates(userProfile, templateCounts, filters = {}) {
-        const candidates = [];
-        
+    async generatePersonalizedSection(userProfile, options = {}) {
         try {
-            // Fetch personalized candidates based on user preferences
-            if (templateCounts.personalized > 0) {
-                const personalizedCandidates = await this.fetchPersonalizedCandidates(
-                    userProfile, 
-                    templateCounts.personalized * 3, // Fetch 3x for better selection
-                    filters
-                );
-                candidates.push(...personalizedCandidates.map(t => ({ ...t, category: 'personalized' })));
+            const maxItems = this.sectionConfig.personalized.maxItems;
+            const personalizedCandidates = await this.fetchPersonalizedCandidates(
+                userProfile, 
+                maxItems * 2, // Fetch more for better selection
+                options
+            );
+            
+            const scoredTemplates = await templateScoringService.scoreTemplatesForUser(
+                personalizedCandidates,
+                userProfile
+            );
+            
+            const topTemplates = scoredTemplates.slice(0, maxItems);
+            
+            return {
+                type: "personalized",
+                title: this.sectionConfig.personalized.title,
+                templates: topTemplates,
+                metadata: {
+                    candidateCount: personalizedCandidates.length,
+                    finalCount: topTemplates.length
+                }
+            };
+        } catch (error) {
+            logger.error('❌ Error generating personalized section:', error);
+            return {
+                type: "personalized",
+                title: this.sectionConfig.personalized.title,
+                templates: [],
+                metadata: { error: error.message }
+            };
+        }
+    }
+
+    /**
+     * Generate trending section
+     */
+    async generateTrendingSection(userProfile, options = {}) {
+        try {
+            const maxItems = this.sectionConfig.trending.maxItems;
+            const trendingCandidates = await this.fetchTrendingCandidates(maxItems, options);
+            
+            return {
+                type: "trending",
+                title: this.sectionConfig.trending.title,
+                templates: trendingCandidates.slice(0, maxItems),
+                metadata: {
+                    candidateCount: trendingCandidates.length,
+                    finalCount: Math.min(trendingCandidates.length, maxItems)
+                }
+            };
+        } catch (error) {
+            logger.error('❌ Error generating trending section:', error);
+            return {
+                type: "trending",
+                title: this.sectionConfig.trending.title,
+                templates: [],
+                metadata: { error: error.message }
+            };
+        }
+    }
+
+    /**
+     * Generate fresh section
+     */
+    async generateFreshSection(userProfile, options = {}) {
+        try {
+            const maxItems = this.sectionConfig.fresh.maxItems;
+            const freshCandidates = await this.fetchFreshCandidates(maxItems, options);
+            
+            return {
+                type: "fresh",
+                title: this.sectionConfig.fresh.title,
+                templates: freshCandidates.slice(0, maxItems),
+                metadata: {
+                    candidateCount: freshCandidates.length,
+                    finalCount: Math.min(freshCandidates.length, maxItems)
+                }
+            };
+        } catch (error) {
+            logger.error('❌ Error generating fresh section:', error);
+            return {
+                type: "fresh",
+                title: this.sectionConfig.fresh.title,
+                templates: [],
+                metadata: { error: error.message }
+            };
+        }
+    }
+
+    /**
+     * Generate category sections based on user preferences
+     */
+    async generateCategorySections(userProfile, options = {}) {
+        try {
+            const sections = [];
+            const maxCategorySections = 2; // Limit to 2 category sections
+            const maxItemsPerCategory = 4;
+            
+            // Get user's top categories
+            const topCategories = userProfile.topCategories || [];
+            const categoriesToShow = topCategories.slice(0, maxCategorySections);
+            
+            for (const category of categoriesToShow) {
+                const categoryTemplates = await this.fetchCategoryTemplates(category, maxItemsPerCategory, options);
+                
+                if (categoryTemplates.length > 0) {
+                    sections.push({
+                        type: "category",
+                        category: category,
+                        title: `${category.charAt(0).toUpperCase() + category.slice(1)} Picks`,
+                        templates: categoryTemplates,
+                        metadata: {
+                            candidateCount: categoryTemplates.length,
+                            finalCount: categoryTemplates.length
+                        }
+                    });
+                }
             }
             
-            // Fetch trending candidates
-            if (templateCounts.trending > 0) {
-                const trendingCandidates = await this.fetchTrendingCandidates(
-                    templateCounts.trending * 2,
-                    filters
-                );
-                candidates.push(...trendingCandidates.map(t => ({ ...t, category: 'trending' })));
+            return sections;
+        } catch (error) {
+            logger.error('❌ Error generating category sections:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Generate serendipity section
+     */
+    async generateSerendipitySection(userProfile, options = {}) {
+        try {
+            const maxItems = this.sectionConfig.serendipity.maxItems;
+            const serendipityCandidates = await this.fetchSerendipityCandidates(maxItems, userProfile, options);
+            
+            return {
+                type: "serendipity",
+                title: this.sectionConfig.serendipity.title,
+                templates: serendipityCandidates.slice(0, maxItems),
+                metadata: {
+                    candidateCount: serendipityCandidates.length,
+                    finalCount: Math.min(serendipityCandidates.length, maxItems)
+                }
+            };
+        } catch (error) {
+            logger.error('❌ Error generating serendipity section:', error);
+            return {
+                type: "serendipity",
+                title: this.sectionConfig.serendipity.title,
+                templates: [],
+                metadata: { error: error.message }
+            };
+        }
+    }
+
+    /**
+     * Fetch templates for a specific category
+     */
+    async fetchCategoryTemplates(category, count, filters = {}) {
+        const query = {
+            status: true,
+            isFlagged: false,
+            moderationStatus: 'approved',
+            category: category
+        };
+        
+        // Apply additional filters
+        if (filters.templateTypes) {
+            query.templateType = { $in: filters.templateTypes };
+        }
+        
+        return await Template.find(query)
+            .sort({ weeklyTrendingScore: -1, isFeatured: -1, createdAt: -1 })
+            .limit(count)
+            .lean();
+    }
+
+    /**
+     * Generate default multi-section feed for fallback scenarios
+     */
+    async generateDefaultMultiSectionFeed(options = {}) {
+        try {
+            logger.info('🔄 Generating default multi-section feed');
+            
+            const {
+                include = 'trending,fresh',
+                categories = null,
+                templateTypes = null
+            } = options;
+            
+            const includedSections = include.split(',').map(s => s.trim()).filter(Boolean);
+            const sections = [];
+            
+            // Generate trending section for default feed
+            if (includedSections.includes('trending')) {
+                const trendingTemplates = await this.fetchTrendingCandidates(6, { categories, templateTypes });
+                if (trendingTemplates.length > 0) {
+                    sections.push({
+                        type: "trending",
+                        title: "Trending Now",
+                        templates: trendingTemplates,
+                        metadata: {
+                            candidateCount: trendingTemplates.length,
+                            finalCount: trendingTemplates.length
+                        }
+                    });
+                }
             }
             
-            // Fetch fresh candidates
-            if (templateCounts.fresh > 0) {
-                const freshCandidates = await this.fetchFreshCandidates(
-                    templateCounts.fresh * 2,
-                    filters
-                );
-                candidates.push(...freshCandidates.map(t => ({ ...t, category: 'fresh' })));
+            // Generate fresh section for default feed
+            if (includedSections.includes('fresh')) {
+                const freshTemplates = await this.fetchFreshCandidates(4, { categories, templateTypes });
+                if (freshTemplates.length > 0) {
+                    sections.push({
+                        type: "fresh",
+                        title: "New Uploads",
+                        templates: freshTemplates,
+                        metadata: {
+                            candidateCount: freshTemplates.length,
+                            finalCount: freshTemplates.length
+                        }
+                    });
+                }
             }
             
-            // Fetch serendipity candidates
-            if (templateCounts.serendipity > 0) {
-                const serendipityCandidates = await this.fetchSerendipityCandidates(
-                    templateCounts.serendipity * 2,
-                    userProfile,
-                    filters
-                );
-                candidates.push(...serendipityCandidates.map(t => ({ ...t, category: 'serendipity' })));
-            }
-            
-            logger.info(`📊 Fetched ${candidates.length} candidate templates`);
-            return candidates;
+            return {
+                sections: sections,
+                metadata: {
+                    generatedAt: new Date(),
+                    feedType: 'default',
+                    fallback: true,
+                    configuration: {
+                        includedSections: includedSections
+                    }
+                }
+            };
             
         } catch (error) {
-            logger.error('❌ Error fetching candidate templates:', error);
+            logger.error('❌ Error generating default multi-section feed:', error);
             throw error;
         }
     }
-    
+
+    /**
+     * Get cached multi-section feed if available and not expired
+     */
+    async getCachedMultiSectionFeed(uid, includedSections) {
+        try {
+            const user = await User.findOne({ uid }).lean();
+            if (!user || !user.cachedHomeFeed || !user.homeFeedLastGeneratedAt) {
+                return null;
+            }
+            
+            // Check if cache is expired (30 minutes)
+            const cacheAge = Date.now() - user.homeFeedLastGeneratedAt.getTime();
+            const cacheExpiry = 30 * 60 * 1000; // 30 minutes
+            
+            if (cacheAge > cacheExpiry) {
+                return null;
+            }
+            
+            // Convert cached templates to multi-section format
+            const cachedTemplates = user.cachedHomeFeed || [];
+            const sections = this.convertToMultiSectionFormat(cachedTemplates, includedSections);
+            
+            return {
+                sections: sections,
+                metadata: {
+                    cached: true,
+                    generatedAt: user.homeFeedLastGeneratedAt,
+                    cacheAge: Math.round(cacheAge / 1000), // in seconds
+                    configuration: {
+                        includedSections: includedSections
+                    }
+                }
+            };
+            
+        } catch (error) {
+            logger.error('❌ Error getting cached multi-section feed:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Convert flat template list to multi-section format
+     */
+    convertToMultiSectionFormat(templates, includedSections) {
+        const sections = [];
+        let currentIndex = 0;
+        
+        if (includedSections.includes('personalized') && templates.length > currentIndex) {
+            const personalizedCount = Math.min(8, templates.length - currentIndex);
+            sections.push({
+                type: "personalized",
+                title: "Just For You",
+                templates: templates.slice(currentIndex, currentIndex + personalizedCount),
+                metadata: { fromCache: true }
+            });
+            currentIndex += personalizedCount;
+        }
+        
+        if (includedSections.includes('trending') && templates.length > currentIndex) {
+            const trendingCount = Math.min(6, templates.length - currentIndex);
+            sections.push({
+                type: "trending",
+                title: "Trending Now",
+                templates: templates.slice(currentIndex, currentIndex + trendingCount),
+                metadata: { fromCache: true }
+            });
+            currentIndex += trendingCount;
+        }
+        
+        if (includedSections.includes('fresh') && templates.length > currentIndex) {
+            const freshCount = Math.min(4, templates.length - currentIndex);
+            sections.push({
+                type: "fresh",
+                title: "New Uploads",
+                templates: templates.slice(currentIndex, currentIndex + freshCount),
+                metadata: { fromCache: true }
+            });
+            currentIndex += freshCount;
+        }
+        
+        return sections;
+    }
+
+    /**
+     * Cache multi-section feed for future requests
+     */
+    async cacheMultiSectionFeed(uid, feedResponse, includedSections) {
+        try {
+            // Flatten sections into a single template array for caching
+            const allTemplates = feedResponse.sections.reduce((acc, section) => {
+                return acc.concat(section.templates);
+            }, []);
+            
+            await User.updateOne(
+                { uid },
+                {
+                    $set: {
+                        cachedHomeFeed: allTemplates,
+                        homeFeedLastGeneratedAt: new Date()
+                    }
+                }
+            );
+            logger.info(`💾 Cached multi-section feed for user: ${uid}`);
+        } catch (error) {
+            logger.error('❌ Error caching multi-section feed:', error);
+            // Don't throw error, caching is not critical
+        }
+    }
+
     /**
      * Fetch personalized candidates based on user preferences
      */
