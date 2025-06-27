@@ -152,82 +152,51 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
 
     @Override
     public void onBindViewHolder(@NonNull final ViewHolder holder, int position) {
+        // Get template with validation
+        if (templates == null || position >= templates.size()) {
+            Log.e(TAG, "🚨 Invalid template list or position: " + position);
+            holder.cardView.setVisibility(View.GONE);
+            return;
+        }
+
         Template template = templates.get(position);
-        
-        // Log template data for debugging
-        Log.d(TAG, "🔍 Template data for position " + position + ":");
-        Log.d(TAG, "   • Template ID: " + template.getId());
-        Log.d(TAG, "   • Type: " + template.getTemplateType());
-        Log.d(TAG, "   • Creator UID: " + template.getCreatorUid());
-        
-        // Set title and category
-        holder.titleText.setText(template.getTitle());
-        holder.categoryText.setText(template.getCategoryId());
-        
-        // Handle template type rendering
-        renderTemplateByType(holder, template);
-        
-        // Load creator profile
-        loadCreatorProfile(holder, template);
-        
-        // Set creation time using actual template data
-        String timeAgoText;
-        if (template.getCreatedAt() != null) {
-            timeAgoText = formatTimeAgo(template.getCreatedAt());
-            Log.d(TAG, "Template " + template.getId() + " formatted time: " + timeAgoText);
-        } else {
-            timeAgoText = "recently added";
-            Log.d(TAG, "Template " + template.getId() + " using fallback time (createdAt is null)");
+        if (template == null) {
+            Log.e(TAG, "🚨 Null template at position " + position);
+            holder.cardView.setVisibility(View.GONE);
+            return;
         }
-        
-        // Create a SpannableString for the actual time
-        SpannableString timeSpannable = new SpannableString("⏱️ " + timeAgoText.toUpperCase());
-        timeSpannable.setSpan(new StyleSpan(android.graphics.Typeface.BOLD), 0, timeSpannable.length(), 0);
-        timeSpannable.setSpan(new RelativeSizeSpan(1.2f), 0, timeSpannable.length(), 0);
-        
-        // Set the actual time text
-        holder.timeText.setText(timeSpannable);
-        holder.timeText.setVisibility(View.VISIBLE);
-        holder.timeText.setTextColor(Color.WHITE);
-        
-        // Set the fallback time text with actual data too
-        holder.fallbackTimeText.setText("⏱️ POSTED " + timeAgoText.toUpperCase());
-        holder.fallbackTimeText.setVisibility(View.VISIBLE);
-        
-        Log.d(TAG, "Setting timeText to actual template time: " + timeAgoText);
-        
-        // Set like and favorite icons
-        updateLikeState(holder, template.isLiked());
-        updateFavoriteState(holder, template.isFavorited());
-        
-        // Set like count
-        if (template.getLikeCount() > 0) {
-            holder.likeCountText.setVisibility(View.VISIBLE);
-            holder.likeCountText.setText(String.valueOf(template.getLikeCount()));
-        } else {
-            holder.likeCountText.setVisibility(View.GONE);
+
+        // Validate template ID
+        String templateId = template.getId();
+        if (templateId == null || templateId.trim().isEmpty()) {
+            Log.e(TAG, "🚨 Template at position " + position + " has null/empty ID. Title: " + template.getTitle());
+            holder.cardView.setVisibility(View.GONE);
+            return;
         }
-        
-        // Set favorite count
-        if (template.getFavoriteCount() > 0) {
-            holder.favoriteCountText.setVisibility(View.VISIBLE);
-            holder.favoriteCountText.setText(String.valueOf(template.getFavoriteCount()));
-        } else {
-            holder.favoriteCountText.setVisibility(View.GONE);
+
+        try {
+            // Show card and proceed with binding
+            holder.cardView.setVisibility(View.VISIBLE);
+            Log.d(TAG, "🎯 Binding template: " + templateId + " at position " + position);
+
+            // Set up interaction listeners with validated template
+            setupInteractionListeners(holder, template);
+
+            // Render template content based on type
+            renderTemplateByType(holder, template);
+
+            // Load creator profile
+            loadCreatorProfile(holder, template);
+
+            // Update interaction states
+            updateInteractionStates(holder, template);
+
+            Log.d(TAG, "✅ Successfully bound template: " + templateId);
+
+        } catch (Exception e) {
+            Log.e(TAG, "🚨 Error binding template: " + templateId + " at position " + position, e);
+            holder.cardView.setVisibility(View.GONE);
         }
-        
-        // Set badges
-        if (isNewTemplate(template)) {
-            holder.newBadge.setVisibility(View.VISIBLE);
-        } else {
-            holder.newBadge.setVisibility(View.GONE);
-        }
-        
-        // Note: Recommendation system removed
-        holder.recommendedBadge.setVisibility(View.GONE);
-        
-        // Set up interaction listeners
-        setupInteractionListeners(holder, template);
     }
     
     private void loadCreatorProfile(@NonNull ViewHolder holder, @NonNull Template template) {
@@ -1445,13 +1414,31 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
      * 🎯 Set up interaction listeners for template actions
      */
     private void setupInteractionListeners(@NonNull ViewHolder holder, @NonNull Template template) {
-        Log.d(TAG, "🎯 Setting up interaction listeners for template: " + template.getId() + " (Type: " + template.getTemplateType() + ")");
+        // Validate template and its ID first
+        if (template == null) {
+            Log.e(TAG, "🚨 Cannot setup listeners for null template");
+            return;
+        }
+
+        String templateId = template.getId();
+        if (templateId == null || templateId.trim().isEmpty()) {
+            Log.e(TAG, "🚨 Cannot setup listeners for template with null/empty ID. Title: " + template.getTitle());
+            return;
+        }
+
+        Log.d(TAG, "🎯 Setting up interaction listeners for template: " + templateId + " (Type: " + template.getTemplateType() + ")");
         
         try {
             // Template click listener (works for all types)
             View.OnClickListener templateClickListener = v -> {
                 try {
                     if (onItemClickListener != null) {
+                        // Double-check template validity before click
+                        if (template.getId() == null) {
+                            Log.e(TAG, "🚨 Template ID became null before click");
+                            showErrorToast("Error opening template");
+                            return;
+                        }
                         Log.d(TAG, "🎯 Template clicked: " + template.getId() + " (Type: " + template.getTemplateType() + ")");
                         Log.d(TAG, "🎯 Navigating to TemplateDetailFragment for template: " + template.getTitle());
                         onItemClickListener.onItemClick(template);
@@ -1466,7 +1453,7 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             
             // Set click listener on appropriate view based on template type
             String templateType = template.getTemplateType();
-            Log.d(TAG, "🎯 Template type for click handling: " + templateType);
+            Log.d(TAG, "🎯 Template type for click handling: " + (templateType != null ? templateType : "null"));
             
             if (templateType != null) {
                 switch (templateType.toLowerCase()) {
@@ -1506,7 +1493,7 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
                         break;
                 }
             } else {
-                Log.w(TAG, "🎯 Template type is null, using fallback image click");
+                Log.w(TAG, "🎯 Template type is null for template: " + template.getId() + ", using fallback image click");
                 // Fallback to image click
                 holder.templateImage.setOnClickListener(templateClickListener);
             }
@@ -1514,6 +1501,12 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             // Like button listener with error handling
             holder.likeIcon.setOnClickListener(v -> {
                 try {
+                    // Validate template ID before like action
+                    if (template.getId() == null) {
+                        Log.e(TAG, "🚨 Cannot like template with null ID");
+                        showErrorToast("Error liking template");
+                        return;
+                    }
                     Log.d(TAG, "🎯 Like button clicked for template: " + template.getId());
                     handleLikeClick(holder, template);
                 } catch (Exception e) {
@@ -1525,6 +1518,12 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             // Favorite button listener with error handling
             holder.favoriteIcon.setOnClickListener(v -> {
                 try {
+                    // Validate template ID before favorite action
+                    if (template.getId() == null) {
+                        Log.e(TAG, "🚨 Cannot favorite template with null ID");
+                        showErrorToast("Error favoriting template");
+                        return;
+                    }
                     Log.d(TAG, "🎯 Favorite button clicked for template: " + template.getId());
                     handleFavoriteClick(holder, template);
                 } catch (Exception e) {
@@ -1545,12 +1544,11 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
      * 🚨 Show error toast without crashing the app
      */
     private void showErrorToast(String message) {
-        try {
-            if (context != null) {
-                Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "🚨 Could not show error toast: " + message, e);
+        if (context != null) {
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
+            Log.e(TAG, "🚨 Showing error toast: " + message);
+        } else {
+            Log.e(TAG, "🚨 Cannot show error toast (null context): " + message);
         }
     }
     
@@ -1801,7 +1799,13 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
         if (this.templates != null && this.templates.size() == templates.size()) {
             isSameData = true;
             for (int i = 0; i < templates.size(); i++) {
-                if (!this.templates.get(i).getId().equals(templates.get(i).getId())) {
+                Template oldTemplate = this.templates.get(i);
+                Template newTemplate = templates.get(i);
+                
+                // Add null checks to prevent NullPointerException
+                if (oldTemplate == null || newTemplate == null || 
+                    oldTemplate.getId() == null || newTemplate.getId() == null ||
+                    !oldTemplate.getId().equals(newTemplate.getId())) {
                     isSameData = false;
                     break;
                 }
@@ -1818,12 +1822,19 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
                 Template oldTemplate = this.templates.get(i);
                 Template newTemplate = templates.get(i);
                 
+                // Add null checks to prevent NullPointerException
+                if (oldTemplate == null || newTemplate == null) {
+                    Log.w(TAG, "Null template detected at position " + i + " - skipping state comparison");
+                    continue;
+                }
+                
                 if (oldTemplate.isLiked() != newTemplate.isLiked() ||
                     oldTemplate.isFavorited() != newTemplate.isFavorited() ||
                     oldTemplate.getLikeCount() != newTemplate.getLikeCount() ||
                     oldTemplate.getFavoriteCount() != newTemplate.getFavoriteCount()) {
                     
-                    Log.d(TAG, "State change detected in template " + newTemplate.getId() + 
+                    String templateId = newTemplate.getId() != null ? newTemplate.getId() : "null";
+                    Log.d(TAG, "State change detected in template " + templateId + 
                           " at position " + i);
                     Log.d(TAG, "  Liked: " + oldTemplate.isLiked() + " -> " + newTemplate.isLiked());
                     Log.d(TAG, "  Like count: " + oldTemplate.getLikeCount() + " -> " + newTemplate.getLikeCount());
@@ -2141,6 +2152,11 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
                 Log.d(TAG, "🎥 Auto-play disabled or RecyclerView null - skipping visibility check");
                 return;
             }
+
+            if (templates == null || templates.isEmpty()) {
+                Log.d(TAG, "🎥 No templates available - skipping visibility check");
+                return;
+            }
             
             Log.d(TAG, "🎥 Checking video visibility for auto-play...");
             
@@ -2154,32 +2170,67 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             // Find the most visible video template
             for (int i = 0; i < recyclerView.getChildCount(); i++) {
                 View child = recyclerView.getChildAt(i);
+                if (child == null) continue;
+
                 ViewHolder holder = (ViewHolder) recyclerView.getChildViewHolder(child);
-                
-                if (holder != null && holder.getAdapterPosition() >= 0 && 
-                    holder.getAdapterPosition() < templates.size()) {
+                if (holder == null) continue;
+
+                int position = holder.getAdapterPosition();
+                if (position < 0 || position >= templates.size()) continue;
                     
-                    Template template = templates.get(holder.getAdapterPosition());
-                    if ("video".equalsIgnoreCase(template.getTemplateType())) {
-                        videoCount++;
-                        float visibilityPercentage = getVisibilityPercentage(child);
+                Template template = templates.get(position);
+                if (template == null) {
+                    Log.w(TAG, "🎥 Null template at position " + position);
+                    continue;
+                }
+
+                String templateId = template.getId();
+                if (templateId == null || templateId.trim().isEmpty()) {
+                    Log.w(TAG, "🎥 Template at position " + position + " has null/empty ID");
+                    continue;
+                }
+
+                String templateType = template.getTemplateType();
+                if (templateType == null) {
+                    Log.w(TAG, "🎥 Template " + templateId + " has null type");
+                    continue;
+                }
+
+                if ("video".equalsIgnoreCase(templateType)) {
+                    // Validate video URL
+                    String videoUrl = template.getVideoUrl();
+                    if (videoUrl == null || videoUrl.trim().isEmpty()) {
+                        videoUrl = template.getPreviewUrl();
+                    }
+                    
+                    if (videoUrl == null || videoUrl.trim().isEmpty()) {
+                        Log.w(TAG, "🎥 Video template " + templateId + " has no valid video URL");
+                        continue;
+                    }
+
+                    videoCount++;
+                    float visibilityPercentage = getVisibilityPercentage(child);
+                    
+                    Log.d(TAG, "🎥 Video template found: " + templateId + 
+                          " (Position: " + position + 
+                          ", Visibility: " + (visibilityPercentage * 100) + "%)");
+                    
+                    if (visibilityPercentage > maxVisibilityPercentage && 
+                        visibilityPercentage >= VISIBILITY_THRESHOLD) {
+                        maxVisibilityPercentage = visibilityPercentage;
+                        mostVisibleVideoHolder = holder;
+                        mostVisibleVideoId = templateId;
+                        mostVisibleTemplate = template;
                         
-                        Log.d(TAG, "🎥 Video template found: " + template.getId() + 
-                              " (Position: " + holder.getAdapterPosition() + 
-                              ", Visibility: " + (visibilityPercentage * 100) + "%)");
-                        
-                        if (visibilityPercentage > maxVisibilityPercentage && 
-                            visibilityPercentage >= VISIBILITY_THRESHOLD) {
-                            maxVisibilityPercentage = visibilityPercentage;
-                            mostVisibleVideoHolder = holder;
-                            mostVisibleVideoId = template.getId();
-                            mostVisibleTemplate = template;
-                            
-                            Log.d(TAG, "🎥 New most visible video: " + template.getId() + 
-                                  " (" + (visibilityPercentage * 100) + "%)");
-                        }
+                        Log.d(TAG, "🎥 New most visible video: " + templateId + 
+                              " (" + (visibilityPercentage * 100) + "%)");
                     }
                 }
+            }
+            
+            if (videoCount == 0) {
+                Log.d(TAG, "🎥 No valid video templates found");
+                return;
             }
             
             Log.d(TAG, "🎥 Visibility check complete: " + videoCount + " video(s) found, " +
@@ -2187,7 +2238,8 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
                   " (" + (maxVisibilityPercentage * 100) + "%)");
             
             // Manage video playback based on visibility
-            if (mostVisibleVideoHolder != null && !mostVisibleVideoId.equals(currentPlayingVideoId)) {
+            if (mostVisibleVideoHolder != null && mostVisibleVideoId != null && 
+                !mostVisibleVideoId.equals(currentPlayingVideoId)) {
                 Log.d(TAG, "🎥 Switching video playback from " + currentPlayingVideoId + " to " + mostVisibleVideoId);
                 
                 // Pause current playing video
@@ -2210,7 +2262,8 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
             
         } catch (Exception e) {
             Log.e(TAG, "🎥 ERROR in checkVideoVisibilityAndAutoPlay", e);
-            showErrorToast("Error checking video visibility");
+            // Don't show error toast for visibility check errors as they are not critical
+            Log.d(TAG, "🎥 Suppressing visibility check error toast to avoid user distraction");
         }
     }
     
@@ -2487,6 +2540,58 @@ public class TemplateAdapter extends RecyclerView.Adapter<TemplateAdapter.ViewHo
     public void handleVideoVisibilityChange() {
         if (recyclerView != null) {
             checkVideoVisibilityAndAutoPlay();
+        }
+    }
+
+    private void updateInteractionStates(@NonNull ViewHolder holder, @NonNull Template template) {
+        try {
+            // Set title and category
+            holder.titleText.setText(template.getTitle());
+            holder.categoryText.setText(template.getCategoryId());
+
+            // Set creation time
+            String timeAgoText = template.getCreatedAt() != null ? 
+                formatTimeAgo(template.getCreatedAt()) : "recently added";
+            
+            // Create a SpannableString for the time
+            SpannableString timeSpannable = new SpannableString("⏱️ " + timeAgoText.toUpperCase());
+            timeSpannable.setSpan(new StyleSpan(android.graphics.Typeface.BOLD), 0, timeSpannable.length(), 0);
+            timeSpannable.setSpan(new RelativeSizeSpan(1.2f), 0, timeSpannable.length(), 0);
+            
+            // Set time texts
+            holder.timeText.setText(timeSpannable);
+            holder.timeText.setVisibility(View.VISIBLE);
+            holder.timeText.setTextColor(Color.WHITE);
+            holder.fallbackTimeText.setText("⏱️ POSTED " + timeAgoText.toUpperCase());
+            holder.fallbackTimeText.setVisibility(View.VISIBLE);
+            
+            // Update like state and count
+            updateLikeState(holder, template.isLiked());
+            if (template.getLikeCount() > 0) {
+                holder.likeCountText.setVisibility(View.VISIBLE);
+                holder.likeCountText.setText(String.valueOf(template.getLikeCount()));
+            } else {
+                holder.likeCountText.setVisibility(View.GONE);
+            }
+            
+            // Update favorite state and count
+            updateFavoriteState(holder, template.isFavorited());
+            if (template.getFavoriteCount() > 0) {
+                holder.favoriteCountText.setVisibility(View.VISIBLE);
+                holder.favoriteCountText.setText(String.valueOf(template.getFavoriteCount()));
+            } else {
+                holder.favoriteCountText.setVisibility(View.GONE);
+            }
+            
+            // Update badges
+            holder.newBadge.setVisibility(isNewTemplate(template) ? View.VISIBLE : View.GONE);
+            holder.recommendedBadge.setVisibility(View.GONE); // Recommendation system removed
+            
+            Log.d(TAG, "✅ Successfully updated interaction states for template: " + template.getId());
+            
+        } catch (Exception e) {
+            Log.e(TAG, "🚨 Error updating interaction states for template: " + template.getId(), e);
+            // Don't hide the card here, just log the error
         }
     }
 } 

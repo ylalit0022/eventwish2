@@ -56,10 +56,13 @@ public class Template {
      */
     public Template(String id, String name, String categoryId, String imageUrl, 
                    boolean isLiked, boolean isFavorited, long likeCount, long favoriteCount, long shareCount) {
+        if (id == null || id.trim().isEmpty()) {
+            throw new IllegalArgumentException("Template ID cannot be null or empty");
+        }
         this.id = id;
-        this.name = name;
-        this.categoryId = categoryId;
-        this.imageUrl = imageUrl;
+        this.name = name != null ? name : "";
+        this.categoryId = categoryId != null ? categoryId : "";
+        this.imageUrl = imageUrl != null ? imageUrl : "";
         this.isLiked = isLiked;
         this.isFavorited = isFavorited;
         this.likeCount = Math.max(0, likeCount);

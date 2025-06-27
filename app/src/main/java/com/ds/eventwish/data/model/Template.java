@@ -526,7 +526,12 @@ public class Template {
     // Getters and setters
     @NonNull
     public String getId() { return id; }
-    public void setId(@NonNull String id) { this.id = id; }
+    public void setId(@NonNull String id) {
+        if (id == null || id.trim().isEmpty()) {
+            throw new IllegalArgumentException("Template ID cannot be null or empty");
+        }
+        this.id = id;
+    }
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }

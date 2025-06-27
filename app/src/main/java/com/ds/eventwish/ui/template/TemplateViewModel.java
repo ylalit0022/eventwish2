@@ -45,6 +45,7 @@ public class TemplateViewModel extends AndroidViewModel {
             if (dataTemplates != null) {
                 List<com.ds.eventwish.ui.template.Template> uiTemplates = dataTemplates.stream()
                     .map(this::toUiModel)
+                    .filter(template -> template != null) // Filter out invalid templates
                     .collect(Collectors.toList());
                 templates.setValue(uiTemplates);
             }
@@ -120,11 +121,30 @@ public class TemplateViewModel extends AndroidViewModel {
     }
 
     private com.ds.eventwish.ui.template.Template toUiModel(com.ds.eventwish.data.model.Template dataTemplate) {
+        // Validate data template
+        if (dataTemplate == null) {
+            Log.e(TAG, "Received null data template in toUiModel");
+            return null;
+        }
+
+        // Validate required fields
+        String id = dataTemplate.getId();
+        if (id == null || id.trim().isEmpty()) {
+            Log.e(TAG, "Data template has null or empty ID");
+            return null;
+        }
+
+        // Get other fields with fallbacks for null values
+        String title = dataTemplate.getTitle() != null ? dataTemplate.getTitle() : "";
+        String categoryId = dataTemplate.getCategoryId() != null ? dataTemplate.getCategoryId() : "";
+        String previewUrl = dataTemplate.getPreviewUrl() != null ? dataTemplate.getPreviewUrl() : "";
+
+        // Create UI model with validated data
         return new com.ds.eventwish.ui.template.Template(
-            dataTemplate.getId(),
-            dataTemplate.getTitle(),
-            dataTemplate.getCategoryId(),
-            dataTemplate.getPreviewUrl(),
+            id,
+            title,
+            categoryId,
+            previewUrl,
             dataTemplate.isLiked(),
             dataTemplate.isFavorited(),
             dataTemplate.getLikeCount(),
@@ -145,6 +165,7 @@ public class TemplateViewModel extends AndroidViewModel {
             if (dataTemplates != null) {
                 List<com.ds.eventwish.ui.template.Template> uiTemplates = dataTemplates.stream()
                     .map(this::toUiModel)
+                    .filter(template -> template != null) // Filter out invalid templates
                     .collect(Collectors.toList());
                 templates.setValue(uiTemplates);
             }

@@ -863,8 +863,26 @@ public class ApiClient {
                 // Create a new JsonObject with converted nested objects
                 JsonObject convertedObject = new JsonObject();
                 
+                // Handle MongoDB _id field
+                if (jsonObject.has("_id")) {
+                    JsonElement idElement = jsonObject.get("_id");
+                    if (idElement.isJsonObject() && idElement.getAsJsonObject().has("$oid")) {
+                        // MongoDB ObjectId format
+                        String id = idElement.getAsJsonObject().get("$oid").getAsString();
+                        convertedObject.addProperty("id", id);
+                        Log.d(TAG, "TemplateDeserializer: Converted MongoDB ObjectId to string: " + id);
+                    } else if (idElement.isJsonPrimitive()) {
+                        // Regular string ID
+                        String id = idElement.getAsString();
+                        convertedObject.addProperty("id", id);
+                        Log.d(TAG, "TemplateDeserializer: Using _id as id: " + id);
+                    }
+                }
+                
                 // Copy all properties, converting nested objects to JSON strings where needed
                 for (String key : jsonObject.keySet()) {
+                    if (key.equals("_id")) continue; // Skip _id as we've already handled it
+                    
                     JsonElement value = jsonObject.get(key);
                     
                     // Convert nested objects to JSON strings for specific fields
@@ -885,6 +903,10 @@ public class ApiClient {
                 com.ds.eventwish.data.model.Template template = defaultGson.fromJson(convertedObject, com.ds.eventwish.data.model.Template.class);
                 
                 if (template != null) {
+                    if (template.getId() == null || template.getId().trim().isEmpty()) {
+                        Log.w(TAG, "TemplateDeserializer: Template has null/empty ID after deserialization");
+                        return null;
+                    }
                     Log.d(TAG, "TemplateDeserializer: Successfully deserialized template with ID: " + template.getId());
                 } else {
                     Log.w(TAG, "TemplateDeserializer: Template deserialization resulted in null");
