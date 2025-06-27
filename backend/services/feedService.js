@@ -410,9 +410,37 @@ class FeedService {
                 return null;
             }
             
-            // Convert cached templates to multi-section format
-            const cachedTemplates = user.cachedHomeFeed || [];
-            const sections = this.convertToMultiSectionFormat(cachedTemplates, includedSections);
+            // Populate templates from cached templateIds
+            const sections = [];
+            for (const cachedSection of user.cachedHomeFeed) {
+                if (includedSections.includes(cachedSection.type) && cachedSection.templateIds && cachedSection.templateIds.length > 0) {
+                    try {
+                        // Fetch templates by IDs
+                        const templates = await Template.find({
+                            _id: { $in: cachedSection.templateIds },
+                            status: true,
+                            isFlagged: false,
+                            moderationStatus: 'approved'
+                        }).lean();
+                        
+                        if (templates.length > 0) {
+                            sections.push({
+                                type: cachedSection.type,
+                                title: this.sectionConfig[cachedSection.type]?.title || cachedSection.type,
+                                templates: templates,
+                                metadata: { fromCache: true }
+                            });
+                        }
+                    } catch (error) {
+                        logger.warn(`⚠️ Error fetching cached templates for section ${cachedSection.type}:`, error);
+                        continue;
+                    }
+                }
+            }
+            
+            if (sections.length === 0) {
+                return null;
+            }
             
             return {
                 sections: sections,
@@ -433,68 +461,26 @@ class FeedService {
     }
 
     /**
-     * Convert flat template list to multi-section format
-     */
-    convertToMultiSectionFormat(templates, includedSections) {
-        const sections = [];
-        let currentIndex = 0;
-        
-        if (includedSections.includes('personalized') && templates.length > currentIndex) {
-            const personalizedCount = Math.min(8, templates.length - currentIndex);
-            sections.push({
-                type: "personalized",
-                title: "Just For You",
-                templates: templates.slice(currentIndex, currentIndex + personalizedCount),
-                metadata: { fromCache: true }
-            });
-            currentIndex += personalizedCount;
-        }
-        
-        if (includedSections.includes('trending') && templates.length > currentIndex) {
-            const trendingCount = Math.min(6, templates.length - currentIndex);
-            sections.push({
-                type: "trending",
-                title: "Trending Now",
-                templates: templates.slice(currentIndex, currentIndex + trendingCount),
-                metadata: { fromCache: true }
-            });
-            currentIndex += trendingCount;
-        }
-        
-        if (includedSections.includes('fresh') && templates.length > currentIndex) {
-            const freshCount = Math.min(4, templates.length - currentIndex);
-            sections.push({
-                type: "fresh",
-                title: "New Uploads",
-                templates: templates.slice(currentIndex, currentIndex + freshCount),
-                metadata: { fromCache: true }
-            });
-            currentIndex += freshCount;
-        }
-        
-        return sections;
-    }
-
-    /**
      * Cache multi-section feed for future requests
      */
     async cacheMultiSectionFeed(uid, feedResponse, includedSections) {
         try {
-            // Flatten sections into a single template array for caching
-            const allTemplates = feedResponse.sections.reduce((acc, section) => {
-                return acc.concat(section.templates);
-            }, []);
+            // Convert sections to the correct schema format: {type, templateIds}
+            const cachedSections = feedResponse.sections.map(section => ({
+                type: section.type,
+                templateIds: section.templates.map(template => template._id)
+            }));
             
             await User.updateOne(
                 { uid },
                 {
                     $set: {
-                        cachedHomeFeed: allTemplates,
+                        cachedHomeFeed: cachedSections,
                         homeFeedLastGeneratedAt: new Date()
                     }
                 }
             );
-            logger.info(`💾 Cached multi-section feed for user: ${uid}`);
+            logger.info(`💾 Cached multi-section feed for user: ${uid} with ${cachedSections.length} sections`);
         } catch (error) {
             logger.error('❌ Error caching multi-section feed:', error);
             // Don't throw error, caching is not critical

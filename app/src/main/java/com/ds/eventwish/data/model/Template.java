@@ -500,7 +500,6 @@ public class Template {
         this.htmlContent = other.htmlContent;
         this.cssContent = other.cssContent;
         this.jsContent = other.jsContent;
-
         this.createdAt = other.createdAt != null ? other.createdAt : new Date();
         this.creatorId = other.creatorId;
         this.creatorUid = other.creatorUid;
@@ -508,6 +507,20 @@ public class Template {
         this.creatorProfilePhoto = other.creatorProfilePhoto;
         this.generatedByUser = other.generatedByUser;
         this.generatedByUserUid = other.generatedByUserUid;
+        this.isPremium = other.isPremium;
+        this.usageCount = other.usageCount;
+        this.status = other.status;
+        this.isFeatured = other.isFeatured;
+        this.isTrending = other.isTrending;
+        this.isFlagged = other.isFlagged;
+        this.isLowPerforming = other.isLowPerforming;
+        this.price = other.price;
+        this.moderationStatus = other.moderationStatus;
+        this.viewCount = other.viewCount;
+        this.downloadCount = other.downloadCount;
+        this.reportCount = other.reportCount;
+        this.rating = other.rating;
+        this.ratingCount = other.ratingCount;
     }
 
     // Getters and setters

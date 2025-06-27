@@ -8,6 +8,7 @@ import java.util.List;
 /**
  * Response model for multi-section feed API
  * Used for personalized feed with dynamic sections
+ * Handles both direct response and wrapped response formats
  */
 public class FeedResponse {
     
@@ -16,6 +17,9 @@ public class FeedResponse {
     
     @SerializedName("message")
     private String message;
+    
+    @SerializedName("data")
+    private FeedData data;
     
     @SerializedName("sections")
     private List<FeedSection> sections;
@@ -29,8 +33,26 @@ public class FeedResponse {
     // Getters
     public boolean isSuccess() { return success; }
     public String getMessage() { return message; }
-    public List<FeedSection> getSections() { return sections != null ? sections : new ArrayList<>(); }
-    public FeedMetadata getMetadata() { return metadata; }
+    public List<FeedSection> getSections() { 
+        // Handle both direct response and wrapped response formats
+        if (sections != null) {
+            return sections;
+        } else if (data != null && data.getSections() != null) {
+            return data.getSections();
+        } else {
+            return new ArrayList<>();
+        }
+    }
+    public FeedMetadata getMetadata() { 
+        // Handle both direct response and wrapped response formats
+        if (metadata != null) {
+            return metadata;
+        } else if (data != null) {
+            return data.getMetadata();
+        } else {
+            return null;
+        }
+    }
     public String getTimestamp() { return timestamp; }
 
     // Setters
@@ -39,6 +61,30 @@ public class FeedResponse {
     public void setSections(List<FeedSection> sections) { this.sections = sections; }
     public void setMetadata(FeedMetadata metadata) { this.metadata = metadata; }
     public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
+
+    /**
+     * Feed Data - represents the actual feed data when wrapped in API response
+     */
+    public static class FeedData {
+        @SerializedName("sections")
+        private List<FeedSection> sections;
+        
+        @SerializedName("metadata")
+        private FeedMetadata metadata;
+        
+        @SerializedName("timestamp")
+        private String timestamp;
+
+        // Getters
+        public List<FeedSection> getSections() { return sections != null ? sections : new ArrayList<>(); }
+        public FeedMetadata getMetadata() { return metadata; }
+        public String getTimestamp() { return timestamp; }
+
+        // Setters
+        public void setSections(List<FeedSection> sections) { this.sections = sections; }
+        public void setMetadata(FeedMetadata metadata) { this.metadata = metadata; }
+        public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
+    }
 
     /**
      * Feed Section - represents one section in the multi-section feed
