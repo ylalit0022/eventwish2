@@ -391,20 +391,20 @@ public class TemplateRepository {
         }
         
         // Always use multi-section feed API (/feed endpoint only)
-        if (user != null) {
-            // Authenticated user - get personalized feed
-            user.getIdToken(false).addOnCompleteListener(task -> {
-                if (task.isSuccessful() && task.getResult() != null) {
-                    String authToken = "Bearer " + task.getResult().getToken();
-                    loadFromMultiSectionFeed(authToken, user);
-                } else {
-                    // Fallback to default feed if token fails
-                    loadFromDefaultFeed();
-                }
-            });
-        } else {
-            // Unauthenticated user - get default feed
-            loadFromDefaultFeed();
+            if (user != null) {
+                // Authenticated user - get personalized feed
+                user.getIdToken(false).addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult() != null) {
+                        String authToken = "Bearer " + task.getResult().getToken();
+                        loadFromMultiSectionFeed(authToken, user);
+                    } else {
+                        // Fallback to default feed if token fails
+                        loadFromDefaultFeed();
+                    }
+                });
+            } else {
+                // Unauthenticated user - get default feed
+                loadFromDefaultFeed();
         }
     }
 

@@ -21,9 +21,24 @@ tasks.whenTaskAdded { task ->
     }
 }
 
+// Configure Java memory settings
+tasks.withType(JavaCompile) {
+    options.fork = true
+    options.forkOptions.jvmArgs += ['-Xmx2048m']
+    options.compilerArgs += [
+        '-Xlint:unchecked',
+        '-Xlint:deprecation'
+    ]
+}
+
 android {
     namespace 'com.ds.eventwish'
     compileSdk 34
+
+    // Configure build optimizations
+    aaptOptions {
+        cruncherEnabled = false
+    }
 
     defaultConfig {
         applicationId "com.ds.eventwish"
@@ -37,9 +52,8 @@ android {
         buildConfigField "String", "API_KEY", secrets.getProperty("API_KEY") ? "\"${secrets.getProperty("API_KEY")}\"" : "\"eventwish_default_development_key_2024\""
         buildConfigField "String", "BASE_URL", "\"https://eventwish2.onrender.com/api/\""
 
-        ndk {
-            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
-        }
+        // Enable multidex
+        multiDexEnabled true
 
         javaCompileOptions {
             annotationProcessorOptions {
@@ -55,38 +69,48 @@ android {
     buildTypes {
         debug {
             minifyEnabled false
-            // Use production API for regular debug builds
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             buildConfigField "String", "BASE_URL", "\"https://eventwish2.onrender.com/api/\""
             buildConfigField "String", "API_ENV", "\"PRODUCTION\""
+            
+            // Enable R8 full mode
+            proguardFiles += file('proguard-rules.pro')
+            
+            // Disable PNG crunching
+            aaptOptions.cruncherEnabled false
         }
         
-        // New build type for local development (only use when local server is running)
         local {
-            // Extend from debug build type
             initWith debug
             minifyEnabled false
+            shrinkResources false
             debuggable true
-            // Use local development server - try localhost first, then specific IP
-            // Update this IP address to match your current machine's IP if needed
             buildConfigField "String", "BASE_URL", "\"http://192.168.25.134:3001/api/\""
             buildConfigField "String", "API_ENV", "\"LOCAL\""
-            // Add a suffix to distinguish the local build
             versionNameSuffix "-local"
-            // Match debug signing config
             signingConfig signingConfigs.debug
         }
         
         release {
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            // Use production API for release builds
             buildConfigField "String", "BASE_URL", "\"https://eventwish2.onrender.com/api/\""
             buildConfigField "String", "API_ENV", "\"PRODUCTION\""
+            
+            // Enable R8 full mode
+            proguardFiles += file('proguard-rules.pro')
+            
+            // Disable PNG crunching
+            aaptOptions.cruncherEnabled false
         }
     }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
+        encoding = 'UTF-8'
     }
 
     buildFeatures {
@@ -97,6 +121,7 @@ android {
     testOptions {
         unitTests {
             returnDefaultValues = true
+            includeAndroidResources = true
         }
     }
 
@@ -115,16 +140,30 @@ android {
                 force 'androidx.lifecycle:lifecycle-livedata-ktx:2.6.2'
                 force 'androidx.lifecycle:lifecycle-common:2.6.2'
                 force 'androidx.lifecycle:lifecycle-process:2.6.2'
+                
+                // Force latest versions of critical dependencies
+                force 'com.google.android.material:material:1.11.0'
+                force 'androidx.core:core-ktx:1.12.0'
+                force 'androidx.appcompat:appcompat:1.6.1'
+                
+                // Force Room version
+                force 'androidx.room:room-runtime:2.5.2'
+                force 'androidx.room:room-compiler:2.5.2'
+                
+                // Force Kotlin version
+                force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.22'
+                force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.22'
             }
         }
     }
 
+    // Optimize ABI splits
     splits {
         abi {
             enable true
             reset()
-            include 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
-            universalApk true
+            include 'arm64-v8a'  // Most modern devices
+            universalApk false   // Disable universal APK to save memory
         }
     }
     
@@ -137,29 +176,67 @@ android {
         ignoreTestSources true
         warningsAsErrors false
     }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+        resources {
+            excludes += [
+                'META-INF/LICENSE',
+                'META-INF/LICENSE.txt',
+                'META-INF/NOTICE',
+                'META-INF/NOTICE.txt',
+                'META-INF/DEPENDENCIES',
+                'META-INF/*.kotlin_module',
+                'META-INF/AL2.0',
+                'META-INF/LGPL2.1',
+                'META-INF/proguard/**',
+                'META-INF/maven/**',
+                'META-INF/versions/**',
+                '**/*.properties',
+                '**/*.bin'
+            ]
+        }
+    }
 }
 
 dependencies {
+    // Core dependencies
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.core:core:1.12.0'
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    
+    // Kotlin stdlib dependencies (required for Room with Java 17)
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.22'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.22'
+    
+    // Lifecycle components
     implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.7.0'
     implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-process:2.7.0'
+    
+    // Navigation components
     implementation 'androidx.navigation:navigation-fragment:2.7.6'
     implementation 'androidx.navigation:navigation-ui:2.7.6'
+    
+    // Support libraries
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
     implementation 'androidx.preference:preference:1.2.1'
     implementation 'androidx.work:work-runtime:2.9.0'
     implementation libs.volley
+    
+    // Room dependencies
+    implementation "androidx.room:room-runtime:2.6.2"
+    annotationProcessor "androidx.room:room-compiler:2.6.2"
+    
+    // Testing dependencies
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
-
-    // Added for ProcessLifecycleOwner support
-    implementation 'androidx.lifecycle:lifecycle-process:2.7.0'
 
     // RxJava3 dependencies
     implementation 'io.reactivex.rxjava3:rxjava:3.1.8'
@@ -183,10 +260,6 @@ dependencies {
     
     // Socket.IO for real-time updates
     implementation 'io.socket:socket.io-client:2.1.0'
-
-    // Room for database
-    implementation "androidx.room:room-runtime:2.6.1"
-    annotationProcessor "androidx.room:room-compiler:2.6.1"
 
     // Image loading with Glide
     implementation 'com.github.bumptech.glide:glide:4.16.0'
