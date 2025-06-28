@@ -585,8 +585,6 @@ public class TemplateRepository {
 
     /**
      * Convert multi-section feed response to flat template list
-     * @param feedResponse The multi-section feed response
-     * @return Flat list of templates from all sections
      */
     private List<Template> convertFeedToTemplateList(FeedResponse feedResponse) {
         List<Template> allTemplates = new ArrayList<>();
@@ -608,7 +606,7 @@ public class TemplateRepository {
                             seenTemplateIds.add(template.getId());
                             allTemplates.add(template);
                             
-                            // Extract category for categories map
+                            // Extract category for categories map (fallback if no dedicated categories field)
                             if (template.getCategory() != null && !template.getCategory().trim().isEmpty()) {
                                 String category = template.getCategory().trim();
                                 extractedCategories.put(category, extractedCategories.getOrDefault(category, 0) + 1);
@@ -622,20 +620,41 @@ public class TemplateRepository {
                 }
             }
             
-            // Update categories from extracted data
-            if (!extractedCategories.isEmpty()) {
-                Log.d(TAG, "Extracted " + extractedCategories.size() + " categories from feed templates");
+            // Check if feed response has dedicated categories field
+            Map<String, Integer> feedCategories = feedResponse.getCategories();
+            if (feedCategories != null && !feedCategories.isEmpty()) {
+                int totalCategoryTemplates = 0;
+                for (Integer count : feedCategories.values()) {
+                    totalCategoryTemplates += count;
+                }
+                Log.d(TAG, "📊 Categories received from feed API: " + feedCategories.size() + " categories with " + totalCategoryTemplates + " total templates");
+                Log.d(TAG, "📊 Categories details: " + feedCategories.toString());
                 
-                // Merge with existing categories and save
+                // REPLACE default categories with server categories (don't merge)
+                Log.d(TAG, "🔄 Replacing default categories with server-side categories");
+                categories.postValue(new HashMap<>(feedCategories));
+                saveCategoriesToPrefs(feedCategories);
+            } else if (!extractedCategories.isEmpty()) {
+                // Fallback: Update categories from extracted template data
+                int totalExtractedTemplates = 0;
+                for (Integer count : extractedCategories.values()) {
+                    totalExtractedTemplates += count;
+                }
+                Log.d(TAG, "📊 No categories field in feed response, extracted " + extractedCategories.size() + " categories from " + totalExtractedTemplates + " templates (fallback)");
+                Log.d(TAG, "📊 Extracted categories details: " + extractedCategories.toString());
+                
+                // REPLACE default categories with extracted categories (don't merge)
+                Log.d(TAG, "🔄 Replacing default categories with template-extracted categories");
+                categories.postValue(new HashMap<>(extractedCategories));
+                saveCategoriesToPrefs(extractedCategories);
+            } else {
+                Log.w(TAG, "⚠️ No categories found in feed response or templates - using defaults only if none exist");
+                // Only use defaults if we have no categories at all
                 Map<String, Integer> currentCategories = categories.getValue();
-                if (currentCategories != null) {
-                    Map<String, Integer> mergedCategories = new HashMap<>(currentCategories);
-                    mergedCategories.putAll(extractedCategories);
-                    categories.postValue(mergedCategories);
-                    saveCategoriesToPrefs(mergedCategories);
-                } else {
-                    categories.postValue(extractedCategories);
-                    saveCategoriesToPrefs(extractedCategories);
+                if (currentCategories == null || currentCategories.isEmpty()) {
+                    Log.d(TAG, "🔄 Using default categories as last resort");
+                    categories.postValue(new HashMap<>(defaultCategories));
+                    saveCategoriesToPrefs(defaultCategories);
                 }
             }
         }
@@ -643,7 +662,7 @@ public class TemplateRepository {
         Log.d(TAG, "Converted " + (feedResponse.getSections() != null ? feedResponse.getSections().size() : 0) + 
               " sections to " + allTemplates.size() + " unique templates" + 
               (currentCategory != null ? " (server-filtered by category: " + currentCategory + ")" : "") +
-              ", extracted " + extractedCategories.size() + " categories");
+              ", processed categories: " + (feedResponse.getCategories() != null ? feedResponse.getCategories().size() : extractedCategories.size()));
         
         return allTemplates;
     }
@@ -3359,13 +3378,138 @@ public class TemplateRepository {
         return tcs.getTask();
     }
 
+    /**
+     * Get available categories with pagination support
+     * @param page Page number (1-based)
+     * @param limit Number of categories per page
+     * @return LiveData with paginated categories
+     */
+    public LiveData<Map<String, Integer>> getCategoriesPaginated(int page, int limit) {
+        MutableLiveData<Map<String, Integer>> result = new MutableLiveData<>();
+        
+        Map<String, Integer> allCategories = categories.getValue();
+        if (allCategories == null || allCategories.isEmpty()) {
+            result.postValue(new HashMap<>());
+            return result;
+        }
+        
+        // Convert to list for pagination
+        List<Map.Entry<String, Integer>> categoryList = new ArrayList<>(allCategories.entrySet());
+        
+        // Sort by template count (descending) for better UX
+        categoryList.sort((a, b) -> Integer.compare(b.getValue(), a.getValue()));
+        
+        // Apply pagination
+        int startIndex = (page - 1) * limit;
+        int endIndex = Math.min(startIndex + limit, categoryList.size());
+        
+        Map<String, Integer> paginatedCategories = new HashMap<>();
+        if (startIndex < categoryList.size()) {
+            for (int i = startIndex; i < endIndex; i++) {
+                Map.Entry<String, Integer> entry = categoryList.get(i);
+                paginatedCategories.put(entry.getKey(), entry.getValue());
+            }
+        }
+        
+        Log.d(TAG, "📄 Categories pagination: page " + page + ", showing " + paginatedCategories.size() + 
+              " out of " + allCategories.size() + " total categories");
+        
+        result.postValue(paginatedCategories);
+        return result;
+    }
+    
+    /**
+     * Filter categories by search query
+     * @param query Search query (case-insensitive)
+     * @return LiveData with filtered categories
+     */
+    public LiveData<Map<String, Integer>> filterCategories(String query) {
+        MutableLiveData<Map<String, Integer>> result = new MutableLiveData<>();
+        
+        Map<String, Integer> allCategories = categories.getValue();
+        if (allCategories == null || allCategories.isEmpty()) {
+            result.postValue(new HashMap<>());
+            return result;
+        }
+        
+        if (query == null || query.trim().isEmpty()) {
+            result.postValue(new HashMap<>(allCategories));
+            return result;
+        }
+        
+        String searchQuery = query.toLowerCase().trim();
+        Map<String, Integer> filteredCategories = new HashMap<>();
+        
+        for (Map.Entry<String, Integer> entry : allCategories.entrySet()) {
+            String categoryName = entry.getKey().toLowerCase();
+            if (categoryName.contains(searchQuery)) {
+                filteredCategories.put(entry.getKey(), entry.getValue());
+            }
+        }
+        
+        Log.d(TAG, "🔍 Category filter: '" + query + "' matched " + filteredCategories.size() + 
+              " out of " + allCategories.size() + " categories");
+        
+        result.postValue(filteredCategories);
+        return result;
+    }
+    
+    /**
+     * Get category statistics
+     * @return Map with category statistics
+     */
+    public Map<String, Object> getCategoryStats() {
+        Map<String, Integer> allCategories = categories.getValue();
+        Map<String, Object> stats = new HashMap<>();
+        
+        if (allCategories == null || allCategories.isEmpty()) {
+            stats.put("totalCategories", 0);
+            stats.put("totalTemplates", 0);
+            stats.put("averageTemplatesPerCategory", 0.0);
+            return stats;
+        }
+        
+        int totalTemplates = 0;
+        for (Integer count : allCategories.values()) {
+            totalTemplates += count;
+        }
+        
+        stats.put("totalCategories", allCategories.size());
+        stats.put("totalTemplates", totalTemplates);
+        stats.put("averageTemplatesPerCategory", (double) totalTemplates / allCategories.size());
+        
+        // Find most popular category
+        String mostPopularCategory = null;
+        int maxCount = 0;
+        for (Map.Entry<String, Integer> entry : allCategories.entrySet()) {
+            if (entry.getValue() > maxCount) {
+                maxCount = entry.getValue();
+                mostPopularCategory = entry.getKey();
+            }
+        }
+        stats.put("mostPopularCategory", mostPopularCategory);
+        stats.put("mostPopularCategoryCount", maxCount);
+        
+        Log.d(TAG, "📊 Category stats: " + stats.toString());
+        return stats;
+    }
 
-
-
-
-
-
-
-
+    /**
+     * Check if categories are from server (dynamic) or default (static)
+     * @return true if categories are from server, false if default/static
+     */
+    public boolean areCategoriesDynamic() {
+        Map<String, Integer> currentCategories = categories.getValue();
+        if (currentCategories == null || currentCategories.isEmpty()) {
+            return false;
+        }
+        
+        // Check if current categories are exactly the same as default categories
+        boolean isDefault = currentCategories.size() == defaultCategories.size() &&
+                           currentCategories.keySet().containsAll(defaultCategories.keySet());
+        
+        Log.d(TAG, "📊 Categories are " + (isDefault ? "static/default" : "dynamic/server-side"));
+        return !isDefault;
+    }
 
 }

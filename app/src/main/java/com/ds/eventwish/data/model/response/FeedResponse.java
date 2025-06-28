@@ -3,7 +3,9 @@ package com.ds.eventwish.data.model.response;
 import com.ds.eventwish.data.model.Template;
 import com.google.gson.annotations.SerializedName;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Response model for multi-section feed API
@@ -26,6 +28,9 @@ public class FeedResponse {
     
     @SerializedName("metadata")
     private FeedMetadata metadata;
+    
+    @SerializedName("categories")
+    private Map<String, Integer> categories;
     
     @SerializedName("timestamp")
     private String timestamp;
@@ -53,6 +58,16 @@ public class FeedResponse {
             return null;
         }
     }
+    public Map<String, Integer> getCategories() {
+        // Handle both direct response and wrapped response formats
+        if (categories != null) {
+            return categories;
+        } else if (data != null && data.getCategories() != null) {
+            return data.getCategories();
+        } else {
+            return new HashMap<>();
+        }
+    }
     public String getTimestamp() { return timestamp; }
 
     // Setters
@@ -60,6 +75,7 @@ public class FeedResponse {
     public void setMessage(String message) { this.message = message; }
     public void setSections(List<FeedSection> sections) { this.sections = sections; }
     public void setMetadata(FeedMetadata metadata) { this.metadata = metadata; }
+    public void setCategories(Map<String, Integer> categories) { this.categories = categories; }
     public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
 
     /**
@@ -72,17 +88,22 @@ public class FeedResponse {
         @SerializedName("metadata")
         private FeedMetadata metadata;
         
+        @SerializedName("categories")
+        private Map<String, Integer> categories;
+        
         @SerializedName("timestamp")
         private String timestamp;
 
         // Getters
         public List<FeedSection> getSections() { return sections != null ? sections : new ArrayList<>(); }
         public FeedMetadata getMetadata() { return metadata; }
+        public Map<String, Integer> getCategories() { return categories != null ? categories : new HashMap<>(); }
         public String getTimestamp() { return timestamp; }
 
         // Setters
         public void setSections(List<FeedSection> sections) { this.sections = sections; }
         public void setMetadata(FeedMetadata metadata) { this.metadata = metadata; }
+        public void setCategories(Map<String, Integer> categories) { this.categories = categories; }
         public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
     }
 

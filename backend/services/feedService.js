@@ -129,6 +129,26 @@ class FeedService {
                 }
             };
             
+            // Get available categories if requested and add to response
+            if (includedSections.includes('categories')) {
+                try {
+                    const availableCategories = await this.getAvailableCategories();
+                    feedResponse.categories = availableCategories;
+                    
+                    const categoryCount = Object.keys(availableCategories).length;
+                    const totalCategoryTemplates = Object.values(availableCategories).reduce((sum, count) => sum + count, 0);
+                    
+                    logger.info(`📊 Categories fetched for user ${userProfile.uid}: ${categoryCount} categories with ${totalCategoryTemplates} total templates`, {
+                        categories: availableCategories,
+                        categoryCount: categoryCount,
+                        totalTemplates: totalCategoryTemplates
+                    });
+                } catch (error) {
+                    logger.error('❌ Error fetching categories for multi-section feed:', error);
+                    feedResponse.categories = {};
+                }
+            }
+            
             // Step 5: Cache the multi-section feed
             await this.cacheMultiSectionFeed(uid, feedResponse, includedSections);
             
@@ -374,7 +394,30 @@ class FeedService {
                 }
             }
             
-            return {
+            // Generate default category sections for unauthenticated users
+            if (includedSections.includes('categories')) {
+                const defaultCategorySections = await this.generateDefaultCategorySections(options);
+                sections.push(...defaultCategorySections);
+            }
+            
+            // Get available categories if requested
+            let availableCategories = null;
+            if (includedSections.includes('categories')) {
+                availableCategories = await this.getAvailableCategories();
+                
+                if (availableCategories) {
+                    const categoryCount = Object.keys(availableCategories).length;
+                    const totalCategoryTemplates = Object.values(availableCategories).reduce((sum, count) => sum + count, 0);
+                    
+                    logger.info(`📊 Categories fetched for default feed: ${categoryCount} categories with ${totalCategoryTemplates} total templates`, {
+                        categories: availableCategories,
+                        categoryCount: categoryCount,
+                        totalTemplates: totalCategoryTemplates
+                    });
+                }
+            }
+            
+            const response = {
                 sections: sections,
                 metadata: {
                     generatedAt: new Date(),
@@ -386,9 +429,161 @@ class FeedService {
                 }
             };
             
+            // Add categories to response if available
+            if (availableCategories) {
+                response.categories = availableCategories;
+            }
+            
+            return response;
+            
         } catch (error) {
             logger.error('❌ Error generating default multi-section feed:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Generate default category sections for unauthenticated users
+     */
+    async generateDefaultCategorySections(options = {}) {
+        try {
+            const sections = [];
+            const maxCategorySections = 2; // Limit to 2 category sections
+            const maxItemsPerCategory = 4;
+            
+            // Get top categories based on template count and usage
+            const topCategories = await this.getTopCategories(maxCategorySections);
+            
+            for (const categoryInfo of topCategories) {
+                const categoryTemplates = await this.fetchCategoryTemplates(
+                    categoryInfo.category, 
+                    maxItemsPerCategory, 
+                    options
+                );
+                
+                if (categoryTemplates.length > 0) {
+                    sections.push({
+                        type: "category",
+                        category: categoryInfo.category,
+                        title: `${categoryInfo.category.charAt(0).toUpperCase() + categoryInfo.category.slice(1)} Picks`,
+                        templates: categoryTemplates,
+                        metadata: {
+                            candidateCount: categoryTemplates.length,
+                            finalCount: categoryTemplates.length,
+                            totalInCategory: categoryInfo.count
+                        }
+                    });
+                }
+            }
+            
+            logger.info(`📂 Generated ${sections.length} default category sections`);
+            return sections;
+        } catch (error) {
+            logger.error('❌ Error generating default category sections:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get available categories with their template counts
+     */
+    async getAvailableCategories() {
+        try {
+            const Template = require('../models/Template');
+            
+            const categories = await Template.aggregate([
+                {
+                    $match: {
+                        status: true,
+                        isFlagged: false,
+                        moderationStatus: 'approved',
+                        category: { $exists: true, $ne: null, $ne: '' }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$category',
+                        count: { $sum: 1 }
+                    }
+                },
+                {
+                    $sort: { count: -1 }
+                }
+            ]);
+            
+            const categoriesObj = categories.reduce((acc, curr) => {
+                if (curr._id) { // Only include non-null categories
+                    acc[curr._id] = curr.count;
+                }
+                return acc;
+            }, {});
+            
+            logger.info(`📊 Retrieved ${Object.keys(categoriesObj).length} available categories`);
+            return categoriesObj;
+        } catch (error) {
+            logger.error('❌ Error getting available categories:', error);
+            return {};
+        }
+    }
+
+    /**
+     * Get top categories based on template count and usage
+     */
+    async getTopCategories(limit = 5) {
+        try {
+            const Template = require('../models/Template');
+            
+            const topCategories = await Template.aggregate([
+                {
+                    $match: {
+                        status: true,
+                        isFlagged: false,
+                        moderationStatus: 'approved',
+                        category: { $exists: true, $ne: null, $ne: '' }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$category',
+                        count: { $sum: 1 },
+                        totalUsage: { $sum: '$usageCount' },
+                        avgRating: { $avg: '$rating' }
+                    }
+                },
+                {
+                    $addFields: {
+                        score: {
+                            $add: [
+                                { $multiply: ['$count', 2] }, // Weight template count
+                                { $divide: ['$totalUsage', 10] }, // Weight usage
+                                { $multiply: ['$avgRating', 5] } // Weight rating
+                            ]
+                        }
+                    }
+                },
+                {
+                    $sort: { score: -1, count: -1 }
+                },
+                {
+                    $limit: limit
+                },
+                {
+                    $project: {
+                        category: '$_id',
+                        count: 1,
+                        totalUsage: 1,
+                        avgRating: 1,
+                        score: 1,
+                        _id: 0
+                    }
+                }
+            ]);
+            
+            logger.info(`🏆 Retrieved top ${topCategories.length} categories`);
+            return topCategories;
+        } catch (error) {
+            logger.error('❌ Error getting top categories:', error);
+            return [];
         }
     }
 
@@ -442,7 +637,7 @@ class FeedService {
                 return null;
             }
             
-            return {
+            const cachedResponse = {
                 sections: sections,
                 metadata: {
                     cached: true,
@@ -453,6 +648,28 @@ class FeedService {
                     }
                 }
             };
+            
+            // Add categories to cached response if requested
+            if (includedSections.includes('categories')) {
+                try {
+                    const availableCategories = await this.getAvailableCategories();
+                    cachedResponse.categories = availableCategories;
+                    
+                    const categoryCount = Object.keys(availableCategories).length;
+                    const totalCategoryTemplates = Object.values(availableCategories).reduce((sum, count) => sum + count, 0);
+                    
+                    logger.info(`📊 Categories added to cached feed for user ${uid}: ${categoryCount} categories with ${totalCategoryTemplates} total templates`, {
+                        categories: availableCategories,
+                        categoryCount: categoryCount,
+                        totalTemplates: totalCategoryTemplates
+                    });
+                } catch (error) {
+                    logger.error('❌ Error fetching categories for cached feed:', error);
+                    cachedResponse.categories = {};
+                }
+            }
+            
+            return cachedResponse;
             
         } catch (error) {
             logger.error('❌ Error getting cached multi-section feed:', error);
@@ -719,54 +936,6 @@ class FeedService {
         } catch (error) {
             logger.error('❌ Error caching feed:', error);
             // Don't throw error, caching is not critical
-        }
-    }
-    
-    /**
-     * Generate default feed for fallback scenarios
-     */
-    async generateDefaultFeed(options = {}) {
-        const { page = 1, limit = this.defaultPageSize } = options;
-        const pageSize = Math.min(limit, this.maxPageSize);
-        const skipCount = (page - 1) * pageSize;
-        
-        try {
-            logger.info('🔄 Generating default feed');
-            
-            const templates = await Template.find({
-                status: true,
-                isFlagged: false,
-                moderationStatus: 'approved'
-            })
-            .sort({ weeklyTrendingScore: -1, isFeatured: -1, createdAt: -1 })
-            .skip(skipCount)
-            .limit(pageSize)
-            .lean();
-            
-            const totalCount = await Template.countDocuments({
-                status: true,
-                isFlagged: false,
-                moderationStatus: 'approved'
-            });
-            
-            return {
-                templates,
-                pagination: {
-                    page,
-                    limit: pageSize,
-                    total: totalCount,
-                    hasMore: (skipCount + pageSize) < totalCount
-                },
-                metadata: {
-                    generatedAt: new Date(),
-                    feedType: 'default',
-                    fallback: true
-                }
-            };
-            
-        } catch (error) {
-            logger.error('❌ Error generating default feed:', error);
-            throw error;
         }
     }
     
