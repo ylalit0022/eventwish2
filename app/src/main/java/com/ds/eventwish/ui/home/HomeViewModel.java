@@ -219,20 +219,27 @@ public class HomeViewModel extends ViewModel {
         }
 
         Log.d(TAG, "Loading categories from repository");
-        repository.getCategories(new TemplateRepository.CategoriesCallback() {
+        
+        // Observe categories LiveData to get updates
+        androidx.lifecycle.Observer<Map<String, Integer>> categoriesObserver = new androidx.lifecycle.Observer<Map<String, Integer>>() {
             @Override
-            public void onSuccess(Map<String, Integer> categoryMap) {
-                repository.notifyCategoriesObservers();
-                categoriesLoaded = true; // Mark categories as loaded
-                Log.d(TAG, "Categories loaded successfully: " + categoryMap.size());
+            public void onChanged(Map<String, Integer> categoryMap) {
+                if (categoryMap != null && !categoryMap.isEmpty()) {
+                    categoriesLoaded = true; // Mark categories as loaded
+                    Log.d(TAG, "Categories loaded successfully: " + categoryMap.size());
+                } else {
+                    Log.d(TAG, "Categories observer received empty or null categories");
+                }
+                // Remove observer after first callback to avoid multiple callbacks
+                repository.getCategories().removeObserver(this);
             }
-
-            @Override
-            public void onError(String message) {
-                repository.notifyCategoriesObservers();
-                Log.e(TAG, "Error loading categories: " + message);
-            }
-        });
+        };
+        
+        // Add the observer to get categories when they're loaded
+        repository.getCategories().observeForever(categoriesObserver);
+        
+        // Trigger category loading by calling loadTemplates which will extract categories from feed
+        repository.loadTemplates(false);
     }
 
     public LiveData<Boolean> getLoading() {
@@ -1013,30 +1020,14 @@ public class HomeViewModel extends ViewModel {
         Log.d(TAG, "Loading multi-section feed with category: " + 
               (selectedCategory != null ? selectedCategory : "all"));
         
-        repository.loadMultiSectionFeed(selectedCategory, getCurrentPage(), new TemplateRepository.FeedCallback() {
-            @Override
-            public void onSuccess(com.ds.eventwish.data.model.response.FeedResponse feedResponse) {
-                Log.d(TAG, "Multi-section feed loaded successfully");
-                
-                // Extract templates from all sections
-                List<Template> allTemplates = feedResponse.getAllTemplates();
-                Log.d(TAG, "Extracted " + allTemplates.size() + " templates from feed");
-                
-                // FeedResponse doesn't have getCategories() method like the old FeedApiResponse
-                // Categories will be handled by the repository through other means
-                Log.d(TAG, "Feed response received with " + feedResponse.getAllTemplates().size() + " templates");
-                
-                // The repository will handle updating the templates LiveData
-                // and the UI will automatically update through observers
-            }
-
-            @Override
-            public void onError(String message) {
-                Log.e(TAG, "Failed to load multi-section feed: " + message);
-                // Fall back to regular template loading
-                loadTemplates(false);
-            }
-        });
+        // Set the category filter in repository
+        repository.setCategory(selectedCategory);
+        
+        // Load templates using the repository's loadTemplates method
+        // which now uses the /feed endpoint and extracts categories automatically
+        repository.loadTemplates(false);
+        
+        Log.d(TAG, "Multi-section feed loading initiated through repository.loadTemplates()");
     }
 
     /**
@@ -1054,29 +1045,18 @@ public class HomeViewModel extends ViewModel {
         
         Log.d(TAG, "Loading next page of multi-section feed: " + nextPage);
         
-        repository.loadMultiSectionFeed(selectedCategory, nextPage, new TemplateRepository.FeedCallback() {
-            @Override
-            public void onSuccess(com.ds.eventwish.data.model.response.FeedResponse feedResponse) {
-                Log.d(TAG, "Next page of multi-section feed loaded successfully");
-                
-                // Extract templates from all sections
-                List<Template> newTemplates = feedResponse.getAllTemplates();
-                Log.d(TAG, "Extracted " + newTemplates.size() + " new templates from feed");
-                
-                // Update current page
-                saveCurrentPage(nextPage);
-                
-                // The repository will handle appending the new templates
-                setPaginationInProgress(false);
-            }
-
-            @Override
-            public void onError(String message) {
-                Log.e(TAG, "Failed to load next page of multi-section feed: " + message);
-                setPaginationInProgress(false);
-                // Fall back to regular pagination
-                loadMoreIfNeeded(0, 0); // This will trigger regular pagination
-            }
-        });
+        // Set the next page in repository
+        repository.setCurrentPage(nextPage);
+        
+        // Load more templates using the repository's loadTemplates method
+        repository.loadTemplates(false);
+        
+        // Update current page
+        saveCurrentPage(nextPage);
+        
+        // Reset pagination flag
+        setPaginationInProgress(false);
+        
+        Log.d(TAG, "Next page loading initiated through repository.loadTemplates()");
     }
 }

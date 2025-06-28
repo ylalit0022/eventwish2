@@ -29,18 +29,21 @@
         android:layout_marginBottom="8dp"
         app:cardBackgroundColor="@color/card_festive_light">
 
-        <LinearLayout
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:layout_height="match_parent">
 
             <!-- Instagram-style Header with Profile -->
             <LinearLayout
+                android:id="@+id/header_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:padding="12dp"
-                android:gravity="center_vertical">
+                android:gravity="center_vertical"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
 
                 <!-- Profile Picture -->
                 <com.google.android.material.imageview.ShapeableImageView
@@ -68,6 +71,7 @@
                         android:gravity="center_vertical">
 
                         <com.google.android.material.textview.MaterialTextView
+                            android:id="@+id/usernameText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="eventwish"
@@ -129,37 +133,42 @@
                     app:tint="?attr/colorOnSurfaceVariant" />
             </LinearLayout>
 
-            <!-- Template Title - Moved ABOVE the image -->
-            <LinearLayout
+            <!-- Template Title -->
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/titleText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
+                android:textAppearance="@style/TextAppearance.EventWish.Body"
+                android:textColor="?attr/colorOnSurface"
+                android:textSize="14sp"
+                android:maxLines="3"
+                android:ellipsize="end"
+                android:lineSpacingExtra="2dp"
                 android:paddingStart="12dp"
                 android:paddingEnd="12dp"
-                android:paddingBottom="8dp">
+                android:paddingBottom="8dp"
+                app:layout_constraintTop_toBottomOf="@id/header_container"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                tools:text="Beautiful birthday template for celebrating special moments with friends and family. Perfect for social media posts and greetings." />
 
-                <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/titleText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textAppearance="@style/TextAppearance.EventWish.Body"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="14sp"
-                    android:maxLines="3"
-                    android:ellipsize="end"
-                    android:lineSpacingExtra="2dp"
-                    tools:text="Beautiful birthday template for celebrating special moments with friends and family. Perfect for social media posts and greetings." />
-            </LinearLayout>
-
-            <!-- Main Image Content -->
+            <!-- Main Image Content with Fixed 16:9 Ratio -->
             <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                android:id="@+id/template_container"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp"
+                android:layout_marginBottom="8dp"
+                app:layout_constraintTop_toBottomOf="@id/titleText"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintDimensionRatio="9:16">
 
                 <WebView
                     android:id="@+id/template_image"
                     android:layout_width="match_parent"
-                    android:layout_height="480dp"
+                    android:layout_height="match_parent"
                     android:clickable="true"
                     android:focusable="true"
                     android:foreground="?attr/selectableItemBackground"
@@ -225,8 +234,9 @@
                 </LinearLayout>
             </FrameLayout>
 
-            <!-- Instagram-style Action Bar with Grouped Elements -->
+            <!-- Instagram-style Action Bar -->
             <LinearLayout
+                android:id="@+id/action_bar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
@@ -235,7 +245,11 @@
                 android:paddingTop="12dp"
                 android:paddingBottom="8dp"
                 android:baselineAligned="false"
-                android:gravity="center_vertical">
+                android:gravity="center_vertical"
+                app:layout_constraintTop_toBottomOf="@id/template_container"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent">
 
                 <!-- Like Group -->
                 <LinearLayout
@@ -329,13 +343,13 @@
                         android:layout_marginTop="2dp"
                         tools:text="8" />
 
-                                        <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/fallbackTimeText"
-                    android:layout_width="0dp"
-                    android:layout_height="0dp"
-                    android:visibility="gone" />
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/fallbackTimeText"
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:visibility="gone" />
                 </LinearLayout>
             </LinearLayout>
-        </LinearLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
     </com.google.android.material.card.MaterialCardView>
 </androidx.constraintlayout.widget.ConstraintLayout>

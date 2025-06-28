@@ -13,7 +13,6 @@ import androidx.lifecycle.MutableLiveData;
 import com.ds.eventwish.data.model.Template;
 import com.ds.eventwish.data.model.response.TemplateResponse;
 import com.ds.eventwish.data.model.response.FeedResponse;
-import com.ds.eventwish.data.model.response.FeedResponse;
 import com.ds.eventwish.data.db.AppDatabase;
 import com.ds.eventwish.data.db.TemplateDao;
 import com.ds.eventwish.data.remote.ApiService;
@@ -95,22 +94,6 @@ public class TemplateRepository {
     private static final long SERVER_SYNC_INTERVAL_MS = 120000; // 2 minutes between server syncs (reduced for cross-device sync)
     private long lastSyncTimestamp = 0;
     private long lastServerSyncTimestamp = 0;
-
-    /**
-     * Callback interface for category operations
-     */
-    public interface CategoriesCallback {
-        void onSuccess(Map<String, Integer> categoryMap);
-        void onError(String message);
-    }
-
-    /**
-     * Callback interface for feed operations
-     */
-    public interface FeedCallback {
-        void onSuccess(FeedResponse feedResponse);
-        void onError(String message);
-    }
 
     public static void init(Context context) {
         if (context != null) {
@@ -407,227 +390,22 @@ public class TemplateRepository {
             return;
         }
         
-        // Get templates from new multi-section feed API
-        boolean useMultiSectionFeed = true; // Flag to control new vs old API
-        
-        if (useMultiSectionFeed) {
-            // Use new multi-section feed API
-            if (user != null) {
-                // Authenticated user - get personalized feed
-                user.getIdToken(false).addOnCompleteListener(task -> {
-                    if (task.isSuccessful() && task.getResult() != null) {
-                        String authToken = "Bearer " + task.getResult().getToken();
-                        loadFromMultiSectionFeed(authToken, user);
-                    } else {
-                        // Fallback to default feed if token fails
-                        loadFromDefaultFeed();
-                    }
-                });
-                return; // Exit early since we're handling async
-            } else {
-                // Unauthenticated user - get default feed
-                loadFromDefaultFeed();
-                return; // Exit early
-            }
+        // Always use multi-section feed API (/feed endpoint only)
+        if (user != null) {
+            // Authenticated user - get personalized feed
+            user.getIdToken(false).addOnCompleteListener(task -> {
+                if (task.isSuccessful() && task.getResult() != null) {
+                    String authToken = "Bearer " + task.getResult().getToken();
+                    loadFromMultiSectionFeed(authToken, user);
+                } else {
+                    // Fallback to default feed if token fails
+                    loadFromDefaultFeed();
+                }
+            });
         } else {
-            // Legacy API call (kept for backward compatibility)
-            Call<TemplateResponse> call;
-            if (currentCategory != null && !currentCategory.isEmpty()) {
-                call = apiService.getTemplatesByCategory(currentCategory, currentPage, PAGE_SIZE);
-            } else {
-                call = apiService.getTemplates(currentPage, PAGE_SIZE);
-            }
-            
-            setCurrentCall(call);
+            // Unauthenticated user - get default feed
+            loadFromDefaultFeed();
         }
-        
-        Log.d(TAG, "Fetching templates from API: page=" + currentPage + ", category=" + (currentCategory == null ? "all" : currentCategory));
-        
-        currentCall.enqueue(new Callback<TemplateResponse>() {
-            @Override
-            public void onResponse(Call<TemplateResponse> call, Response<TemplateResponse> response) {
-                // Process response on a background thread to avoid main thread database operations
-                AppExecutors.getInstance().networkIO().execute(() -> {
-                    try {
-                        if (response.isSuccessful() && response.body() != null) {
-                            final TemplateResponse templateResponse = response.body();
-                            List<Template> fetchedTemplates = templateResponse.getTemplates();
-                            
-                            Log.d(TAG, "Fetched templates: " + (fetchedTemplates != null ? fetchedTemplates.size() : 0));
-                            
-                            // Process templates
-                            if (fetchedTemplates != null && !fetchedTemplates.isEmpty()) {
-                                Log.d(TAG, "Received " + fetchedTemplates.size() + " templates from API");
-                                
-                                // Filter out any non-Template objects that might have been added by deserializer
-                                List<Template> validTemplates = new ArrayList<>();
-                                for (Object item : fetchedTemplates) {
-                                    if (item instanceof Template) {
-                                        validTemplates.add((Template) item);
-                                    } else {
-                                        Log.w(TAG, "Skipping non-Template object: " + item.getClass().getName() + 
-                                                   " - Content: " + item.toString());
-                                    }
-                                }
-                                
-                                // Update fetchedTemplates to only include valid Template objects
-                                fetchedTemplates = validTemplates;
-                                Log.d(TAG, "Filtered to " + fetchedTemplates.size() + " valid Template objects");
-                                
-                                if (!fetchedTemplates.isEmpty()) {
-                                    // Log the first template's details for debugging
-                                    Template firstTemplate = fetchedTemplates.get(0);
-                                    Log.d(TAG, "First template details: " +
-                                          "id=" + firstTemplate.getId() + 
-                                          ", title=" + firstTemplate.getTitle() + 
-                                          ", createdAt=" + (firstTemplate.getCreatedAt() != null ? firstTemplate.getCreatedAt() : "null") +
-                                          ", raw JSON=" + new Gson().toJson(firstTemplate));
-                                
-                                    // Ensure all templates have a createdAt date
-                                    for (Template template : fetchedTemplates) {
-                                        if (template.getCreatedAt() == null) {
-                                            Log.d(TAG, "Template " + template.getId() + " has null createdAt, setting to current date");
-                                            template.setCreatedAt(new Date());
-                                        } else {
-                                            Log.d(TAG, "Template " + template.getId() + " has createdAt: " + template.getCreatedAt());
-                                        }
-                                    }
-                                } else {
-                                    Log.w(TAG, "No valid Template objects found after filtering");
-                                }
-                                
-                                // Save categories from response if available
-                                Map<String, Integer> responseCategories = templateResponse.getCategories();
-                                if (responseCategories != null && !responseCategories.isEmpty()) {
-                                    Log.d(TAG, "Updating categories from templates response: " + responseCategories.size());
-                                    // Update categories on main thread
-                                    AppExecutors.getInstance().mainThread().execute(() -> {
-                                        categories.setValue(responseCategories);
-                                        // Save to preferences for future use
-                                        saveCategoriesToPrefs(responseCategories);
-                                    });
-                                }
-                            }
-                            
-                                        // Update pagination state
-            hasMorePages = templateResponse.isHasMore();
-                            
-                            // Process templates and update view on main thread
-                            if (fetchedTemplates != null && !fetchedTemplates.isEmpty()) {
-                                // Update templates in database on background thread
-                                try {
-                                    insertAll(fetchedTemplates, false);
-                                } catch (Exception e) {
-                                    Log.e(TAG, "Error saving templates to database", e);
-                                }
-                                
-                                // Apply local interaction states
-                                final List<Template> processedTemplates;
-                                if (user != null) {
-                                    processedTemplates = applyLocalInteractionStates(fetchedTemplates, user.getUid());
-                                } else {
-                                    processedTemplates = fetchedTemplates;
-                                }
-                                
-                                // Update UI on main thread
-                                AppExecutors.getInstance().mainThread().execute(() -> {
-                                    templates.setValue(processedTemplates);
-                                    loading.setValue(false);
-                                    error.setValue(null);
-                                });
-                            } else {
-                                // No templates returned, update UI on main thread
-                                AppExecutors.getInstance().mainThread().execute(() -> {
-                                    templates.setValue(new ArrayList<>());
-                                    loading.setValue(false);
-                                    error.setValue(null);
-                                });
-                            }
-                        } else {
-                            // API error, update UI on main thread
-                            AppExecutors.getInstance().mainThread().execute(() -> {
-                                error.setValue("Error loading templates: " + 
-                                            (response.errorBody() != null ? response.errorBody().toString() : "Unknown error"));
-                                loading.setValue(false);
-                            });
-                        }
-                    } catch (Exception e) {
-                        // Handle exceptions on main thread
-                        AppExecutors.getInstance().mainThread().execute(() -> {
-                            error.setValue("Exception: " + e.getMessage());
-                            loading.setValue(false);
-                        });
-                        Log.e(TAG, "Error processing template response", e);
-                    }
-                });
-            }
-            
-            @Override
-            public void onFailure(Call<TemplateResponse> call, Throwable t) {
-                // Process failure on background thread
-                AppExecutors.getInstance().networkIO().execute(() -> {
-                    try {
-                        if (call.isCanceled()) {
-                            Log.d(TAG, "Template call was canceled");
-                            
-                            // Update UI on main thread
-                            AppExecutors.getInstance().mainThread().execute(() -> {
-                                loading.setValue(false);
-                            });
-                            return;
-                        }
-                        
-                        Log.e(TAG, "Failed to fetch templates", t);
-                        
-                        // Try to get templates from database as fallback
-                        List<Template> savedTemplates = new ArrayList<>();
-                        
-                        try {
-                            if (appDatabase != null) {
-                                if (currentCategory != null && !currentCategory.isEmpty()) {
-                                    savedTemplates = appDatabase.templateDao().getTemplatesByCategorySync(currentCategory);
-                                } else {
-                                    savedTemplates = appDatabase.templateDao().getAllTemplatesSync();
-                                }
-                            }
-                        } catch (Exception e) {
-                            Log.e(TAG, "Error loading templates from database", e);
-                        }
-                        
-                        // Apply local interaction states
-                        final List<Template> processedTemplates;
-                        if (user != null && !savedTemplates.isEmpty()) {
-                            processedTemplates = applyLocalInteractionStates(savedTemplates, user.getUid());
-                        } else {
-                            processedTemplates = savedTemplates;
-                        }
-                        
-                        // Create final reference for lambda
-                        final List<Template> finalProcessedTemplates = processedTemplates;
-                        final String errorMsg = "Failed to fetch templates: " + t.getMessage() + 
-                                         (finalProcessedTemplates.isEmpty() ? "" : " (Using cached data)");
-                        
-                        // Update UI on main thread
-                        AppExecutors.getInstance().mainThread().execute(() -> {
-                            if (!finalProcessedTemplates.isEmpty()) {
-                                templates.setValue(finalProcessedTemplates);
-                                Log.d(TAG, "Using " + finalProcessedTemplates.size() + " cached templates as fallback");
-                            }
-                            
-                            error.setValue(errorMsg);
-                            loading.setValue(false);
-                        });
-                    } catch (Exception e) {
-                        // Handle exceptions on main thread
-                        AppExecutors.getInstance().mainThread().execute(() -> {
-                            error.setValue("Exception during error handling: " + e.getMessage());
-                            loading.setValue(false);
-                        });
-                        Log.e(TAG, "Error handling template call failure", e);
-                    }
-                });
-            }
-        });
     }
 
     /**
@@ -812,29 +590,60 @@ public class TemplateRepository {
      */
     private List<Template> convertFeedToTemplateList(FeedResponse feedResponse) {
         List<Template> allTemplates = new ArrayList<>();
+        Set<String> seenTemplateIds = new HashSet<>(); // Track seen template IDs to prevent duplicates
+        Map<String, Integer> extractedCategories = new HashMap<>(); // Extract categories from templates
         
         if (feedResponse.getSections() != null) {
-            // Server-side filtering is now handled by the API, so we just collect all templates
             Log.d(TAG, "Converting multi-section feed to flat template list" + 
                   (currentCategory != null ? " (server-filtered by category: " + currentCategory + ")" : ""));
             
             for (FeedResponse.FeedSection section : feedResponse.getSections()) {
                 List<Template> sectionTemplates = section.getTemplates();
                 if (sectionTemplates != null && !sectionTemplates.isEmpty()) {
-                    // Add section metadata to templates for potential UI differentiation
+                    Log.d(TAG, "Processing " + sectionTemplates.size() + " templates from " + section.getType() + " section");
+                    
                     for (Template template : sectionTemplates) {
-                        // You could add section type as metadata if needed
-                        // template.setSectionType(section.getType());
+                        // Check for duplicates using template ID
+                        if (template.getId() != null && !seenTemplateIds.contains(template.getId())) {
+                            seenTemplateIds.add(template.getId());
+                            allTemplates.add(template);
+                            
+                            // Extract category for categories map
+                            if (template.getCategory() != null && !template.getCategory().trim().isEmpty()) {
+                                String category = template.getCategory().trim();
+                                extractedCategories.put(category, extractedCategories.getOrDefault(category, 0) + 1);
+                            }
+                            
+                            Log.v(TAG, "Added unique template: " + template.getId() + " from " + section.getType());
+                        } else if (template.getId() != null) {
+                            Log.v(TAG, "Skipped duplicate template: " + template.getId() + " from " + section.getType());
+                        }
                     }
-                    allTemplates.addAll(sectionTemplates);
-                    Log.d(TAG, "Added " + sectionTemplates.size() + " templates from " + section.getType() + " section");
+                }
+            }
+            
+            // Update categories from extracted data
+            if (!extractedCategories.isEmpty()) {
+                Log.d(TAG, "Extracted " + extractedCategories.size() + " categories from feed templates");
+                
+                // Merge with existing categories and save
+                Map<String, Integer> currentCategories = categories.getValue();
+                if (currentCategories != null) {
+                    Map<String, Integer> mergedCategories = new HashMap<>(currentCategories);
+                    mergedCategories.putAll(extractedCategories);
+                    categories.postValue(mergedCategories);
+                    saveCategoriesToPrefs(mergedCategories);
+                } else {
+                    categories.postValue(extractedCategories);
+                    saveCategoriesToPrefs(extractedCategories);
                 }
             }
         }
         
         Log.d(TAG, "Converted " + (feedResponse.getSections() != null ? feedResponse.getSections().size() : 0) + 
-              " sections to " + allTemplates.size() + " templates" + 
-              (currentCategory != null ? " (server-filtered by category: " + currentCategory + ")" : ""));
+              " sections to " + allTemplates.size() + " unique templates" + 
+              (currentCategory != null ? " (server-filtered by category: " + currentCategory + ")" : "") +
+              ", extracted " + extractedCategories.size() + " categories");
         
         return allTemplates;
     }
@@ -991,83 +800,7 @@ public class TemplateRepository {
         }
     }
 
-    /**
-     * Get categories with callback
-     * @param callback Callback to receive the categories
-     */
-    public void getCategories(CategoriesCallback callback) {
-        Log.d(TAG, "Getting categories - checking existing data first");
-        
-        // First check if we have existing categories
-        Map<String, Integer> existingCategories = categories.getValue();
-        if (existingCategories != null && !existingCategories.isEmpty()) {
-            Log.d(TAG, "Using existing categories: " + existingCategories.size());
-            callback.onSuccess(existingCategories);
-            return;
-        }
-        
-        // If no categories exist, fetch from templates endpoint to get categories
-        Log.d(TAG, "No existing categories, fetching from templates endpoint");
-        
-        // Create headers map
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Content-Type", "application/json");
 
-        // Make API call to get templates (which includes categories)
-        Call<TemplateResponse> call = apiService.getTemplates(1, 1); // Get minimal templates just for categories
-        call.enqueue(new Callback<TemplateResponse>() {
-            @Override
-            public void onResponse(Call<TemplateResponse> call, Response<TemplateResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    TemplateResponse templateResponse = response.body();
-                    Map<String, Integer> categoryMap = templateResponse.getCategories();
-                    
-                    if (categoryMap != null && !categoryMap.isEmpty()) {
-                        Log.d(TAG, "Extracted categories from templates response: " + categoryMap.size());
-                        // Update categories immediately
-                        categories.postValue(categoryMap);
-                        // Save to preferences for future use
-                        saveCategoriesToPrefs(categoryMap);
-                        callback.onSuccess(categoryMap);
-                    } else {
-                        Log.d(TAG, "No categories in templates response, using defaults");
-                        Map<String, Integer> defaultCats = new HashMap<>(defaultCategories);
-                        categories.postValue(defaultCats);
-                        callback.onSuccess(defaultCats);
-                    }
-                } else {
-                    Log.e(TAG, "Templates API failed for categories, using fallback");
-                    // Use existing categories as fallback, or defaults if none exist
-                    Map<String, Integer> existingCats = categories.getValue();
-                    if (existingCats != null && !existingCats.isEmpty()) {
-                        Log.d(TAG, "Using existing categories as fallback: " + existingCats.size());
-                        callback.onSuccess(existingCats);
-                    } else {
-                        Log.d(TAG, "Using default categories as fallback");
-                        Map<String, Integer> defaultCats = new HashMap<>(defaultCategories);
-                        categories.postValue(defaultCats);
-                        callback.onSuccess(defaultCats);
-                    }
-                }
-            }
-
-            @Override
-            public void onFailure(Call<TemplateResponse> call, Throwable t) {
-                Log.e(TAG, "Templates API call failed for categories: " + t.getMessage());
-                // Use existing categories as fallback, or defaults if none exist
-                Map<String, Integer> existingCats = categories.getValue();
-                if (existingCats != null && !existingCats.isEmpty()) {
-                    Log.d(TAG, "Network failed, using existing categories: " + existingCats.size());
-                    callback.onSuccess(existingCats);
-                } else {
-                    Log.d(TAG, "Network failed, using default categories");
-                    Map<String, Integer> defaultCats = new HashMap<>(defaultCategories);
-                    categories.postValue(defaultCats);
-                    callback.onSuccess(defaultCats);
-                }
-            }
-        });
-    }
 
     /**
      * Insert a list of templates into the database
@@ -3626,202 +3359,13 @@ public class TemplateRepository {
         return tcs.getTask();
     }
 
-    /**
-     * Load multi-section feed with categories and pagination
-     */
-    public void loadMultiSectionFeed(String category, int page, FeedCallback callback) {
-        if (loading.getValue() == Boolean.TRUE) {
-            Log.d(TAG, "Feed already loading, skipping request");
-            return;
-        }
-
-        loading.postValue(true);
-        error.postValue(null);
-
-        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-        if (user == null) {
-            loadDefaultMultiSectionFeed(category, page, callback);
-            return;
-        }
-
-        user.getIdToken(false).addOnCompleteListener(task -> {
-            if (task.isSuccessful()) {
-                String authToken = task.getResult().getToken();
-                loadMultiSectionFeedWithAuth(authToken, category, page, callback);
-            } else {
-                Log.w(TAG, "Failed to get auth token, using default feed", task.getException());
-                loadDefaultMultiSectionFeed(category, page, callback);
-            }
-        });
-    }
-
-    /**
-     * Load multi-section feed with authentication
-     */
-    private void loadMultiSectionFeedWithAuth(String authToken, String category, int page, FeedCallback callback) {
-        String include = "personalized,trending,fresh,categories";
-        
-        Call<FeedResponse> call = apiService.getMultiSectionFeed(
-            "Bearer " + authToken,
-            include,
-            page,
-            PAGE_SIZE,
-            category,
-            false // refresh
-        );
-
-        call.enqueue(new Callback<FeedResponse>() {
-            @Override
-            public void onResponse(Call<FeedResponse> call, Response<FeedResponse> response) {
-                loading.postValue(false);
-                
-                if (response.isSuccessful() && response.body() != null) {
-                    FeedResponse feedResponse = response.body();
-                    
-                    if (feedResponse.isSuccess()) {
-                        // Update templates from FeedResponse
-                        List<Template> allTemplates = feedResponse.getAllTemplates();
-                        if (page == 1) {
-                            templates.postValue(allTemplates);
-                        } else {
-                            List<Template> currentTemplates = templates.getValue();
-                            if (currentTemplates == null) {
-                                currentTemplates = new ArrayList<>();
-                            }
-                            currentTemplates.addAll(allTemplates);
-                            templates.postValue(currentTemplates);
-                        }
-                        
-                        // Update pagination info
-                        hasMorePages = !allTemplates.isEmpty() && allTemplates.size() >= PAGE_SIZE;
-                        currentPage = page;
-                        currentCategory = category;
-                        
-                        Log.d(TAG, "Multi-section feed loaded successfully: " + allTemplates.size() + " templates");
-                        
-                        if (callback != null) {
-                            callback.onSuccess(feedResponse);
-                        }
-                    } else {
-                        String errorMsg = feedResponse.getMessage() != null ? feedResponse.getMessage() : "Feed request failed";
-                        error.postValue(errorMsg);
-                        if (callback != null) {
-                            callback.onError(errorMsg);
-                        }
-                    }
-                } else {
-                    String errorMsg = "Server error: " + response.code();
-                    error.postValue(errorMsg);
-                    if (callback != null) {
-                        callback.onError(errorMsg);
-                    }
-                }
-            }
-
-            @Override
-            public void onFailure(Call<FeedResponse> call, Throwable t) {
-                loading.postValue(false);
-                String errorMsg = "Network error: " + t.getMessage();
-                error.postValue(errorMsg);
-                Log.e(TAG, "Multi-section feed request failed", t);
-                
-                if (callback != null) {
-                    callback.onError(errorMsg);
-                }
-            }
-        });
-    }
-
-    /**
-     * Load default multi-section feed (no auth)
-     */
-    private void loadDefaultMultiSectionFeed(String category, int page, FeedCallback callback) {
-        String include = "trending,fresh,categories";
-        
-        Call<FeedResponse> call = apiService.getDefaultMultiSectionFeed(
-            include,
-            page,
-            PAGE_SIZE,
-            category
-        );
-
-        call.enqueue(new Callback<FeedResponse>() {
-            @Override
-            public void onResponse(Call<FeedResponse> call, Response<FeedResponse> response) {
-                loading.postValue(false);
-                
-                if (response.isSuccessful() && response.body() != null) {
-                    FeedResponse feedResponse = response.body();
-                    
-                    if (feedResponse.isSuccess()) {
-                        // Update templates from FeedResponse
-                        List<Template> allTemplates = feedResponse.getAllTemplates();
-                        if (page == 1) {
-                            templates.postValue(allTemplates);
-                        } else {
-                            List<Template> currentTemplates = templates.getValue();
-                            if (currentTemplates == null) {
-                                currentTemplates = new ArrayList<>();
-                            }
-                            currentTemplates.addAll(allTemplates);
-                            templates.postValue(currentTemplates);
-                        }
-                        
-                        // Update pagination info
-                        hasMorePages = !allTemplates.isEmpty() && allTemplates.size() >= PAGE_SIZE;
-                        currentPage = page;
-                        currentCategory = category;
-                        
-                        Log.d(TAG, "Default multi-section feed loaded successfully: " + allTemplates.size() + " templates");
-                        
-                        if (callback != null) {
-                            callback.onSuccess(feedResponse);
-                        }
-                    } else {
-                        String errorMsg = feedResponse.getMessage() != null ? feedResponse.getMessage() : "Feed request failed";
-                        error.postValue(errorMsg);
-                        if (callback != null) {
-                            callback.onError(errorMsg);
-                        }
-                    }
-                } else {
-                    String errorMsg = "Server error: " + response.code();
-                    error.postValue(errorMsg);
-                    if (callback != null) {
-                        callback.onError(errorMsg);
-                    }
-                }
-            }
-
-            @Override
-            public void onFailure(Call<FeedResponse> call, Throwable t) {
-                loading.postValue(false);
-                String errorMsg = "Network error: " + t.getMessage();
-                error.postValue(errorMsg);
-                Log.e(TAG, "Default multi-section feed request failed", t);
-                
-                if (callback != null) {
-                    callback.onError(errorMsg);
-                }
-            }
-        });
-    }
 
 
 
-    /**
-     * Load next page for current category
-     */
-    public void loadNextPage() {
-        if (hasMorePages && !isLoading()) {
-            loadMultiSectionFeed(currentCategory, currentPage + 1, null);
-        }
-    }
 
-    /**
-     * Refresh current feed
-     */
-    public void refreshFeed() {
-        loadMultiSectionFeed(currentCategory, 1, null);
-    }
+
+
+
+
+
 }
