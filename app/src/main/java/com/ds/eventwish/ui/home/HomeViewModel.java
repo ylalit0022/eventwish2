@@ -267,6 +267,10 @@ public class HomeViewModel extends ViewModel {
         selectedCategory = category;
         lastCategoryChangeTime = System.currentTimeMillis();
         
+        // FIXED: Reset pagination state when changing categories
+        repository.setCurrentPage(1);
+        lastVisiblePosition = 0;
+        
         // Save the selected category
         saveTemplateState();
         
@@ -337,48 +341,9 @@ public class HomeViewModel extends ViewModel {
         // Apply time filter
         applyTimeFilter(timeFilter.getValue());
         
-        // Create a named observer for templates
-        androidx.lifecycle.Observer<List<Template>> templatesObserver = new androidx.lifecycle.Observer<List<Template>>() {
-            @Override
-            public void onChanged(List<Template> templates) {
-                Log.d(TAG, "Templates observer triggered with " + 
-                      (templates != null ? templates.size() : 0) + " templates");
-                      
-                if (templates == null) {
-                    Log.e(TAG, "Templates observer received null templates list");
-                    // Don't return early - let the UI handle null state
-                } else if (templates.isEmpty()) {
-                    Log.d(TAG, "Templates observer received empty templates list");
-                    // Don't return early - let the UI handle empty state
-                    // The HomeFragment needs to know about the empty state to show proper UI
-                } else {
-                    // Create a new list to avoid modifying the repository's list directly
-                    List<Template> sortedTemplates = new ArrayList<>(templates);
-                    
-                    // Sort by creation date (newest first)
-                    Collections.sort(sortedTemplates, (t1, t2) -> {
-                        long time1 = t1.getCreatedAtTimestamp();
-                        long time2 = t2.getCreatedAtTimestamp();
-                        // Sort in descending order (newest first)
-                        return Long.compare(time2, time1);
-                    });
-                    
-                    Log.d(TAG, "Sorted " + sortedTemplates.size() + " templates by creation date (newest first)");
-                    
-                    // Check for new templates in the sorted list
-                    checkForNewTemplates(sortedTemplates);
-                }
-                
-                // Always remove observer after first callback to avoid multiple callbacks
-                repository.getTemplates().removeObserver(this);
-            }
-        };
-        
-        // Add the observer to get templates when they're loaded
-        repository.getTemplates().observeForever(templatesObserver);
-        
         // Load templates with the current filters
-        Log.d(TAG, "Calling repository.loadTemplates(" + clearExisting + ")");
+        Log.d(TAG, "Calling repository.loadTemplates(" + clearExisting + ") for category: " + 
+              (selectedCategory != null ? selectedCategory : "All"));
         repository.loadTemplates(clearExisting);
         
         // Record time of last refresh

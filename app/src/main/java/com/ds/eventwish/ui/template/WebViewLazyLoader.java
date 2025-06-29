@@ -92,6 +92,9 @@ public class WebViewLazyLoader {
                 if (newState == RecyclerView.SCROLL_STATE_IDLE) {
                     // Load visible items after scrolling stops
                     scheduleVisibilityCheck(recyclerView, callback);
+                } else if (newState == RecyclerView.SCROLL_STATE_SETTLING) {
+                    // FIXED: Also check visibility when settling to handle fast scrolls
+                    scheduleVisibilityCheck(recyclerView, callback);
                 }
             }
             
@@ -99,8 +102,12 @@ public class WebViewLazyLoader {
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
                 
-                // Update visibility during scroll
-                if (!isScrolling) {
+                // FIXED: Always update visibility during scroll, but with longer delay
+                if (isScrolling) {
+                    // During active scrolling, use longer delay to avoid excessive calls
+                    scheduleVisibilityCheckWithDelay(recyclerView, callback, LOAD_DELAY_MS * 2);
+                } else {
+                    // When not actively scrolling, use normal delay
                     scheduleVisibilityCheck(recyclerView, callback);
                 }
             }
@@ -114,12 +121,19 @@ public class WebViewLazyLoader {
      * Schedule visibility check with delay to avoid excessive calls
      */
     private void scheduleVisibilityCheck(RecyclerView recyclerView, LoadCallback callback) {
+        scheduleVisibilityCheckWithDelay(recyclerView, callback, LOAD_DELAY_MS);
+    }
+    
+    /**
+     * Schedule visibility check with custom delay
+     */
+    private void scheduleVisibilityCheckWithDelay(RecyclerView recyclerView, LoadCallback callback, int delay) {
         if (scrollRunnable != null) {
             scrollHandler.removeCallbacks(scrollRunnable);
         }
         
         scrollRunnable = () -> checkVisibleItems(recyclerView, callback);
-        scrollHandler.postDelayed(scrollRunnable, LOAD_DELAY_MS);
+        scrollHandler.postDelayed(scrollRunnable, delay);
     }
     
     /**

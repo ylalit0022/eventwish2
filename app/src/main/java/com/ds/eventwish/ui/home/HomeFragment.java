@@ -367,13 +367,8 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.Templa
                 }
             }
             
-            // Only refresh templates if specifically needed (and not often)
-            if (viewModel != null && viewModel.shouldRefreshOnReturn()) {
-                Log.d(TAG, "Refreshing templates because shouldRefreshOnReturn is true");
-                viewModel.loadTemplates(false); // Use false to avoid clearing existing data
-            } else {
-                Log.d(TAG, "Skipping template refresh, using existing data");
-            }
+            // Never reload templates when returning from another fragment
+            Log.d(TAG, "Returning from another fragment, using existing templates");
             
             // Update chip selections based on current filters without reloading data
             updateChipSelections();
@@ -1283,6 +1278,16 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.Templa
                 // Create a new list to avoid modification issues
                 List<Template> newList = new ArrayList<>(templates);
                 
+                // Sort by creation date (newest first) - moved from HomeViewModel
+                Collections.sort(newList, (t1, t2) -> {
+                    long time1 = t1.getCreatedAtTimestamp();
+                    long time2 = t2.getCreatedAtTimestamp();
+                    // Sort in descending order (newest first)
+                    return Long.compare(time2, time1);
+                });
+                
+                Log.d(TAG, "Sorted " + newList.size() + " templates by creation date (newest first)");
+                
                 // Check for new templates
                 viewModel.checkForNewTemplates(newList);
                 
@@ -1368,18 +1373,19 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.Templa
                 binding.swipeRefreshLayout.setRefreshing(isLoading);
             }
             
-            // Show/hide shimmer based on loading state
+            // Show/hide loading state
             if (isLoading) {
-//                binding.shimmerLayout.setVisibility(View.VISIBLE);
-//                binding.shimmerLayout.startShimmer();
-                binding.templatesRecyclerView.setVisibility(View.GONE);
+                // Only hide RecyclerView if we don't have any templates yet
+                if (adapter == null || adapter.getItemCount() == 0) {
+                    binding.templatesRecyclerView.setVisibility(View.GONE);
+                } else {
+                    // Keep RecyclerView visible if we have templates
+                    binding.templatesRecyclerView.setVisibility(View.VISIBLE);
+                }
                 binding.emptyView.setVisibility(View.GONE);
-                
-                // Hide error view while loading
                 binding.retryLayout.setVisibility(View.GONE);
             } else {
-//                binding.shimmerLayout.stopShimmer();
-//                binding.shimmerLayout.setVisibility(View.GONE);
+                // Always show RecyclerView when not loading
                 binding.templatesRecyclerView.setVisibility(View.VISIBLE);
                 
                 // If this was pagination, dismiss the snackbar

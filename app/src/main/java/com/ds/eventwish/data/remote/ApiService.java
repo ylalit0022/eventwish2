@@ -82,6 +82,15 @@ public interface ApiService {
         @Query("categories") String categories
     );
 
+    // Category-specific feed endpoints - Use main feed endpoint with categories parameter
+    @GET("feed")
+    Call<FeedResponse> getFeedByCategory(
+        @Query("categories") String categories,
+        @Query("page") int page,
+        @Query("limit") int limit,
+        @Header("Authorization") String authToken
+    );
+
     // Template endpoints - Kept for backward compatibility
     @GET("templates")
     Call<TemplateResponse> getTemplates(

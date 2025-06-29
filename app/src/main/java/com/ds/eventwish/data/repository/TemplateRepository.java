@@ -421,9 +421,33 @@ public class TemplateRepository {
         String include = "personalized,trending,fresh,categories";
         
         // Pass category as query parameter for server-side filtering
-        String categories = currentCategory != null && !currentCategory.isEmpty() ? currentCategory : null;
+        String categoryFilter = null;
+        if (currentCategory != null && !currentCategory.isEmpty()) {
+            // Get the exact category name from the server's category map
+            Map<String, Integer> serverCategories = categories.getValue();
+            if (serverCategories != null) {
+                // Find the exact category name with correct case
+                String exactCategory = serverCategories.keySet().stream()
+                    .filter(cat -> cat.equalsIgnoreCase(currentCategory))
+                    .findFirst()
+                    .orElse(currentCategory);
+                categoryFilter = exactCategory;
+            } else {
+                categoryFilter = currentCategory;
+            }
+        }
         
-        Call<FeedResponse> call = apiService.getFeed(include, categories, null, authToken);
+        // FIXED: Ensure category filtering is properly applied with exact case
+        Call<FeedResponse> call;
+        if (categoryFilter != null) {
+            // When filtering by category, use specific category filtering with exact case
+            call = apiService.getFeedByCategory(categoryFilter, currentPage, PAGE_SIZE, authToken);
+            Log.d(TAG, "Using category-specific API call for category: " + categoryFilter);
+        } else {
+            // When showing all categories, use general feed
+            call = apiService.getFeed(include, null, null, authToken);
+            Log.d(TAG, "Using general feed API call for all categories");
+        }
         
         call.enqueue(new Callback<FeedResponse>() {
             @Override
@@ -437,23 +461,45 @@ public class TemplateRepository {
                                 // Convert multi-section feed to flat template list
                                 List<Template> allTemplates = convertFeedToTemplateList(feedResponse);
                                 
-                                Log.d(TAG, "Multi-section feed loaded: " + allTemplates.size() + " templates");
+                                // Skip client-side filtering since server already filtered by category
+                                List<Template> filteredTemplates = allTemplates;
+                                
+                                Log.d(TAG, "Multi-section feed loaded: " + allTemplates.size() + 
+                                          " templates (server-filtered)" + 
+                                          " for category: " + (currentCategory != null ? currentCategory : "All"));
                                 
                                 // Apply local interaction states
-                                List<Template> processedTemplates = applyLocalInteractionStates(allTemplates, user.getUid());
+                                List<Template> processedTemplates = applyLocalInteractionStates(filteredTemplates, user.getUid());
                                 
                                 // Update UI on main thread
                                 AppExecutors.getInstance().mainThread().execute(() -> {
-                                    templates.setValue(processedTemplates);
+                                    // FIXED: Preserve existing templates if this is pagination
+                                    if (currentPage > 1 && templates.getValue() != null) {
+                                        List<Template> existingTemplates = new ArrayList<>(templates.getValue());
+                                        existingTemplates.addAll(processedTemplates);
+                                        templates.setValue(existingTemplates);
+                                    } else {
+                                        templates.setValue(processedTemplates);
+                                    }
                                     loading.setValue(false);
                                     error.setValue(null);
                                 });
                                 
                                 // Save templates to cache
                                 try {
-                                    insertAll(allTemplates, false);
+                                    insertAll(filteredTemplates, false);
                                 } catch (Exception e) {
                                     Log.e(TAG, "Error saving feed templates to database", e);
+                                }
+                                
+                                // Extract and update categories from response
+                                if (feedResponse.getCategories() != null && !feedResponse.getCategories().isEmpty()) {
+                                    AppExecutors.getInstance().mainThread().execute(() -> {
+                                        Map<String, Integer> responseCategories = feedResponse.getCategories();
+                                        Log.d(TAG, "Updating categories from feed response: " + responseCategories.size());
+                                        categories.setValue(responseCategories);
+                                        saveCategoriesToPrefs(responseCategories);
+                                    });
                                 }
                             } else {
                                 // Feed API returned success=false
@@ -509,9 +555,17 @@ public class TemplateRepository {
         String include = "trending,fresh,categories";
         
         // Pass category as query parameter for server-side filtering
-        String categories = currentCategory != null && !currentCategory.isEmpty() ? currentCategory : null;
+        String categoryFilter = currentCategory != null && !currentCategory.isEmpty() ? currentCategory : null;
         
-        Call<FeedResponse> call = apiService.getDefaultFeed(include, categories, null);
+        // FIXED: Apply category filtering for unauthenticated users too
+        Call<FeedResponse> call;
+        if (categoryFilter != null) {
+            call = apiService.getFeedByCategory(categoryFilter, currentPage, PAGE_SIZE, null);
+            Log.d(TAG, "Using category-specific API call for category: " + categoryFilter);
+        } else {
+            call = apiService.getDefaultFeed(include, null, null);
+            Log.d(TAG, "Using general default feed API call for all categories");
+        }
         
         call.enqueue(new Callback<FeedResponse>() {
             @Override
@@ -525,20 +579,49 @@ public class TemplateRepository {
                                 // Convert multi-section feed to flat template list
                                 List<Template> allTemplates = convertFeedToTemplateList(feedResponse);
                                 
-                                Log.d(TAG, "Default feed loaded: " + allTemplates.size() + " templates");
+                                // Skip client-side filtering when using category-specific API, apply only for general feed
+                                List<Template> filteredTemplates;
+                                if (currentCategory != null && !currentCategory.isEmpty()) {
+                                    // Server already filtered by category, no need for client-side filtering
+                                    filteredTemplates = allTemplates;
+                                } else {
+                                    // General feed, apply client-side filtering if needed
+                                    filteredTemplates = filterTemplatesByCategory(allTemplates, currentCategory);
+                                }
+                                
+                                Log.d(TAG, "Default feed loaded: " + allTemplates.size() + 
+                                          " templates" + (currentCategory != null ? " (server-filtered)" : "") + 
+                                          " for category: " + (currentCategory != null ? currentCategory : "All"));
                                 
                                 // Update UI on main thread
                                 AppExecutors.getInstance().mainThread().execute(() -> {
-                                    templates.setValue(allTemplates);
+                                    // FIXED: Preserve existing templates if this is pagination
+                                    if (currentPage > 1 && templates.getValue() != null) {
+                                        List<Template> existingTemplates = new ArrayList<>(templates.getValue());
+                                        existingTemplates.addAll(filteredTemplates);
+                                        templates.setValue(existingTemplates);
+                                    } else {
+                                        templates.setValue(filteredTemplates);
+                                    }
                                     loading.setValue(false);
                                     error.setValue(null);
                                 });
                                 
                                 // Save templates to cache
                                 try {
-                                    insertAll(allTemplates, false);
+                                    insertAll(filteredTemplates, false);
                                 } catch (Exception e) {
                                     Log.e(TAG, "Error saving default feed templates to database", e);
+                                }
+                                
+                                // Extract and update categories from response
+                                if (feedResponse.getCategories() != null && !feedResponse.getCategories().isEmpty()) {
+                                    AppExecutors.getInstance().mainThread().execute(() -> {
+                                        Map<String, Integer> responseCategories = feedResponse.getCategories();
+                                        Log.d(TAG, "Updating categories from default feed response: " + responseCategories.size());
+                                        categories.setValue(responseCategories);
+                                        saveCategoriesToPrefs(responseCategories);
+                                    });
                                 }
                             } else {
                                 // Feed API returned success=false
@@ -584,6 +667,27 @@ public class TemplateRepository {
     }
 
     /**
+     * Filter templates by category on client side (additional safety check)
+     */
+    private List<Template> filterTemplatesByCategory(List<Template> templates, String category) {
+        if (category == null || category.isEmpty() || templates == null) {
+            return templates;
+        }
+        
+        List<Template> filteredTemplates = new ArrayList<>();
+        for (Template template : templates) {
+            if (template.getCategory() != null && 
+                template.getCategory().toLowerCase().contains(category.toLowerCase())) {
+                filteredTemplates.add(template);
+            }
+        }
+        
+        Log.d(TAG, "Client-side filtering: " + templates.size() + " -> " + filteredTemplates.size() + 
+              " templates for category: " + category);
+        return filteredTemplates;
+    }
+
+    /**
      * Convert multi-section feed response to flat template list
      */
     private List<Template> convertFeedToTemplateList(FeedResponse feedResponse) {
@@ -601,18 +705,63 @@ public class TemplateRepository {
                     Log.d(TAG, "Processing " + sectionTemplates.size() + " templates from " + section.getType() + " section");
                     
                     for (Template template : sectionTemplates) {
-                        // Check for duplicates using template ID
+                        // Check for duplicates and category match
                         if (template.getId() != null && !seenTemplateIds.contains(template.getId())) {
-                            seenTemplateIds.add(template.getId());
-                            allTemplates.add(template);
+                            // Only add template if it matches the current category filter
+                            boolean shouldAdd = currentCategory == null;
                             
-                            // Extract category for categories map (fallback if no dedicated categories field)
-                            if (template.getCategory() != null && !template.getCategory().trim().isEmpty()) {
-                                String category = template.getCategory().trim();
-                                extractedCategories.put(category, extractedCategories.getOrDefault(category, 0) + 1);
+                            if (!shouldAdd && currentCategory != null) {
+                                String normalizedCategory = currentCategory.trim().toLowerCase();
+                                
+                                // Check categoryId
+                                if (template.getCategoryId() != null && 
+                                    template.getCategoryId().trim().toLowerCase().equals(normalizedCategory)) {
+                                    shouldAdd = true;
+                                }
+                                
+                                // Check category
+                                if (!shouldAdd && template.getCategory() != null && 
+                                    template.getCategory().trim().toLowerCase().equals(normalizedCategory)) {
+                                    shouldAdd = true;
+                                }
+                                
+                                // Check festivalTag
+                                if (!shouldAdd && template.getFestivalTag() != null && 
+                                    template.getFestivalTag().trim().toLowerCase().equals(normalizedCategory)) {
+                                    shouldAdd = true;
+                                }
+                                
+                                // Check tags list
+                                if (!shouldAdd && template.getTags() != null) {
+                                    for (String tag : template.getTags()) {
+                                        if (tag != null && tag.trim().toLowerCase().equals(normalizedCategory)) {
+                                            shouldAdd = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                Log.d(TAG, "Category matching for template " + template.getId() + 
+                                          ": categoryId=" + template.getCategoryId() + 
+                                          ", category=" + template.getCategory() + 
+                                          ", festivalTag=" + template.getFestivalTag() + 
+                                          ", tags=" + template.getTags() + 
+                                          ", shouldAdd=" + shouldAdd);
                             }
                             
-                            Log.v(TAG, "Added unique template: " + template.getId() + " from " + section.getType());
+                            if (shouldAdd) {
+                                seenTemplateIds.add(template.getId());
+                                allTemplates.add(template);
+                                
+                                // Extract category for categories map (fallback if no dedicated categories field)
+                                if (template.getCategory() != null && !template.getCategory().trim().isEmpty()) {
+                                    String category = template.getCategory().trim();
+                                    extractedCategories.put(category, extractedCategories.getOrDefault(category, 0) + 1);
+                                }
+                                
+                                Log.v(TAG, "Added unique template: " + template.getId() + " from " + section.getType() + 
+                                          (currentCategory != null ? " (matches category: " + currentCategory + ")" : ""));
+                            }
                         } else if (template.getId() != null) {
                             Log.v(TAG, "Skipped duplicate template: " + template.getId() + " from " + section.getType());
                         }
@@ -661,7 +810,7 @@ public class TemplateRepository {
         
         Log.d(TAG, "Converted " + (feedResponse.getSections() != null ? feedResponse.getSections().size() : 0) + 
               " sections to " + allTemplates.size() + " unique templates" + 
-              (currentCategory != null ? " (server-filtered by category: " + currentCategory + ")" : "") +
+              (currentCategory != null ? " (filtered by category: " + currentCategory + ", found " + allTemplates.size() + " matches)" : "") +
               ", processed categories: " + (feedResponse.getCategories() != null ? feedResponse.getCategories().size() : extractedCategories.size()));
         
         return allTemplates;
