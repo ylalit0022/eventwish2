@@ -1,14 +1,15 @@
 package com.ds.eventwish;
 
+import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
-import android.util.Log;
-import android.os.Bundle;
-import android.app.Activity;
-import android.os.Handler;
-import android.os.Looper;
+import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
 
 import androidx.work.Configuration;
 import androidx.work.Constraints;
@@ -16,59 +17,63 @@ import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.NetworkType;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
+
+import com.ds.eventwish.data.auth.AuthManager;
 import com.ds.eventwish.data.local.AppDatabase;
 import com.ds.eventwish.data.local.ReminderDao;
 import com.ds.eventwish.data.model.Reminder;
-import com.ds.eventwish.data.repository.CategoryIconRepository;
-import com.ds.eventwish.data.repository.TokenRepository;
-import com.ds.eventwish.data.repository.UserRepository;
 import com.ds.eventwish.data.remote.ApiClient;
 import com.ds.eventwish.data.remote.ApiService;
-import com.ds.eventwish.utils.AnalyticsUtils;
-import com.ds.eventwish.utils.CacheManager;
-import com.ds.eventwish.utils.ReminderScheduler;
-import com.ds.eventwish.workers.ReminderCheckWorker;
-import com.ds.eventwish.workers.TemplateUpdateWorker;
-import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import com.ds.eventwish.utils.EventWishNotificationManager;
-import com.ds.eventwish.utils.NotificationScheduler;
-import com.ds.eventwish.util.SecureTokenManager;
-import java.util.Map;
-import com.ds.eventwish.utils.TimeUtils;
-import com.ds.eventwish.utils.DeviceUtils;
+import com.ds.eventwish.data.remote.FirestoreManager;
+import com.ds.eventwish.data.repository.CategoryIconRepository;
 import com.ds.eventwish.data.repository.FestivalRepository;
-import com.ds.eventwish.data.repository.TemplateRepository;
 import com.ds.eventwish.data.repository.ResourceRepository;
-import com.ds.eventwish.utils.AppExecutors;
-import com.ds.eventwish.ads.AdMobManager;
+import com.ds.eventwish.data.repository.SponsoredAdRepository;
+import com.ds.eventwish.data.repository.TemplateRepository;
+import com.ds.eventwish.data.repository.TokenRepository;
+import com.ds.eventwish.data.repository.UserRepository;
+import com.ds.eventwish.services.NotificationScheduler;
+import com.ds.eventwish.utils.AdSessionManager;
 import com.ds.eventwish.ads.AppOpenManager;
+import com.ds.eventwish.ui.connectivity.InternetConnectivityChecker;
+import com.ds.eventwish.utils.ReminderScheduler;
+import com.ds.eventwish.util.SecureTokenManager;
+import com.ds.eventwish.utils.AnalyticsConsentManager;
+import com.ds.eventwish.utils.AnalyticsUtils;
+import com.ds.eventwish.utils.AppExecutors;
+import com.ds.eventwish.utils.CacheManager;
+import com.ds.eventwish.utils.DeviceUtils;
+import com.ds.eventwish.utils.EventNotificationManager;
+import com.ds.eventwish.utils.EventWishNotificationManager;
 import com.ds.eventwish.utils.FirebaseCrashManager;
 import com.ds.eventwish.utils.PerformanceTracker;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
-import com.google.firebase.analytics.FirebaseAnalytics;
-import androidx.annotation.NonNull;
-import java.util.concurrent.Executor;
-import com.ds.eventwish.ui.ads.SponsoredAdManagerFactory;
-import com.ds.eventwish.utils.AdSessionManager;
-import com.ds.eventwish.firebase.FirebaseInAppMessagingHandler;
-import com.ds.eventwish.ui.connectivity.InternetConnectivityChecker;
+import com.ds.eventwish.utils.ThemeManager;
+import com.ds.eventwish.utils.TimeUtils;
+import com.ds.eventwish.utils.UserDataManager;
+import com.ds.eventwish.workers.ReminderCheckWorker;
+import com.ds.eventwish.workers.TemplateUpdateWorker;
+
+import com.google.android.material.color.DynamicColors;
 import com.google.firebase.FirebaseApp;
+import com.google.firebase.analytics.FirebaseAnalytics;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreSettings;
 import com.google.firebase.messaging.FirebaseMessaging;
-import android.content.SharedPreferences;
-import com.ds.eventwish.data.remote.FirestoreManager;
-import com.ds.eventwish.utils.EventNotificationManager;
-import com.ds.eventwish.data.auth.AuthManager;
-import com.google.android.material.color.DynamicColors;
-import com.ds.eventwish.data.repository.SponsoredAdRepository;
-import com.ds.eventwish.utils.ThemeManager;
-import com.ds.eventwish.utils.UserDataManager;
+
+import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+// Additional imports for missing classes
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import androidx.annotation.NonNull;
+import com.ds.eventwish.ads.AdMobManager;
+import com.ds.eventwish.ui.ads.SponsoredAdManagerFactory;
+import com.ds.eventwish.services.FirebaseInAppMessagingHandler;
 
 public class EventWishApplication extends Application implements Configuration.Provider, Application.ActivityLifecycleCallbacks {
     private static final String TAG = "EventWishApplication";
@@ -150,342 +155,110 @@ public class EventWishApplication extends Application implements Configuration.P
     @Override
     public void onCreate() {
         super.onCreate();
-        
-        // Disable sponsored ads to prevent continuous requests to the server
-        SponsoredAdRepository.setSponsoredAdsEnabled(false);
-        
-        // Apply dynamic colors if available (Android 12+)
-        DynamicColors.applyToActivitiesIfAvailable(this);
-        
-        // Initialize ThemeManager for remote theme control
-        ThemeManager.getInstance(this).initializeRemoteConfig();
-        
-        // Set application instance and context first
-        instance = this;
-        context = getApplicationContext();
-        
+        Log.d(TAG, "EventWishApplication onCreate started");
+
         try {
             // Initialize Firebase first
-            FirebaseApp.initializeApp(this);
+            initializeFirebase();
+
+            // Initialize critical components
+            initializeSecureTokenManager();
+            initializeApiClient();
             
-            // Initialize Firestore with offline persistence
-            FirebaseFirestore.getInstance().setFirestoreSettings(
-                new FirebaseFirestoreSettings.Builder()
-                    .setPersistenceEnabled(true)
-                    .build()
-            );
-            
-            // Initialize FirestoreManager with context
-            FirestoreManager.getInstance(this);
-            
-            // Initialize templates collection to ensure it exists
-            FirestoreManager.getInstance(this).ensureTemplatesCollectionExists()
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Templates collection initialized successfully");
-                    // Now sync template counts from user data
-                    FirestoreManager.getInstance(this).initializeTemplateCountsFromUserData()
-                        .addOnSuccessListener(syncVoid -> 
-                            Log.d(TAG, "Template counts synced successfully"))
-                        .addOnFailureListener(e -> 
-                            Log.e(TAG, "Failed to sync template counts", e));
-                })
-                .addOnFailureListener(e -> 
-                    Log.e(TAG, "Failed to initialize templates collection", e));
-            
-            // Initialize Firebase services before auth
-            initializeFirebaseServices();
-            
-            // Initialize FCM token first
-            initializeFcmToken();
-            
-            // Initialize auth last since it depends on FCM token
-            FirebaseAuth.getInstance().addAuthStateListener(firebaseAuth -> {
-                FirebaseUser user = firebaseAuth.getCurrentUser();
-                if (user != null) {
-                    boolean isGoogleUser = false;
-                    for (com.google.firebase.auth.UserInfo profile : user.getProviderData()) {
-                        if ("google.com".equals(profile.getProviderId())) {
-                            isGoogleUser = true;
-                            break;
-                        }
-                    }
-                    
-                    if (isGoogleUser) {
-                        Log.d(TAG, "Auth state: User signed in with Google: " + user.getUid());
-                        // Sync with MongoDB if needed
-                        AuthManager.getInstance().syncUserWithMongoDB(user)
-                            .addOnSuccessListener(mongoUser -> 
-                                Log.d(TAG, "User profile synced with MongoDB on app start: " + mongoUser.getUid()))
-                            .addOnFailureListener(e -> 
-                                Log.e(TAG, "Failed to sync user profile with MongoDB", e));
-                        
-                        // Sync template states (likes/favorites) across devices
-                        try {
-                            if (templateRepository != null) {
-                                templateRepository.syncTemplateStatesAtStartup(user.getUid());
-                                Log.d(TAG, "Template states sync initiated for user: " + user.getUid());
-                            } else {
-                                Log.w(TAG, "TemplateRepository not initialized, delaying template sync");
-                                // Delay template sync until repository is initialized
-                                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                                    if (templateRepository != null) {
-                                        templateRepository.syncTemplateStatesAtStartup(user.getUid());
-                                        Log.d(TAG, "Delayed template states sync initiated for user: " + user.getUid());
-                                    }
-                                }, 2000); // 2 second delay
-                            }
-                        } catch (Exception e) {
-                            Log.e(TAG, "Error initiating template states sync", e);
-                        }
-                        
-                        // Log additional debug info about user auth state
-                        user.getIdToken(true)
-                            .addOnSuccessListener(tokenResult -> {
-                                Log.d(TAG, "User ID token retrieved successfully, length: " + 
-                                      (tokenResult.getToken() != null ? tokenResult.getToken().length() : 0));
-                            })
-                            .addOnFailureListener(e -> Log.e(TAG, "Failed to get user ID token", e));
-                    } else {
-                        Log.d(TAG, "Auth state: User signed in anonymously: " + user.getUid());
-                    }
-                } else {
-                    Log.d(TAG, "Auth state: User signed out");
-                }
-            });
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Error during Firebase initialization", e);
-        }
-        
-        // Rest of your onCreate code...
-        
-        // Log app started for debugging
-        Log.d(TAG, "EventWish application starting...");
-        
-        try {
-            // INITIALIZATION ORDER: Core utilities first, then services
-            
-            // 1. Initialize AppExecutors - required by many other components
-            appExecutors = AppExecutors.getInstance();
-            Log.d(TAG, "1. AppExecutors initialized");
-            
-            // 2. Initialize SecureTokenManager - required for security
-            try {
-                SecureTokenManager.init(this);
-                secureTokenManager = SecureTokenManager.getInstance();
-                Log.d(TAG, "2. SecureTokenManager initialized");
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing SecureTokenManager: " + e.getMessage(), e);
-                // Continue without SecureTokenManager
-            }
-            
-            // 3. Initialize DeviceUtils - required for device identification
-            try {
-                DeviceUtils.init(this);
-                deviceUtils = DeviceUtils.getInstance();
-                Log.d(TAG, "3. DeviceUtils initialized");
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing DeviceUtils: " + e.getMessage(), e);
-                // Continue without DeviceUtils
-            }
-            
-            // 4. Initialize ApiClient - required for API communication
-            try {
-                ApiClient.init(this);
-                Log.d(TAG, "4. ApiClient initialized");
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing ApiClient: " + e.getMessage(), e);
-                // Continue without ApiClient
-            }
-            
-            // 5. Initialize time utils
-            timeUtils = new TimeUtils();
-            Log.d(TAG, "6. TimeUtils initialized");
-            
-            // 7. Initialize API service
-            try {
-                apiService = ApiClient.getClient();
-                Log.d(TAG, "7. API service initialized");
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing API service: " + e.getMessage(), e);
-                // Continue without API service
-            }
-            
-            // 8. Initialize repositories
-            try {
-                initializeRepositories();
-                Log.d(TAG, "8. Repositories initialized");
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing repositories: " + e.getMessage(), e);
-                // Continue without repositories
-            }
-            
-            // Setup WorkManager and schedule workers
-            try {
-                setupWorkManager();
-                scheduleWorkers();
-                Log.d(TAG, "9. WorkManager initialized and workers scheduled");
-            } catch (Exception e) {
-                Log.e(TAG, "Error setting up WorkManager: " + e.getMessage(), e);
-                // Continue without WorkManager
-            }
+            // Initialize Material Design dynamic colors
+            initializeDynamicColors();
             
             // Initialize analytics
-            try {
-                setInitialAnalyticsUserProperties();
-                Log.d(TAG, "10. Analytics initialized");
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing analytics: " + e.getMessage(), e);
-                // Continue without analytics
-            }
+            initializeAnalytics();
             
-            // Initialize Firebase In-App Messaging
-            try {
-                FirebaseInAppMessagingHandler.init(this);
-                Log.d(TAG, "11. Firebase In-App Messaging initialized");
-                
-                // Initialize RemoteConfigManager for app updates
-                com.ds.eventwish.utils.RemoteConfigManager.getInstance(this);
-                Log.d(TAG, "RemoteConfigManager initialized");
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing Firebase In-App Messaging or RemoteConfigManager: " + e.getMessage(), e);
-            }
+            // Initialize notification manager
+            initializeNotificationManager();
             
-            // Create notification channels
-            try {
-                EventWishNotificationManager.createNotificationChannels(this);
-                Log.d(TAG, "12. Notification channels created");
-            } catch (Exception e) {
-                Log.e(TAG, "Error creating notification channels: " + e.getMessage(), e);
-                // Continue without notification channels
-            }
+            // Initialize remote config
+            initializeRemoteConfig();
             
-            // Register lifecycle callbacks
-            registerActivityLifecycleCallbacks(this);
+            // Initialize other components
+            initializeOtherComponents();
             
-            // Register fragment lifecycle callbacks
-            registerFragmentLifecycleCallbacks();
+            // Initialize global exception handler
+            initializeGlobalExceptionHandler();
             
-            // Register user in background
-            registerUserInBackground();
-            
-            // Initialize InternetConnectivityChecker
-            try {
-                InternetConnectivityChecker.getInstance(this);
-                Log.d(TAG, "Internet Connectivity Checker initialized");
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing Internet Connectivity Checker: " + e.getMessage(), e);
-            }
-            
-            // Initialize repositories
-            TemplateRepository.getInstance().init(this);
-            
-            // Initialize FirestoreManager with saved FCM token
-            SharedPreferences prefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
-            String savedToken = prefs.getString(KEY_FCM_TOKEN, null);
-            if (savedToken != null) {
-                Log.d(TAG, "Found saved FCM token, setting in FirestoreManager");
-                FirestoreManager.getInstance().setFcmToken(savedToken);
-            }
-            
-            // Get current FCM token
-            FirebaseMessaging.getInstance().getToken()
-                .addOnCompleteListener(task -> {
-                    if (!task.isSuccessful()) {
-                        Log.e(TAG, "Failed to get FCM token", task.getException());
-                        return;
-                    }
-                    
-                    String token = task.getResult();
-                    Log.d(TAG, "Got current FCM token: " + token);
-                    
-                    // Save token if it's different from saved one
-                    if (token != null && !token.equals(savedToken)) {
-                        Log.d(TAG, "Saving new FCM token");
-                        prefs.edit().putString(KEY_FCM_TOKEN, token).apply();
-                        FirestoreManager.getInstance().setFcmToken(token);
-                    }
-                })
-                .addOnFailureListener(e -> Log.e(TAG, "Error getting FCM token", e));
-            
-            // Initialize Event Notification Manager
-            try {
-                EventNotificationManager.getInstance(this).initialize();
-                Log.d(TAG, "Event Notification Manager initialized");
-            } catch (Exception e) {
-                Log.e(TAG, "Error initializing Event Notification Manager: " + e.getMessage(), e);
-            }
-            
-            Log.d(TAG, "EventWish application initialization complete");
+            Log.d(TAG, "EventWishApplication onCreate completed successfully");
         } catch (Exception e) {
-            Log.e(TAG, "Error during application startup", e);
-            // Allow app to continue even if there are errors during startup
+            Log.e(TAG, "Error during application initialization", e);
+            // Continue execution even if some initialization fails
         }
     }
 
     /**
-     * Register user with server in background
+     * Initialize Firebase services
      */
-    private void registerUserInBackground() {
-        // Check that all required services are initialized first
-        if (!isServicesInitialized()) {
-            Log.w(TAG, "Cannot register user: Core services not fully initialized");
+    private void initializeFirebase() {
+        try {
+            // Ensure Firebase is initialized
+            FirebaseApp.initializeApp(this);
+            Log.d(TAG, "Firebase initialized successfully");
             
-            // Only retry once at most to avoid loops
-            if (appExecutors != null) {
-                // Schedule a delayed retry if AppExecutors is available
-                new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                    Log.d(TAG, "Retrying user registration after delay");
-                    registerUserInBackground();
-                }, 5000); // 5 second delay
-            } else {
-                Log.e(TAG, "Cannot register user and cannot retry: AppExecutors not initialized");
-            }
-            return;
+            // Note: FirestoreManager initialization removed to prevent permission errors
+            // User data operations now handled by backend API
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing Firebase", e);
         }
+    }
+
+    /**
+     * Initialize other components
+     */
+    private void initializeOtherComponents() {
+        try {
+            // Initialize app database
+            AppDatabase.getInstance(this);
+            Log.d(TAG, "App database initialized");
+            
+            // Note: Removed FirestoreManager template operations
+            // Template operations now handled by backend API
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing other components", e);
+        }
+    }
+
+    /**
+     * Handle FCM token received
+     */
+    private void handleFcmTokenReceived(String token) {
+        Log.d(TAG, "FCM token received: " + (token != null ? token.substring(0, Math.min(20, token.length())) + "..." : "null"));
         
-        // Use the appExecutors for better thread management
-        appExecutors.networkIO().execute(() -> {
+        // Store token in SharedPreferences
+        getSharedPreferences("fcm_prefs", MODE_PRIVATE)
+            .edit()
+            .putString("fcm_token", token)
+            .apply();
+        
+        // Note: Removed FirestoreManager.setFcmToken() call
+        // FCM token will be sent to backend API during user sync
+        
+        Log.d(TAG, "FCM token stored in SharedPreferences");
+    }
+
+    /**
+     * Initialize background tasks
+     */
+    private void initializeBackgroundTasks() {
+        Log.d(TAG, "initializeBackgroundTasks: Starting background initialization");
+        
+        // Use background thread for non-critical initialization
+        AppExecutors.getInstance().diskIO().execute(() -> {
             try {
-                if (userRepository != null) {
-                    // Check if SecureTokenManager is properly initialized
-                    if (secureTokenManager == null) {
-                        Log.e(TAG, "Cannot register user: SecureTokenManager not initialized");
-                        return;
-                    }
-                    
-                    userRepository.registerUserIfNeeded();
-                    Log.d(TAG, "Background user registration initiated");
-                } else {
-                    Log.e(TAG, "Cannot register user: UserRepository is null");
-                }
+                // Note: Removed FirestoreManager initialization
+                // All user and template operations now handled by backend API
+                
+                Log.d(TAG, "initializeBackgroundTasks: Background initialization completed");
             } catch (Exception e) {
-                Log.e(TAG, "Error during background user registration", e);
-                // Don't try to recover automatically as this might cause loops
+                Log.e(TAG, "initializeBackgroundTasks: Error during background initialization", e);
             }
         });
-    }
-
-    /**
-     * Check if all required services are initialized
-     */
-    private boolean isServicesInitialized() {
-        if (appExecutors == null) {
-            Log.e(TAG, "AppExecutors not initialized");
-            return false;
-        }
-        
-        if (secureTokenManager == null) {
-            Log.e(TAG, "SecureTokenManager not initialized");
-            return false;
-        }
-        
-        if (userRepository == null) {
-            Log.e(TAG, "UserRepository not initialized");
-            return false;
-        }
-        
-        return true;
     }
 
     @Override
@@ -576,8 +349,8 @@ public class EventWishApplication extends Application implements Configuration.P
     private void scheduleNotifications() {
         Log.d(TAG, "Scheduling notification workers");
         
-        // Schedule all notifications
-        NotificationScheduler.scheduleAllNotifications(this);
+        // Schedule festival notifications
+        NotificationScheduler.runFestivalNotificationsNow(this);
     }
     
     /**
@@ -660,19 +433,11 @@ public class EventWishApplication extends Application implements Configuration.P
 
     @Override
     public void onTerminate() {
-        // FIXED: Clear template cache when app is terminated
-        clearTemplateCacheOnAppClose();
-        
-        // Remove any pending ad reset callbacks to prevent leaks
-        adResetHandler.removeCallbacks(adResetRunnable);
-        
-        // Clean up AppOpenManager to prevent memory leaks
-        if (appOpenManager != null) {
-            appOpenManager.destroy();
-            appOpenManager = null;
-        }
-        
         super.onTerminate();
+        Log.d(TAG, "EventWishApplication onTerminate called");
+        
+        // Note: Removed FirestoreManager cleanup
+        // No direct Firestore operations from Android app anymore
     }
 
     private void scheduleWorkers() {
@@ -813,8 +578,8 @@ public class EventWishApplication extends Application implements Configuration.P
             
             // 13. Initialize Firebase In-App Messaging
             try {
-                FirebaseInAppMessagingHandler.init(this);
-                Log.d(TAG, "✅ Firebase In-App Messaging Handler initialized");
+                FirebaseInAppMessagingHandler.getInstance().initialize();
+                Log.d(TAG, "Firebase In-App Messaging initialized");
                 
                 // Initialize RemoteConfigManager for app updates
                 com.ds.eventwish.utils.RemoteConfigManager.getInstance(this);
@@ -1152,27 +917,12 @@ public class EventWishApplication extends Application implements Configuration.P
     }
 
     /**
-     * Initialize Firebase services (Analytics, Crashlytics, Performance, etc.)
+     * Initialize Firebase services
      */
     private void initializeFirebaseServices() {
-        Log.d(TAG, "Initializing Firebase services");
-        
         try {
-            // Initialize FirestoreManager early but on a background thread
-            AppExecutors.getInstance().diskIO().execute(() -> {
-                // Initialize FirestoreManager
-                FirestoreManager firestoreManager = FirestoreManager.getInstance();
-                
-                // Ensure templates collection exists - this is potentially a slow operation
-                Log.d(TAG, "Starting template collection initialization (background thread)");
-                firestoreManager.ensureTemplatesCollectionExists()
-                    .addOnSuccessListener(aVoid -> {
-                        Log.d(TAG, "Templates collection initialized successfully");
-                    })
-                    .addOnFailureListener(e -> {
-                        Log.e(TAG, "Failed to initialize templates collection", e);
-                    });
-            });
+            // Note: Removed FirestoreManager initialization
+            // All Firestore operations now handled by backend API
             
             // Initialize Firebase Crashlytics
             FirebaseCrashManager.init(this);
@@ -1224,7 +974,7 @@ public class EventWishApplication extends Application implements Configuration.P
             
             // Initialize Firebase In-App Messaging
             try {
-                FirebaseInAppMessagingHandler.init(this);
+                FirebaseInAppMessagingHandler.getInstance().initialize();
                 Log.d(TAG, "Firebase In-App Messaging initialized");
                 
                 // Initialize RemoteConfigManager for app updates
@@ -1311,14 +1061,15 @@ public class EventWishApplication extends Application implements Configuration.P
                 // Get new FCM registration token
                 String token = task.getResult();
                 
-                // Save token to SharedPreferences for backward compatibility
-                SharedPreferences prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-                prefs.edit().putString(KEY_FCM_TOKEN, token).apply();
+                // Save token to SharedPreferences
+                SharedPreferences prefs = getSharedPreferences("fcm_prefs", Context.MODE_PRIVATE);
+                prefs.edit().putString("fcm_token", token).apply();
                 
-                // Update token in Firestore
-                FirestoreManager.getInstance().setFcmToken(token)
-                    .addOnSuccessListener(aVoid -> Log.d(TAG, "FCM token updated in Firestore"))
-                    .addOnFailureListener(e -> Log.e(TAG, "Failed to update FCM token in Firestore", e));
+                Log.d(TAG, "FCM token saved to SharedPreferences: " + 
+                      (token != null ? token.substring(0, Math.min(20, token.length())) + "..." : "null"));
+                
+                // Note: Removed FirestoreManager.setFcmToken() call
+                // FCM token will be sent to backend API during user sync operations
             });
     }
 
@@ -1459,6 +1210,96 @@ public class EventWishApplication extends Application implements Configuration.P
             });
         } catch (Exception e) {
             Log.e(TAG, "Error scheduling template database cache clear", e);
+        }
+    }
+
+    /**
+     * Initialize secure token manager
+     */
+    private void initializeSecureTokenManager() {
+        try {
+            SecureTokenManager.init(this);
+            secureTokenManager = SecureTokenManager.getInstance();
+            Log.d(TAG, "SecureTokenManager initialized");
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing SecureTokenManager", e);
+        }
+    }
+
+    /**
+     * Initialize API client
+     */
+    private void initializeApiClient() {
+        try {
+            ApiClient.init(this);
+            Log.d(TAG, "ApiClient initialized");
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing ApiClient", e);
+        }
+    }
+
+    /**
+     * Initialize Material Design dynamic colors
+     */
+    private void initializeDynamicColors() {
+        try {
+            // Apply dynamic colors if available (Android 12+)
+            DynamicColors.applyToActivitiesIfAvailable(this);
+            Log.d(TAG, "Dynamic colors initialized");
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing dynamic colors", e);
+        }
+    }
+
+    /**
+     * Initialize analytics
+     */
+    private void initializeAnalytics() {
+        try {
+            AnalyticsConsentManager.initializeAnalytics(this);
+            Log.d(TAG, "Analytics initialized");
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing analytics", e);
+        }
+    }
+
+    /**
+     * Initialize notification manager
+     */
+    private void initializeNotificationManager() {
+        try {
+            createNotificationChannels();
+            Log.d(TAG, "Notification manager initialized");
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing notification manager", e);
+        }
+    }
+
+    /**
+     * Initialize remote config
+     */
+    private void initializeRemoteConfig() {
+        try {
+            com.ds.eventwish.utils.RemoteConfigManager.getInstance(this);
+            Log.d(TAG, "Remote config initialized");
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing remote config", e);
+        }
+    }
+
+    /**
+     * Initialize global exception handler
+     */
+    private void initializeGlobalExceptionHandler() {
+        try {
+            // Set up uncaught exception handler
+            Thread.setDefaultUncaughtExceptionHandler((thread, exception) -> {
+                Log.e(TAG, "Uncaught exception in thread " + thread.getName(), exception);
+                FirebaseCrashManager.logException(exception);
+            });
+            Log.d(TAG, "Global exception handler initialized");
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing global exception handler", e);
         }
     }
 }

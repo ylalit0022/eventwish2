@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../../models/User');
+const User = require('../../models/firestore/User');
 const logger = require('../../utils/logger');
 const { validateFirebaseUid } = require('../../middleware/validators');
 const { verifyFirebaseToken } = require('../../middleware/auth');
@@ -15,8 +15,8 @@ router.put('/:uid/push-preferences', validateFirebaseUid, async (req, res) => {
         const { uid } = req.params;
         const { pushPreferences } = req.body;
         
-        // Find user by uid
-        let user = await User.findOne({ uid });
+        // Get user by uid
+        let user = await User.getByUid(uid);
         
         if (!user) {
             logger.warn(`Push preferences update attempted for non-existent user: UID ${uid}`);
@@ -27,18 +27,18 @@ router.put('/:uid/push-preferences', validateFirebaseUid, async (req, res) => {
         }
         
         // Update push preferences
-        user.pushPreferences = {
+        const updatedPreferences = {
             ...user.pushPreferences || {},
             ...pushPreferences
         };
         
-        await user.save();
+        await User.update(uid, { pushPreferences: updatedPreferences });
         logger.info(`User ${uid} push preferences updated`);
         
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: 'Push preferences updated successfully',
-            pushPreferences: user.pushPreferences
+            pushPreferences: updatedPreferences
         });
         
     } catch (error) {
@@ -68,8 +68,8 @@ router.post('/:uid/topics/subscribe', validateFirebaseUid, async (req, res) => {
             });
         }
         
-        // Find user by uid
-        let user = await User.findOne({ uid });
+        // Get user by uid
+        let user = await User.getByUid(uid);
         
         if (!user) {
             logger.warn(`Topic subscription attempted for non-existent user: UID ${uid}`);
@@ -79,25 +79,14 @@ router.post('/:uid/topics/subscribe', validateFirebaseUid, async (req, res) => {
             });
         }
         
-        // Initialize topicSubscriptions if needed
-        if (!user.topicSubscriptions) {
-            user.topicSubscriptions = [];
-        }
-        
-        // Add new topics
-        topics.forEach(topic => {
-            if (!user.topicSubscriptions.includes(topic)) {
-                user.topicSubscriptions.push(topic);
-            }
-        });
-        
-        await user.save();
+        // Subscribe to topics
+        const updatedTopics = await User.subscribeToTopics(uid, topics);
         logger.info(`User ${uid} subscribed to topics: ${topics.join(', ')}`);
         
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: 'Successfully subscribed to topics',
-            topics: user.topicSubscriptions
+            topics: updatedTopics
         });
         
     } catch (error) {
@@ -127,8 +116,8 @@ router.post('/:uid/topics/unsubscribe', validateFirebaseUid, async (req, res) =>
             });
         }
         
-        // Find user by uid
-        let user = await User.findOne({ uid });
+        // Get user by uid
+        let user = await User.getByUid(uid);
         
         if (!user) {
             logger.warn(`Topic unsubscription attempted for non-existent user: UID ${uid}`);
@@ -138,20 +127,14 @@ router.post('/:uid/topics/unsubscribe', validateFirebaseUid, async (req, res) =>
             });
         }
         
-        // Remove topics
-        if (user.topicSubscriptions) {
-            user.topicSubscriptions = user.topicSubscriptions.filter(
-                topic => !topics.includes(topic)
-            );
-        }
-        
-        await user.save();
+        // Unsubscribe from topics
+        const updatedTopics = await User.unsubscribeFromTopics(uid, topics);
         logger.info(`User ${uid} unsubscribed from topics: ${topics.join(', ')}`);
         
         res.status(200).json({
             success: true,
             message: 'Successfully unsubscribed from topics',
-            topics: user.topicSubscriptions
+            topics: updatedTopics
         });
         
     } catch (error) {
@@ -181,8 +164,8 @@ router.put('/:uid/notifications/mute', validateFirebaseUid, verifyFirebaseToken,
             });
         }
         
-        // Find user by uid
-        let user = await User.findOne({ uid });
+        // Get user by uid
+        let user = await User.getByUid(uid);
         
         if (!user) {
             logger.warn(`Notification mute attempted for non-existent user: UID ${uid}`);
@@ -197,8 +180,7 @@ router.put('/:uid/notifications/mute', validateFirebaseUid, verifyFirebaseToken,
         muteUntil.setHours(muteUntil.getHours() + parseInt(duration));
         
         // Update user
-        user.muteNotificationsUntil = muteUntil;
-        await user.save();
+        await User.update(uid, { muteNotificationsUntil: muteUntil });
         
         logger.info(`User ${uid} muted notifications until ${muteUntil.toISOString()}`);
         
@@ -266,8 +248,8 @@ router.get('/:uid/notifications/status', validateFirebaseUid, verifyFirebaseToke
     try {
         const { uid } = req.params;
         
-        // Find user by uid
-        let user = await User.findOne({ uid });
+        // Get user by uid
+        let user = await User.getByUid(uid);
         
         if (!user) {
             logger.warn(`Notification status requested for non-existent user: UID ${uid}`);
@@ -279,7 +261,7 @@ router.get('/:uid/notifications/status', validateFirebaseUid, verifyFirebaseToke
         
         // Check if notifications are currently muted
         const now = new Date();
-        const isMuted = user.muteNotificationsUntil && user.muteNotificationsUntil > now;
+        const isMuted = user.muteNotificationsUntil && new Date(user.muteNotificationsUntil) > now;
         
         res.status(200).json({
             success: true,
@@ -320,41 +302,8 @@ router.post('/:uid/fcm-tokens', verifyFirebaseToken, async (req, res) => {
             });
         }
         
-        const user = await User.findOne({ uid });
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-        
-        // Initialize fcmTokens if needed
-        if (!user.fcmTokens) {
-            user.fcmTokens = [];
-        }
-        
-        // Check if token already exists
-        const existingTokenIndex = user.fcmTokens.findIndex(t => t.token === token);
-        
-        if (existingTokenIndex !== -1) {
-            // Update existing token
-            user.fcmTokens[existingTokenIndex] = {
-                token,
-                deviceInfo: deviceInfo || user.fcmTokens[existingTokenIndex].deviceInfo,
-                addedAt: user.fcmTokens[existingTokenIndex].addedAt,
-                lastUsed: new Date()
-            };
-        } else {
-            // Add new token
-            user.fcmTokens.push({
-                token,
-                deviceInfo: deviceInfo || {},
-                addedAt: new Date(),
-                lastUsed: new Date()
-            });
-        }
-        
-        await user.save();
+        // Add FCM token
+        await User.addFcmToken(uid, token, deviceInfo?.platform || 'android');
         
         res.status(200).json({
             success: true,
@@ -379,18 +328,8 @@ router.delete('/:uid/fcm-tokens/:token', verifyFirebaseToken, async (req, res) =
     try {
         const { uid, token } = req.params;
         
-        const user = await User.findOne({ uid });
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-        
-        if (user.fcmTokens) {
-            user.fcmTokens = user.fcmTokens.filter(t => t.token !== token);
-            await user.save();
-        }
+        // Remove FCM token
+        await User.removeFcmToken(uid, token);
         
         res.status(200).json({
             success: true,

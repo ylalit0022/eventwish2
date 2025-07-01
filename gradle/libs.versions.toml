@@ -21,6 +21,7 @@ lifecycle-viewmodel-android = "2.8.7"
 core = "1.48.0"
 volley = "1.2.1"
 room = "2.6.2"
+annotation-jvm = "1.9.1"
 
 [libraries]
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
@@ -47,6 +48,7 @@ core = { group = "com.google.ar", name = "core", version.ref = "core" }
 volley = { group = "com.android.volley", name = "volley", version.ref = "volley" }
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+androidx-annotation-jvm = { group = "androidx.annotation", name = "annotation-jvm", version.ref = "annotation-jvm" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

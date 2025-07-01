@@ -1,16 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
-const User = require('../../models/User');
+const User = require('../../models/firestore/User');
 const logger = require('../../utils/logger');
 const { validateFirebaseUid } = require('../../middleware/validators');
 const { verifyFirebaseToken } = require('../../middleware/auth');
-
-const { 
-    handleAsyncOperation, 
-    safeUpdateTemplateCounts, 
-    isValidObjectId 
-} = require('./utils/helpers');
 
 /**
  * @route   PUT /api/users/activity
@@ -21,8 +14,8 @@ router.put('/activity', validateFirebaseUid, verifyFirebaseToken, async (req, re
     try {
         const { uid, category, source = 'direct' } = req.body;
         
-        // Find user by uid
-        let user = await User.findOne({ uid });
+        // Get user by uid
+        let user = await User.getByUid(uid);
         
         if (!user) {
             logger.warn(`Activity update attempted for non-existent user: UID ${uid}`);
@@ -32,22 +25,16 @@ router.put('/activity', validateFirebaseUid, verifyFirebaseToken, async (req, re
             });
         }
         
-        // Update lastOnline
-        user.lastOnline = Date.now();
-        
-        // If category provided, record visit
+        // Update lastOnline and record category visit if provided
         if (category) {
-            await user.visitCategory(category, source);
+            await User.visitCategory(uid, category, source);
             logger.info(`User ${uid} visited category: ${category} (source: ${source})`);
-            
-            // Invalidate recommendations cache on category visit
-        // Note: Recommendation system removed
         } else {
-            await user.save();
+            await User.update(uid, { lastOnline: new Date() });
             logger.info(`User ${uid} activity updated (last online)`);
         }
         
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: 'User activity updated'
         });
@@ -62,6 +49,57 @@ router.put('/activity', validateFirebaseUid, verifyFirebaseToken, async (req, re
 });
 
 /**
+ * @route   POST /api/users/:uid/categories/visit
+ * @desc    Record a category visit for the user
+ * @access  Private
+ */
+router.post('/:uid/categories/visit', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
+    try {
+        const { uid } = req.params;
+        const { category, source = 'direct', timestamp } = req.body;
+        
+        if (!category || category.trim() === '') {
+            return res.status(400).json({
+                success: false,
+                message: 'Category is required'
+            });
+        }
+        
+        // Get user by uid
+        let user = await User.getByUid(uid);
+        
+        if (!user) {
+            logger.warn(`Category visit attempted for non-existent user: UID ${uid}`);
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Record category visit
+        const visitCount = await User.visitCategory(uid, category, source);
+        logger.info(`User ${uid} visited category: ${category} (source: ${source}, timestamp: ${timestamp})`);
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Category visit recorded successfully',
+            data: {
+                category,
+                source,
+                visitCount
+            }
+        });
+    } catch (error) {
+        logger.error(`Category visit recording error: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Server error recording category visit',
+            error: error.message
+        });
+    }
+});
+
+/**
  * @route   GET /api/users/:uid/categories
  * @desc    Get user's category visit history
  * @access  Private
@@ -70,8 +108,8 @@ router.get('/:uid/categories', validateFirebaseUid, verifyFirebaseToken, async (
     try {
         const { uid } = req.params;
         
-        // Find user by uid
-        let user = await User.findOne({ uid });
+        // Get user by uid
+        let user = await User.getByUid(uid);
         
         if (!user) {
             logger.warn(`Category history requested for non-existent user: UID ${uid}`);
@@ -81,14 +119,12 @@ router.get('/:uid/categories', validateFirebaseUid, verifyFirebaseToken, async (
             });
         }
         
-        // Sort categories by visit count (descending)
-        const sortedCategories = [...(user.categories || [])].sort((a, b) => 
-            b.visitCount - a.visitCount
-        );
+        // Get categories sorted by visit count
+        const categories = await User.getCategoriesSorted(uid);
         
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
-            categories: sortedCategories
+            categories
         });
     } catch (error) {
         logger.error(`Get categories error: ${error.message}`);

@@ -1,10 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../../models/User');
+const User = require('../../models/firestore/User');
 const logger = require('../../utils/logger');
 const { validateFirebaseUid } = require('../../middleware/validators');
 const { verifyFirebaseToken } = require('../../middleware/auth');
-const { cleanupSubscriptionData } = require('./utils/helpers');
 
 /**
  * @route   GET /api/users/:uid/sessions
@@ -15,8 +14,8 @@ router.get('/:uid/sessions', validateFirebaseUid, verifyFirebaseToken, async (re
     try {
         const { uid } = req.params;
         
-        // Find user by uid
-        const user = await User.findOne({ uid });
+        // Get user by uid
+        const user = await User.getByUid(uid);
         
         if (!user) {
             return res.status(404).json({
@@ -25,24 +24,18 @@ router.get('/:uid/sessions', validateFirebaseUid, verifyFirebaseToken, async (re
             });
         }
         
-        // Convert Map to array for JSON response
-        const sessions = [];
-        if (user.activeSessions) {
-            for (const [deviceId, sessionData] of user.activeSessions) {
-                sessions.push({
-                    deviceId,
-                    ...sessionData,
-                    isCurrentDevice: deviceId === user.deviceId
-                });
-            }
-        }
+        // Get active sessions
+        const sessions = await User.getActiveSessions(uid);
         
         logger.info(`Retrieved ${sessions.length} active sessions for user ${uid}`);
         
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: 'User sessions retrieved successfully',
-            sessions: sessions,
+            sessions: sessions.map(session => ({
+                ...session,
+                isCurrentDevice: session.deviceId === user.deviceId
+            })),
             totalSessions: sessions.length,
             currentDeviceId: user.deviceId,
             lastOnline: user.lastOnline
@@ -74,8 +67,8 @@ router.post('/:uid/sessions/invalidate', validateFirebaseUid, verifyFirebaseToke
             });
         }
         
-        // Find user by uid
-        let user = await User.findOne({ uid });
+        // Get user by uid
+        let user = await User.getByUid(uid);
         
         if (!user) {
             logger.warn(`Session invalidation attempted for non-existent user: UID ${uid}`);
@@ -86,11 +79,11 @@ router.post('/:uid/sessions/invalidate', validateFirebaseUid, verifyFirebaseToke
         }
         
         // Invalidate other sessions
-        await user.invalidateOtherSessions(deviceId);
+        await User.invalidateOtherSessions(uid, deviceId);
         
         logger.info(`User ${uid} invalidated all other sessions except ${deviceId}`);
         
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: 'All other sessions invalidated successfully'
         });
@@ -113,8 +106,8 @@ router.delete('/:uid/sessions/:deviceId', validateFirebaseUid, verifyFirebaseTok
     try {
         const { uid, deviceId } = req.params;
         
-        // Find user by uid
-        let user = await User.findOne({ uid });
+        // Get user by uid
+        let user = await User.getByUid(uid);
         
         if (!user) {
             logger.warn(`Session removal attempted for non-existent user: UID ${uid}`);
@@ -125,11 +118,11 @@ router.delete('/:uid/sessions/:deviceId', validateFirebaseUid, verifyFirebaseTok
         }
         
         // Remove the session
-        await user.removeDeviceSession(deviceId);
+        await User.removeDeviceSession(uid, deviceId);
         
         logger.info(`User ${uid} removed session for device ${deviceId}`);
         
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: 'Session removed successfully'
         });
@@ -160,8 +153,8 @@ router.post('/:uid/sessions/update', validateFirebaseUid, verifyFirebaseToken, a
             });
         }
         
-        // Find user by uid
-        let user = await User.findOne({ uid });
+        // Get user by uid
+        let user = await User.getByUid(uid);
         
         if (!user) {
             logger.warn(`Session update attempted for non-existent user: UID ${uid}`);
@@ -171,18 +164,10 @@ router.post('/:uid/sessions/update', validateFirebaseUid, verifyFirebaseToken, a
             });
         }
         
-        // Update session activity
-        await user.updateDeviceSessionActivity(deviceId);
+        // Update session activity and user's lastOnline
+        await User.updateDeviceSessionActivity(uid, deviceId);
         
-        // Also update user's lastOnline
-        user.lastOnline = Date.now();
-        
-        // Clean up invalid subscription data before saving
-        cleanupSubscriptionData(user);
-        
-        await user.save();
-        
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: 'Session activity updated successfully'
         });
@@ -198,10 +183,10 @@ router.post('/:uid/sessions/update', validateFirebaseUid, verifyFirebaseToken, a
 
 /**
  * @route   POST /api/users/:uid/device-sessions
- * @desc    Add or update device session
+ * @desc    Add a new device session
  * @access  Private
  */
-router.post('/:uid/device-sessions', verifyFirebaseToken, async (req, res) => {
+router.post('/:uid/device-sessions', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
     try {
         const { uid } = req.params;
         const { deviceId, deviceModel, deviceName, appVersion, osVersion } = req.body;
@@ -213,32 +198,37 @@ router.post('/:uid/device-sessions', verifyFirebaseToken, async (req, res) => {
             });
         }
         
-        const user = await User.findOne({ uid });
+        // Get user by uid
+        let user = await User.getByUid(uid);
+        
         if (!user) {
+            logger.warn(`Device session addition attempted for non-existent user: UID ${uid}`);
             return res.status(404).json({
                 success: false,
                 message: 'User not found'
             });
         }
         
-        await user.addDeviceSession({
+        // Add device session
+        await User.addDeviceSession(uid, {
             deviceId,
             deviceModel: deviceModel || 'Unknown',
             deviceName: deviceName || 'Unknown Device',
-            appVersion: appVersion || 'Unknown',
+            appVersion: appVersion || '1.0.0',
             osVersion: osVersion || 'Unknown'
         });
         
-        res.status(200).json({
+        logger.info(`Added device session for user ${uid}: ${deviceId}`);
+        
+        return res.status(200).json({
             success: true,
-            message: 'Device session added successfully',
-            activeSessions: user.activeSessions
+            message: 'Device session added successfully'
         });
     } catch (error) {
         logger.error(`Add device session error: ${error.message}`);
         res.status(500).json({
             success: false,
-            message: 'Server error',
+            message: 'Server error adding device session',
             error: error.message
         });
     }
@@ -246,24 +236,30 @@ router.post('/:uid/device-sessions', verifyFirebaseToken, async (req, res) => {
 
 /**
  * @route   DELETE /api/users/:uid/device-sessions/:deviceId
- * @desc    Remove device session
+ * @desc    Remove a device session
  * @access  Private
  */
-router.delete('/:uid/device-sessions/:deviceId', verifyFirebaseToken, async (req, res) => {
+router.delete('/:uid/device-sessions/:deviceId', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
     try {
         const { uid, deviceId } = req.params;
         
-        const user = await User.findOne({ uid });
+        // Get user by uid
+        let user = await User.getByUid(uid);
+        
         if (!user) {
+            logger.warn(`Device session removal attempted for non-existent user: UID ${uid}`);
             return res.status(404).json({
                 success: false,
                 message: 'User not found'
             });
         }
         
-        await user.removeDeviceSession(deviceId);
+        // Remove device session
+        await User.removeDeviceSession(uid, deviceId);
         
-        res.status(200).json({
+        logger.info(`Removed device session for user ${uid}: ${deviceId}`);
+        
+        return res.status(200).json({
             success: true,
             message: 'Device session removed successfully'
         });
@@ -271,7 +267,7 @@ router.delete('/:uid/device-sessions/:deviceId', verifyFirebaseToken, async (req
         logger.error(`Remove device session error: ${error.message}`);
         res.status(500).json({
             success: false,
-            message: 'Server error',
+            message: 'Server error removing device session',
             error: error.message
         });
     }
@@ -282,29 +278,35 @@ router.delete('/:uid/device-sessions/:deviceId', verifyFirebaseToken, async (req
  * @desc    Update device session activity
  * @access  Private
  */
-router.put('/:uid/device-sessions/:deviceId/activity', verifyFirebaseToken, async (req, res) => {
+router.put('/:uid/device-sessions/:deviceId/activity', validateFirebaseUid, verifyFirebaseToken, async (req, res) => {
     try {
         const { uid, deviceId } = req.params;
         
-        const user = await User.findOne({ uid });
+        // Get user by uid
+        let user = await User.getByUid(uid);
+        
         if (!user) {
+            logger.warn(`Device session activity update attempted for non-existent user: UID ${uid}`);
             return res.status(404).json({
                 success: false,
                 message: 'User not found'
             });
         }
         
-        await user.updateDeviceSessionActivity(deviceId);
+        // Update device session activity
+        await User.updateDeviceSessionActivity(uid, deviceId);
         
-        res.status(200).json({
+        logger.info(`Updated device session activity for user ${uid}: ${deviceId}`);
+        
+        return res.status(200).json({
             success: true,
-            message: 'Device session activity updated'
+            message: 'Device session activity updated successfully'
         });
     } catch (error) {
         logger.error(`Update device session activity error: ${error.message}`);
         res.status(500).json({
             success: false,
-            message: 'Server error',
+            message: 'Server error updating device session activity',
             error: error.message
         });
     }

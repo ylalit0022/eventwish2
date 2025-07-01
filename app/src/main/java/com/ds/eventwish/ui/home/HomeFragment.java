@@ -177,10 +177,8 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.Templa
         // Check notification permission and show reminder if needed
         checkAndShowNotificationReminder();
 
-        // Initialize Firebase In-App Messaging
-        if (!FirebaseInAppMessagingHandler.getInstance().isInitialized()) {
-            FirebaseInAppMessagingHandler.init(requireContext());
-        }
+        // Initialize Firebase In-App Messaging (must call init before getInstance)
+        FirebaseInAppMessagingHandler.init(requireContext());
         
         // Initialize WebSocket service for real-time updates
         webSocketService = WebSocketService.getInstance();
@@ -1650,10 +1648,26 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.Templa
             return;
         }
         
-        Log.d(TAG, "Template clicked: " + template.getId());
+        Log.d(TAG, "Template clicked: " + template.getTitle());
         
-        // Track template view
-        AnalyticsUtils.getInstance().trackTemplateClick(template.getId());
+        // Get template category for tracking
+        String templateCategory = template.getCategoryId();
+        if (templateCategory == null || templateCategory.isEmpty()) {
+            templateCategory = template.getCategory(); // Fallback to category field
+        }
+        
+        // Track template view with enhanced method
+        AnalyticsUtils.trackTemplateView(
+            template.getId(),
+            template.getTitle(),
+            templateCategory
+        );
+        
+        // Track template click and associated category with enhanced method
+        UserRepository.getInstance(requireContext()).trackTemplateClick(
+            template.getId(), 
+            templateCategory
+        );
         
         // Increment template click counter
         templateClickCount++;
@@ -1672,17 +1686,10 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.Templa
 
     @Override
     public void onLikeClick(Template template) {
-        boolean liked = !template.isLiked();
-        template.setLiked(liked);
         Log.d(TAG, "=== HOME FRAGMENT LIKE HANDLER ===");
         Log.d(TAG, "Template ID: " + template.getId());
-        Log.d(TAG, "New liked state: " + liked);
+        Log.d(TAG, "Current liked state: " + template.isLiked());
         Log.d(TAG, "Current like count: " + template.getLikeCount());
-        Log.d(TAG, "Current scroll position: " + getCurrentScrollPosition());
-        
-        // Store current scroll position before any updates
-        int scrollPosition = getCurrentScrollPosition();
-        Log.d(TAG, "Stored scroll position: " + scrollPosition);
         
         if (viewModel != null) {
             Log.d(TAG, "Calling HomeViewModel.handleTemplateLike()");
@@ -1692,29 +1699,15 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.Templa
                     Log.d(TAG, "Like operation successful for template: " + template.getId());
                     Log.d(TAG, "Server returned liked state: " + isLiked);
                     
-                    // Check if scroll position changed
-                    int currentScrollPos = getCurrentScrollPosition();
-                    Log.d(TAG, "Scroll position after like success - Before: " + scrollPosition + ", After: " + currentScrollPos);
+                    // Update template state based on server response
+                    template.setLiked(isLiked);
                     
-                    if (Math.abs(currentScrollPos - scrollPosition) > 10) {
-                        Log.w(TAG, "SCROLL POSITION CHANGED SIGNIFICANTLY! Difference: " + (currentScrollPos - scrollPosition));
-                        // Try to restore scroll position
-                        if (binding.templatesRecyclerView != null) {
-                            Log.d(TAG, "Attempting to restore scroll position to: " + scrollPosition);
-                            binding.templatesRecyclerView.scrollToPosition(scrollPosition);
-                        }
-                    }
+                    // Update like count based on server response if available
+                    // The TemplateRepository should have already updated counts from server response
                     
-                    // Verify template state matches server response
-                    if (template.isLiked() != isLiked) {
-                        Log.w(TAG, "Template state mismatch! Local: " + template.isLiked() + ", Server: " + isLiked);
-                        // Update to match server
-                        template.setLiked(isLiked);
-                        // This might cause another adapter update - POTENTIAL JUMPING CAUSE!
-                        Log.w(TAG, "Correcting template state - POTENTIAL JUMPING CAUSE!");
-                        if (adapter != null) {
-                            adapter.notifyDataSetChanged();
-                        }
+                    // Update only the specific template in adapter
+                    if (adapter != null) {
+                        adapter.notifyDataSetChanged(); // For now, will optimize later
                     }
                     
                     Log.d(TAG, "=== LIKE SUCCESS CALLBACK COMPLETED ===");
@@ -1724,19 +1717,8 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.Templa
                     Log.e(TAG, "Like operation failed for template: " + template.getId());
                     Log.e(TAG, "Error: " + e.getMessage());
                     
-                    // Revert optimistic update
-                    Log.w(TAG, "Reverting optimistic update due to error");
-                    template.setLiked(!liked);
-                    template.setLikeCount(template.getLikeCount() + (liked ? -1 : 1));
-                    
-                    // Notify adapter of the revert - THIS MIGHT CAUSE JUMPING!
-                    if (adapter != null) {
-                        Log.w(TAG, "Notifying adapter of reverted state - POTENTIAL JUMPING CAUSE!");
-                        adapter.notifyDataSetChanged();
-                    }
-                    
-                    // Show error message
-                    Toast.makeText(getContext(), "Failed to " + (liked ? "like" : "unlike") + " template: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    // Show error message - no need to revert since we didn't do optimistic update
+                    Toast.makeText(getContext(), "Failed to update like status: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     Log.e(TAG, "=== LIKE ERROR CALLBACK COMPLETED ===");
                 });
         } else {
@@ -1748,11 +1730,11 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.Templa
 
     @Override
     public void onFavoriteClick(Template template) {
-        boolean favorited = !template.isFavorited();
-        template.setFavorited(favorited);
         if (template == null) return;
         
-        Log.d(TAG, "Template favorited: " + template.getId());
+        Log.d(TAG, "=== HOME FRAGMENT FAVORITE HANDLER ===");
+        Log.d(TAG, "Template ID: " + template.getId());
+        Log.d(TAG, "Current favorited state: " + template.isFavorited());
         
         // Check if user is authenticated
         if (!isUserAuthenticated()) {
@@ -1762,49 +1744,55 @@ public class HomeFragment extends BaseFragment implements TemplateAdapter.Templa
                     // Navigate to login screen
                     navigateToAuthScreen();
                 }).show();
-            
-            // Reset the template state since the action failed
-            template.setFavorited(false);
-            
-            // Force update the specific item to reflect the correct state
-            updateTemplateItemInAdapter(template);
             return;
         }
         
-        // Note: UI is already updated optimistically in the adapter
-        // Just need to handle the backend update and potential errors
-        
         // Track favorite action with source
         AnalyticsUtils.getInstance().trackTemplateFavorite(template.getId(), "home_feed");
-        
-        // Keep the original state in case we need to revert
-        final boolean originalFavoriteState = !template.isFavorited();
-        final long originalFavoriteCount = template.isFavorited() ? 
-            template.getFavoriteCount() - 1 : template.getFavoriteCount() + 1;
         
         // Update backend
         viewModel.handleTemplateFavorite(template)
             .addOnSuccessListener(isFavorited -> {
                 if (!isAdded()) return;
-                // Success - show feedback only if the state changed to favorited
+                
+                Log.d(TAG, "=== FAVORITE SUCCESS CALLBACK ===");
+                Log.d(TAG, "Favorite operation successful for template: " + template.getId());
+                Log.d(TAG, "Server returned favorited state: " + isFavorited);
+                
+                // Update template state based on server response
+                template.setFavorited(isFavorited);
+                
+                // Update adapter
+                if (adapter != null) {
+                    adapter.notifyDataSetChanged(); // For now, will optimize later
+                }
+                
+                // Show feedback only if the state changed to favorited
                 if (isFavorited) {
                     View view = getView();
                     if (view != null) {
                         Snackbar.make(view, "Added to favorites", Snackbar.LENGTH_SHORT).show();
                     }
                 }
+                
+                Log.d(TAG, "=== FAVORITE SUCCESS CALLBACK COMPLETED ===");
             })
             .addOnFailureListener(e -> {
                 if (!isAdded()) return;
-                // Failure - revert UI and show error
+                
+                Log.e(TAG, "=== FAVORITE ERROR CALLBACK ===");
                 Log.e(TAG, "Failed to favorite template: " + template.getId(), e);
-                template.setFavorited(false);
-                updateTemplateItemInAdapter(template);
+                
+                // Show error message - no need to revert since we didn't do optimistic update
                 View view = getView();
                 if (view != null) {
-                    Snackbar.make(view, "Failed to update favorite status", Snackbar.LENGTH_SHORT).show();
+                    Snackbar.make(view, "Failed to update favorite status: " + e.getMessage(), Snackbar.LENGTH_SHORT).show();
                 }
+                
+                Log.e(TAG, "=== FAVORITE ERROR CALLBACK COMPLETED ===");
             });
+        
+        Log.d(TAG, "=== HOME FRAGMENT FAVORITE HANDLER COMPLETED ===");
     }
 
     @Override

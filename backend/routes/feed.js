@@ -1,547 +1,290 @@
 const express = require('express');
 const router = express.Router();
-const feedService = require('../services/feedService');
-const userProfileService = require('../services/userProfileService');
-const templateScoringService = require('../services/templateScoringService');
-const websocketService = require('../services/websocketService');
-const { verifyFirebaseToken, optionalFirebaseAuth } = require('../middleware/auth');
-const { validateDeviceId } = require('../middleware/validators');
-const logger = require('../utils/logger');
+const Template = require('../models/firestore/Template');
+const User = require('../models/firestore/User');
+const logger = require('../config/logger');
+const { optionalFirebaseAuth } = require('../middleware/auth');
 
 /**
- * Personalized Feed Routes
- * Provides AI-powered, personalized template recommendations
+ * Centralized Feed API
+ * Provides a single endpoint for all feed-related data
  */
 
 /**
- * GET /api/feed
- * Get multi-section personalized feed for authenticated user
- * Query params: include, refresh, categories, templateTypes
- * 
- * include: Comma-separated list of sections (personalized,trending,fresh,categories,serendipity)
- * refresh: Force refresh of cached feed
- * categories: Filter by specific categories
- * templateTypes: Filter by template types
+ * GET /api/feed - Get centralized feed data
+ * @param {string} include - Comma-separated list of sections to include (templates,categories,trending,featured,recommendations)
+ * @param {string} categories - Comma-separated list of categories to filter
+ * @param {string} templateTypes - Comma-separated list of template types
+ * @param {number} page - Page number for pagination (default: 1)
+ * @param {number} limit - Number of items per page (default: 20)
+ * @param {boolean} isPremium - Filter by premium templates
+ * @param {boolean} isFeatured - Filter by featured templates
  */
-router.get('/', verifyFirebaseToken, async (req, res) => {
-    const startTime = Date.now();
-    
+router.get('/', optionalFirebaseAuth, async (req, res) => {
     try {
-        const uid = req.user.uid;
         const {
-            include = 'personalized,trending,fresh,categories',
-            refresh = false,
+            include = 'templates,categories',
             categories,
-            templateTypes
-        } = req.query;
-
-        logger.info(`🎯 Multi-section feed request from user: ${uid}`, {
-            include: include,
-            refresh: refresh === 'true',
-            categories: categories ? categories.split(',') : null,
-            templateTypes: templateTypes ? templateTypes.split(',') : null
-        });
-
-        // Validate and sanitize parameters
-        const refreshFlag = refresh === 'true' || refresh === true;
-
-        // Parse filters
-        const filters = {};
-        if (categories) {
-            filters.categories = categories.split(',').map(c => c.trim()).filter(Boolean);
-        }
-        if (templateTypes) {
-            filters.templateTypes = templateTypes.split(',').map(t => t.trim()).filter(Boolean);
-        }
-
-        // Generate multi-section feed
-        const feedResponse = await feedService.generateMultiSectionFeed(uid, {
-            include: include,
-            refresh: refreshFlag,
-            ...filters
-        });
-
-        // Add request metadata
-        feedResponse.metadata.requestId = req.id || `feed_${Date.now()}`;
-        feedResponse.metadata.responseTime = Date.now() - startTime;
-        feedResponse.metadata.endpoint = '/api/feed';
-
-        logger.info(`✅ Multi-section feed generated for ${uid} in ${Date.now() - startTime}ms`, {
-            sectionsCount: feedResponse.sections.length,
-            totalTemplates: feedResponse.sections.reduce((sum, section) => sum + section.templates.length, 0),
-            cached: feedResponse.metadata.cached || false
-        });
-
-        res.json({
-            success: true,
-            data: feedResponse,
-            message: 'Multi-section feed generated successfully'
-        });
-
-    } catch (error) {
-        logger.error('❌ Error generating multi-section feed:', error);
-        
-        res.status(500).json({
-            success: false,
-            error: 'Failed to generate multi-section feed',
-            message: 'An error occurred while generating your personalized feed. Please try again.',
-            requestId: req.id || `feed_error_${Date.now()}`
-        });
-    }
-});
-
-/**
- * GET /api/feed/legacy
- * Get flat template list for backward compatibility
- * Query params: page, limit, refresh, categories, templateTypes
- */
-router.get('/legacy', verifyFirebaseToken, async (req, res) => {
-    const startTime = Date.now();
-    
-    try {
-        const uid = req.user.uid;
-        const {
+            templateTypes,
             page = 1,
             limit = 20,
-            refresh = false,
-            categories,
-            templateTypes
+            isPremium,
+            isFeatured
         } = req.query;
 
-        logger.info(`🔄 Legacy feed request from user: ${uid}`, {
-            page: parseInt(page),
-            limit: parseInt(limit),
-            refresh: refresh === 'true'
-        });
+        const userId = req.user?.uid;
+        const includeSections = include.split(',').map(s => s.trim());
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
 
-        // Validate parameters
-        const pageNum = Math.max(1, parseInt(page) || 1);
-        const limitNum = Math.min(50, Math.max(1, parseInt(limit) || 20));
-        const refreshFlag = refresh === 'true' || refresh === true;
+        logger.info(`Feed request - User: ${userId}, Include: ${includeSections.join(',')}, Page: ${pageNum}, Limit: ${limitNum}`);
 
-        // Parse filters
-        const filters = {};
-        if (categories) {
-            filters.categories = categories.split(',').map(c => c.trim()).filter(Boolean);
+        const feedData = {};
+
+        // Get templates section
+        if (includeSections.includes('templates')) {
+            try {
+                const filters = {};
+                
+                if (isPremium !== undefined) {
+                    filters.isPremium = isPremium === 'true';
+                }
+                
+                if (isFeatured !== undefined) {
+                    filters.isFeatured = isFeatured === 'true';
+                }
+
+                if (categories) {
+                    const categoryList = categories.split(',').map(c => c.trim());
+                    // For multiple categories, we'll need to make separate calls and combine
+                    if (categoryList.length === 1) {
+                        filters.category = categoryList[0];
+                    }
+                }
+
+                const templatesResult = await Template.getPaginated(pageNum, limitNum, filters);
+                
+                // If multiple categories specified, filter in memory
+                if (categories && categories.split(',').length > 1) {
+                    const categoryList = categories.split(',').map(c => c.trim());
+                    templatesResult.templates = templatesResult.templates.filter(template =>
+                        categoryList.includes(template.category)
+                    );
+                }
+
+                feedData.templates = templatesResult;
+                logger.info(`Retrieved ${templatesResult.templates.length} templates`);
+            } catch (error) {
+                logger.error(`Error getting templates: ${error.message}`);
+                feedData.templates = { templates: [], page: pageNum, limit: limitNum, hasMore: false };
+            }
         }
-        if (templateTypes) {
-            filters.templateTypes = templateTypes.split(',').map(t => t.trim()).filter(Boolean);
+
+        // Get categories section
+        if (includeSections.includes('categories')) {
+            try {
+                const categoriesData = await Template.getCategories();
+                feedData.categories = categoriesData;
+                logger.info(`Retrieved ${Object.keys(categoriesData).length} categories`);
+            } catch (error) {
+                logger.error(`Error getting categories: ${error.message}`);
+                feedData.categories = {};
+            }
         }
 
-        // Generate legacy flat feed
-        const feedResponse = await feedService.generatePersonalizedFeed(uid, {
+        // Get trending templates section
+        if (includeSections.includes('trending')) {
+            try {
+                const trendingTemplates = await Template.getTrending(limitNum);
+                feedData.trending = {
+                    templates: trendingTemplates,
+                    count: trendingTemplates.length
+                };
+                logger.info(`Retrieved ${trendingTemplates.length} trending templates`);
+            } catch (error) {
+                logger.error(`Error getting trending templates: ${error.message}`);
+                feedData.trending = { templates: [], count: 0 };
+            }
+        }
+
+        // Get featured templates section
+        if (includeSections.includes('featured')) {
+            try {
+                const featuredTemplates = await Template.getFeatured(limitNum);
+                feedData.featured = {
+                    templates: featuredTemplates,
+                    count: featuredTemplates.length
+                };
+                logger.info(`Retrieved ${featuredTemplates.length} featured templates`);
+            } catch (error) {
+                logger.error(`Error getting featured templates: ${error.message}`);
+                feedData.featured = { templates: [], count: 0 };
+            }
+        }
+
+        // Get user recommendations (if user is authenticated)
+        if (includeSections.includes('recommendations') && userId) {
+            try {
+                const userRecommendations = await getUserRecommendations(userId, limitNum);
+                feedData.recommendations = {
+                    templates: userRecommendations,
+                    count: userRecommendations.length
+                };
+                logger.info(`Retrieved ${userRecommendations.length} recommendations for user ${userId}`);
+            } catch (error) {
+                logger.error(`Error getting recommendations: ${error.message}`);
+                feedData.recommendations = { templates: [], count: 0 };
+            }
+        }
+
+        // Add metadata
+        feedData.metadata = {
+            timestamp: new Date().toISOString(),
+            userId: userId || null,
             page: pageNum,
             limit: limitNum,
-            refresh: refreshFlag,
-            ...filters
-        });
+            includedSections: includeSections,
+            totalSections: Object.keys(feedData).length - 1 // Exclude metadata
+        };
 
-        // Add request metadata
-        feedResponse.metadata.requestId = req.id || `legacy_feed_${Date.now()}`;
-        feedResponse.metadata.responseTime = Date.now() - startTime;
-        feedResponse.metadata.endpoint = '/api/feed/legacy';
-
-        logger.info(`✅ Legacy feed generated for ${uid} in ${Date.now() - startTime}ms`, {
-            templatesCount: feedResponse.templates.length,
-            page: pageNum,
-            cached: feedResponse.metadata.cached || false
-        });
-
-        res.json({
-            success: true,
-            data: feedResponse,
-            message: 'Legacy feed generated successfully'
-        });
+        logger.info(`Feed response prepared with ${Object.keys(feedData).length - 1} sections`);
+        res.json(feedData);
 
     } catch (error) {
-        logger.error('❌ Error generating legacy feed:', error);
-        
+        logger.error(`Feed error: ${error.message}`);
         res.status(500).json({
-            success: false,
-            error: 'Failed to generate legacy feed',
-            message: 'An error occurred while generating your feed. Please try again.',
-            requestId: req.id || `legacy_feed_error_${Date.now()}`
+            error: 'Failed to get feed data',
+            message: error.message,
+            timestamp: new Date().toISOString()
         });
     }
 });
 
 /**
- * GET /api/feed/default
- * Get default multi-section feed for unauthenticated users or fallback
- * Query params: include, categories, templateTypes
+ * POST /api/feed/interaction - Record template interaction (like, favorite, view, etc.)
  */
-router.get('/default', optionalFirebaseAuth, async (req, res) => {
-    const startTime = Date.now();
-    
+router.post('/interaction', optionalFirebaseAuth, async (req, res) => {
     try {
-        const {
-            include = 'trending,fresh',
-            categories,
-            templateTypes
-        } = req.query;
+        const { templateId, action, value } = req.body;
+        const userId = req.user?.uid;
 
-        logger.info('🔄 Default multi-section feed request', {
-            include: include,
-            authenticated: !!req.user
-        });
-
-        // Parse filters
-        const filters = {};
-        if (categories) {
-            filters.categories = categories.split(',').map(c => c.trim()).filter(Boolean);
-        }
-        if (templateTypes) {
-            filters.templateTypes = templateTypes.split(',').map(t => t.trim()).filter(Boolean);
-        }
-
-        // Generate default multi-section feed
-        const feedResponse = await feedService.generateDefaultMultiSectionFeed({
-            include: include,
-            ...filters
-        });
-
-        // Add request metadata
-        feedResponse.metadata.requestId = req.id || `default_feed_${Date.now()}`;
-        feedResponse.metadata.responseTime = Date.now() - startTime;
-        feedResponse.metadata.endpoint = '/api/feed/default';
-
-        logger.info(`✅ Default multi-section feed generated in ${Date.now() - startTime}ms`, {
-            sectionsCount: feedResponse.sections.length,
-            totalTemplates: feedResponse.sections.reduce((sum, section) => sum + section.templates.length, 0)
-        });
-
-        res.json({
-            success: true,
-            data: feedResponse,
-            message: 'Default multi-section feed generated successfully'
-        });
-
-    } catch (error) {
-        logger.error('❌ Error generating default multi-section feed:', error);
-        
-        res.status(500).json({
-            success: false,
-            error: 'Failed to generate default multi-section feed',
-            message: 'An error occurred while generating the feed. Please try again.',
-            requestId: req.id || `default_feed_error_${Date.now()}`
-        });
-    }
-});
-
-/**
- * GET /api/feed/profile/:uid
- * Get user profile for debugging/analytics (admin only)
- */
-router.get('/profile/:uid', verifyFirebaseToken, async (req, res) => {
-    try {
-        const { uid } = req.params;
-        const requestingUid = req.user.uid;
-
-        // Only allow users to see their own profile or admin access
-        if (uid !== requestingUid && !req.user.isAdmin) {
-            return res.status(403).json({
-                success: false,
-                error: 'Forbidden',
-                message: 'You can only access your own profile'
-            });
-        }
-
-        logger.info(`📊 Profile request for user: ${uid} by ${requestingUid}`);
-
-        const userProfile = await userProfileService.getUserProfile(uid);
-        
-        if (!userProfile) {
-            return res.status(404).json({
-                success: false,
-                error: 'Profile not found',
-                message: 'User profile not found'
-            });
-        }
-
-        res.json({
-            success: true,
-            data: userProfile,
-            message: 'User profile retrieved successfully'
-        });
-
-    } catch (error) {
-        logger.error('❌ Error retrieving user profile:', error);
-        
-        res.status(500).json({
-            success: false,
-            error: 'Failed to retrieve user profile',
-            message: 'An error occurred while retrieving the user profile'
-        });
-    }
-});
-
-/**
- * DELETE /api/feed/cache/:uid
- * Invalidate feed cache for a user
- */
-router.delete('/cache/:uid', verifyFirebaseToken, async (req, res) => {
-    try {
-        const { uid } = req.params;
-        const requestingUid = req.user.uid;
-
-        // Only allow users to invalidate their own cache or admin access
-        if (uid !== requestingUid && !req.user.isAdmin) {
-            return res.status(403).json({
-                success: false,
-                error: 'Forbidden',
-                message: 'You can only invalidate your own cache'
-            });
-        }
-
-        logger.info(`🗑️ Cache invalidation request for user: ${uid} by ${requestingUid}`);
-
-        // Invalidate both feed cache and profile cache
-        await feedService.invalidateUserFeedCache(uid);
-        userProfileService.invalidateUserProfile(uid);
-
-        res.json({
-            success: true,
-            message: 'Feed cache invalidated successfully'
-        });
-
-    } catch (error) {
-        logger.error('❌ Error invalidating feed cache:', error);
-        
-        res.status(500).json({
-            success: false,
-            error: 'Failed to invalidate feed cache',
-            message: 'An error occurred while invalidating the feed cache'
-        });
-    }
-});
-
-/**
- * GET /api/feed/analytics/:uid
- * Get feed analytics for a user
- */
-router.get('/analytics/:uid', verifyFirebaseToken, async (req, res) => {
-    try {
-        const { uid } = req.params;
-        const requestingUid = req.user.uid;
-
-        // Only allow users to see their own analytics or admin access
-        if (uid !== requestingUid && !req.user.isAdmin) {
-            return res.status(403).json({
-                success: false,
-                error: 'Forbidden',
-                message: 'You can only access your own analytics'
-            });
-        }
-
-        logger.info(`📈 Analytics request for user: ${uid} by ${requestingUid}`);
-
-        const analytics = await feedService.getFeedAnalytics(uid);
-        
-        if (!analytics) {
-            return res.status(404).json({
-                success: false,
-                error: 'Analytics not found',
-                message: 'Feed analytics not found for this user'
-            });
-        }
-
-        res.json({
-            success: true,
-            data: analytics,
-            message: 'Feed analytics retrieved successfully'
-        });
-
-    } catch (error) {
-        logger.error('❌ Error retrieving feed analytics:', error);
-        
-        res.status(500).json({
-            success: false,
-            error: 'Failed to retrieve feed analytics',
-            message: 'An error occurred while retrieving feed analytics'
-        });
-    }
-});
-
-/**
- * POST /api/feed/feedback
- * Submit feedback on feed recommendations
- */
-router.post('/feedback', verifyFirebaseToken, async (req, res) => {
-    try {
-        const uid = req.user.uid;
-        const {
-            templateId,
-            action, // 'like', 'dislike', 'not_interested', 'report'
-            reason,
-            metadata
-        } = req.body;
-
-        // Validate required fields
         if (!templateId || !action) {
             return res.status(400).json({
-                success: false,
-                error: 'Missing required fields',
-                message: 'templateId and action are required'
+                error: 'Template ID and action are required'
             });
         }
 
-        logger.info(`📝 Feed feedback from user: ${uid}`, {
-            templateId,
-            action,
-            reason
-        });
+        logger.info(`Template interaction - User: ${userId}, Template: ${templateId}, Action: ${action}, Value: ${value}`);
 
-        // This would integrate with the existing engagement logging
-        // For now, we'll log the feedback for future ML training
-        logger.info('🎯 Feed feedback logged for ML training:', {
-            uid,
-            templateId,
-            action,
-            reason,
-            metadata,
-            timestamp: new Date()
-        });
+        // Handle different interaction types
+        switch (action) {
+            case 'like':
+                await Template.incrementCounter(templateId, 'likeCount', value ? 1 : -1);
+                if (userId) {
+                    if (value) {
+                        await User.addToLikes(userId, templateId);
+                    } else {
+                        await User.removeFromLikes(userId, templateId);
+                    }
+                }
+                break;
+
+            case 'favorite':
+                await Template.incrementCounter(templateId, 'favoriteCount', value ? 1 : -1);
+                if (userId) {
+                    if (value) {
+                        await User.addToFavorites(userId, templateId);
+                    } else {
+                        await User.removeFromFavorites(userId, templateId);
+                    }
+                }
+                break;
+
+            case 'view':
+                await Template.incrementCounter(templateId, 'viewCount', 1);
+                if (userId) {
+                    await User.recordTemplateView(userId, templateId);
+                }
+                break;
+
+            case 'share':
+                await Template.incrementCounter(templateId, 'sharedCount', 1);
+                break;
+
+            case 'download':
+                await Template.incrementCounter(templateId, 'downloadCount', 1);
+                break;
+
+            default:
+                return res.status(400).json({
+                    error: 'Invalid action type'
+                });
+        }
 
         res.json({
             success: true,
-            message: 'Feedback submitted successfully'
+            templateId,
+            action,
+            value,
+            timestamp: new Date().toISOString()
         });
 
     } catch (error) {
-        logger.error('❌ Error submitting feed feedback:', error);
-        
+        logger.error(`Interaction error: ${error.message}`);
         res.status(500).json({
-            success: false,
-            error: 'Failed to submit feedback',
-            message: 'An error occurred while submitting feedback'
+            error: 'Failed to record interaction',
+            message: error.message
         });
     }
 });
 
 /**
- * GET /api/feed/config
- * Get current feed configuration (admin only)
+ * Helper function to get user recommendations
+ * @param {string} userId User ID
+ * @param {number} limit Number of recommendations
+ * @returns {Promise<Array>} Recommended templates
  */
-router.get('/config', verifyFirebaseToken, async (req, res) => {
+async function getUserRecommendations(userId, limit = 10) {
     try {
-        // Check if user is admin
-        if (!req.user.isAdmin) {
-            return res.status(403).json({
-                success: false,
-                error: 'Forbidden',
-                message: 'Admin access required'
-            });
+        // Get user's interaction history
+        const user = await User.getByUid(userId);
+        if (!user) {
+            return [];
         }
 
-        const config = {
-            scoring: templateScoringService.getScoringConfig(),
-            caching: userProfileService.getCacheStats(),
-            feedComposition: {
-                personalized: 0.6,
-                trending: 0.2,
-                fresh: 0.1,
-                serendipity: 0.1
+        // Get user's favorite categories
+        const categoryVisits = user.categoryVisits || {};
+        const topCategories = Object.entries(categoryVisits)
+            .sort(([,a], [,b]) => (b.count || 0) - (a.count || 0))
+            .slice(0, 3)
+            .map(([category]) => category);
+
+        if (topCategories.length === 0) {
+            // Return trending templates if no user preferences
+            return await Template.getTrending(limit);
+        }
+
+        // Get templates from user's preferred categories
+        const recommendations = [];
+        const templatesPerCategory = Math.ceil(limit / topCategories.length);
+
+        for (const category of topCategories) {
+            try {
+                const categoryTemplates = await Template.getByCategory(category, templatesPerCategory);
+                recommendations.push(...categoryTemplates.templates);
+            } catch (error) {
+                logger.error(`Error getting recommendations for category ${category}: ${error.message}`);
             }
-        };
-
-        res.json({
-            success: true,
-            data: config,
-            message: 'Feed configuration retrieved successfully'
-        });
-
-    } catch (error) {
-        logger.error('❌ Error retrieving feed config:', error);
-        
-        res.status(500).json({
-            success: false,
-            error: 'Failed to retrieve feed configuration',
-            message: 'An error occurred while retrieving feed configuration'
-        });
-    }
-});
-
-/**
- * PUT /api/feed/config/scoring
- * Update scoring weights (admin only, for A/B testing)
- */
-router.put('/config/scoring', verifyFirebaseToken, async (req, res) => {
-    try {
-        // Check if user is admin
-        if (!req.user.isAdmin) {
-            return res.status(403).json({
-                success: false,
-                error: 'Forbidden',
-                message: 'Admin access required'
-            });
         }
 
-        const { weights } = req.body;
-        
-        if (!weights) {
-            return res.status(400).json({
-                success: false,
-                error: 'Missing weights',
-                message: 'Scoring weights are required'
-            });
-        }
-
-        logger.info('📊 Updating scoring weights:', weights);
-
-        templateScoringService.updateScoringWeights(weights);
-
-        res.json({
-            success: true,
-            message: 'Scoring weights updated successfully'
-        });
+        // Shuffle and limit results
+        const shuffled = recommendations.sort(() => 0.5 - Math.random());
+        return shuffled.slice(0, limit);
 
     } catch (error) {
-        logger.error('❌ Error updating scoring weights:', error);
-        
-        res.status(500).json({
-            success: false,
-            error: 'Failed to update scoring weights',
-            message: error.message || 'An error occurred while updating scoring weights'
-        });
+        logger.error(`Error getting user recommendations: ${error.message}`);
+        return [];
     }
-});
+}
 
-/**
- * GET /api/feed/health
- * Health check endpoint for feed service
- */
-router.get('/health', async (req, res) => {
-    try {
-        const health = {
-            status: 'healthy',
-            timestamp: new Date(),
-            services: {
-                feedService: 'operational',
-                userProfileService: 'operational',
-                templateScoringService: 'operational'
-            },
-            cache: userProfileService.getCacheStats()
-        };
-
-        res.json({
-            success: true,
-            data: health,
-            message: 'Feed service is healthy'
-        });
-
-    } catch (error) {
-        logger.error('❌ Feed service health check failed:', error);
-        
-        res.status(500).json({
-            success: false,
-            data: {
-                status: 'unhealthy',
-                timestamp: new Date(),
-                error: error.message
-            },
-            message: 'Feed service health check failed'
-        });
-    }
-});
-
-module.exports = router; 
+module.exports = router;

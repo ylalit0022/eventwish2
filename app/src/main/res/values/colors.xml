@@ -203,10 +203,10 @@
     <color name="colorControlNormal">@color/gray_600</color>
     
     <!-- Interaction Colors -->
-    <color name="like_icon_filled">#FF0000</color>
-    <color name="like_icon_outline">#757575</color>
-    <color name="favorite_icon_filled">#000000</color>
-    <color name="favorite_icon_outline">#757575</color>
+    <color name="like_active">#E91E63</color>
+    <color name="like_inactive">#757575</color>
+    <color name="favorite_active">#FF9800</color>
+    <color name="favorite_inactive">#757575</color>
     
     <!-- Template item colors -->
     <color name="template_background">#FFFFFF</color>
@@ -526,5 +526,8 @@
     <color name="md_theme_light_onAdBackground">#424242</color>
     <color name="md_theme_dark_adBackground">#2A2A2A</color>
     <color name="md_theme_dark_onAdBackground">#E0E0E0</color>
+
+    <color name="favorite_icon_filled">#000000</color>
+    <color name="like_icon_filled">#E91E63</color>
 
 </resources>

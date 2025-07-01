@@ -146,15 +146,40 @@ public class TemplateInteractionRepository {
             return;
         }
 
-        firestoreManager.toggleLike(templateId)
-            .addOnSuccessListener(isLiked -> {
-                Log.d(TAG, "Like toggled successfully. New state: " + isLiked);
-                // Update local state if needed
-            })
-            .addOnFailureListener(e -> {
-                Log.e(TAG, "Failed to toggle like", e);
-                // Handle error if needed
-            });
+        Log.d(TAG, "Toggling like for template: " + templateId + " via backend API");
+        
+        // Use backend API instead of direct Firestore operations
+        // This prevents permission errors and ensures proper authentication
+        try {
+            // Get current like state to determine action
+            MutableLiveData<Boolean> currentState = likeStates.get(templateId);
+            boolean isCurrentlyLiked = currentState != null && Boolean.TRUE.equals(currentState.getValue());
+            
+            // Create interaction data for backend API
+            Map<String, Object> interactionData = new HashMap<>();
+            interactionData.put("templateId", templateId);
+            interactionData.put("action", isCurrentlyLiked ? "unlike" : "like");
+            interactionData.put("timestamp", System.currentTimeMillis());
+            
+            // Call backend API through UserRepository
+            userRepository.recordTemplateInteraction(interactionData)
+                .addOnSuccessListener(result -> {
+                    Log.d(TAG, "Like toggle successful via backend API for template: " + templateId);
+                    // Update local state optimistically
+                    updateLocalLikeState(templateId, !isCurrentlyLiked);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to toggle like via backend API for template: " + templateId, e);
+                    handleLikeError(templateId, e);
+                });
+                
+        } catch (Exception e) {
+            Log.e(TAG, "Error toggling like for template: " + templateId, e);
+            handleLikeError(templateId, e);
+        }
+        
+        // Note: Removed direct FirestoreManager call
+        // firestoreManager.toggleLike(templateId) - this was causing permission errors
     }
 
     private void updateLocalLikeState(String templateId, boolean isLiked) {
@@ -206,15 +231,40 @@ public class TemplateInteractionRepository {
             return;
         }
 
-        firestoreManager.toggleFavorite(templateId)
-            .addOnSuccessListener(isFavorited -> {
-                Log.d(TAG, "Favorite toggled successfully. New state: " + isFavorited);
-                // Update local state if needed
-            })
-            .addOnFailureListener(e -> {
-                Log.e(TAG, "Failed to toggle favorite", e);
-                // Handle error if needed
-            });
+        Log.d(TAG, "Toggling favorite for template: " + templateId + " via backend API");
+        
+        // Use backend API instead of direct Firestore operations
+        // This prevents permission errors and ensures proper authentication
+        try {
+            // Get current favorite state to determine action
+            MutableLiveData<Boolean> currentState = favoriteStates.get(templateId);
+            boolean isCurrentlyFavorited = currentState != null && Boolean.TRUE.equals(currentState.getValue());
+            
+            // Create interaction data for backend API
+            Map<String, Object> interactionData = new HashMap<>();
+            interactionData.put("templateId", templateId);
+            interactionData.put("action", isCurrentlyFavorited ? "unfavorite" : "favorite");
+            interactionData.put("timestamp", System.currentTimeMillis());
+            
+            // Call backend API through UserRepository
+            userRepository.recordTemplateInteraction(interactionData)
+                .addOnSuccessListener(result -> {
+                    Log.d(TAG, "Favorite toggle successful via backend API for template: " + templateId);
+                    // Update local state optimistically
+                    updateLocalFavoriteState(templateId, !isCurrentlyFavorited);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to toggle favorite via backend API for template: " + templateId, e);
+                    handleFavoriteError(templateId, e);
+                });
+                
+        } catch (Exception e) {
+            Log.e(TAG, "Error toggling favorite for template: " + templateId, e);
+            handleFavoriteError(templateId, e);
+        }
+        
+        // Note: Removed direct FirestoreManager call
+        // firestoreManager.toggleFavorite(templateId) - this was causing permission errors
     }
 
     private void updateLocalFavoriteState(String templateId, boolean isFavorited) {

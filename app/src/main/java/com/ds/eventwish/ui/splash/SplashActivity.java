@@ -146,10 +146,14 @@ public class SplashActivity extends AppCompatActivity {
                 if (signInButton.getVisibility() == View.VISIBLE && !userAuthenticated) {
                     Log.d(TAG, "Timeout reached but sign-in button is visible and user not authenticated, waiting for user action");
                     // Don't set forceNavigated flag to allow user to sign in
-                    // Just cancel any pending operations
+                    // Just reset the sign-in state if we were in the middle of signing in
                     if (isSigningIn) {
-                        signInStatus.setText(R.string.sign_in_timeout);
+                        Log.d(TAG, "Resetting sign-in state due to timeout");
                         isSigningIn = false;
+                        signInButton.setEnabled(true);
+                        signInStatus.setText(R.string.sign_in_required);
+                        signInProgressContainer.setVisibility(View.GONE);
+                        loadingProgressBar.setVisibility(View.GONE);
                     }
                     return;
                 }

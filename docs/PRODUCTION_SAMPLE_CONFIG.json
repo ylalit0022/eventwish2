@@ -1,0 +1,366 @@
+{
+  "version": "2.1.0",
+  "lastUpdated": "2025-01-09T10:00:00Z",
+  "notificationTypes": {
+    "dailyReminder": {
+      "enabled": true,
+      "schedule": {
+        "type": "daily",
+        "utcHour": 10,
+        "utcMinute": 30
+      },
+      "messages": {
+        "title": "✨ Daily Inspiration",
+        "body": "Start your day with beautiful greetings! Create and share joy today. 🌟"
+      }
+    },
+    "festivalAlert": {
+      "enabled": true,
+      "schedule": {
+        "type": "dynamic",
+        "daysBeforeFestival": [0, 1, 2]
+      },
+      "messages": {
+        "title": "🎉 {{festivalName}} is Here!",
+        "body": "{{festivalName}} is {{timeMessage}}! Create stunning greeting cards to celebrate with your loved ones. 💝"
+      }
+    },
+    "inactivityNudge": {
+      "enabled": true,
+      "schedule": {
+        "type": "inactivity",
+        "thresholdDays": 1
+      },
+      "messages": {
+        "title": "We Miss You! 💙",
+        "body": "Your creativity is missed! Come back and create beautiful greetings to brighten someone's day. ✨"
+      }
+    },
+    "subscriptionExpiry": {
+      "enabled": true,
+      "schedule": {
+        "type": "expiry",
+        "daysBeforeExpiry": [1, 2, 3]
+      },
+      "messages": {
+        "title": "⚡ Premium Features Expiring",
+        "body": "Your premium subscription expires in {{daysUntil}} days. Renew now to keep creating unlimited greetings! 🎨"
+      }
+    },
+    "weeklyEngagement": {
+      "enabled": true,
+      "schedule": {
+        "type": "weekly",
+        "dayOfWeek": 2,
+        "utcHour": 10,
+        "utcMinute": 30
+      },
+      "messages": {
+        "title": "📊 Your Weekly Summary",
+        "body": "See how many hearts you've spread this week! Check your impact and keep sharing joy. ❤️"
+      }
+    },
+    "newTemplateAlert": {
+      "enabled": true,
+      "schedule": {
+        "type": "batch",
+        "batchSize": 2,
+        "intervalHours": 1
+      },
+      "messages": {
+        "title": "🆕 Fresh Templates Added!",
+        "body": "{{templateCount}} new stunning templates are waiting for you! Discover and create amazing greetings. 🎭"
+      }
+    }
+  },
+  "globalSettings": {
+    "maxNotificationsPerDay": 10,
+    "quietHoursStart": 23,
+    "quietHoursEnd": 6,
+    "batchingIntervalMinutes": 5,
+    "enableDuplicateProtection": true,
+    "duplicateProtectionHours": 1,
+    "respectSystemDnd": false,
+    "enableVibration": true,
+    "enableSound": true,
+    "priority": "default",
+    "categoryId": "eventwish_notifications",
+    "autoCancel": true,
+    "showBadge": true,
+    "ledColor": "#FF6B35",
+    "groupKey": "eventwish_group"
+  },
+  "seasonalOverrides": {
+    "christmas": {
+      "enabled": true,
+      "startDate": "2024-12-15",
+      "endDate": "2024-12-26",
+      "overrides": {
+        "dailyReminder": {
+          "messages": {
+            "title": "🎄 Christmas Magic Awaits",
+            "body": "Spread Christmas joy with beautiful holiday greetings! Create magical moments for your loved ones. 🎅✨"
+          }
+        },
+        "festivalAlert": {
+          "messages": {
+            "title": "🎄 {{festivalName}} Christmas Special",
+            "body": "Celebrate {{festivalName}} with our exclusive Christmas templates! Share the holiday spirit. 🎁❄️"
+          }
+        }
+      }
+    },
+    "newYear": {
+      "enabled": true,
+      "startDate": "2024-12-28",
+      "endDate": "2025-01-05",
+      "overrides": {
+        "dailyReminder": {
+          "messages": {
+            "title": "🎊 New Year, New Greetings",
+            "body": "Welcome 2025 with stunning New Year wishes! Create inspiring greetings for a fresh start. 🌟"
+          }
+        },
+        "weeklyEngagement": {
+          "messages": {
+            "title": "🎯 New Year Resolutions",
+            "body": "Start the year by spreading more joy! Your greeting cards can inspire others. 💪✨"
+          }
+        }
+      }
+    },
+    "valentine": {
+      "enabled": true,
+      "startDate": "2025-02-10",
+      "endDate": "2025-02-15",
+      "overrides": {
+        "dailyReminder": {
+          "messages": {
+            "title": "💝 Love is in the Air",
+            "body": "Valentine's Day is approaching! Create romantic greetings to express your love. 💕❤️"
+          }
+        },
+        "inactivityNudge": {
+          "messages": {
+            "title": "💘 Love Awaits Your Return",
+            "body": "Come back and create beautiful Valentine's greetings! Show your loved ones how much you care. 💝"
+          }
+        }
+      }
+    },
+    "diwali": {
+      "enabled": true,
+      "startDate": "2025-10-20",
+      "endDate": "2025-11-05",
+      "overrides": {
+        "dailyReminder": {
+          "messages": {
+            "title": "🪔 Diwali Celebrations Begin",
+            "body": "Light up Diwali with beautiful greetings! Spread the festival of lights joy. ✨🎇"
+          }
+        },
+        "festivalAlert": {
+          "messages": {
+            "title": "🪔 {{festivalName}} Diwali Special",
+            "body": "Celebrate {{festivalName}} with sparkling Diwali templates! Share the light of joy. 🎆🪔"
+          }
+        }
+      }
+    },
+    "testSeason": {
+      "enabled": true,
+      "startDate": "2025-06-29",
+      "endDate": "2025-06-30",
+      "overrides": {
+        "dailyReminder": {
+          "messages": {
+            "title": "🎯 Test Season Active",
+            "body": "This is a test seasonal override message! Testing notifications system. ✨"
+          }
+        }
+      }
+    }
+  },
+  "abTestConfig": {
+    "enabled": true,
+    "variants": {
+      "messageStyle_A": {
+        "percentage": 50,
+        "messagePrefix": "✨ ",
+        "messageSuffix": " 🌟",
+        "description": "Emoji-heavy messages with sparkles"
+      },
+      "messageStyle_B": {
+        "percentage": 50,
+        "messagePrefix": "🎉 ",
+        "messageSuffix": " 💫",
+        "description": "Celebration-focused messages"
+      }
+    },
+    "frequencyTest": {
+      "enabled": true,
+      "variants": {
+        "low_frequency": {
+          "percentage": 33,
+          "maxNotificationsPerDay": 2,
+          "description": "Conservative notification frequency"
+        },
+        "medium_frequency": {
+          "percentage": 34,
+          "maxNotificationsPerDay": 4,
+          "description": "Standard notification frequency"
+        },
+        "high_frequency": {
+          "percentage": 33,
+          "maxNotificationsPerDay": 6,
+          "description": "Active notification frequency"
+        }
+      }
+    }
+  },
+  "userSegmentation": {
+    "newUsers": {
+      "daysThreshold": 7,
+      "customMessages": {
+        "dailyReminder": {
+          "title": "🌟 Welcome to EventWish!",
+          "body": "Discover the joy of creating beautiful greetings! Start your creative journey today. ✨"
+        },
+        "inactivityNudge": {
+          "title": "👋 Getting Started with EventWish",
+          "body": "Need help creating your first greeting? Explore our easy-to-use templates and get started! 🚀"
+        }
+      }
+    },
+    "premiumUsers": {
+      "customMessages": {
+        "dailyReminder": {
+          "title": "⭐ Premium Creator",
+          "body": "Unlock your full creative potential! Use exclusive premium templates and features. 🎨"
+        },
+        "newTemplateAlert": {
+          "title": "🎯 Premium Templates Added",
+          "body": "{{templateCount}} exclusive premium templates just for you! Create something extraordinary. 💎"
+        }
+      }
+    },
+    "activeUsers": {
+      "daysThreshold": 3,
+      "customMessages": {
+        "weeklyEngagement": {
+          "title": "🔥 You're on Fire!",
+          "body": "Amazing! You've been creating consistently. Keep up the great work and inspire others! 🌟"
+        }
+      }
+    },
+    "inactiveUsers": {
+      "daysThreshold": 14,
+      "customMessages": {
+        "inactivityNudge": {
+          "title": "🎭 Your Creativity is Missed",
+          "body": "Come back and rediscover the joy of creating! New templates and features are waiting for you. 💝"
+        },
+        "newTemplateAlert": {
+          "title": "🎨 New Inspiration Awaits",
+          "body": "We've added {{templateCount}} amazing templates while you were away! Come see what's new. 🌈"
+        }
+      }
+    },
+    "highEngagementUsers": {
+      "engagementThreshold": 10,
+      "customMessages": {
+        "dailyReminder": {
+          "title": "🏆 Top Creator Alert",
+          "body": "You're one of our most creative users! Continue inspiring others with your amazing greetings. 👑"
+        }
+      }
+    }
+  },
+  "localization": {
+    "en": {
+      "timeMessages": {
+        "today": "today",
+        "tomorrow": "tomorrow",
+        "in_days": "in {{days}} days",
+        "days_ago": "{{days}} days ago"
+      },
+      "commonPhrases": {
+        "createNow": "Create Now",
+        "viewTemplates": "View Templates",
+        "shareJoy": "Share Joy",
+        "getStarted": "Get Started"
+      }
+    },
+    "hi": {
+      "timeMessages": {
+        "today": "आज",
+        "tomorrow": "कल",
+        "in_days": "{{days}} दिनों में",
+        "days_ago": "{{days}} दिन पहले"
+      },
+      "commonPhrases": {
+        "createNow": "अभी बनाएं",
+        "viewTemplates": "टेम्प्लेट देखें",
+        "shareJoy": "खुशी साझा करें",
+        "getStarted": "शुरू करें"
+      }
+    },
+    "es": {
+      "timeMessages": {
+        "today": "hoy",
+        "tomorrow": "mañana",
+        "in_days": "en {{days}} días",
+        "days_ago": "hace {{days}} días"
+      },
+      "commonPhrases": {
+        "createNow": "Crear Ahora",
+        "viewTemplates": "Ver Plantillas",
+        "shareJoy": "Compartir Alegría",
+        "getStarted": "Comenzar"
+      }
+    }
+  },
+  "analyticsConfig": {
+    "trackDelivery": true,
+    "trackEngagement": true,
+    "trackConversions": true,
+    "customEvents": {
+      "notification_delivered": {
+        "enabled": true,
+        "parameters": ["notification_type", "user_segment", "timestamp"]
+      },
+      "notification_clicked": {
+        "enabled": true,
+        "parameters": ["notification_type", "action_taken", "timestamp"]
+      },
+      "notification_dismissed": {
+        "enabled": true,
+        "parameters": ["notification_type", "dismiss_reason", "timestamp"]
+      }
+    }
+  },
+  "emergencyOverrides": {
+    "killSwitch": {
+      "enabled": false,
+      "reason": "Emergency disable if needed"
+    },
+    "reduceFrequency": {
+      "enabled": false,
+      "maxNotificationsPerDay": 1,
+      "reason": "Temporary frequency reduction"
+    },
+    "maintenanceMode": {
+      "enabled": false,
+      "message": "We're making EventWish even better! Back soon. 🔧",
+      "reason": "System maintenance"
+    }
+  },
+  "performanceConfig": {
+    "maxBatchSize": 50,
+    "processingTimeoutMs": 30000,
+    "retryAttempts": 3,
+    "retryDelayMs": 5000,
+    "cacheExpirationHours": 6,
+    "backgroundProcessingEnabled": true
+  }
+} 

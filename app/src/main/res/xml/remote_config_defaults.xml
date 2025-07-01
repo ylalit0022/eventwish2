@@ -52,4 +52,66 @@
             ]
         </value>
     </entry>
+    <entry>
+        <key>notification_config</key>
+        <value>
+            {
+                "version": "1.0",
+                "lastUpdated": "2024-03-19T10:00:00Z",
+                "notificationTypes": {
+                    "dailyReminder": {
+                        "enabled": true,
+                        "schedule": {
+                            "type": "daily",
+                            "utcHour": 9,
+                            "utcMinute": 0
+                        },
+                        "messages": {
+                            "title": "Daily Reminder",
+                            "body": "Check out today's greetings!"
+                        }
+                    },
+                    "festivalAlert": {
+                        "enabled": true,
+                        "schedule": {
+                            "type": "dynamic",
+                            "daysBeforeFestival": [0, 1, 3, 7]
+                        },
+                        "messages": {
+                            "title": "Upcoming Festival",
+                            "body": "{{festivalName}} is coming up in {{daysUntil}} days!"
+                        }
+                    },
+                    "inactivityNudge": {
+                        "enabled": true,
+                        "schedule": {
+                            "type": "inactivity",
+                            "thresholdDays": 7
+                        },
+                        "messages": {
+                            "title": "Miss You!",
+                            "body": "Create and share some greetings with your loved ones!"
+                        }
+                    },
+                    "subscriptionExpiry": {
+                        "enabled": false,
+                        "schedule": {
+                            "type": "expiry",
+                            "daysBeforeExpiry": [1, 3, 7]
+                        },
+                        "messages": {
+                            "title": "Subscription Expiring",
+                            "body": "Your premium features expire in {{daysUntil}} days."
+                        }
+                    }
+                },
+                "globalSettings": {
+                    "maxNotificationsPerDay": 5,
+                    "quietHoursStart": 22,
+                    "quietHoursEnd": 8,
+                    "batchingIntervalMinutes": 30
+                }
+            }
+        </value>
+    </entry>
 </defaultsMap> 

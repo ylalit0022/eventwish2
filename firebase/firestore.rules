@@ -27,54 +27,58 @@ service cloud.firestore {
       allow read, write: if isTestMode();
     }
 
-    // User document rules
+    // Users collection - users can read/write their own data
     match /users/{userId} {
-      // Base user document
-      allow read: if isUserOwned(userId);
-      allow write: if isUserOwned(userId);
+      allow read, write: if request.auth != null && request.auth.uid == userId;
       
-      // Likes subcollection
+      // User subcollections for likes and favorites
       match /likes/{templateId} {
-        allow read: if isUserOwned(userId);
-        allow create: if isUserOwned(userId) 
-          && request.resource.data.keys().hasOnly(['templateId', 'timestamp'])
-          && request.resource.data.timestamp is timestamp;
-        allow delete: if isUserOwned(userId);
+        allow read, write: if request.auth != null && request.auth.uid == userId;
       }
       
-      // Favorites subcollection
       match /favorites/{templateId} {
-        allow read: if isUserOwned(userId);
-        allow create: if isUserOwned(userId)
-          && request.resource.data.keys().hasOnly(['templateId', 'timestamp'])
-          && request.resource.data.timestamp is timestamp;
-        allow delete: if isUserOwned(userId);
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      match /views/{templateId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      match /drafts/{templateId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      match /sessions/{sessionId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
     
-    // Template rules
+    // Templates collection - public read, authenticated write
     match /templates/{templateId} {
-      // Anyone can read templates
-      allow read: if true;
+      allow read: if true; // Public read access for all templates
+      allow write: if request.auth != null; // Authenticated users can create/update templates
       
-      // Allow updating only likeCount and favoriteCount
-      allow update: if isAuthenticated() 
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['likeCount', 'favoriteCount']);
-      
-      // No direct creation/deletion of templates
-      allow create, delete: if false;
+      // Template subcollections
+      match /interactions/{interactionId} {
+        allow read, write: if request.auth != null;
+      }
     }
-
-    // Analytics collection for tracking errors and events
-    match /analytics/{docId} {
-      allow read: if false;
-      allow create: if isAuthenticated()
-        && request.resource.data.keys().hasAll(['type', 'createdAt', 'userId'])
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.createdAt is number
-        && isValidDate(request.resource.data.createdAt);
-      allow update, delete: if false;
+    
+    // Categories collection - public read access
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Admin collections - restricted access
+    match /admin/{document=**} {
+      allow read, write: if request.auth != null && 
+        request.auth.token.admin == true;
+    }
+    
+    // Analytics collections - authenticated read/write
+    match /analytics/{document=**} {
+      allow read, write: if request.auth != null;
     }
 
     // Debug rules - REMOVE IN PRODUCTION

@@ -3804,4 +3804,16 @@ public interface ApiService {
         @Query("period") String period,
         @retrofit2.http.Header("Authorization") String authToken
     );
+
+    /**
+     * Record template interaction through centralized feed API
+     * @param body Request body containing templateId, action, and value
+     * @param authToken Firebase authentication token (for Authorization header)
+     * @return Response indicating success or failure
+     */
+    @POST("feed/interaction")
+    Call<JsonObject> recordTemplateInteraction(
+        @Body Map<String, Object> body,
+        @Header("Authorization") String authToken
+    );
 }

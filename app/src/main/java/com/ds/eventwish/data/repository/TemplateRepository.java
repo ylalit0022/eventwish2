@@ -358,11 +358,17 @@ public class TemplateRepository {
             params.put("category", currentCategory);
         }
         
-        // Check if we should use cached data or fetch from API
-        if (!forceRefresh && templates.getValue() != null && !templates.getValue().isEmpty()) {
-            // We have cached data, use it
+        // FIXED: Always make fresh API calls for category filtering - don't use cache for templates
+        // Only use cache for non-category specific calls when not forcing refresh
+        boolean shouldUseCache = !forceRefresh && 
+                               currentCategory == null && // Only use cache when no category filter is applied
+                               templates.getValue() != null && 
+                               !templates.getValue().isEmpty();
+        
+        if (shouldUseCache) {
+            // We have cached data and no category filter, use it
             List<Template> cachedTemplates = templates.getValue();
-            Log.d(TAG, "Using cached templates: " + cachedTemplates.size());
+            Log.d(TAG, "Using cached templates for 'All' categories: " + cachedTemplates.size());
             
             // Apply local interaction states on background thread
             AppExecutors.getInstance().diskIO().execute(() -> {
@@ -388,6 +394,14 @@ public class TemplateRepository {
                 }
             });
             return;
+        }
+        
+        // Clear existing templates when changing categories to show fresh results
+        if (currentCategory != null) {
+            Log.d(TAG, "Clearing cached templates for fresh category filtering: " + currentCategory);
+            AppExecutors.getInstance().mainThread().execute(() -> {
+                templates.setValue(new ArrayList<>());
+            });
         }
         
         // Always use multi-section feed API (/feed endpoint only)
@@ -468,22 +482,28 @@ public class TemplateRepository {
                                           " templates (server-filtered)" + 
                                           " for category: " + (currentCategory != null ? currentCategory : "All"));
                                 
-                                // Apply local interaction states
-                                List<Template> processedTemplates = applyLocalInteractionStates(filteredTemplates, user.getUid());
+                                // Apply local interaction states first
+                                List<Template> locallyProcessedTemplates = applyLocalInteractionStates(filteredTemplates, user.getUid());
                                 
-                                // Update UI on main thread
-                                AppExecutors.getInstance().mainThread().execute(() -> {
-                                    // FIXED: Preserve existing templates if this is pagination
-                                    if (currentPage > 1 && templates.getValue() != null) {
-                                        List<Template> existingTemplates = new ArrayList<>(templates.getValue());
-                                        existingTemplates.addAll(processedTemplates);
-                                        templates.setValue(existingTemplates);
-                                    } else {
-                                        templates.setValue(processedTemplates);
-                                    }
-                                    loading.setValue(false);
-                                    error.setValue(null);
-                                });
+                                // Then fetch and apply server interaction states
+                                checkInteractionStates(locallyProcessedTemplates, user.getUid())
+                                    .addOnCompleteListener(task -> {
+                                        List<Template> finalTemplates = task.isSuccessful() ? task.getResult() : locallyProcessedTemplates;
+                                        
+                                        // Update UI on main thread
+                                        AppExecutors.getInstance().mainThread().execute(() -> {
+                                            // FIXED: Preserve existing templates if this is pagination
+                                            if (currentPage > 1 && templates.getValue() != null) {
+                                                List<Template> existingTemplates = new ArrayList<>(templates.getValue());
+                                                existingTemplates.addAll(finalTemplates);
+                                                templates.setValue(existingTemplates);
+                                            } else {
+                                                templates.setValue(finalTemplates);
+                                            }
+                                            loading.setValue(false);
+                                            error.setValue(null);
+                                        });
+                                    });
                                 
                                 // Save templates to cache
                                 try {
@@ -593,19 +613,43 @@ public class TemplateRepository {
                                           " templates" + (currentCategory != null ? " (server-filtered)" : "") + 
                                           " for category: " + (currentCategory != null ? currentCategory : "All"));
                                 
-                                // Update UI on main thread
-                                AppExecutors.getInstance().mainThread().execute(() -> {
-                                    // FIXED: Preserve existing templates if this is pagination
-                                    if (currentPage > 1 && templates.getValue() != null) {
-                                        List<Template> existingTemplates = new ArrayList<>(templates.getValue());
-                                        existingTemplates.addAll(filteredTemplates);
-                                        templates.setValue(existingTemplates);
-                                    } else {
-                                        templates.setValue(filteredTemplates);
-                                    }
-                                    loading.setValue(false);
-                                    error.setValue(null);
-                                });
+                                // Check if user is authenticated and apply interaction states
+                                FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+                                if (currentUser != null) {
+                                                                    // Fetch interaction states directly from server (no caching)
+                                fetchInteractionStatesFromServer(filteredTemplates, currentUser.getUid())
+                                    .addOnCompleteListener(task -> {
+                                        List<Template> finalTemplates = task.isSuccessful() ? task.getResult() : filteredTemplates;
+                                            
+                                            // Update UI on main thread
+                                            AppExecutors.getInstance().mainThread().execute(() -> {
+                                                // FIXED: Preserve existing templates if this is pagination
+                                                if (currentPage > 1 && templates.getValue() != null) {
+                                                    List<Template> existingTemplates = new ArrayList<>(templates.getValue());
+                                                    existingTemplates.addAll(finalTemplates);
+                                                    templates.setValue(existingTemplates);
+                                                } else {
+                                                    templates.setValue(finalTemplates);
+                                                }
+                                                loading.setValue(false);
+                                                error.setValue(null);
+                                            });
+                                        });
+                                } else {
+                                    // No user authenticated, just show templates without interaction states
+                                    AppExecutors.getInstance().mainThread().execute(() -> {
+                                        // FIXED: Preserve existing templates if this is pagination
+                                        if (currentPage > 1 && templates.getValue() != null) {
+                                            List<Template> existingTemplates = new ArrayList<>(templates.getValue());
+                                            existingTemplates.addAll(filteredTemplates);
+                                            templates.setValue(existingTemplates);
+                                        } else {
+                                            templates.setValue(filteredTemplates);
+                                        }
+                                        loading.setValue(false);
+                                        error.setValue(null);
+                                    });
+                                }
                                 
                                 // Save templates to cache
                                 try {
@@ -692,11 +736,11 @@ public class TemplateRepository {
      */
     private List<Template> convertFeedToTemplateList(FeedResponse feedResponse) {
         List<Template> allTemplates = new ArrayList<>();
-        Set<String> seenTemplateIds = new HashSet<>(); // Track seen template IDs to prevent duplicates
-        Map<String, Integer> extractedCategories = new HashMap<>(); // Extract categories from templates
+        Set<String> seenTemplateIds = new HashSet<>();
+        Map<String, Integer> extractedCategories = new HashMap<>();
         
         if (feedResponse.getSections() != null) {
-            Log.d(TAG, "Converting multi-section feed to flat template list" + 
+            Log.d(TAG, "Converting " + feedResponse.getSections().size() + " feed sections to template list" +
                   (currentCategory != null ? " (server-filtered by category: " + currentCategory + ")" : ""));
             
             for (FeedResponse.FeedSection section : feedResponse.getSections()) {
@@ -705,12 +749,14 @@ public class TemplateRepository {
                     Log.d(TAG, "Processing " + sectionTemplates.size() + " templates from " + section.getType() + " section");
                     
                     for (Template template : sectionTemplates) {
-                        // Check for duplicates and category match
+                        // Check for duplicates
                         if (template.getId() != null && !seenTemplateIds.contains(template.getId())) {
-                            // Only add template if it matches the current category filter
-                            boolean shouldAdd = currentCategory == null;
+                            // FIXED: Skip client-side category filtering when server-side filtering was applied
+                            boolean shouldAdd = true;
                             
-                            if (!shouldAdd && currentCategory != null) {
+                            // Only apply client-side category filtering if NO server-side category filter was applied
+                            if (currentCategory != null && !isServerSideFiltered()) {
+                                shouldAdd = false;
                                 String normalizedCategory = currentCategory.trim().toLowerCase();
                                 
                                 // Check categoryId
@@ -741,12 +787,15 @@ public class TemplateRepository {
                                     }
                                 }
                                 
-                                Log.d(TAG, "Category matching for template " + template.getId() + 
+                                Log.d(TAG, "Client-side category matching for template " + template.getId() + 
                                           ": categoryId=" + template.getCategoryId() + 
                                           ", category=" + template.getCategory() + 
                                           ", festivalTag=" + template.getFestivalTag() + 
                                           ", tags=" + template.getTags() + 
                                           ", shouldAdd=" + shouldAdd);
+                            } else if (currentCategory != null) {
+                                Log.d(TAG, "Skipping client-side filtering for template " + template.getId() + 
+                                          " because server-side filtering was applied for category: " + currentCategory);
                             }
                             
                             if (shouldAdd) {
@@ -759,8 +808,10 @@ public class TemplateRepository {
                                     extractedCategories.put(category, extractedCategories.getOrDefault(category, 0) + 1);
                                 }
                                 
-                                Log.v(TAG, "Added unique template: " + template.getId() + " from " + section.getType() + 
-                                          (currentCategory != null ? " (matches category: " + currentCategory + ")" : ""));
+                                Log.v(TAG, "Added template: " + template.getId() + " from " + section.getType() + 
+                                          (currentCategory != null ? " (category filter: " + currentCategory + ")" : ""));
+                            } else {
+                                Log.d(TAG, "Filtered out template " + template.getId() + " - doesn't match category: " + currentCategory);
                             }
                         } else if (template.getId() != null) {
                             Log.v(TAG, "Skipped duplicate template: " + template.getId() + " from " + section.getType());
@@ -814,6 +865,16 @@ public class TemplateRepository {
               ", processed categories: " + (feedResponse.getCategories() != null ? feedResponse.getCategories().size() : extractedCategories.size()));
         
         return allTemplates;
+    }
+
+    /**
+     * Check if server-side filtering was applied based on the API call made
+     * @return true if server-side category filtering was applied
+     */
+    private boolean isServerSideFiltered() {
+        // Server-side filtering is applied when we have a current category and we used getFeedByCategory API
+        // This is determined by checking if we made a category-specific API call
+        return currentCategory != null && !currentCategory.isEmpty();
     }
 
     /**
@@ -1381,137 +1442,81 @@ public class TemplateRepository {
         // Get the current user
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user == null || templateId == null || templateId.isEmpty()) {
+            Log.w(TAG, "Cannot toggle like: user not authenticated or invalid template ID");
             tcs.setResult(false);
             return tcs.getTask();
         }
         
         String userId = user.getUid();
+        Log.d(TAG, "Toggling like for template " + templateId + " to state: " + newState);
         
-        // Update the template in memory first
-        updateTemplateStateLocally(templateId, newState, null);
-
-        // Process on background thread
-        AppExecutors.getInstance().networkIO().execute(() -> {
-            try {
-                // Store action locally first for offline support
-                storeLikeActionLocally(templateId, userId, newState);
+        // Get user's token for authentication
+        user.getIdToken(true)
+            .addOnSuccessListener(getTokenResult -> {
+                String token = getTokenResult.getToken();
+                String authToken = "Bearer " + token;
                 
-                // Get user's token for authentication
-                user.getIdToken(true)
-                    .addOnSuccessListener(getTokenResult -> {
-                        String token = getTokenResult.getToken();
-                        String authToken = "Bearer " + token;
-                        
-                        // Use the logged in user's token for authentication
-                        Call<JsonObject> call;
-                        if (newState) {
-                            call = apiService.likeTemplate(
-                                userId,
-                                templateId,
-                                authToken
-                            );
-                        } else {
-                            call = apiService.unlikeTemplate(
-                                userId,
-                                templateId,
-                                authToken
-                            );
-                        }
-                        
-                        // Execute the call
-                        call.enqueue(new Callback<JsonObject>() {
-                            @Override
-                            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
-                                // Process response on background thread
-                                AppExecutors.getInstance().diskIO().execute(() -> {
-                                    if (response.isSuccessful() && response.body() != null) {
-                                        try {
-                                            JsonObject result = response.body();
-                                            boolean success = result.has("success") && 
-                                                result.get("success").getAsBoolean();
-                                            
-                                            Log.d(TAG, "Like API response for template " + templateId + ": success=" + success + 
-                                                  ", response=" + result.toString());
-                                            
-                                            if (success) {
-                                                // Check if response contains updated counts
-                                                if (result.has("data")) {
-                                                    JsonObject data = result.getAsJsonObject("data");
-                                                    if (data.has("templateCounts")) {
-                                                        JsonObject templateCounts = data.getAsJsonObject("templateCounts");
-                                                        if (templateCounts.has("likes")) {
-                                                            long serverLikeCount = templateCounts.get("likes").getAsLong();
-                                                            Log.d(TAG, "Server returned updated like count for template " + templateId + ": " + serverLikeCount);
-                                                            
-                                                            // Update the template with server count
-                                                            updateTemplateCountFromServer(templateId, serverLikeCount, null, null);
-                                                        }
-                                                    }
-                                                }
-                                                
-                                                // Update Room database with the new state
-                                                updateRoomState(templateId, newState, null);
-                                                
-                                                // Set task result
-                                                tcs.setResult(true);
-                                                Log.d(TAG, "Like operation completed successfully for template " + templateId);
-                                                return;
+                // Make direct API call to server
+                Call<JsonObject> call;
+                // If newState is true, we want to like the template
+                // If newState is false, we want to unlike the template
+                if (newState) {
+                    call = apiService.likeTemplate(userId, templateId, authToken);
+                } else {
+                    call = apiService.unlikeTemplate(userId, templateId, authToken);
+                }
+                
+                call.enqueue(new Callback<JsonObject>() {
+                    @Override
+                    public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                        if (response.isSuccessful() && response.body() != null) {
+                            try {
+                                JsonObject result = response.body();
+                                boolean success = result.has("success") && result.get("success").getAsBoolean();
+                                
+                                if (success) {
+                                    // Update template state in memory after successful server response
+                                    updateTemplateInMemoryList(templateId, newState, null, null);
+                                    
+                                    // Update counts if provided by server
+                                    if (result.has("data")) {
+                                        JsonObject data = result.getAsJsonObject("data");
+                                        if (data.has("templateCounts")) {
+                                            JsonObject templateCounts = data.getAsJsonObject("templateCounts");
+                                            if (templateCounts.has("likes")) {
+                                                long serverLikeCount = templateCounts.get("likes").getAsLong();
+                                                updateTemplateCountFromServer(templateId, serverLikeCount, null, null);
                                             }
-                                        } catch (Exception e) {
-                                            Log.e(TAG, "Error parsing like response for template " + templateId, e);
                                         }
                                     }
                                     
-                                                        // If we got here, something went wrong
-                    String errorMessage = "Like operation failed for template " + templateId;
-                    
-                    if (response.code() == 401) {
-                        Log.w(TAG, errorMessage + " - Authentication required. User may need to sign in again.");
-                        // Don't revert the UI change for auth errors - user can retry later
-                    } else if (response.code() == 502 || response.code() == 503) {
-                        Log.w(TAG, errorMessage + " - Server temporarily unavailable (" + response.code() + "). Keeping local state.");
-                        // Don't revert the UI change for server errors - keep optimistic update
-                    } else {
-                        Log.e(TAG, errorMessage + " - status code: " + response.code() + ", message: " + response.message());
-                    }
-                    
-                    if (response.errorBody() != null) {
-                        try {
-                            String errorBody = response.errorBody().string();
-                            Log.e(TAG, "Like API error body: " + errorBody);
-                        } catch (Exception e) {
-                            Log.e(TAG, "Failed to read error body", e);
+                                    Log.d(TAG, "Like toggle successful for template " + templateId + ": " + newState);
+                                    tcs.setResult(true);
+                                } else {
+                                    Log.e(TAG, "Server returned success=false for like toggle: " + result.toString());
+                                    tcs.setResult(false);
+                                }
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error parsing like response", e);
+                                tcs.setResult(false);
+                            }
+                        } else {
+                            Log.e(TAG, "Like toggle failed: " + response.code() + " " + response.message());
+                            tcs.setResult(false);
                         }
                     }
-                                    
-                                    // Return result but don't revert the UI change
-                                    // The user already sees the change, and we've stored it locally
-                                    tcs.setResult(false);
-                                });
-                            }
-                            
-                            @Override
-                            public void onFailure(Call<JsonObject> call, Throwable t) {
-                                // Process failure on background thread
-                                AppExecutors.getInstance().diskIO().execute(() -> {
-                                    Log.e(TAG, "Failed to toggle like for template " + templateId + ": " + t.getMessage(), t);
-                                    
-                                    // Return result but don't revert the UI change
-                                    // The user already sees the change, and we've stored it locally
-                                    tcs.setResult(false);
-                                });
-                            }
-                        });
-                    })
-                    .addOnFailureListener(e -> {
-                        Log.e(TAG, "Failed to get user token", e);
+                    
+                    @Override
+                    public void onFailure(Call<JsonObject> call, Throwable t) {
+                        Log.e(TAG, "Like toggle network failure", t);
                         tcs.setResult(false);
-                    });
-            } catch (Exception e) {
-                Log.e(TAG, "Error in toggleLike", e);
+                    }
+                });
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Failed to get user token for like toggle", e);
                 tcs.setResult(false);
-            }
-        });
+            });
         
         return tcs.getTask();
     }
@@ -1528,137 +1533,81 @@ public class TemplateRepository {
         // Get the current user
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user == null || templateId == null || templateId.isEmpty()) {
+            Log.w(TAG, "Cannot toggle favorite: user not authenticated or invalid template ID");
             tcs.setResult(false);
             return tcs.getTask();
         }
         
         String userId = user.getUid();
+        Log.d(TAG, "Toggling favorite for template " + templateId + " to state: " + newState);
         
-        // Update the template in memory first
-        updateTemplateStateLocally(templateId, null, newState);
-
-        // Process on background thread
-        AppExecutors.getInstance().networkIO().execute(() -> {
-            try {
-                // Store action locally first for offline support
-                storeFavoriteActionLocally(templateId, userId, newState);
+        // Get user's token for authentication
+        user.getIdToken(true)
+            .addOnSuccessListener(getTokenResult -> {
+                String token = getTokenResult.getToken();
+                String authToken = "Bearer " + token;
                 
-                // Get user's token for authentication
-                user.getIdToken(true)
-                    .addOnSuccessListener(getTokenResult -> {
-                        String token = getTokenResult.getToken();
-                        String authToken = "Bearer " + token;
-                        
-                        // Use the logged in user's token for authentication
-                        Call<JsonObject> call;
-                        if (newState) {
-                            call = apiService.addToFavorites(
-                                userId,
-                                templateId,
-                                authToken
-                            );
-                        } else {
-                            call = apiService.removeFromFavorites(
-                                userId,
-                                templateId,
-                                authToken
-                            );
-                        }
-                        
-                        // Execute the call
-                        call.enqueue(new Callback<JsonObject>() {
-                            @Override
-                            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
-                                // Process response on background thread
-                                AppExecutors.getInstance().diskIO().execute(() -> {
-                                    if (response.isSuccessful() && response.body() != null) {
-                                        try {
-                                            JsonObject result = response.body();
-                                            boolean success = result.has("success") && 
-                                                result.get("success").getAsBoolean();
-                                            
-                                            Log.d(TAG, "Favorite API response for template " + templateId + ": success=" + success + 
-                                                  ", response=" + result.toString());
-                                            
-                                            if (success) {
-                                                // Check if response contains updated counts
-                                                if (result.has("data")) {
-                                                    JsonObject data = result.getAsJsonObject("data");
-                                                    if (data.has("templateCounts")) {
-                                                        JsonObject templateCounts = data.getAsJsonObject("templateCounts");
-                                                        if (templateCounts.has("favorites")) {
-                                                            long serverFavoriteCount = templateCounts.get("favorites").getAsLong();
-                                                            Log.d(TAG, "Server returned updated favorite count for template " + templateId + ": " + serverFavoriteCount);
-                                                            
-                                                            // Update the template with server count
-                                                            updateTemplateCountFromServer(templateId, null, serverFavoriteCount, null);
-                                                        }
-                                                    }
-                                                }
-                                                
-                                                // Update Room database with the new state
-                                                updateRoomState(templateId, null, newState);
-                                                
-                                                // Set task result
-                                                tcs.setResult(true);
-                                                Log.d(TAG, "Favorite operation completed successfully for template " + templateId);
-                                                return;
+                // Make direct API call to server
+                Call<JsonObject> call;
+                // If newState is true, we want to favorite the template
+                // If newState is false, we want to unfavorite the template
+                if (newState) {
+                    call = apiService.addToFavorites(userId, templateId, authToken);
+                } else {
+                    call = apiService.removeFromFavorites(userId, templateId, authToken);
+                }
+                
+                call.enqueue(new Callback<JsonObject>() {
+                    @Override
+                    public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                        if (response.isSuccessful() && response.body() != null) {
+                            try {
+                                JsonObject result = response.body();
+                                boolean success = result.has("success") && result.get("success").getAsBoolean();
+                                
+                                if (success) {
+                                    // Update template state in memory after successful server response
+                                    updateTemplateInMemoryList(templateId, null, newState, null);
+                                    
+                                    // Update counts if provided by server
+                                    if (result.has("data")) {
+                                        JsonObject data = result.getAsJsonObject("data");
+                                        if (data.has("templateCounts")) {
+                                            JsonObject templateCounts = data.getAsJsonObject("templateCounts");
+                                            if (templateCounts.has("favorites")) {
+                                                long serverFavoriteCount = templateCounts.get("favorites").getAsLong();
+                                                updateTemplateCountFromServer(templateId, null, serverFavoriteCount, null);
                                             }
-                                        } catch (Exception e) {
-                                            Log.e(TAG, "Error parsing favorite response for template " + templateId, e);
                                         }
                                     }
                                     
-                                                        // If we got here, something went wrong
-                    String errorMessage = "Favorite operation failed for template " + templateId;
-                    
-                    if (response.code() == 401) {
-                        Log.w(TAG, errorMessage + " - Authentication required. User may need to sign in again.");
-                        // Don't revert the UI change for auth errors - user can retry later
-                    } else if (response.code() == 502 || response.code() == 503) {
-                        Log.w(TAG, errorMessage + " - Server temporarily unavailable (" + response.code() + "). Keeping local state.");
-                        // Don't revert the UI change for server errors - keep optimistic update
-                    } else {
-                        Log.e(TAG, errorMessage + " - status code: " + response.code() + ", message: " + response.message());
-                    }
-                    
-                    if (response.errorBody() != null) {
-                        try {
-                            String errorBody = response.errorBody().string();
-                            Log.e(TAG, "Favorite API error body: " + errorBody);
-                        } catch (Exception e) {
-                            Log.e(TAG, "Failed to read error body", e);
+                                    Log.d(TAG, "Favorite toggle successful for template " + templateId + ": " + newState);
+                                    tcs.setResult(true);
+                                } else {
+                                    Log.e(TAG, "Server returned success=false for favorite toggle: " + result.toString());
+                                    tcs.setResult(false);
+                                }
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error parsing favorite response", e);
+                                tcs.setResult(false);
+                            }
+                        } else {
+                            Log.e(TAG, "Favorite toggle failed: " + response.code() + " " + response.message());
+                            tcs.setResult(false);
                         }
                     }
-                                    
-                                    // Return result but don't revert the UI change
-                                    // The user already sees the change, and we've stored it locally
-                                    tcs.setResult(false);
-                                });
-                            }
-                            
-                            @Override
-                            public void onFailure(Call<JsonObject> call, Throwable t) {
-                                // Process failure on background thread
-                                AppExecutors.getInstance().diskIO().execute(() -> {
-                                    Log.e(TAG, "Failed to toggle favorite for template " + templateId + ": " + t.getMessage(), t);
-                                    
-                                    // Return result but don't revert the UI change
-                                    // The user already sees the change, and we've stored it locally
-                                    tcs.setResult(false);
-                                });
-                            }
-                        });
-                    })
-                    .addOnFailureListener(e -> {
-                        Log.e(TAG, "Failed to get user token", e);
+                    
+                    @Override
+                    public void onFailure(Call<JsonObject> call, Throwable t) {
+                        Log.e(TAG, "Favorite toggle network failure", t);
                         tcs.setResult(false);
-                    });
-            } catch (Exception e) {
-                Log.e(TAG, "Error in toggleFavorite", e);
+                    }
+                });
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Failed to get user token for favorite toggle", e);
                 tcs.setResult(false);
-            }
-        });
+            });
         
         return tcs.getTask();
     }
@@ -1892,6 +1841,159 @@ public class TemplateRepository {
             }
             Log.d(TAG, templateIds.toString());
         }
+    }
+
+    /**
+     * Fetch interaction states directly from server (no caching)
+     * @param templates List of templates to update
+     * @param userId User ID
+     * @return Task with updated templates
+     */
+    private Task<List<Template>> fetchInteractionStatesFromServer(List<Template> templates, String userId) {
+        TaskCompletionSource<List<Template>> tcs = new TaskCompletionSource<>();
+        
+        if (templates == null || templates.isEmpty() || userId == null || userId.isEmpty()) {
+            Log.w(TAG, "Cannot fetch interaction states: invalid templates or userId");
+            tcs.setResult(templates != null ? templates : new ArrayList<>());
+            return tcs.getTask();
+        }
+        
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            Log.w(TAG, "Cannot fetch interaction states: user not authenticated");
+            tcs.setResult(templates);
+            return tcs.getTask();
+        }
+        
+        user.getIdToken(true)
+            .addOnSuccessListener(getTokenResult -> {
+                String token = getTokenResult.getToken();
+                String authToken = "Bearer " + token;
+                
+                // Fetch likes directly from server
+                apiService.getUserLikes(userId, authToken).enqueue(new Callback<JsonObject>() {
+                    @Override
+                    public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                        Set<String> likedTemplateIds = new HashSet<>();
+                        
+                        if (response.isSuccessful() && response.body() != null) {
+                            try {
+                                JsonObject result = response.body();
+                                
+                                if (result.has("data") && result.getAsJsonObject("data").has("templates")) {
+                                    JsonArray likedTemplates = result.getAsJsonObject("data").getAsJsonArray("templates");
+                                    for (int i = 0; i < likedTemplates.size(); i++) {
+                                        JsonObject likedTemplate = likedTemplates.get(i).getAsJsonObject();
+                                        if (likedTemplate.has("templateId")) {
+                                            likedTemplateIds.add(likedTemplate.get("templateId").getAsString());
+                                        }
+                                    }
+                                }
+                                
+                                Log.d(TAG, "Fetched " + likedTemplateIds.size() + " liked templates from server for user " + userId);
+                                
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error parsing likes response from server", e);
+                            }
+                        } else {
+                            Log.w(TAG, "Failed to fetch likes from server: " + response.code());
+                        }
+                        
+                        // Now fetch favorites
+                        fetchFavoritesFromServerDirect(templates, userId, authToken, likedTemplateIds, tcs);
+                    }
+                    
+                    @Override
+                    public void onFailure(Call<JsonObject> call, Throwable t) {
+                        Log.e(TAG, "Network failure fetching likes from server", t);
+                        // Still try to fetch favorites with empty likes
+                        fetchFavoritesFromServerDirect(templates, userId, authToken, new HashSet<>(), tcs);
+                    }
+                });
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Failed to get user token for fetching interaction states", e);
+                tcs.setResult(templates);
+            });
+        
+        return tcs.getTask();
+    }
+    
+    /**
+     * Fetch favorites from server and apply both likes and favorites to templates
+     */
+    private void fetchFavoritesFromServerDirect(List<Template> templates, String userId, String authToken, 
+                                              Set<String> likedTemplateIds, TaskCompletionSource<List<Template>> tcs) {
+        apiService.getUserFavorites(userId, authToken).enqueue(new Callback<JsonObject>() {
+            @Override
+            public void onResponse(Call<JsonObject> call, Response<JsonObject> response) {
+                Set<String> favoritedTemplateIds = new HashSet<>();
+                
+                if (response.isSuccessful() && response.body() != null) {
+                    try {
+                        JsonObject result = response.body();
+                        
+                        if (result.has("data") && result.getAsJsonObject("data").has("templates")) {
+                            JsonArray favoritedTemplates = result.getAsJsonObject("data").getAsJsonArray("templates");
+                            for (int i = 0; i < favoritedTemplates.size(); i++) {
+                                JsonObject favoritedTemplate = favoritedTemplates.get(i).getAsJsonObject();
+                                if (favoritedTemplate.has("templateId")) {
+                                    favoritedTemplateIds.add(favoritedTemplate.get("templateId").getAsString());
+                                }
+                            }
+                        }
+                        
+                        Log.d(TAG, "Fetched " + favoritedTemplateIds.size() + " favorited templates from server for user " + userId);
+                        
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error parsing favorites response from server", e);
+                    }
+                } else {
+                    Log.w(TAG, "Failed to fetch favorites from server: " + response.code());
+                }
+                
+                // Apply interaction states to templates
+                List<Template> updatedTemplates = new ArrayList<>();
+                for (Template template : templates) {
+                    Template updatedTemplate = new Template(template); // Create copy
+                    
+                    // Set like state based on server data
+                    boolean isLiked = likedTemplateIds.contains(template.getId());
+                    updatedTemplate.setLiked(isLiked);
+                    
+                    // Set favorite state based on server data  
+                    boolean isFavorited = favoritedTemplateIds.contains(template.getId());
+                    updatedTemplate.setFavorited(isFavorited);
+                    
+                    updatedTemplates.add(updatedTemplate);
+                }
+                
+                Log.d(TAG, "Applied server interaction states to " + updatedTemplates.size() + " templates");
+                tcs.setResult(updatedTemplates);
+            }
+            
+            @Override
+            public void onFailure(Call<JsonObject> call, Throwable t) {
+                Log.e(TAG, "Network failure fetching favorites from server", t);
+                
+                // Apply only likes if favorites failed
+                List<Template> updatedTemplates = new ArrayList<>();
+                for (Template template : templates) {
+                    Template updatedTemplate = new Template(template); // Create copy
+                    
+                    // Set like state based on server data
+                    boolean isLiked = likedTemplateIds.contains(template.getId());
+                    updatedTemplate.setLiked(isLiked);
+                    
+                    // Keep favorite state as is (false by default)
+                    updatedTemplate.setFavorited(false);
+                    
+                    updatedTemplates.add(updatedTemplate);
+                }
+                
+                tcs.setResult(updatedTemplates);
+            }
+        });
     }
 
     private Task<List<Template>> checkInteractionStates(List<Template> templates, String userId) {

@@ -180,27 +180,39 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
         }
         
         private void updateLikeState() {
-            boolean isLiked = interactionManager.isTemplateLiked(template.getId());
+            // Use the Template object's state instead of TemplateInteractionManager
+            boolean isLiked = template.isLiked();
             
             if (isLiked) {
                 binding.likeIcon.setImageResource(R.drawable.ic_heart_filled);
                 binding.likeIcon.setColorFilter(Color.parseColor("#E91E63"));
-                    } else {
+            } else {
                 binding.likeIcon.setImageResource(R.drawable.ic_heart_outline);
                 binding.likeIcon.clearColorFilter();
             }
+            
+            // Restore normal alpha (in case it was in loading state)
+            binding.likeIcon.setAlpha(1.0f);
+            
+            Log.d(TAG, "Updated like state for template " + template.getId() + ": " + isLiked);
         }
         
         private void updateFavoriteState() {
-            boolean isFavorited = interactionManager.isTemplateFavorited(template.getId());
+            // Use the Template object's state instead of TemplateInteractionManager
+            boolean isFavorited = template.isFavorited();
             
             if (isFavorited) {
                 binding.favoriteIcon.setImageResource(R.drawable.ic_bookmark_filled);
                 binding.favoriteIcon.setColorFilter(Color.parseColor("#FF9800"));
-                } else {
+            } else {
                 binding.favoriteIcon.setImageResource(R.drawable.ic_bookmark_outline);
                 binding.favoriteIcon.clearColorFilter();
             }
+            
+            // Restore normal alpha (in case it was in loading state)
+            binding.favoriteIcon.setAlpha(1.0f);
+            
+            Log.d(TAG, "Updated favorite state for template " + template.getId() + ": " + isFavorited);
         }
         
         private void updateBadges() {
@@ -255,36 +267,30 @@ public class TemplateAdapter extends ListAdapter<Template, TemplateAdapter.Templ
             // Like click
             binding.likeIcon.setOnClickListener(v -> {
                 if (isClickAllowed("like_" + template.getId())) {
-                    animateLikeButton();
-                    clickListener.onLikeClick(template);
+                    Log.d(TAG, "Like button clicked for template " + template.getId() + ", current state: " + template.isLiked());
                     
-                    // Update state immediately for better UX
-                    template.setLiked(!template.isLiked());
-                    if (template.isLiked()) {
-                        template.setLikes(template.getLikes() + 1);
-            } else {
-                        template.setLikes(Math.max(0, template.getLikes() - 1));
-                    }
-                    updateLikeState();
-                    updateInteractionCounts();
+                    animateLikeButton();
+                    
+                    // Show loading state
+                    binding.likeIcon.setAlpha(0.5f);
+                    
+                    // Notify the click listener for backend update - no optimistic update
+                    clickListener.onLikeClick(template);
                 }
             });
             
             // Favorite click
             binding.favoriteIcon.setOnClickListener(v -> {
                 if (isClickAllowed("favorite_" + template.getId())) {
-                    animateFavoriteButton();
-                    clickListener.onFavoriteClick(template);
+                    Log.d(TAG, "Favorite button clicked for template " + template.getId() + ", current state: " + template.isFavorited());
                     
-                    // Update state immediately for better UX
-                    template.setFavorited(!template.isFavorited());
-                    if (template.isFavorited()) {
-                        template.setFavorites(template.getFavorites() + 1);
-                    } else {
-                        template.setFavorites(Math.max(0, template.getFavorites() - 1));
-                    }
-                    updateFavoriteState();
-                    updateInteractionCounts();
+                    animateFavoriteButton();
+                    
+                    // Show loading state
+                    binding.favoriteIcon.setAlpha(0.5f);
+                    
+                    // Notify the click listener for backend update - no optimistic update
+                    clickListener.onFavoriteClick(template);
                 }
             });
             

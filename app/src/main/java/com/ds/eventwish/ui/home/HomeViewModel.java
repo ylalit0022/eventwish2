@@ -914,11 +914,12 @@ public class HomeViewModel extends ViewModel {
             return Tasks.forException(new IllegalArgumentException("Template or template ID is null"));
         }
         
-        // Use the current state directly instead of negating it
+        // Get the current state and send its opposite to toggle
         boolean currentLikeState = template.isLiked();
+        boolean newLikeState = !currentLikeState;
         
         // Track the event with appropriate action
-        if (currentLikeState) {
+        if (newLikeState) {
             AnalyticsUtils.getInstance().trackTemplateLike(template.getId(), "home_feed");
         } else {
             AnalyticsUtils.getInstance().trackTemplateUnlike(template.getId(), "home_feed");
@@ -928,17 +929,17 @@ public class HomeViewModel extends ViewModel {
         if (webSocketService != null && webSocketService.isAuthenticated()) {
             webSocketService.sendTemplateInteraction(
                 template.getId(), 
-                currentLikeState ? "liked" : "unliked", 
+                newLikeState ? "liked" : "unliked", 
                 template.getCategory()
             );
         }
         
         // Log the state for debugging
         Log.d(TAG, "Sending like state to repository: template=" + template.getId() + 
-              ", isLiked=" + currentLikeState);
+              ", isLiked=" + newLikeState);
         
         // Update the template in repository and return the task
-        return repository.toggleLike(template.getId(), currentLikeState);
+        return repository.toggleLike(template.getId(), newLikeState);
     }
 
     /**
@@ -951,11 +952,12 @@ public class HomeViewModel extends ViewModel {
             return Tasks.forException(new IllegalArgumentException("Template or template ID is null"));
         }
         
-        // Use the current state directly instead of negating it
+        // Get the current state and send its opposite to toggle
         boolean currentFavoriteState = template.isFavorited();
+        boolean newFavoriteState = !currentFavoriteState;
         
         // Track the event with appropriate action
-        if (currentFavoriteState) {
+        if (newFavoriteState) {
             AnalyticsUtils.getInstance().trackTemplateFavorite(template.getId(), "home_feed");
         } else {
             AnalyticsUtils.getInstance().trackTemplateUnfavorite(template.getId(), "home_feed");
@@ -965,17 +967,17 @@ public class HomeViewModel extends ViewModel {
         if (webSocketService != null && webSocketService.isAuthenticated()) {
             webSocketService.sendTemplateInteraction(
                 template.getId(), 
-                currentFavoriteState ? "favorited" : "unfavorited", 
+                newFavoriteState ? "favorited" : "unfavorited", 
                 template.getCategory()
             );
         }
         
         // Log the state for debugging
         Log.d(TAG, "Sending favorite state to repository: template=" + template.getId() + 
-              ", isFavorited=" + currentFavoriteState);
+              ", isFavorited=" + newFavoriteState);
         
         // Update the template in repository and return the task
-        return repository.toggleFavorite(template.getId(), currentFavoriteState);
+        return repository.toggleFavorite(template.getId(), newFavoriteState);
     }
 
     /**

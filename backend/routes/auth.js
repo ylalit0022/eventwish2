@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { validateRegistration } = require('../middleware/authMiddleware');
 const logger = require('../config/logger');
 const authController = require('../controllers/authController');
+const User = require('../models/firestore/User');
 
 // Route to generate JWT token
 router.post('/token', authController.generateToken);
@@ -14,29 +15,49 @@ router.post('/token', authController.generateToken);
  */
 router.post('/register-device', validateRegistration, async (req, res) => {
   try {
-    const { deviceId, appSignature } = req.body;
+    const { deviceId, appSignature, deviceModel, deviceName, appVersion, osVersion } = req.body;
 
-    // Create user object (can be enhanced with more device info)
+    // Create user object with device info
     const user = {
       deviceId,
-      registeredAt: new Date()
+      registeredAt: new Date(),
+      deviceModel: deviceModel || 'Unknown',
+      deviceName: deviceName || 'Unknown Device',
+      appVersion: appVersion || '1.0.0',
+      osVersion: osVersion || 'Unknown',
+      lastOnline: new Date()
     };
 
+    // Create user in Firestore
+    const uid = await User.create(user);
+
+    // Add initial device session
+    await User.addDeviceSession(uid, {
+      deviceId,
+      deviceModel: user.deviceModel,
+      deviceName: user.deviceName,
+      appVersion: user.appVersion,
+      osVersion: user.osVersion
+    });
+
     // Generate tokens
-    const token = jwt.sign({ user }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ user: { ...user, uid } }, process.env.JWT_SECRET, { expiresIn: '1h' });
     const refreshToken = jwt.sign(
-      { user, deviceId }, 
+      { user: { ...user, uid }, deviceId }, 
       process.env.REFRESH_TOKEN_SECRET, 
       { expiresIn: '7d' }
     );
 
+    logger.info(`New device registered: ${deviceId} (UID: ${uid})`);
+
     // Return tokens
-    res.json({
+    return res.json({
       success: true,
       data: {
         token,
         refreshToken,
-        expiresIn: 3600 // 1 hour in seconds
+        expiresIn: 3600, // 1 hour in seconds
+        uid
       }
     });
   } catch (error) {
@@ -66,7 +87,7 @@ router.post('/refresh-token', async (req, res) => {
     }
 
     // Verify refresh token
-    jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
+    jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, async (err, decoded) => {
       if (err) {
         return res.status(401).json({
           success: false,
@@ -84,6 +105,19 @@ router.post('/refresh-token', async (req, res) => {
         });
       }
 
+      // Get user from Firestore
+      const user = await User.getByUid(decoded.user.uid);
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not found',
+          error: 'USER_NOT_FOUND'
+        });
+      }
+
+      // Update device session activity
+      await User.updateDeviceSessionActivity(decoded.user.uid, deviceId);
+
       // Generate new tokens
       const newToken = jwt.sign(
         { user: decoded.user }, 
@@ -97,7 +131,9 @@ router.post('/refresh-token', async (req, res) => {
         { expiresIn: '7d' }
       );
 
-      res.json({
+      logger.info(`Token refreshed for user: ${decoded.user.uid} (Device: ${deviceId})`);
+
+      return res.json({
         success: true,
         data: {
           token: newToken,

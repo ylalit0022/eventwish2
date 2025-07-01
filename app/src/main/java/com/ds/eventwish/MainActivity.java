@@ -746,9 +746,9 @@ public class MainActivity extends AppCompatActivity implements PictureInPictureM
     @Override
     protected void onResume() {
         super.onResume();
-        // Update online status
-        FirestoreManager.getInstance().updateOnlineStatus(true)
-            .addOnFailureListener(e -> Log.e(TAG, "Failed to update online status", e));
+        
+        // Note: Removed FirestoreManager.updateOnlineStatus() call
+        // Online status will be managed by backend API during user interactions
         
         try {
             // Only track MainActivity screen if this is first launch
@@ -807,9 +807,9 @@ public class MainActivity extends AppCompatActivity implements PictureInPictureM
     @Override
     protected void onPause() {
         super.onPause();
-        // Update online status
-        FirestoreManager.getInstance().updateOnlineStatus(false)
-            .addOnFailureListener(e -> Log.e(TAG, "Failed to update online status", e));
+        
+        // Note: Removed FirestoreManager.updateOnlineStatus() call
+        // Online status will be managed by backend API during user interactions
         
         try {
             // Update analytics when app goes to background
@@ -992,7 +992,18 @@ public class MainActivity extends AppCompatActivity implements PictureInPictureM
         }
     }
 
+    /**
+     * Test Firestore write functionality
+     * Note: Disabled because we now use backend API for all Firestore operations
+     */
     private void testFirestoreWrite() {
+        Log.d(TAG, "testFirestoreWrite: Disabled - using backend API for all Firestore operations");
+        
+        // Note: Removed direct Firestore write operations
+        // All template interactions (likes, favorites, etc.) now go through backend API
+        // This prevents permission errors when user is not properly authenticated
+        
+        /*
         if (auth.getCurrentUser() != null) {
             String userId = auth.getCurrentUser().getUid();
             String templateId = "test_template_" + System.currentTimeMillis();
@@ -1007,6 +1018,7 @@ public class MainActivity extends AppCompatActivity implements PictureInPictureM
                     Log.e(TAG, "Failed to add test like to Firestore", e);
                 });
         }
+        */
     }
 
     @Override

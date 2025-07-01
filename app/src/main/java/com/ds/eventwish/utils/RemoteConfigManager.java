@@ -9,6 +9,7 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
 import com.ds.eventwish.BuildConfig;
+import com.ds.eventwish.R;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings;
@@ -29,6 +30,7 @@ public class RemoteConfigManager {
     public static final String KEY_UPDATE_MESSAGE = "update_message";
     public static final String KEY_FORCE_UPDATE = "force_update";
     public static final String KEY_UPDATE_URL = "update_url";
+    public static final String KEY_NOTIFICATION_CONFIG = "notification_config";
     
     // Default values
     private static final Map<String, Object> DEFAULTS = new HashMap<>();
@@ -38,6 +40,7 @@ public class RemoteConfigManager {
         DEFAULTS.put(KEY_UPDATE_MESSAGE, "A new version of the app is available.");
         DEFAULTS.put(KEY_FORCE_UPDATE, false);
         DEFAULTS.put(KEY_UPDATE_URL, "https://play.google.com/store/apps/details?id=" + BuildConfig.APPLICATION_ID);
+        // We'll use XML defaults for notification_config since it's a complex JSON structure
     }
     
     // Cache expiration
@@ -71,7 +74,10 @@ public class RemoteConfigManager {
                 .build();
         remoteConfig.setConfigSettingsAsync(configSettings);
         
-        // Set default values
+        // Set default values from XML first
+        remoteConfig.setDefaultsAsync(R.xml.remote_config_defaults);
+        
+        // Then override with programmatic defaults
         remoteConfig.setDefaultsAsync(DEFAULTS);
         
         Log.d(TAG, "RemoteConfigManager initialized with defaults: " + DEFAULTS);
@@ -108,6 +114,7 @@ public class RemoteConfigManager {
                         Log.d(TAG, "- Update message: " + remoteConfig.getString(KEY_UPDATE_MESSAGE));
                         Log.d(TAG, "- Force update: " + remoteConfig.getBoolean(KEY_FORCE_UPDATE));
                         Log.d(TAG, "- Update URL: " + remoteConfig.getString(KEY_UPDATE_URL));
+                        Log.d(TAG, "- Notification config: " + remoteConfig.getString(KEY_NOTIFICATION_CONFIG));
                         
                         // Check for updates after fetching
                         checkForUpdates(null);
@@ -356,5 +363,15 @@ public class RemoteConfigManager {
                         Log.e(TAG, "Failed to force fetch remote config", task.getException());
                     }
                 });
+    }
+    
+    /**
+     * Get the notification configuration
+     * @return JSON string containing notification configuration
+     */
+    public String getNotificationConfig() {
+        String config = remoteConfig.getString(KEY_NOTIFICATION_CONFIG);
+        Log.d(TAG, "Getting notification config: " + config);
+        return config;
     }
 } 

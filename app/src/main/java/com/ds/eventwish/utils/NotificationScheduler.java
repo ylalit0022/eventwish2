@@ -12,6 +12,7 @@ import androidx.work.WorkManager;
 import androidx.work.OneTimeWorkRequest;
 
 import com.ds.eventwish.workers.FestivalNotificationWorker;
+import com.ds.eventwish.workers.NotificationSyncWorker;
 
 import java.util.concurrent.TimeUnit;
 
@@ -23,9 +24,11 @@ public class NotificationScheduler {
     
     // Work request tags
     public static final String FESTIVAL_NOTIFICATION_WORK = "festival_notification_work";
+    public static final String NOTIFICATION_SYNC_WORK = "notification_sync_work";
     
     // Default intervals
     private static final long DEFAULT_FESTIVAL_CHECK_INTERVAL_HOURS = 12;
+    private static final long DEFAULT_NOTIFICATION_SYNC_INTERVAL_HOURS = 6;
     
     private NotificationScheduler() {
         // Private constructor to prevent instantiation
@@ -37,6 +40,7 @@ public class NotificationScheduler {
      */
     public static void scheduleAllNotifications(Context context) {
         scheduleFestivalNotifications(context);
+        scheduleNotificationSync(context);
     }
     
     /**
@@ -81,6 +85,9 @@ public class NotificationScheduler {
         
         // Cancel festival notifications
         cancelFestivalNotifications(context);
+        
+        // Cancel notification sync
+        cancelNotificationSync(context);
     }
     
     /**
@@ -111,5 +118,68 @@ public class NotificationScheduler {
         // Enqueue the work request
         WorkManager.getInstance(context)
                 .enqueue(festivalWorkRequest);
+    }
+
+    /**
+     * Schedule notification configuration sync worker
+     * @param context Application context
+     */
+    public static void scheduleNotificationSync(Context context) {
+        Log.d(TAG, "Scheduling notification configuration sync");
+        
+        // Create constraints - we want to run this when the device has network
+        Constraints constraints = new Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build();
+        
+        // Create the periodic work request
+        PeriodicWorkRequest notificationSyncRequest =
+                new PeriodicWorkRequest.Builder(
+                        NotificationSyncWorker.class,
+                        DEFAULT_NOTIFICATION_SYNC_INTERVAL_HOURS,
+                        TimeUnit.HOURS)
+                        .setConstraints(constraints)
+                        .addTag(NOTIFICATION_SYNC_WORK)
+                        .build();
+        
+        // Enqueue the work request
+        WorkManager.getInstance(context)
+                .enqueueUniquePeriodicWork(
+                        NOTIFICATION_SYNC_WORK,
+                        ExistingPeriodicWorkPolicy.KEEP,  // Keep existing if already scheduled
+                        notificationSyncRequest);
+        
+        Log.d(TAG, "Notification sync scheduled to run every " + 
+                DEFAULT_NOTIFICATION_SYNC_INTERVAL_HOURS + " hours");
+    }
+
+    /**
+     * Cancel notification configuration sync worker
+     * @param context Application context
+     */
+    public static void cancelNotificationSync(Context context) {
+        Log.d(TAG, "Cancelling notification configuration sync");
+        
+        // Cancel by unique work name
+        WorkManager.getInstance(context)
+                .cancelUniqueWork(NOTIFICATION_SYNC_WORK);
+    }
+
+    /**
+     * Run notification sync immediately (for testing)
+     * @param context Application context
+     */
+    public static void runNotificationSyncNow(Context context) {
+        Log.d(TAG, "Running notification sync immediately");
+        
+        // Create a one-time work request
+        OneTimeWorkRequest notificationSyncRequest =
+                new OneTimeWorkRequest.Builder(NotificationSyncWorker.class)
+                        .addTag(NOTIFICATION_SYNC_WORK + "_immediate")
+                        .build();
+        
+        // Enqueue the work request
+        WorkManager.getInstance(context)
+                .enqueue(notificationSyncRequest);
     }
 } 

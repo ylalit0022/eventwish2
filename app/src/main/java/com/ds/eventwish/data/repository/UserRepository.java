@@ -482,8 +482,8 @@ public class UserRepository {
     }
     
     /**
-     * Track category click for the current user
-     * @param category Category name that was clicked
+     * Track category click with server-side synchronization
+     * @param category Category name to track
      */
     public void trackCategoryClick(String category) {
         if (category == null || category.isEmpty() || "All".equalsIgnoreCase(category)) {
@@ -491,6 +491,40 @@ public class UserRepository {
             return;
         }
         
+        // Track locally first for immediate response
+        trackCategoryClickLocally(category);
+        
+        // Track on server for analytics and cross-device sync
+        trackCategoryClickOnServer(category, "direct");
+    }
+    
+    /**
+     * Track template click and associated category
+     * @param templateId Template ID that was clicked
+     * @param category Category the template belongs to
+     */
+    public void trackTemplateClick(String templateId, String category) {
+        if (templateId == null || templateId.isEmpty()) {
+            Log.d(TAG, "Skipping template click tracking for null/empty template ID");
+            return;
+        }
+        
+        // Track template view on server
+        recordTemplateView(templateId, category);
+        
+        // Track associated category click if available
+        if (category != null && !category.isEmpty() && !"All".equalsIgnoreCase(category)) {
+            trackCategoryClickLocally(category);
+            trackCategoryClickOnServer(category, "template");
+            Log.d(TAG, "Tracked template click: " + templateId + " in category: " + category);
+        }
+    }
+    
+    /**
+     * Track category click locally in database
+     * @param category Category name to track
+     */
+    private void trackCategoryClickLocally(String category) {
         // Update server-side activity tracking
         updateUserActivity(category);
         
@@ -526,7 +560,52 @@ public class UserRepository {
                     Log.d(TAG, "Inserted new category click for '" + category + "' with ID: " + rowId);
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Error tracking category click", e);
+                Log.e(TAG, "Error tracking category click locally", e);
+            }
+        });
+    }
+    
+    /**
+     * Track category click on server for analytics and cross-device sync
+     * @param category Category name to track
+     * @param source Source of the click ("direct" for category click, "template" for template click)
+     */
+    private void trackCategoryClickOnServer(String category, String source) {
+        String currentUserId = getCurrentUserId();
+        if (currentUserId == null) {
+            Log.d(TAG, "Cannot track category on server: No current user ID");
+            return;
+        }
+        
+        authManager.getIdToken(new AuthManager.TokenCallback() {
+            @Override
+            public void onTokenReceived(String token) {
+                Map<String, Object> requestBody = new HashMap<>();
+                requestBody.put("category", category);
+                requestBody.put("source", source);
+                requestBody.put("timestamp", System.currentTimeMillis());
+                
+                Call<JsonObject> call = apiService.recordCategoryVisit(currentUserId, requestBody, "Bearer " + token);
+                call.enqueue(new Callback<JsonObject>() {
+                    @Override
+                    public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
+                        if (response.isSuccessful()) {
+                            Log.d(TAG, "Successfully tracked category '" + category + "' on server (source: " + source + ")");
+                        } else {
+                            Log.w(TAG, "Failed to track category on server: " + response.code() + " - " + response.message());
+                        }
+                    }
+                    
+                    @Override
+                    public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable t) {
+                        Log.e(TAG, "Error tracking category on server: " + t.getMessage(), t);
+                    }
+                });
+            }
+            
+            @Override
+            public void onError(String errorMessage) {
+                Log.e(TAG, "Failed to get Firebase token for category tracking: " + errorMessage);
             }
         });
     }
@@ -850,8 +929,9 @@ public class UserRepository {
     }
     
     /**
-     * Simplified user synchronization with MongoDB
-     * Uses device-based authentication first, then links with Firebase
+     * Sync user with backend API (not MongoDB directly - that's handled by the backend)
+     * @param firebaseUser Firebase user object
+     * @return Task representing the operation
      */
     public Task<User> syncUserWithMongoDB(FirebaseUser firebaseUser) {
         if (firebaseUser == null) {
@@ -871,13 +951,15 @@ public class UserRepository {
         // Store device info in SharedPreferences
         storeCurrentDeviceInfo(getDeviceId(), firebaseUser.getUid());
         
-        // Cache user data
+        // Cache user data locally
         cacheUserData(user);
         
         // Complete the task immediately with the created user
-                    taskCompletionSource.setResult(user);
+        // This ensures the UI can proceed without waiting for backend sync
+        taskCompletionSource.setResult(user);
         
-        // Optionally try to sync with backend in the background (non-blocking)
+        // Try to sync with backend API in the background (non-blocking)
+        // This will create/update the user in Firestore through the backend
         AppExecutors.getInstance().networkIO().execute(() -> {
             tryBackgroundSync(firebaseUser, user);
         });
@@ -886,12 +968,15 @@ public class UserRepository {
     }
     
     /**
-     * Try to sync user data with backend in the background
+     * Try to sync user data with backend API in the background
      * This is non-blocking and won't affect the user experience if it fails
+     * The backend will handle creating/updating the Firestore user document
      */
     private void tryBackgroundSync(FirebaseUser firebaseUser, User user) {
         try {
-            // Create minimal user data for background sync
+            Log.d(TAG, "tryBackgroundSync: Starting background sync for user: " + firebaseUser.getUid());
+            
+            // Create user data for backend API sync
             Map<String, Object> userData = new HashMap<>();
             userData.put("uid", firebaseUser.getUid());
             userData.put("deviceId", getDeviceId());
@@ -904,38 +989,59 @@ public class UserRepository {
             userData.put("osVersion", Build.VERSION.RELEASE);
             userData.put("loginTimestamp", System.currentTimeMillis());
             
-            // Try to update user profile (best effort)
+            // Add FCM token if available
+            String fcmToken = context.getSharedPreferences("fcm_prefs", Context.MODE_PRIVATE)
+                .getString("fcm_token", null);
+            if (fcmToken != null) {
+                userData.put("fcmToken", fcmToken);
+            }
+            
+            // Try to update user profile via backend API (best effort)
             authManager.getIdToken(new AuthManager.TokenCallback() {
                 @Override
                 public void onTokenReceived(String token) {
                     String authHeader = "Bearer " + token;
                     
+                    Log.d(TAG, "tryBackgroundSync: Sending user data to backend API");
                     Call<JsonObject> call = apiService.updateUserProfile(userData, authHeader);
                     call.enqueue(new Callback<JsonObject>() {
                         @Override
                         public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
                             if (response.isSuccessful()) {
-                                Log.d(TAG, "Background sync successful for user: " + firebaseUser.getUid());
-                } else {
-                                Log.w(TAG, "Background sync failed: " + response.code());
+                                Log.d(TAG, "tryBackgroundSync: Backend sync successful for user: " + firebaseUser.getUid());
+                                
+                                // Store sync timestamp
+                                context.getSharedPreferences("sync_prefs", Context.MODE_PRIVATE)
+                                    .edit()
+                                    .putLong("last_backend_sync", System.currentTimeMillis())
+                                    .apply();
+                            } else {
+                                Log.w(TAG, "tryBackgroundSync: Backend sync failed with code: " + response.code());
+                                if (response.errorBody() != null) {
+                                    try {
+                                        Log.w(TAG, "tryBackgroundSync: Error body: " + response.errorBody().string());
+                                    } catch (Exception e) {
+                                        Log.w(TAG, "tryBackgroundSync: Could not read error body", e);
+                                    }
+                                }
                             }
                         }
                         
                         @Override
                         public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable t) {
-                            Log.w(TAG, "Background sync network error: " + t.getMessage());
+                            Log.w(TAG, "tryBackgroundSync: Backend sync network error: " + t.getMessage());
                         }
                     });
                 }
                 
                 @Override
                 public void onError(String errorMessage) {
-                    Log.w(TAG, "Background sync auth error: " + errorMessage);
+                    Log.w(TAG, "tryBackgroundSync: Backend sync auth error: " + errorMessage);
                 }
             });
             
         } catch (Exception e) {
-            Log.w(TAG, "Background sync exception: " + e.getMessage());
+            Log.w(TAG, "tryBackgroundSync: Background sync exception: " + e.getMessage());
         }
     }
 
@@ -1699,5 +1805,80 @@ public class UserRepository {
             .apply();
         
         Log.d(TAG, "saveBlockingDialogInteraction: Saved blocking interaction details");
+    }
+
+    /**
+     * Record template interaction (like, unlike, favorite, unfavorite) via backend API
+     * @param interactionData Map containing templateId, action, timestamp
+     * @return Task<JsonObject> representing the operation result
+     */
+    public Task<JsonObject> recordTemplateInteraction(Map<String, Object> interactionData) {
+        TaskCompletionSource<JsonObject> taskCompletionSource = new TaskCompletionSource<>();
+        
+        if (interactionData == null || !interactionData.containsKey("templateId") || !interactionData.containsKey("action")) {
+            Log.e(TAG, "recordTemplateInteraction: Invalid interaction data");
+            taskCompletionSource.setException(new IllegalArgumentException("Invalid interaction data"));
+            return taskCompletionSource.getTask();
+        }
+        
+        String templateId = (String) interactionData.get("templateId");
+        String action = (String) interactionData.get("action");
+        
+        Log.d(TAG, "recordTemplateInteraction: " + action + " for template: " + templateId);
+        
+        // Get authentication token
+        authManager.getIdToken(new AuthManager.TokenCallback() {
+            @Override
+            public void onTokenReceived(String token) {
+                String authHeader = "Bearer " + token;
+                
+                // Create request body for backend API
+                Map<String, Object> requestBody = new HashMap<>();
+                requestBody.put("templateId", templateId);
+                requestBody.put("action", action);
+                requestBody.put("timestamp", System.currentTimeMillis());
+                requestBody.put("deviceId", getDeviceId());
+                
+                Log.d(TAG, "recordTemplateInteraction: Sending to backend API - " + requestBody.toString());
+                
+                // Call the backend API for template interaction
+                Call<JsonObject> call = apiService.recordTemplateInteraction(requestBody, authHeader);
+                call.enqueue(new Callback<JsonObject>() {
+                    @Override
+                    public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
+                        if (response.isSuccessful() && response.body() != null) {
+                            JsonObject result = response.body();
+                            Log.d(TAG, "recordTemplateInteraction: Success - " + result.toString());
+                            taskCompletionSource.setResult(result);
+                        } else {
+                            String errorMsg = "Backend API error: " + response.code();
+                            if (response.errorBody() != null) {
+                                try {
+                                    errorMsg += " - " + response.errorBody().string();
+                                } catch (Exception e) {
+                                    errorMsg += " - Could not read error body";
+                                }
+                            }
+                            Log.e(TAG, "recordTemplateInteraction: " + errorMsg);
+                            taskCompletionSource.setException(new Exception(errorMsg));
+                        }
+                    }
+                    
+                    @Override
+                    public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable t) {
+                        Log.e(TAG, "recordTemplateInteraction: Network error", t);
+                        taskCompletionSource.setException(new Exception("Network error: " + t.getMessage()));
+                    }
+                });
+            }
+            
+            @Override
+            public void onError(String errorMessage) {
+                Log.e(TAG, "recordTemplateInteraction: Auth error - " + errorMessage);
+                taskCompletionSource.setException(new Exception("Authentication error: " + errorMessage));
+            }
+        });
+        
+        return taskCompletionSource.getTask();
     }
 } 

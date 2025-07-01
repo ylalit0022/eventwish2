@@ -19,6 +19,7 @@ import androidx.core.app.NotificationManagerCompat;
 
 import com.ds.eventwish.R;
 import com.ds.eventwish.data.model.EventNotificationConfig;
+import com.ds.eventwish.data.model.NotificationConfig;
 import com.ds.eventwish.data.model.RemoteConfigWrapper;
 import com.ds.eventwish.receivers.EventNotificationReceiver;
 import com.google.android.gms.tasks.Task;
@@ -55,6 +56,7 @@ public class EventNotificationManager {
     // Remote Config keys
     private static final String KEY_EVENT_CONFIG = "event_push";
     private static final String KEY_EVENTS_CONFIG = "events";
+    private static final String KEY_NOTIFICATION_CONFIG = "notification_config";
     
     // SharedPreferences keys
     private static final String PREF_NAME = "event_notification_prefs";
@@ -724,5 +726,452 @@ public class EventNotificationManager {
     public void forceCheckNotifications() {
         Log.d(TAG, "Force checking notifications immediately");
         checkAndShowNotification();
+    }
+
+    // ======== NEW CENTRALIZED NOTIFICATION SYSTEM METHODS ========
+
+    /**
+     * Synchronously fetch remote config and return success status
+     * Used by NotificationSyncWorker
+     * @return true if fetch was successful, false otherwise
+     */
+    public boolean fetchRemoteConfigSync() {
+        Log.d(TAG, "Synchronously fetching remote config");
+        
+        try {
+            // Use the existing forceFetchRemoteConfig method but wait for completion
+            Task<Boolean> fetchTask = forceFetchRemoteConfig();
+            
+            // Wait for the task to complete (with timeout)
+            int timeoutSeconds = 30;
+            int waitedSeconds = 0;
+            
+            while (!fetchTask.isComplete() && waitedSeconds < timeoutSeconds) {
+                Thread.sleep(1000);
+                waitedSeconds++;
+            }
+            
+            if (fetchTask.isComplete()) {
+                boolean success = fetchTask.isSuccessful() && Boolean.TRUE.equals(fetchTask.getResult());
+                Log.d(TAG, "Remote config fetch completed with success: " + success);
+                return success;
+            } else {
+                Log.w(TAG, "Remote config fetch timed out after " + timeoutSeconds + " seconds");
+                return false;
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error during synchronous remote config fetch", e);
+            return false;
+        }
+    }
+
+    /**
+     * Get the centralized notification configuration from Remote Config
+     * @return NotificationConfig or null if not available or parsing fails
+     */
+    public NotificationConfig getNotificationConfig() {
+        Log.d(TAG, "Getting centralized notification configuration");
+        
+        // Try to get from Remote Config first
+        String configJson = remoteConfig.getString(KEY_NOTIFICATION_CONFIG);
+        
+        if (configJson == null || configJson.isEmpty()) {
+            // Fallback to SharedPreferences cache
+            configJson = prefs.getString(KEY_NOTIFICATION_CONFIG, null);
+            Log.d(TAG, "Using cached notification config from SharedPreferences");
+        } else {
+            // Cache the config in SharedPreferences
+            prefs.edit().putString(KEY_NOTIFICATION_CONFIG, configJson).apply();
+            Log.d(TAG, "Cached notification config to SharedPreferences");
+        }
+        
+        if (configJson == null || configJson.isEmpty()) {
+            Log.w(TAG, "No notification config available");
+            return null;
+        }
+        
+        try {
+            NotificationConfig config = gson.fromJson(configJson, NotificationConfig.class);
+            Log.d(TAG, "Successfully parsed notification config: " + config);
+            return config;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to parse notification config JSON", e);
+            return null;
+        }
+    }
+
+    /**
+     * Process all notification types based on current configuration
+     * This is the main method called by NotificationSyncWorker
+     */
+    public void processAllNotificationTypes() {
+        Log.d(TAG, "Processing all notification types");
+        
+        NotificationConfig config = getNotificationConfig();
+        if (config == null) {
+            Log.w(TAG, "No notification config available, skipping processing");
+            return;
+        }
+        
+        // Check global settings
+        NotificationConfig.GlobalSettings globalSettings = config.getGlobalSettings();
+        if (globalSettings != null) {
+            // Check quiet hours
+            Calendar now = Calendar.getInstance();
+            int currentHour = now.get(Calendar.HOUR_OF_DAY);
+            
+            if (globalSettings.isQuietHours(currentHour)) {
+                Log.d(TAG, "Currently in quiet hours (" + globalSettings.getQuietHoursStart() + 
+                      "-" + globalSettings.getQuietHoursEnd() + "), skipping notifications");
+                return;
+            }
+            
+            // Check daily notification limit
+            if (hasReachedDailyNotificationLimit(globalSettings.getMaxNotificationsPerDay())) {
+                Log.d(TAG, "Daily notification limit reached (" + globalSettings.getMaxNotificationsPerDay() + 
+                      "), skipping notifications");
+                return;
+            }
+        }
+        
+        // Process each notification type
+        Map<String, NotificationConfig.NotificationType> notificationTypes = config.getNotificationTypes();
+        if (notificationTypes != null) {
+            for (Map.Entry<String, NotificationConfig.NotificationType> entry : notificationTypes.entrySet()) {
+                String type = entry.getKey();
+                NotificationConfig.NotificationType notificationType = entry.getValue();
+                
+                if (notificationType.isEnabled()) {
+                    Log.d(TAG, "Processing notification type: " + type);
+                    processNotificationType(type, notificationType, globalSettings);
+                } else {
+                    Log.d(TAG, "Notification type " + type + " is disabled, skipping");
+                }
+            }
+        }
+        
+        Log.d(TAG, "Finished processing all notification types");
+    }
+
+    /**
+     * Process a specific notification type
+     * @param type The notification type key
+     * @param notificationType The notification type configuration
+     * @param globalSettings The global settings
+     */
+    private void processNotificationType(String type, NotificationConfig.NotificationType notificationType, 
+                                       NotificationConfig.GlobalSettings globalSettings) {
+        Log.d(TAG, "Processing notification type: " + type);
+        
+        NotificationConfig.Schedule schedule = notificationType.getSchedule();
+        if (schedule == null) {
+            Log.w(TAG, "No schedule configured for notification type: " + type);
+            return;
+        }
+        
+        switch (schedule.getType()) {
+            case NotificationConfig.SCHEDULE_TYPE_DAILY:
+                processDailyNotification(type, notificationType, schedule);
+                break;
+                
+            case NotificationConfig.SCHEDULE_TYPE_DYNAMIC:
+                processDynamicNotification(type, notificationType, schedule);
+                break;
+                
+            case NotificationConfig.SCHEDULE_TYPE_INACTIVITY:
+                processInactivityNotification(type, notificationType, schedule);
+                break;
+                
+            case NotificationConfig.SCHEDULE_TYPE_EXPIRY:
+                processExpiryNotification(type, notificationType, schedule);
+                break;
+                
+            default:
+                Log.w(TAG, "Unknown schedule type for notification type " + type + ": " + schedule.getType());
+                break;
+        }
+    }
+
+    /**
+     * Process daily notification (e.g., daily reminder)
+     */
+    private void processDailyNotification(String type, NotificationConfig.NotificationType notificationType, 
+                                        NotificationConfig.Schedule schedule) {
+        Log.d(TAG, "Processing daily notification: " + type);
+        
+        // Check if notification should be shown today based on UTC schedule
+        Calendar nowUtc = Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
+        int currentUtcHour = nowUtc.get(Calendar.HOUR_OF_DAY);
+        int currentUtcMinute = nowUtc.get(Calendar.MINUTE);
+        
+        Integer scheduledHour = schedule.getUtcHour();
+        Integer scheduledMinute = schedule.getUtcMinute();
+        
+        if (scheduledHour == null || scheduledMinute == null) {
+            Log.w(TAG, "Daily notification " + type + " has invalid UTC schedule");
+            return;
+        }
+        
+        // Check if we're at or past the scheduled time today
+        boolean shouldShow = (currentUtcHour > scheduledHour) || 
+                           (currentUtcHour == scheduledHour && currentUtcMinute >= scheduledMinute);
+        
+        if (shouldShow && !hasShownNotificationToday(type)) {
+            showCentralizedNotification(type, notificationType);
+            markNotificationShownToday(type);
+            Log.d(TAG, "Showed daily notification: " + type);
+        } else {
+            Log.d(TAG, "Daily notification " + type + " not due or already shown today");
+        }
+    }
+
+    /**
+     * Process dynamic notification (e.g., festival alerts)
+     */
+    private void processDynamicNotification(String type, NotificationConfig.NotificationType notificationType, 
+                                          NotificationConfig.Schedule schedule) {
+        Log.d(TAG, "Processing dynamic notification: " + type);
+        
+        // This would integrate with the existing festival system
+        // For now, we'll delegate to the existing festival notification logic
+        if (NotificationConfig.TYPE_FESTIVAL_ALERT.equals(type)) {
+            // Use existing festival notification logic
+            checkAndShowNotification();
+        }
+    }
+
+    /**
+     * Process inactivity notification
+     */
+    private void processInactivityNotification(String type, NotificationConfig.NotificationType notificationType, 
+                                             NotificationConfig.Schedule schedule) {
+        Log.d(TAG, "Processing inactivity notification: " + type);
+        
+        Integer thresholdDays = schedule.getThresholdDays();
+        if (thresholdDays == null) {
+            Log.w(TAG, "Inactivity notification " + type + " has no threshold days configured");
+            return;
+        }
+        
+        // Check user's last activity (this would need to be implemented based on app's user tracking)
+        // For now, we'll use a placeholder implementation
+        long lastActivityTime = getLastUserActivityTime();
+        long daysSinceActivity = (System.currentTimeMillis() - lastActivityTime) / (24 * 60 * 60 * 1000);
+        
+        if (daysSinceActivity >= thresholdDays && !hasShownNotificationToday(type)) {
+            showCentralizedNotification(type, notificationType);
+            markNotificationShownToday(type);
+            Log.d(TAG, "Showed inactivity notification: " + type + " (inactive for " + daysSinceActivity + " days)");
+        } else {
+            Log.d(TAG, "Inactivity notification " + type + " not due (inactive for " + daysSinceActivity + " days)");
+        }
+    }
+
+    /**
+     * Process subscription expiry notification
+     */
+    private void processExpiryNotification(String type, NotificationConfig.NotificationType notificationType, 
+                                         NotificationConfig.Schedule schedule) {
+        Log.d(TAG, "Processing expiry notification: " + type);
+        
+        List<Integer> daysBeforeExpiry = schedule.getDaysBeforeExpiry();
+        if (daysBeforeExpiry == null || daysBeforeExpiry.isEmpty()) {
+            Log.w(TAG, "Expiry notification " + type + " has no days before expiry configured");
+            return;
+        }
+        
+        // Check user's subscription expiry (this would need to be implemented based on app's subscription system)
+        // For now, we'll use a placeholder implementation
+        long expiryTime = getUserSubscriptionExpiryTime();
+        if (expiryTime <= 0) {
+            Log.d(TAG, "No subscription expiry time available for notification: " + type);
+            return;
+        }
+        
+        long daysUntilExpiry = (expiryTime - System.currentTimeMillis()) / (24 * 60 * 60 * 1000);
+        
+        if (daysBeforeExpiry.contains((int) daysUntilExpiry) && !hasShownNotificationToday(type)) {
+            showCentralizedNotification(type, notificationType);
+            markNotificationShownToday(type);
+            Log.d(TAG, "Showed expiry notification: " + type + " (" + daysUntilExpiry + " days until expiry)");
+        } else {
+            Log.d(TAG, "Expiry notification " + type + " not due (" + daysUntilExpiry + " days until expiry)");
+        }
+    }
+
+    /**
+     * Show a centralized notification
+     */
+    private void showCentralizedNotification(String type, NotificationConfig.NotificationType notificationType) {
+        Log.d(TAG, "Showing centralized notification: " + type);
+        
+        NotificationConfig.Messages messages = notificationType.getMessages();
+        if (messages == null) {
+            Log.w(TAG, "No messages configured for notification type: " + type);
+            return;
+        }
+        
+        String title = messages.getTitle();
+        String body = messages.getBody();
+        
+        if (title == null || title.isEmpty() || body == null || body.isEmpty()) {
+            Log.w(TAG, "Invalid message content for notification type: " + type);
+            return;
+        }
+        
+        // Process template variables in the message
+        body = processMessageTemplate(body, type);
+        
+        // Create and show the notification using existing infrastructure
+        showSimpleNotification(type, title, body);
+        
+        // Increment daily notification count
+        incrementDailyNotificationCount();
+    }
+
+    /**
+     * Process message templates (replace {{variables}} with actual values)
+     */
+    private String processMessageTemplate(String message, String type) {
+        if (message == null) return "";
+        
+        // Replace common template variables
+        if (message.contains("{{")) {
+            // For festival notifications
+            if (message.contains("{{festivalName}}")) {
+                message = message.replace("{{festivalName}}", "Festival"); // Placeholder
+            }
+            if (message.contains("{{daysUntil}}")) {
+                message = message.replace("{{daysUntil}}", "soon"); // Placeholder
+            }
+            
+            // Add more template variable processing as needed
+        }
+        
+        return message;
+    }
+
+    /**
+     * Show a simple notification with the given parameters
+     */
+    private void showSimpleNotification(String type, String title, String body) {
+        Log.d(TAG, "Showing simple notification: " + type + " - " + title);
+        
+        // Check notification permission for Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                Log.e(TAG, "Notification permission not granted");
+                return;
+            }
+        }
+        
+        // Create intent for notification tap
+        Intent intent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+        if (intent == null) {
+            Log.e(TAG, "Failed to create intent for notification");
+            return;
+        }
+        
+        // Generate a unique notification ID based on the type
+        int notificationId = NOTIFICATION_ID_BASE + Math.abs(type.hashCode() % 1000);
+        
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                context,
+                notificationId,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
+        );
+        
+        // Build notification
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true);
+        
+        // Show notification
+        NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager != null) {
+            try {
+                notificationManager.notify(notificationId, builder.build());
+                Log.d(TAG, "Centralized notification shown with ID " + notificationId + ": " + title + " - " + body);
+            } catch (Exception e) {
+                Log.e(TAG, "Error showing centralized notification", e);
+            }
+        } else {
+            Log.e(TAG, "NotificationManager is null");
+        }
+    }
+
+    // ======== HELPER METHODS FOR CENTRALIZED SYSTEM ========
+
+    /**
+     * Check if notification has been shown today for the given type
+     */
+    private boolean hasShownNotificationToday(String type) {
+        Calendar today = Calendar.getInstance();
+        int todayKey = today.get(Calendar.YEAR) * 10000 + (today.get(Calendar.MONTH) + 1) * 100 + today.get(Calendar.DAY_OF_MONTH);
+        int lastNotificationDate = prefs.getInt("centralized_last_notification_" + type, 0);
+        return lastNotificationDate == todayKey;
+    }
+
+    /**
+     * Mark notification as shown today for the given type
+     */
+    private void markNotificationShownToday(String type) {
+        Calendar today = Calendar.getInstance();
+        int todayKey = today.get(Calendar.YEAR) * 10000 + (today.get(Calendar.MONTH) + 1) * 100 + today.get(Calendar.DAY_OF_MONTH);
+        prefs.edit().putInt("centralized_last_notification_" + type, todayKey).apply();
+    }
+
+    /**
+     * Check if daily notification limit has been reached
+     */
+    private boolean hasReachedDailyNotificationLimit(int maxNotificationsPerDay) {
+        Calendar today = Calendar.getInstance();
+        int todayKey = today.get(Calendar.YEAR) * 10000 + (today.get(Calendar.MONTH) + 1) * 100 + today.get(Calendar.DAY_OF_MONTH);
+        int lastCountDate = prefs.getInt("daily_notification_count_date", 0);
+        
+        if (lastCountDate != todayKey) {
+            // Reset count for new day
+            prefs.edit()
+                .putInt("daily_notification_count_date", todayKey)
+                .putInt("daily_notification_count", 0)
+                .apply();
+            return false;
+        }
+        
+        int currentCount = prefs.getInt("daily_notification_count", 0);
+        return currentCount >= maxNotificationsPerDay;
+    }
+
+    /**
+     * Increment daily notification count
+     */
+    private void incrementDailyNotificationCount() {
+        int currentCount = prefs.getInt("daily_notification_count", 0);
+        prefs.edit().putInt("daily_notification_count", currentCount + 1).apply();
+    }
+
+    /**
+     * Get last user activity time (placeholder implementation)
+     * This should be implemented based on the app's user tracking system
+     */
+    private long getLastUserActivityTime() {
+        // Placeholder: return current time minus 1 day for testing
+        return System.currentTimeMillis() - (24 * 60 * 60 * 1000);
+    }
+
+    /**
+     * Get user subscription expiry time (placeholder implementation)
+     * This should be implemented based on the app's subscription system
+     */
+    private long getUserSubscriptionExpiryTime() {
+        // Placeholder: return 0 (no subscription) for now
+        return 0;
     }
 } 

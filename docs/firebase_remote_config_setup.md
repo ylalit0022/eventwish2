@@ -1,160 +1,189 @@
-# Firebase Remote Config for App Update Checking
+# Firebase Remote Config Setup Guide for EventWish Notification System
 
 ## Overview
+This guide provides step-by-step instructions for setting up Firebase Remote Config parameters for the EventWish app's centralized notification system, including production-ready sample values.
 
-This document outlines how to use Firebase Remote Config to check for app updates during development and track update prompt impressions and conversion rates using analytics.
+## Firebase Console Configuration
 
-## Implementation Status
+### 1. Access Firebase Remote Config
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Select your EventWish project
+3. Navigate to **Engage** > **Remote Config**
 
-✅ **COMPLETE** - All components have been successfully implemented and tested.
+### 2. Create notification_config Parameter
 
-## Table of Contents
+#### Parameter Details
+- **Parameter key**: `notification_config`
+- **Data type**: JSON
+- **Description**: Centralized notification configuration for EventWish app
 
-1. [Setup Instructions](#setup-instructions)
-2. [Usage](#usage)
-3. [Remote Config Parameters](#remote-config-parameters)
-4. [Testing](#testing)
-5. [Analytics Dashboard Setup](#analytics-dashboard-setup)
-6. [Troubleshooting](#troubleshooting)
+#### Production-Ready Sample Value
 
-Firebase Remote Config allows us to check for app updates during development and in production, with detailed analytics tracking of update prompts and user actions.
-
-## Setup Instructions
-
-### 1. Firebase Console Setup
-
-1. Go to the [Firebase Console](https://console.firebase.google.com/)
-2. Select the EventWish project
-3. Navigate to Remote Config in the left menu
-4. Add the following parameters:
-
-| Parameter Name | Data Type | Default Value | Description |
-|---------------|-----------|---------------|-------------|
-| `latest_version_code` | Number | Current version code | The latest app version code |
-| `latest_version_name` | String | Current version name | The latest app version name (e.g., "2.7.0") |
-| `update_message` | String | "A new version of the app is available." | Message to show in update dialog |
-| `force_update` | Boolean | false | Whether the update is mandatory |
-| `update_url` | String | Play Store URL | URL to download the update |
-
-5. Click "Publish changes" to make the configuration available
-
-### 2. Testing Update Flows
-
-To test different update scenarios:
-
-#### No Update Available
-- Set `latest_version_code` equal to or less than your app's current version code
-
-#### Optional Update Available
-- Set `latest_version_code` higher than your app's current version code
-- Set `force_update` to `false`
-
-#### Mandatory Update Available
-- Set `latest_version_code` higher than your app's current version code
-- Set `force_update` to `true`
-
-### 3. Analytics Dashboard Setup
-
-For basic analytics setup:
-
-1. Go to the Firebase Console
-2. Navigate to Analytics
-3. Create a new custom dashboard named "App Updates"
-4. Add the following reports:
-
-#### Update Check Report
-- Dimension: Event name
-- Filter: Event name equals `update_check`
-- Metrics: Event count
-
-#### Update Available Report
-- Dimension: Event name
-- Filter: Event name equals `update_available_impression`
-- Metrics: Event count
-
-#### Update Prompt Action Report
-- Dimension: action
-- Filter: Event name equals `update_prompt_action`
-- Metrics: Event count
-
-#### Update Funnel Report
-- Step 1: Event name equals `update_check`
-- Step 2: Event name equals `update_available_impression`
-- Step 3: Event name equals `update_prompt_action` AND action equals "accepted"
-
-For comprehensive analytics dashboards, see the detailed instructions in [Update Analytics Dashboards](update_analytics_dashboards.md).
-
-## Usage in Code
-
-### Checking for Updates
-
-```java
-// In MainActivity or other appropriate location
-AppUpdateViewModel appUpdateViewModel = AppUpdateViewModel.getInstance(this);
-appUpdateViewModel.init(this);
-
-if (BuildConfig.DEBUG) {
-    // For debug builds, use Remote Config
-    appUpdateViewModel.checkForUpdatesWithRemoteConfig();
-} else {
-    // For production builds, use Play Store
-    appUpdateViewModel.checkForUpdates(false);
+```json
+{
+  "version": "2.1",
+  "lastUpdated": "2024-12-20T10:00:00Z",
+  "notificationTypes": {
+    "dailyReminder": {
+      "enabled": true,
+      "schedule": {
+        "type": "daily",
+        "utcHour": 9,
+        "utcMinute": 0
+      },
+      "messages": {
+        "title": "✨ Daily Inspiration",
+        "body": "Start your day with beautiful greetings! Create and share joy today. 🌟"
+      }
+    },
+    "festivalAlert": {
+      "enabled": true,
+      "schedule": {
+        "type": "dynamic",
+        "daysBeforeFestival": [0, 1, 3, 7]
+      },
+      "messages": {
+        "title": "🎉 {{festivalName}} is Here!",
+        "body": "{{festivalName}} is {{timeMessage}}! Create stunning greeting cards to celebrate with your loved ones. 💝"
+      }
+    },
+    "inactivityNudge": {
+      "enabled": true,
+      "schedule": {
+        "type": "inactivity",
+        "thresholdDays": 5
+      },
+      "messages": {
+        "title": "We Miss You! 💙",
+        "body": "Your creativity is missed! Come back and create beautiful greetings to brighten someone's day. ✨"
+      }
+    },
+    "subscriptionExpiry": {
+      "enabled": true,
+      "schedule": {
+        "type": "expiry",
+        "daysBeforeExpiry": [1, 3, 7, 14]
+      },
+      "messages": {
+        "title": "⚡ Premium Features Expiring",
+        "body": "Your premium subscription expires in {{daysUntil}} days. Renew now to keep creating unlimited greetings! 🎨"
+      }
+    }
+  },
+  "globalSettings": {
+    "maxNotificationsPerDay": 4,
+    "quietHoursStart": 22,
+    "quietHoursEnd": 7,
+    "batchingIntervalMinutes": 30,
+    "enableDuplicateProtection": true,
+    "respectSystemDnd": true,
+    "enableVibration": true,
+    "priority": "default"
+  }
 }
 ```
 
-### Silent Update Checking
+## Implementation Steps
 
-```java
-// Check for updates without showing UI
-AppUpdateViewModel appUpdateViewModel = AppUpdateViewModel.getInstance(this);
-appUpdateViewModel.checkForUpdatesSilentlyWithRemoteConfig();
+### 1. Create Parameters
+1. In Firebase Console, click **"Add parameter"**
+2. Enter parameter key: `notification_config`
+3. Add default value using the JSON above
+4. Set description: "Centralized notification configuration"
+
+### 2. Publish Configuration
+1. Review all parameters
+2. Click **"Publish changes"**
+3. Add change description: "Initial notification system setup"
+
+### 3. Verify Implementation
+1. Test configuration fetch in app
+2. Monitor notification behavior
+3. Check app logs for success
+
+## Testing Checklist
+
+- [ ] Verify JSON syntax in Remote Config
+- [ ] Test notification delivery
+- [ ] Validate quiet hours functionality
+- [ ] Test notification limits
+- [ ] Monitor user engagement metrics
+
+## Monitoring and Analytics
+
+### Key Metrics to Track
+- **Notification Delivery Rate**: Percentage of notifications successfully delivered
+- **Engagement Rate**: Click-through rate on notifications
+- **User Retention**: 7-day and 30-day retention rates
+- **Conversion Rate**: Premium subscription conversions from notifications
+- **Uninstall Rate**: App uninstalls correlated with notification frequency
+
+### Firebase Analytics Events
+```javascript
+// Track notification events
+analytics.logEvent('notification_delivered', {
+  notification_type: 'dailyReminder',
+  user_segment: 'new_users'
+});
+
+analytics.logEvent('notification_clicked', {
+  notification_type: 'festivalAlert',
+  festival_name: 'Diwali'
+});
+
+analytics.logEvent('notification_dismissed', {
+  notification_type: 'inactivityNudge'
+});
 ```
-
-## Tracked Analytics Events
-
-| Event Name | Description | Key Parameters |
-|------------|-------------|----------------|
-| `update_check` | Fired when app checks for updates | `current_version_code`, `latest_version_code`, `is_update_available` |
-| `update_available_impression` | Fired when an update is available | `current_version_name`, `latest_version_name`, `is_force_update` |
-| `update_dialog_shown` | Fired when update dialog is displayed | `version_name`, `is_force_update` |
-| `update_prompt_action` | Fired when user takes action on update prompt | `action` ("accepted", "declined", "deferred"), `version_name` |
-
-## Key Metrics to Monitor
-
-1. **Update Check Rate**: % of sessions where update check occurs
-2. **Update Available Rate**: % of checks where update is available
-3. **Update Prompt Impression Rate**: % of users who see update dialog
-4. **Update Acceptance Rate**: % of users who accept the update
-5. **Update Deferral Rate**: % of users who defer the update
-6. **Update Completion Rate**: % of users who complete the update process
-7. **Time-to-Update**: Average time between update availability and acceptance
-8. **Version Distribution**: % of users on each app version
 
 ## Troubleshooting
 
 ### Common Issues
+1. **Notifications not showing**: Check notification permissions and channel settings
+2. **Wrong timing**: Verify UTC time conversion and timezone handling
+3. **Duplicate notifications**: Check duplicate protection logic
+4. **Poor engagement**: Review message content and timing
+5. **High uninstall rate**: Reduce notification frequency
 
-1. **Remote Config not fetching**: Check network connectivity and Firebase initialization
-2. **Update dialog not showing**: Verify that the activity is not null or finishing
-3. **Analytics events not appearing**: Check that Firebase Analytics is properly initialized
+### Debug Commands
+```bash
+# Check Remote Config fetch status
+adb logcat | grep "RemoteConfig"
 
-### Debug Logging
+# Monitor notification delivery
+adb logcat | grep "EventNotificationManager"
 
-Enable verbose logging to see detailed information about update checks:
-
-```java
-// Enable debug logging
-FirebaseRemoteConfig.getInstance().setConfigSettingsAsync(
-    new FirebaseRemoteConfigSettings.Builder()
-        .setMinimumFetchIntervalInSeconds(0)
-        .build()
-);
+# Check WorkManager status
+adb logcat | grep "NotificationSyncWorker"
 ```
 
-## Best Practices
+## Security Considerations
 
-1. **Fetch on App Start**: Always fetch Remote Config values on app start
-2. **Respect User Choice**: Don't force updates unless absolutely necessary
-3. **Clear Error Messages**: Provide clear update messages to users
-4. **Graceful Fallbacks**: Handle errors gracefully if Remote Config fails
-5. **Track Everything**: Use analytics to understand user update behavior
+### Data Protection
+- No sensitive user data in notification content
+- Secure template variable replacement
+- Validate all Remote Config values
+- Implement rate limiting to prevent abuse
+
+### Privacy Compliance
+- Respect user notification preferences
+- Honor system Do Not Disturb settings
+- Provide easy opt-out mechanisms
+- Comply with GDPR and regional privacy laws
+
+## Maintenance Schedule
+
+### Weekly Tasks
+- Review notification performance metrics
+- Update seasonal content as needed
+- Monitor user feedback and ratings
+
+### Monthly Tasks
+- Analyze A/B test results
+- Update notification content for freshness
+- Review and optimize delivery times
+
+### Quarterly Tasks
+- Comprehensive performance review
+- User survey on notification preferences
+- Feature updates and improvements
